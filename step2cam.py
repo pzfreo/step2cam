@@ -765,6 +765,12 @@ TOOL_KEYS_BY_TYPE = {
 # then one spring pass at full depth.
 RADIAL_PASSES = 2
 SPRING_PASSES = 1
+# camlib proves a thread mill's neck clear of the hole wall beside the groove from its stock
+# grid: a cell up to its diagonal away can still count as wall. The grid is made fine enough
+# for the neck's clearance, with this much in hand...
+NECK_CELL_SAFETY = 1.25
+# ...but no finer than a stock grid of this many cells (16 bytes each in camlib, plus a copy).
+MAX_STOCK_CELLS = 16_000_000
 
 
 def _tool_assembly(camlib, spec):
@@ -954,8 +960,11 @@ def _bore_floor(op, library, stock_bottom, op_id, notes):
     return floor
 
 
-def operations_for(setup, library, camlib, *, clearance, retract):
-    """camlib operations for one plan setup, and notes on what was left out and why."""
+def operations_for(setup, library, camlib, *, clearance, retract, needs=None):
+    """camlib operations for one plan setup, and notes on what was left out and why. `needs`
+    (a dict), when given, gets `cell_mm`: the coarsest stock grid the operations can be
+    checked on, if one of them needs a finer grid than usual."""
+    needs = {} if needs is None else needs
     ops_mod = camlib["operations"]
     surface = camlib["surface"]
     ops, tools, notes = [], {}, []
@@ -1053,6 +1062,18 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                 notes.append(f"{op_id}: {thread}: no thread mill can cut it"
                              + (f" ({'; '.join(why)})" if why else ""))
                 continue
+            # The neck's clearance from the drilled wall, on the thread's final path circle.
+            neck_room = (op["start_diameter"] / 2 - (op["major"] / 2 - mill["diameter"] / 2)
+                         - mill["neck_diameter"] / 2)
+            cell = neck_room / (math.sqrt(2) * NECK_CELL_SAFETY)
+            lo, hi = setup["stock"]["min"], setup["stock"]["max"]
+            cells = (hi[0] - lo[0]) / cell * (hi[1] - lo[1]) / cell
+            if cells > MAX_STOCK_CELLS:
+                notes.append(f"{op_id}: {thread}: {mill['id']}'s neck passes {_r(neck_room)} mm from "
+                             f"the hole wall; proving that needs a {_r(cell)} mm stock grid, too fine "
+                             "for this part (use a thread mill with a narrower neck)")
+                continue
+            needs["cell_mm"] = min(needs.get("cell_mm", math.inf), cell)
             ops.append(ops_mod.ThreadMilling(
                 op_id, use(mill), op["centers"], internal=True, diameter_mm=op["major"],
                 start_diameter_mm=op["start_diameter"], pitch_mm=op["pitch"],
@@ -1130,7 +1151,9 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
         top = setup["stock"]["max"][2]
         clearance = top + clearance_above
         retract = min(top + retract_above, clearance)
-        ops, tools, notes = operations_for(setup, library, camlib, clearance=clearance, retract=retract)
+        needs = {}
+        ops, tools, notes = operations_for(setup, library, camlib, clearance=clearance,
+                                           retract=retract, needs=needs)
         log(f"setup {setup['id']}: zero X0 Y0 on the {setup.get('zero', 'stock')}'s minimum corner, "
             f"Z0 on its top (model point {setup['origin_model']})")
         for note in notes:
@@ -1140,6 +1163,11 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
             continue
         lo, hi = setup["stock"]["min"], setup["stock"]["max"]
         cell = library_data.get("cell_size_mm") or max(0.1, round(max(hi[0] - lo[0], hi[1] - lo[1]) / 400, 2))
+        if needs.get("cell_mm", math.inf) < cell:
+            # Rounded down to a whole micrometre, so the grid is never coarser than needed.
+            cell = math.floor(needs["cell_mm"] * 1000) / 1000
+            log(f"setup {setup['id']}: stock grid {cell} mm, fine enough to prove the thread "
+                "mill's neck clear of the hole wall")
         verification = camlib["verification"]
         # Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over
         # X Y, in this setup's work coordinates. The planner (Setup.tool_change) and the post

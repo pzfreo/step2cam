@@ -115,6 +115,11 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
   otherwise the thread is left out and the post says why. Check the fit with a plug gauge or
   a screw before taking the part off the machine.
+- **Neck clearance:** a small thread mill's neck passes close to the drilled wall (0.1 mm for
+  the example tool in an M5 hole). camlib proves it clear on its stock grid, so `post` makes
+  that grid fine enough for the narrowest neck in the setup, and says so. If that would need
+  more than 16 million cells for the part, the thread is left out: use a thread mill with a
+  narrower neck.
 - **Threads written by other CAD tools:** these state no size in the file, so they are a
   warning and are not cut. Answer the hole in Specify to have it threaded.
 
@@ -162,7 +167,7 @@ on purpose.
   | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
   | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |
   | `tool_change_xy_mm` | `[0, 0]` (X0 Y0) | where X and Y are after a tool change |
-  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid |
+  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid (made finer where a thread mill's neck needs it) |
 
 How each operation gets a tool:
 

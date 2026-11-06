@@ -627,6 +627,31 @@ class Post(unittest.TestCase):
              "top_z_mm": -1, "bottom_z_mm": -11, "radial_passes": 2, "spring_passes": 1})
         self.assertTrue(any("thread milled" in n for n in notes))
 
+    def test_a_thread_asks_for_a_stock_grid_fine_enough_for_the_neck(self):
+        # tm3 in the M5's 4.2 mm hole: its path circle is 2.5 - 1.5 = 1 mm off the axis, so its
+        # 2 mm neck passes 2.1 - 1 - 1 = 0.1 mm from the wall. camlib proves that clearance on
+        # its stock grid, which must be finer than the clearance over a cell's diagonal.
+        plan = step2cam.plan(tapped({"hole.function:holes:12": "tapped:M5"}))
+        needs = {}
+        step2cam.operations_for(plan["setups"][0], self.library, self.camlib(), clearance=10,
+                                retract=2, needs=needs)
+        self.assertAlmostEqual(needs["cell_mm"], 0.1 / (math.sqrt(2) * 1.25))
+        # Without a thread nothing is asked.
+        needs = {}
+        step2cam.operations_for(step2cam.plan(fixture("plate.analysis.json"))["setups"][0],
+                                self.library, self.camlib(), clearance=10, retract=2, needs=needs)
+        self.assertEqual(needs, {})
+
+    def test_a_thread_whose_neck_needs_too_fine_a_grid_is_not_cut(self):
+        # The same hole in a 2 m part: the grid would need over a billion cells.
+        big = ((-1000, -1000, -10), (1000, 1000, 0))
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 4.2, 10)], bounds=big)
+        a["features"][0]["faces"] = [1]
+        ops, _, notes = self.ops(step2cam.plan(tapped({"hole.function:holes:0": "tapped:M5"}, a),
+                                               top_stock=0))
+        self.assertNotIn("ThreadMilling", [o.kind for o in ops])
+        self.assertTrue(any("too fine for this part" in n for n in notes), notes)
+
     def test_a_thread_below_the_drills_full_diameter_is_not_cut(self):
         # A flat-bottomed hole: the drill's tip stops at the bottom, so full diameter ends a tip
         # length short; a thread asked all the way down cannot be milled there.
