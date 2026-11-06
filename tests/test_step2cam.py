@@ -175,6 +175,30 @@ class Plan(unittest.TestCase):
             step2cam.plan({"hello": 1})
 
 
+try:
+    import specify_core  # noqa: F401
+
+    HAVE_SPECIFY_CORE = True
+except ImportError:
+    HAVE_SPECIFY_CORE = False
+
+
+@unittest.skipUnless(HAVE_SPECIFY_CORE, "pip install specify-core")
+class FromStep(unittest.TestCase):
+    def test_plan_step_calls_specify_core_and_matches_its_json(self):
+        got = step2cam.plan_step(FIXTURES / "plate.step")
+        want = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        self.assertEqual(got, want)
+
+    def test_without_the_mesh_there_is_no_roughing(self):
+        got = step2cam.plan_step(FIXTURES / "plate.step", mesh=False)
+        self.assertEqual(got, step2cam.plan(fixture("plate.analysis.json")))
+
+    def test_an_unreadable_file_is_a_plan_error(self):
+        with self.assertRaises(step2cam.PlanError):
+            step2cam.plan_step(FIXTURES / "plate.analysis.json")
+
+
 class CommandLine(unittest.TestCase):
     def test_plan_reads_stdin_and_writes_stdout(self):
         text = (FIXTURES / "plate.analysis.json").read_text(encoding="utf-8")
@@ -278,6 +302,19 @@ class Post(unittest.TestCase):
         ops, _, _ = self.ops(step2cam.plan(a, top_stock=0))
         cbore = [o for o in ops if o.kind == "Bore"][0]
         self.assertEqual((cbore.kwargs["diameter_mm"], cbore.kwargs["floor_z_mm"]), (11, -3.5))
+
+    def test_the_wrong_camlib_is_named(self):
+        saved = {k: v for k, v in sys.modules.items() if k == "camlib" or k.startswith("camlib.")}
+        for k in saved:
+            del sys.modules[k]
+        sys.modules["camlib"] = types.ModuleType("camlib")  # PyPI's unrelated camlib: no jobs
+        try:
+            with self.assertRaises(step2cam.PostError) as caught:
+                step2cam._import_camlib()
+            self.assertIn("git+https://github.com/stevecad/camlib", str(caught.exception))
+        finally:
+            del sys.modules["camlib"]
+            sys.modules.update(saved)
 
     def test_the_plan_is_not_changed_by_posting(self):
         plan = step2cam.plan(fixture("plate.analysis.json"))

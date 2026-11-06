@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """step2cam: a STEP part's recognised features -> camlib toolpaths and G-code.
 
-A bridge, not a link. specify-core (feature recognition by pzfreo/quiddity) and camlib
-(stevecad/camlib, the CAM engine) never load each other: they meet only as JSON on a pipe.
+Two pip-installed Python libraries, called in turn:
 
-    specify-core analyse part.step -o -  ->  analysis JSON   (holes, counterbores, ...)
-    specify-core mesh part.step -o -     ->  mesh JSON       (triangles, for 3D roughing)
-    step2cam plan                     ->  cam plan JSON   (what to cut, per setup)
-    step2cam post                     ->  G-code          (how: your tools and machine)
+    specify_core.api.analyse(step)  ->  analysis   (holes, counterbores, ... by pzfreo/quiddity)
+    specify_core.api.mesh(step)     ->  mesh       (triangles, for 3D roughing)
+    step2cam.plan(analysis, mesh)   ->  cam plan   (what to cut, per setup; plain JSON)
+    step2cam.post(plan, tools)      ->  G-code     (how: your tools and machine, by camlib)
 
-Stages:
+From Python:
 
-    plan   analysis JSON [+ mesh JSON] -> cam plan JSON. Python standard library only.
-    step   STEP file -> cam plan JSON: runs `specify-core analyse` and `specify-core mesh` as
-           child processes, then `plan`.
-    post   cam plan JSON + tool library JSON -> one checked G-code file per setup. Needs camlib.
+    import step2cam
+    plan = step2cam.plan_step("part.step")                 # needs specify-core
+    step2cam.post(plan, json.load(open("tools.json")), "out/")  # needs camlib
 
-For example:
+From the command line:
 
-    specify-core analyse part.step -o - | step2cam plan - > part.plan.json
-    step2cam step part.step | step2cam post - --tools tools.json -o out/
+    step2cam step part.step -o part.plan.json
+    step2cam post part.plan.json --tools tools.json -o out/
+
+`plan` also reads analysis and mesh JSON files that `specify-core analyse`/`mesh` wrote.
 
 The plan says *what* to cut and is independent of tools and machine: the stock, the setups
 (one per direction a hole is entered from), and in each setup the facing, roughing, holes and
@@ -36,8 +36,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -286,11 +284,11 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
          rough_from="top", prefer=None):
     """The cam plan for an analysis (and optionally its mesh), as a JSON-ready dict."""
     if not isinstance(analysis, dict) or "features" not in analysis or "dimensioning" not in analysis:
-        raise PlanError("not a specify-core analysis (run `specify-core analyse PART.step -o -`)")
+        raise PlanError("not a specify-core analysis (specify_core.api.analyse, or `specify-core analyse`)")
     bounds = _model_bounds(analysis["dimensioning"])
     if mesh is not None:
         if mesh.get("format") != "pmi-assist-mesh":
-            raise PlanError("not a specify-core mesh (run `specify-core mesh PART.step -o -`)")
+            raise PlanError("not a specify-core mesh (specify_core.api.mesh, or `specify-core mesh`)")
         if mesh.get("binding") != analysis.get("binding"):
             raise PlanError("the mesh and the analysis are of different files or parts")
         bounds = mesh.get("bbox") or bounds
@@ -613,6 +611,8 @@ def _bore(ops_mod, op_id, tool, spec, centers, diameter, floor, clearance, retra
 
 
 def _import_camlib():
+    """stevecad/camlib. It is not on PyPI: the `camlib` there is an unrelated web library,
+    which is told apart here by its missing `camlib.jobs`."""
     try:
         import camlib.jobs as jobs
         import camlib.operations as operations
@@ -622,9 +622,10 @@ def _import_camlib():
         import camlib.tools as tools
         import camlib.verification as verification
     except ImportError as e:
-        raise SystemExit(
-            f"step2cam post needs camlib (https://github.com/stevecad/camlib): {e}\n"
-            "Install it into this Python (`python -m pip install .` in a camlib checkout)."
+        raise PostError(
+            f"posting needs stevecad/camlib ({e}). It is not on PyPI (`pip install camlib` "
+            "gets an unrelated package): install it from GitHub, which builds its Rust engine:\n"
+            "    python -m pip install git+https://github.com/stevecad/camlib"
         ) from e
     return dict(jobs=jobs, operations=operations, post=post, simulation=simulation,
                 surface=surface, tools=tools, verification=verification)
@@ -698,31 +699,33 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
 
 
 # -------------------------------------------------------------------------------------------
-# step: STEP -> specify-core (child process) -> plan
+# step: STEP -> specify-core (Python library) -> plan
 # -------------------------------------------------------------------------------------------
 
 
-def run_specify_core(executable, command, step, part=None):
-    """Runs `specify-core <command> STEP -o -` and returns its JSON."""
-    args = [executable, command, str(step), "-o", "-"]
-    if part is not None:
-        args += ["--part", str(part)]
-    done = subprocess.run(args, capture_output=True, text=True)
-    if done.returncode != 0:
-        raise PlanError(f"specify-core {command} failed: {done.stderr.strip()}")
-    return json.loads(done.stdout)
+def _specify_core():
+    try:
+        from specify_core import api
+    except ImportError as e:
+        raise PlanError(
+            f"reading STEP needs specify-core: `python -m pip install specify-core` ({e})"
+        ) from e
+    return api
 
 
-def _find_specify_core(given):
-    if given:
-        return given
-    found = shutil.which("specify-core")
-    if found:
-        return found
-    raise PlanError(
-        "specify-core not found: put it on PATH or pass --specify-core "
-        "(https://github.com/pzfreo/specify-core, 0.1.13 or later for `-o -`)"
-    )
+def plan_step(step, part=None, *, mesh=True, **options):
+    """The cam plan for a STEP file: specify-core analyses (and meshes) it, then `plan`.
+    `part` picks one part of an assembly; `options` are `plan`'s."""
+    api = _specify_core()
+    try:
+        loaded = api.load(str(step), part=part)
+        analysis = api.analyse(loaded)
+        meshed = api.mesh(loaded) if mesh else None
+    except PlanError:
+        raise
+    except Exception as e:  # specify-core's own errors: unreadable file, choose a part, ...
+        raise PlanError(f"specify-core: {e}") from e
+    return plan(analysis, meshed, **options)
 
 
 # -------------------------------------------------------------------------------------------
@@ -785,11 +788,10 @@ def main(argv=None):
     p.add_argument("--mesh", help="specify-core mesh JSON of the same part, for 3D roughing")
     _add_plan_options(p)
 
-    s = sub.add_parser("step", help="STEP -> cam plan JSON (runs specify-core)")
+    s = sub.add_parser("step", help="STEP -> cam plan JSON (needs specify-core)")
     s.add_argument("step", help="STEP file")
     s.add_argument("--part", type=int, help="which part of an assembly")
     s.add_argument("--no-mesh", action="store_true", help="no 3D roughing")
-    s.add_argument("--specify-core", help="the specify-core executable (default: on PATH)")
     _add_plan_options(s)
 
     q = sub.add_parser("post", help="cam plan JSON + tool library -> G-code (needs camlib)")
@@ -811,10 +813,7 @@ def main(argv=None):
             log(_summary(result))
             _write_json(result, args.output)
         elif args.command == "step":
-            exe = _find_specify_core(args.specify_core)
-            analysis = run_specify_core(exe, "analyse", args.step, args.part)
-            mesh = None if args.no_mesh else run_specify_core(exe, "mesh", args.step, args.part)
-            result = plan(analysis, mesh, **_plan_kwargs(args))
+            result = plan_step(args.step, args.part, mesh=not args.no_mesh, **_plan_kwargs(args))
             log(_summary(result))
             _write_json(result, args.output)
         else:

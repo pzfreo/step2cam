@@ -1,52 +1,59 @@
 # step2cam: STEP features to camlib toolpaths
 
-`step2cam.py` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a STEP part (holes,
-counterbores, the part's shape) into toolpaths and G-code with
+`step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
+STEP part (holes, counterbores, the part's shape) into toolpaths and G-code with
 [camlib](https://github.com/stevecad/camlib), the CAM engine.
 
-It is a bridge, not a link. specify-core (feature recognition by
-[pzfreo/quiddity](https://github.com/pzfreo/quiddity), Rust) and camlib (Rust engine, Python
-API) never load each other: they meet only as JSON on a pipe, so either can be upgraded,
-replaced or run on another machine.
+It calls two Python libraries in turn: specify-core (feature recognition by
+[pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib. Between them is a plain
+JSON plan you can read, keep or edit.
 
 ```
-part.step ─▶ specify-core analyse -o - ─┐
-          └▶ specify-core mesh -o -    ─┴▶ step2cam plan ─▶ plan.json ─▶ step2cam post ─▶ part-top.nc
-             (quiddity: features)            (what to cut)                (camlib: how)    part-left.nc …
+part.step ─▶ specify_core.api.analyse / mesh ─▶ step2cam.plan ─▶ plan.json ─▶ step2cam.post ─▶ part-top.nc
+             (quiddity: features)               (what to cut)                 (camlib: how)    part-left.nc …
 ```
 
 ## Install
 
+Python 3.12 or later.
+
 ```bash
-python3 -m pip install .            # the `step2cam` command; Python 3.12+, no dependencies
+python -m pip install git+https://github.com/pzfreo/step2cam   # step2cam + specify-core (PyPI)
+python -m pip install git+https://github.com/stevecad/camlib   # camlib, for `post`
 ```
 
-You also need [specify-core](https://github.com/pzfreo/specify-core) 0.1.13 or later on your
-PATH (a release binary, `cargo install`, or `pip install specify-core`), and, for `post`,
-camlib (`python -m pip install .` in a [camlib](https://github.com/stevecad/camlib) checkout).
+- **specify-core** comes from PyPI as a prebuilt wheel (no Rust needed). 0.1.12 or later.
+- **camlib is not on PyPI.** The `camlib` package on PyPI is an unrelated web library;
+  `pip install camlib` gets that one, and `step2cam post` will say so. Install camlib from
+  GitHub as above. That compiles its Rust engine, so it needs a Rust toolchain
+  ([rustup](https://rustup.rs)); camlib can also build a Linux wheel in Docker
+  (`packaging/build-manylinux-wheel.sh` in its repo).
+
+Planning needs only specify-core, so you can plan on one machine and post on another.
 
 ## Use
 
-```bash
-# 1. STEP -> plan. `step` runs specify-core for you (on PATH, or --specify-core PATH).
-step2cam step part.step -o part.plan.json
+From Python:
 
-#    ...or the same by hand, one pipe at a time:
-specify-core analyse part.step -o - | step2cam plan - > part.plan.json
-specify-core analyse part.step -o part.analysis.json
-specify-core mesh part.step -o part.mesh.json
-step2cam plan part.analysis.json --mesh part.mesh.json -o part.plan.json
+```python
+import json
+import step2cam
 
-# 2. Plan -> G-code, one file per setup, with your tools and machine (needs camlib installed).
-step2cam post part.plan.json --tools my-tools.json -o out/
-
-# Or all at once:
-step2cam step part.step | step2cam post - --tools my-tools.json -o out/
+plan = step2cam.plan_step("part.step")            # specify-core analyses and meshes the part
+tools = json.load(open("my-tools.json"))
+step2cam.post(plan, tools, "out/", stem="part")   # camlib: out/part-top.nc, ...
 ```
 
-`specify-core analyse` and `mesh` take `-o -` to write their JSON to stdout (their one-line
-summary then goes to stderr). The plan stage needs only Python's standard library; the post
-stage imports camlib.
+From the command line:
+
+```bash
+step2cam step part.step -o part.plan.json                      # STEP -> plan
+step2cam post part.plan.json --tools my-tools.json -o out/     # plan -> G-code, per setup
+```
+
+`step2cam step --part N` picks one part of an assembly; `--no-mesh` skips roughing.
+`step2cam plan analysis.json --mesh mesh.json` plans from JSON that `specify-core analyse` and
+`specify-core mesh` wrote.
 
 ## The plan (`specify-cam-plan`, version 1)
 
@@ -120,10 +127,10 @@ python3 -m unittest discover -s tests
 ```
 
 Standard library only: the post stage is tested against a stand-in for camlib that records the
-operations and tools the bridge asks for. The fixtures in `tests/fixtures` are specify-core's output for
-its own test parts `plate.step` and `spindle.step`.
+operations and tools the bridge asks for. The fixtures in `tests/fixtures` are specify-core's test part `plate.step` and its output for
+it and `spindle.step`; with specify-core installed, `plan_step` is checked against them.
 
 ## License
 
-[Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project calls both as
-separate programs and libraries and includes neither.
+[Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
+and includes neither.
