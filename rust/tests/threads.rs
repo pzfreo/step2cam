@@ -209,7 +209,6 @@ fn a_thread_in_a_hole_that_is_not_cut_is_not_threaded() {
 }
 
 #[test]
-#[ignore = "the note says ⌀3.0 where Python said ⌀3: job.rs shows the tool's diameter as a float"]
 fn a_thread_no_mill_fits_says_why_with_the_tools_own_diameter() {
     let (_, notes) = a_thread_in_a_small_hole(&with_a_small_drill());
     assert!(any_note(&notes, "no thread mill can cut it (tm3: ⌀3 does not fit the ⌀2.5 hole)"), "{notes:?}");

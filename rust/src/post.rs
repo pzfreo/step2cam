@@ -73,7 +73,8 @@ impl Machine {
             id: "step2cam_linuxcnc".into(),
             planes: planes.iter().map(|p| serde_json::from_value(serde_json::json!(p)).map_err(|e| format!("machine plane {p}: {e}"))).collect::<Result<_, String>>()?,
             arcs: self.arcs,
-            helices: self.helices,
+            // A machine with no arcs has no helices, whatever the library says.
+            helices: self.arcs && self.helices,
             max_sweep_rad: self.max_sweep_rad.unwrap_or(1e6),
             max_feed_mm_min: self.max_feed_mm_min,
             max_spindle_rpm: self.max_spindle_rpm,
@@ -361,6 +362,10 @@ impl<'a> Post<'a> {
         let decoded = self.decoder.decode(&text, self.position, Some(1.), plane)?;
         self.lines.push(text);
         let Some(decoded) = decoded else { return Ok(None) };
+        // A line that rounds to where the tool already is moves nothing.
+        if matches!(decoded.curve, Curve::Line { start, end } if start == end) {
+            return Ok(None);
+        }
         self.position = decoded.curve.end();
         Ok(Some(decoded))
     }
