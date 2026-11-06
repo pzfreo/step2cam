@@ -41,6 +41,14 @@
    "stepdown_mm": 0.75, "stepover_mm": 1.2
   },
   {
+   "id": "tm3", "type": "thread_mill", "number": 5,
+   "diameter": 3, "tooth_height": 0.8, "neck_diameter": 2, "neck_length": 15,
+   "shank_diameter": 6, "overall_length": 57, "min_pitch_mm": 0.5, "max_pitch_mm": 1.0,
+   "stickout": 25, "holder_length": 40, "holder_diameter": 20,
+   "feed_mm_min": 150, "plunge_mm_min": 100, "spindle_rpm": 8000, "coolant": "flood",
+   "radial_passes": 2, "spring_passes": 1
+  },
+  {
    "id": "drill4.2", "type": "drill", "number": 3,
    "diameter": 4.2, "flute_length": 43, "overall_length": 75, "point_angle": 118,
    "stickout": 50, "holder_length": 40, "holder_diameter": 16,
