@@ -80,11 +80,25 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .busy { position: absolute; inset: 0; display: grid; place-items: center; background: #0f1318c0; font-size: 18px; z-index: 50; }
 [hidden] { display: none !important; }
 
+/* Narrow screens: the page scrolls, with both 3D views side by side and pinned at the top, so
+   that what a tap links stays in sight. The panes dissolve into one grid. */
 @media (max-width: 1000px) {
   html, body { height: auto; }
   .app { height: auto; overflow: visible; }
-  .panes { grid-template-columns: minmax(0, 1fr); }
-  .pane-body { flex-direction: column; }
-  .view { flex: none; width: 100%; aspect-ratio: 640 / 400; }
-  .side { width: 100%; max-height: 280px; border-left: 0; border-top: 1px solid var(--line); }
+  .panes { flex: none; gap: 6px; }
+  .pane, .pane-body { display: contents; }
+  .pane-title { display: none; }
+  .view { grid-row: 1; height: min(48vw, 55vh); position: sticky; top: 0; z-index: 20; border: 1px solid var(--line); border-radius: 6px; }
+  .side { grid-row: 2; width: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  .code { height: 280px; }
+  footer { position: sticky; bottom: 0; z-index: 30; gap: 8px; }
+  .scrub { flex: 1 1 200px; }
+  .status { flex-basis: 100%; }
+}
+/* A phone on its side has no height to spare for a pinned bar as well as the pinned views. */
+@media (max-width: 1000px) and (max-height: 500px) {
+  footer { position: static; }
+}
+@media (max-width: 600px) {
+  .side { grid-row: auto; grid-column: 1 / -1; }
 }

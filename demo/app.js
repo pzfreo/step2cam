@@ -295,6 +295,7 @@ function showPart(m) {
     edgeColor: 0x20262e, defaultOpacity: 0.5, normalLen: 0,
   }, { target: [...centre(m)], up: "Z", ortho: true, control: "orbit", axes: false, axes0: false, grid: [false, false, false] });
   viewer.setTheme("dark");
+  fitCadMarker(box.width);
   viewer.presetCamera("iso", fitZoom(m));
 }
 
@@ -334,7 +335,7 @@ function initCadLinks() {
   const host = $("cad");
   let queued = false, downAt = null;
   host.addEventListener("pointermove", (event) => {
-    if (event.buttons || queued) return;
+    if (event.pointerType === "touch" || event.buttons || queued) return;
     queued = true;
     // The viewer's own hover pick is debounced, so read its answer a moment later.
     hoverInCad = true;
@@ -351,8 +352,41 @@ function initCadLinks() {
   });
   host.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; });
   host.addEventListener("pointerup", (event) => {
-    if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) < 4) setPin(featureUnderPointer());
+    if (!downAt || Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) >= 4) return;
+    if (event.pointerType !== "touch") {
+      setPin(featureUnderPointer());
+      return;
+    }
+    setPin(featureAtTap(event));
   });
+}
+
+// A touch has no hover for the viewer to have picked from. The right view holds the same mesh in
+// the same camera, so look there, nearest first, as a finger is wider than a small hole.
+function featureAtTap(event) {
+  const rect = $("cad").getBoundingClientRect();
+  const ray = new THREE.Raycaster();
+  const faces = model.data.mesh.faces;
+  const around = [[0, 0]];
+  for (const radius of [2, 4, 6, 8, 10, 12]) {
+    for (let i = 0; i < 12; i++) around.push([radius * Math.cos(i * Math.PI / 6), radius * Math.sin(i * Math.PI / 6)]);
+  }
+  for (const [dx, dy] of around) {
+    const x = (event.clientX + dx - rect.left) / rect.width * 2 - 1;
+    const y = -(event.clientY + dy - rect.top) / rect.height * 2 + 1;
+    ray.setFromCamera(new THREE.Vector2(x, y), right.camera);
+    const hit = ray.intersectObject(right.ghost)[0];
+    if (!hit) continue;
+    const face = faces.findIndex(([start, count]) => hit.faceIndex >= start && hit.faceIndex < start + count);
+    const feature = [...model.features.values()].find((f) => f.faces?.includes(face));
+    if (feature) return feature.id;
+  }
+  return null;
+}
+
+// The viewer's axes marker has a fixed size, which would cover much of a small view.
+function fitCadMarker(width) {
+  viewer.rendered.orientationMarker.setVisible(width >= 300);
 }
 
 // ------------------------------------------------------------------------------------------
@@ -388,7 +422,8 @@ function initRight() {
     if (!right.future || !model) return null;
     const rect = right.renderer.domElement.getBoundingClientRect();
     pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
-    ray.params.Line.threshold = 3 * (right.camera.top - right.camera.bottom) / right.camera.zoom / rect.height;
+    const pixels = event.pointerType === "touch" ? 12 : 3;
+    ray.params.Line.threshold = pixels * (right.camera.top - right.camera.bottom) / right.camera.zoom / rect.height;
     ray.setFromCamera(pointer, right.camera);
     const hits = ray.intersectObject(right.future)
       .map((hit) => model.segments[Math.floor(hit.index / 2)])
@@ -897,6 +932,7 @@ new ResizeObserver(() => {
   if (!viewer?.ready) return;
   const box = $("cad").parentElement.getBoundingClientRect();
   viewer.resizeCadView(Math.floor(box.width), 0, Math.floor(box.height), true);
+  fitCadMarker(box.width);
   resizeRight();
 }).observe($("gcode-view"));
 
