@@ -62,33 +62,71 @@ The plan says **what** to cut, independent of tools and machine. Read it before 
 - **Stock**: the part's box plus `--margin` (2 mm) around the sides, `--top-stock` (1 mm) above
   and `--bottom-stock` (0) below.
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
-  `left`, `right`). Each setup is the part turned so its tool comes down -Z, then moved so
-  **X0 Y0 is the stock's minimum corner and Z0 the stock top**. The setup records its
-  `rotation` and `origin_model` (the model point at X0 Y0 Z0) so you can find it on the
-  machine. A plain through hole is cut from whichever end the preferred setup sees.
+  `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
+  **X0 Y0 on the minimum corner and Z0 on the top** of:
+  - the **stock**, in the `--rough-from` setup (the first; default `top`);
+  - the **part's own box**, in every later setup. By then roughing has cut away the stock
+    around the part, so zero on the part, after removing the web roughing leaves (below).
+
+  Each setup records its `zero` (`stock` or `part`), its `rotation` and `origin_model` (the
+  model point at X0 Y0 Z0), and `post` prints them.
 - **Operations** in each setup, in setup coordinates:
-  - `facing` down to the part's top (the `--rough-from` setup only, default `top`);
-  - `roughing` of the whole part from the mesh, stopping `--skin` (0.5 mm) above the part's
-    bottom so the part stays held (`--rough-from` setup only, needs the mesh);
+  - `facing` down to the part's top (the `--rough-from` setup only);
+  - `roughing` of the whole part from the mesh (the `--rough-from` setup only, needs the mesh).
+    It stops `--skin` (0.5 mm) above the part's bottom, so it leaves a web that thick all round
+    the part (`web_mm`), which no operation removes. It also clears the side margin, which is
+    where vise jaws on the stock would be: hold the stock from below (a fixture plate, screws or
+    double-sided tape) or leave more margin;
   - `holes`: holes of one diameter and depth, with their centres, bore top, bottom and how the
-    bottom ends (`through`, `flat`, `drill_point`, `unknown`);
-  - `counterbore`: the enlargements at hole mouths (counterbores, spotfaces, stepped mouths).
-- **`skipped`**: everything recognised but not planned, with the reason: oblique holes,
-  countersinks, turned features (lathe work), and, without a mesh, pockets, slots and steps.
-  With a mesh these are cleared by roughing (`covered_by_roughing`).
+    bottom ends (`through`, `flat`, `drill_point`, `unknown`). A through hole also carries
+    `exit_clear_mm`: how far beyond its exit there is no part material, `null` when it exits
+    the part altogether;
+  - `counterbore`: the enlargements at hole mouths (spotfaces, counterbores, stepped mouths),
+    widest and outermost first.
+- **Checks against the mesh** (only when the mesh is given):
+  - a hole is cut only from a side where no part material is above its opening;
+  - a plain through hole may be cut from its far end instead, unless quiddity reports that
+    end partly capped;
+  - the clearance beyond a through hole's exit is measured.
+
+  Without a mesh none of this is checked, and the plan's `warnings` say so.
+- **`skipped`**: every feature that is not planned, with the reason: oblique or unreachable
+  holes, countersinks, turned features (lathe work), and features roughing cannot reach (a
+  flat face of the feature points away from the roughing setup), or every feature when there
+  is no mesh. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
+  their flat faces, and they are left with the roughing allowance (there is no finishing pass).
+- **`warnings`**: things to look at. For example, a through hole that ends short of the part's
+  far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
+  planned (quiddity's depths do not include shoulders).
 
 ## The tool library
 
-`post` reads a JSON tool library: see [`examples/tools.example.json`](examples/tools.example.json). **Every
-number in it is a placeholder.** camlib has no defaults for cutting data or machines, on
-purpose; nor does this bridge.
+`post` reads a JSON tool library: see [`examples/tools.example.json`](examples/tools.example.json).
+**Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
+on purpose.
 
-- `machine`: camlib's `Machine` fields for your controller (only `linuxcnc` is wired up here;
-  camlib's examples show GRBL, Haas, FANUC, Siemens and Centroid posts).
-- `tools`: `end_mill` and `drill`, each with its T number, dimensions, holder, cutting data,
-  and for end mills `stepdown_mm`/`stepover_mm`; a drill can have `peck_mm`.
-- `clearance_mm`, `retract_mm` (above the stock top), `breakthrough_mm` (through holes),
-  `drill_tolerance_mm`, roughing allowances, optional `facing_tool`/`roughing_tool` ids.
+- `machine`: camlib's `Machine` fields for your controller. Only `linuxcnc` and
+  `"tool_change_position_mode": "table"` are wired up here; camlib's examples show GRBL, Haas,
+  FANUC, Siemens and Centroid posts. A tool change is assumed to leave the tool at X0 Y0 at
+  the clearance height.
+- `tools`: every tool needs `id`, `type` (`end_mill` or `drill`), `number`, `diameter`,
+  `flute_length`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
+  `feed_mm_min`, `spindle_rpm` and `coolant`. End mills also need `plunge_mm_min`,
+  `stepdown_mm` and `stepover_mm`; drills need `point_angle`. There are no defaults for these:
+  camlib checks the holder against the stock, so a guessed holder would make that check
+  meaningless. Optional: `shank_diameter`, `length_register` (default: `number`),
+  `retract_feed_mm_min` (default: the feed), `peck_mm` (drills).
+- Library settings, with their defaults:
+
+  | Setting | Default | Meaning |
+  | --- | --- | --- |
+  | `clearance_mm` | 10 | clearance height above the stock top |
+  | `retract_mm` | 2 | retract and R plane above the stock top |
+  | `breakthrough_mm` | 1 | how far a through hole is cut past its exit, at full diameter |
+  | `drill_tolerance_mm` | 0.05 | how much smaller than the hole a drill may be (never larger) |
+  | `radial_allowance_mm`, `bottom_allowance_mm` | 0.3, 0.2 | roughing allowances (at least twice the mesh's error) |
+  | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
+  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid |
 
 How each operation gets a tool:
 
@@ -96,29 +134,48 @@ How each operation gets a tool:
 | --- | --- | --- |
 | `facing` | `Facing` | the largest end mill (or `facing_tool`) |
 | `roughing` | `Roughing` over the part's mesh, raster clearing | the largest end mill (or `roughing_tool`) |
-| `holes` | `Drilling` | a drill within `drill_tolerance_mm` of the diameter |
+| `holes` | `Drilling` | the largest drill no bigger than the hole and within `drill_tolerance_mm` of it |
 | `holes` with no such drill | `Bore` (helical) | the largest end mill that fits |
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
 
-Through holes are drilled to full diameter `breakthrough_mm` past the bottom. Blind holes stop
-with the drill's **tip** at the hole's bottom, never deeper than the model (a flat-bottomed
-hole keeps a drill point; the post says so). A hole no tool fits is reported, not guessed.
+How deep holes are cut (the post prints a note for each case):
+
+- **Through, exiting the part:** full diameter `breakthrough_mm` past the exit. The drill's
+  point goes further, usually below the stock bottom: support the part clear of the holes
+  (spoilboard, parallels). A `Bore` stops at the stock bottom (camlib bores no lower), so with
+  no `--bottom-stock` it leaves a skin or burr at the exit.
+- **Through, with part material beyond the exit** (a cross hole into a cavity): no deeper
+  than that material less 0.2 mm. If the drill's point does not fit, the drill stops short of
+  full diameter at the exit, and the note says so.
+- **Blind, drill point:** quiddity's depth ends where the cone starts, so the drill reaches
+  full diameter there. Its own point ends where a cone of the drill's angle would; the model's
+  cone angle is not read.
+- **Blind, flat or unknown:** the drill's **tip** stops at the bottom, never deeper than the
+  model. Full diameter then ends a tip length short of it.
+
+A hole no tool fits is reported, not guessed.
 
 ## Safety
 
-camlib plans, simulates, checks every move against the stock and posts with its own checks;
-`post` refuses a program with violations or uncertain results unless you `--accept` them. But
-neither tool knows your work offsets, clamps or tool lengths, and the roughing mesh is
-specify-core's triangulation (deflection 0.1% of the part's diagonal), not an exact surface:
-the roughing allowance is kept at least twice that. **Simulate the G-code in your own tools,
-dry-run above the part, and single-block the first run.**
+camlib plans, simulates, checks every move against the stock and posts with its own checks.
+`post` refuses a program with violations or uncertain results unless you `--accept` them. But:
+
+- neither tool knows your work offsets, clamps or tool lengths;
+- camlib's checks here protect the stock, not the finished part (no fixtures or protected
+  bodies are declared);
+- the roughing mesh is specify-core's triangulation (deflection 0.1% of the part's
+  diagonal), not an exact surface, so the roughing allowance is kept at least twice that.
+
+**Simulate the G-code in your own tools, dry-run above the part, and single-block the first
+run.**
 
 ## Not done (yet)
 
-Finishing passes (walls and floors are left with the roughing allowance), countersinks and
-chamfers, tapping and thread milling (specify-core reads threads from answers, not geometry),
-contouring with tabs, 4/5-axis and oblique holes, lathe work. Each is a camlib operation away:
-the plan format leaves room for them.
+Finishing passes (walls and floors are left with the roughing allowance), removing the web,
+countersinks and chamfers, counterbores at the far end of through holes, tapping and thread
+milling (specify-core reads threads from answers, not geometry), contouring with tabs, fixtures
+and avoid areas, tool-change positions other than `table`, 4/5-axis and oblique holes, lathe
+work.
 
 ## Tests
 
@@ -126,9 +183,18 @@ the plan format leaves room for them.
 python3 -m unittest discover -s tests
 ```
 
-Standard library only: the post stage is tested against a stand-in for camlib that records the
-operations and tools the bridge asks for. The fixtures in `tests/fixtures` are specify-core's test part `plate.step` and its output for
-it and `spindle.step`; with specify-core installed, `plan_step` is checked against them.
+Three levels, each used when it can be:
+
+- **Always (standard library):** the plan, and the tool choices against a stand-in for camlib
+  that records what the bridge asks for.
+- **With camlib's Python sources** (`CAMLIB_PYTHON=<camlib checkout>/python`, no engine
+  needed): the same tool-choice cases built from camlib's real classes, so a wrong argument
+  name fails.
+- **With camlib installed:** a whole plan posted to G-code.
+
+CI runs all three. The fixtures in `tests/fixtures` are specify-core's test part `plate.step`,
+and specify-core's output for it and for `spindle.step`. With specify-core installed,
+`plan_step` is checked against them.
 
 ## License
 

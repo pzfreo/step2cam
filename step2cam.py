@@ -26,9 +26,11 @@ The plan says *what* to cut and is independent of tools and machine: the stock, 
 counterbores, in the setup's own coordinates. `post` decides *how*: which tool cuts each one,
 with the cutting data in the tool library, and camlib plans, simulates, checks and posts it.
 
-Coordinates: each setup is turned so its tool comes down -Z, then moved so X0 Y0 is the stock's
-minimum corner and Z0 the stock top (every cutting Z is negative). The plan records the
-rotation and the model point that became the origin, so the setup can be found on the machine.
+Coordinates: each setup is turned so its tool comes down -Z, then moved so X0 Y0 is the minimum
+corner and Z0 the top (every cutting Z is negative) of the stock, in the roughing setup, or of
+the part's own box, in later setups (roughing has cut the stock away by then). The plan records
+which, the rotation and the model point that became the origin, so the setup can be found on
+the machine.
 """
 
 from __future__ import annotations
@@ -60,19 +62,7 @@ AXIS_TOLERANCE = 1e-6
 # Model coordinates are rounded to this many decimals in the plan (mm).
 DECIMALS = 4
 
-# Families quiddity recognises that this bridge does not turn into operations of their own.
-NOT_PLANNED = {
-    "pockets": "pocket",
-    "slots": "slot",
-    "channels": "channel",
-    "step_levels": "step",
-    "risers": "riser",
-    "bosses": "boss",
-    "plates": "plate",
-    "flats": "flat",
-    "chamfers": "chamfer",
-    "section_recesses": "recess",
-}
+# Families made on a lathe, not by this bridge.
 TURNED = {"turned_bodies", "turned_steps", "face_grooves"}
 
 
@@ -141,67 +131,153 @@ def _bounds(points):
 # plan: analysis (+ mesh) -> cam plan
 # -------------------------------------------------------------------------------------------
 
+# Mesh points this close to a level count as on it (mm): the mesh is rounded to 1e-4 and flat
+# faces are exact, so this only has to absorb rounding.
+LEVEL_EPS = 0.01
+# Kept between a drill tip and material found beyond a through hole's exit (mm).
+EXIT_MARGIN = 0.2
+
 
 class Frame:
-    """One setup's coordinates: model point -> rotate -> translate to the stock origin."""
+    """One setup's coordinates: model point -> rotate -> translate to the setup's zero.
 
-    def __init__(self, name, rows, stock_lo, stock_hi):
+    `stock` is the box the setup starts from, in model coordinates, and the zero is its minimum
+    X and Y corner and its top face: the raw stock for the roughing setup, the part's own box
+    for every later one (the part has been cut free of its stock by then)."""
+
+    def __init__(self, name, rows, box_lo, box_hi, zeroed_on):
         self.name = name
         self.rows = rows
-        corners = [_rotate(rows, p) for p in _box_corners(stock_lo, stock_hi)]
-        lo, hi = _bounds(corners)
-        # X0 Y0 at the stock's minimum corner, Z0 at its top.
+        self.zeroed_on = zeroed_on
+        lo, hi = _bounds([_rotate(rows, p) for p in _box_corners(box_lo, box_hi)])
         self.shift = [-lo[0], -lo[1], -hi[2]]
-        self.stock = _bounds([self.point(p) for p in _box_corners(stock_lo, stock_hi)])
-        # The model point at this setup's origin: rotation rows are orthonormal, so the
-        # inverse is the transpose.
+        self.stock = _bounds([self.point(p) for p in _box_corners(box_lo, box_hi)])
+        # The model point at this setup's zero: rotation rows are orthonormal, so the inverse
+        # is the transpose.
         back = [-s for s in self.shift]
         self.origin_model = [sum(rows[i][j] * back[i] for i in range(3)) for j in range(3)]
+        self._triangles = None
 
     def point(self, p):
         return _add(_rotate(self.rows, p), self.shift)
 
     def describe(self):
         return {
+            "zero": self.zeroed_on,
             "rotation": [list(row) for row in self.rows],
             "origin_model": _rp(self.origin_model),
             "stock": {"min": _rp(self.stock[0]), "max": _rp(self.stock[1])},
         }
 
+    def triangles(self, mesh_triangles):
+        """The mesh's triangles in this frame (made once)."""
+        if self._triangles is None:
+            self._triangles = [tuple(self.point(p) for p in t) for t in mesh_triangles]
+        return self._triangles
+
+
+def _mesh_triangles(mesh):
+    p, idx = mesh["positions"], mesh["indices"]
+    pts = [p[3 * i : 3 * i + 3] for i in range(len(p) // 3)]
+    return [(pts[idx[i]], pts[idx[i + 1]], pts[idx[i + 2]]) for i in range(0, len(idx), 3)]
+
+
+def _disk_meets_triangle(c, r, tri):
+    """Whether the XY projection of a triangle comes within `r` of the point `c`."""
+    (ax, ay), (bx, by), (cx, cy) = [(p[0], p[1]) for p in tri]
+    px, py = c
+
+    def side(x1, y1, x2, y2):
+        return (x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)
+
+    s1, s2, s3 = side(ax, ay, bx, by), side(bx, by, cx, cy), side(cx, cy, ax, ay)
+    if (s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0):
+        return True  # the centre is inside (or the triangle is edge-on)
+    for (x1, y1), (x2, y2) in (((ax, ay), (bx, by)), ((bx, by), (cx, cy)), ((cx, cy), (ax, ay))):
+        dx, dy = x2 - x1, y2 - y1
+        length = dx * dx + dy * dy
+        t = 0.0 if not length else max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / length))
+        if math.hypot(px - (x1 + t * dx), py - (y1 + t * dy)) < r:
+            return True
+    return False
+
+
+def _blocked_above(triangles, centre, z, radius):
+    """Whether any part material lies above `z` within `radius` of `centre` (setup frame):
+    a tool coming down to `z` there would cut it."""
+    r = radius - LEVEL_EPS
+    for tri in triangles:
+        if max(p[2] for p in tri) > z + LEVEL_EPS and _disk_meets_triangle(centre, r, tri):
+            return True
+    return False
+
+
+def _clear_below(triangles, centre, z, radius):
+    """How far below `z` the column of `radius` at `centre` is free of part material (setup
+    frame), or None when nothing of the part is below it."""
+    r = radius - LEVEL_EPS
+    found = None
+    for tri in triangles:
+        if min(p[2] for p in tri) < z - LEVEL_EPS and _disk_meets_triangle(centre, r, tri):
+            gap = max(0.0, z - max(p[2] for p in tri))
+            found = gap if found is None else min(found, gap)
+    return found
+
 
 def _hole_entries(record):
-    """The ways a hole can be cut: (axis, mouth, through-reversed?) for its own opening and,
-    for a plain through hole, the other end too."""
+    """The ways a hole can be cut: (axis, mouth, reversed?) for its own opening and, for a
+    plain through hole whose far opening is not partly capped, the other end too."""
     axis = _unit(record["axis"])
     mouth = list(record["location"])
     yield axis, mouth, False
     plain = not any(record.get(k) for k in ("cbore", "spotface", "csink", "outer_steps"))
-    if record.get("bottom") == "through" and plain:
+    if record.get("bottom") == "through" and plain and not record.get("exit_obstructions"):
         yield _scale(axis, -1), _add(mouth, _scale(axis, record["depth"])), True
 
 
-def _hole_geometry(feature, frames, preferred):
-    """A hole as setup-frame geometry: which setup, its centre, the bore's Z range and its
-    enlargements; or a reason it is skipped."""
+def _steps(record):
+    """The enlargements between a hole's opening and its bore, opening first. quiddity names
+    the innermost counterbore `cbore`, the others `outer_steps`, and a shallow one (usually
+    the outermost) `spotface`; each is narrower than the one before it, so widest first is the
+    order from the opening."""
+    steps = list(record.get("outer_steps") or [])
+    for key in ("cbore", "spotface"):
+        if record.get(key):
+            steps.append(record[key])
+    return sorted(steps, key=lambda s: -s["diameter"])
+
+
+def _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces):
+    """A hole as setup-frame geometry: which setup, its centre, the bore's Z range, its
+    enlargements and what is beyond a through hole's exit; or why it is skipped."""
     record = feature["record"]
-    options = []
+    options, blocked = [], []
     for axis, mouth, reversed_ in _hole_entries(record):
         found = _setup_for(axis)
-        if found is not None:
-            options.append((found[0], axis, mouth, reversed_))
+        if found is None:
+            continue
+        name = found[0]
+        steps = [] if reversed_ else _steps(record)
+        widest = max([record["diameter"]] + [s["diameter"] for s in steps])
+        if mesh_triangles is not None:
+            frame = frames[name]
+            at = frame.point(mouth)
+            if _blocked_above(frame.triangles(mesh_triangles), at[:2], at[2], widest / 2):
+                blocked.append(name)
+                continue
+        options.append((name, axis, mouth, reversed_, steps))
     if not options:
+        if blocked:
+            return None, (f"part material above its opening from {', '.join(blocked)}: "
+                          "a three-axis tool cannot reach it")
         return None, f"oblique axis {_rp(record['axis'])}: needs a setup this bridge does not make"
     rank = {name: i for i, name in enumerate(preferred)}
-    name, axis, mouth, reversed_ = min(options, key=lambda o: rank[o[0]])
+    name, axis, mouth, reversed_, steps = min(options, key=lambda o: rank[o[0]])
     frame = frames[name]
 
     # quiddity: `location` is the axis point at the opening; `diameter`/`depth` describe the
-    # narrowest bore, `depth` measured from the top of that bore; enlargements (outer steps,
-    # outermost first, then the counterbore or spotface) sit between the opening and the bore.
-    steps = [] if reversed_ else list(record.get("outer_steps") or [])
-    for key in ("cbore", "spotface"):
-        if record.get(key) and not reversed_:
-            steps.append(record[key])
+    # narrowest bore, `depth` measured from the top of that bore to the deep end along
+    # cylinders only (a drill point's cone and any shoulder between steps are not in it).
     enlargements = []
     at = mouth
     for step in steps:
@@ -215,18 +291,37 @@ def _hole_geometry(feature, frames, preferred):
         )
         at = floor
     bore_top = at
-    bottom = _add(bore_top, _scale(axis, record["depth"]))
+    bottom = frame.point(_add(bore_top, _scale(axis, record["depth"])))
     centre = frame.point(mouth)
     hole = {
         "feature": feature["id"],
         "center": [_r(centre[0]), _r(centre[1])],
         "top_z": _r(centre[2]),
         "bore_top_z": _r(frame.point(bore_top)[2]),
-        "bottom_z": _r(frame.point(bottom)[2]),
+        "bottom_z": _r(bottom[2]),
         "diameter": _r(record["diameter"]),
         "bottom": record.get("bottom", "unknown"),
         "enlargements": enlargements,
     }
+    warnings = []
+    if hole["bottom"] == "through":
+        # What is beyond the exit: `exit_clear_mm` is how far the drill may go past it before
+        # part material, null when nothing of the part is beyond (only the stock and what
+        # holds it). Without a mesh this is known only for an exit on the part's outer face.
+        part_bottom = part_faces[name]
+        on_face = abs(bottom[2] - part_bottom) <= LEVEL_EPS
+        if mesh_triangles is not None:
+            clear = _clear_below(frame.triangles(mesh_triangles), bottom[:2], bottom[2],
+                                 record["diameter"] / 2)
+        else:
+            clear = None if on_face else 0.0
+        hole["exit_clear_mm"] = None if clear is None else _r(clear)
+        if not on_face:
+            warnings.append(
+                f"{feature['id']}: the through hole ends {_r(bottom[2] - part_bottom)} mm short of "
+                f"the part's far face in the {name} setup; anything between (a counterbore or "
+                "chamfer at the far end, a shoulder) is not planned"
+            )
     if record.get("csink") and not reversed_:
         c = record["csink"]
         hole["csink"] = {
@@ -235,7 +330,7 @@ def _hole_geometry(feature, frames, preferred):
         }
     if reversed_:
         hole["entered_from_exit"] = True
-    return (name, hole), None
+    return (name, hole, warnings), None
 
 
 def _group(holes, key, kind):
@@ -244,7 +339,7 @@ def _group(holes, key, kind):
     for hole in holes:
         groups.setdefault(key(hole), []).append(hole)
     ops = []
-    for k in sorted(groups):
+    for k in sorted(groups, key=lambda k: [(n, -1e18 if v is None else v) for n, v in k]):
         members = groups[k]
         op = {"kind": kind}
         op.update(dict(k))
@@ -280,6 +375,18 @@ def _model_bounds(dimensioning):
     return _bounds(corners)
 
 
+def _reachable_from(feature, faces, rows):
+    """Whether roughing from the setup with these rotation rows can reach a feature: none of
+    its flat faces points down in that setup (a floor or ceiling facing away from the tool).
+    A heuristic: it reads only the feature's planar faces."""
+    for index in feature.get("faces") or []:
+        face = faces.get(index)
+        if face and face.get("kind") == "plane" and face.get("direction"):
+            if _rotate(rows, face["direction"])[2] < -0.01:
+                return False
+    return True
+
+
 def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, skin=0.5,
          rough_from="top", prefer=None):
     """The cam plan for an analysis (and optionally its mesh), as a JSON-ready dict."""
@@ -300,8 +407,8 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
     # `bottom_stock` along the rough-from direction, `margin` across it.
     if rough_from not in SETUP_ORDER:
         raise PlanError(f"--rough-from must be one of {', '.join(SETUP_ORDER)}")
-    rows = dict((n, r) for n, _, r in SETUPS)[rough_from]
-    up = list(rows[2])  # model direction of the rough-from setup's +Z (rows are orthonormal)
+    rows_by_name = {n: r for n, _, r in SETUPS}
+    up = list(rows_by_name[rough_from][2])  # model direction of the rough-from setup's +Z
     grow_lo, grow_hi = [], []
     for i in range(3):
         if up[i] > 0.5:
@@ -315,35 +422,52 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
             grow_hi.append(margin)
     stock_lo = [p - g for p, g in zip(part_lo, grow_lo)]
     stock_hi = [p + g for p, g in zip(part_hi, grow_hi)]
-    frames = {name: Frame(name, r, stock_lo, stock_hi) for name, _, r in SETUPS}
+    frames = {
+        name: Frame(name, r, stock_lo, stock_hi, "stock")
+        if name == rough_from
+        else Frame(name, r, part_lo, part_hi, "part")
+        for name, _, r in SETUPS
+    }
+    # Each setup's view of the part's far (lowest) face, in its own Z.
+    part_faces = {
+        name: _bounds([f.point(p) for p in _box_corners(part_lo, part_hi)])[0][2]
+        for name, f in frames.items()
+    }
+    mesh_triangles = None
+    if mesh is not None and not mesh.get("missing"):
+        mesh_triangles = _mesh_triangles(mesh)
 
     preferred = list(prefer or [])
     preferred += [rough_from] + [n for n in SETUP_ORDER if n not in preferred and n != rough_from]
 
+    faces = {f["id"]: f for f in analysis.get("faces") or []}
     by_setup = {name: [] for name in SETUP_ORDER}
-    skipped = []
-    covered = []
+    skipped, covered, warnings = [], [], []
+    if mesh is None:
+        warnings.append("no mesh: hole approaches and what lies beyond through holes were not "
+                        "checked against the part")
     for feature in analysis["features"]:
         family = feature.get("family")
         if family == "holes":
-            found, reason = _hole_geometry(feature, frames, preferred)
+            found, reason = _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces)
             if found is None:
                 skipped.append({"feature": feature["id"], "reason": reason})
             else:
                 by_setup[found[0]].append(found[1])
+                warnings.extend(found[2])
+        elif family == "hole_patterns":
+            continue  # its member holes are planned one by one
         elif family in TURNED:
             skipped.append({"feature": feature["id"], "reason": "turned feature: make it on a lathe"})
-        elif family in NOT_PLANNED:
-            if mesh is not None:
-                covered.append(feature["id"])
-            else:
-                skipped.append(
-                    {
-                        "feature": feature["id"],
-                        "reason": f"{NOT_PLANNED[family]}: no operation of its own; "
-                        "give the mesh to rough it",
-                    }
-                )
+        elif mesh_triangles is None:
+            skipped.append({"feature": feature["id"],
+                            "reason": f"{family}: no operation of its own; give the mesh to rough it"})
+        elif _reachable_from(feature, faces, rows_by_name[rough_from]):
+            covered.append(feature["id"])
+        else:
+            skipped.append({"feature": feature["id"],
+                            "reason": f"{family}: faces away from the {rough_from} setup, where "
+                            "roughing runs; not planned"})
 
     setups = []
     for name in [rough_from] + [n for n in SETUP_ORDER if n != rough_from]:
@@ -366,11 +490,16 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
                     )
                 else:
                     diagonal = math.dist(part_lo, part_hi)
+                    floor = min(part_bottom + skin, part_top)
                     ops.append(
                         {
                             "kind": "roughing",
                             "top_z": _r(frame.stock[1][2]),
-                            "floor_z": _r(min(part_bottom + skin, part_top)),
+                            "floor_z": _r(floor),
+                            # Roughing clears the margin around the part down to here, so it
+                            # leaves a web this thick that holds the part, and cuts where vise
+                            # jaws on the stock's sides would be.
+                            "web_mm": _r(floor - part_bottom),
                             # specify-core meshes to 0.1% of the diagonal, then rounds to
                             # 4 decimals.
                             "surface_error_mm": _r(diagonal * 0.001 + 1e-4),
@@ -388,9 +517,13 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
                 ("bore_top_z", h["bore_top_z"]),
                 ("bottom_z", h["bottom_z"]),
                 ("bottom", h["bottom"]),
+                ("exit_clear_mm", h.get("exit_clear_mm", None)),
             ),
             "holes",
         )
+        for op in ops:
+            if op["kind"] == "holes" and op["bottom"] != "through":
+                del op["exit_clear_mm"]
         enlargements = [
             dict(e, center=h["center"], feature=h["feature"]) for h in holes for e in h["enlargements"]
         ]
@@ -415,6 +548,7 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
         "setups": setups,
         "covered_by_roughing": covered,
         "skipped": skipped,
+        "warnings": warnings,
     }
 
 
@@ -427,9 +561,19 @@ class PostError(ValueError):
     """The plan cannot be posted with these tools (no tool fits, bad tool library)."""
 
 
+# Every tool needs these: no defaults, as holder size and cutting data are specific to the tool,
+# material and machine (a holder guessed too small would make camlib's holder checks pass
+# where the real one collides).
+TOOL_KEYS = ("id", "type", "number", "diameter", "flute_length", "overall_length", "stickout",
+             "holder_length", "holder_diameter", "feed_mm_min", "spindle_rpm", "coolant")
+TOOL_KEYS_BY_TYPE = {
+    "end_mill": ("plunge_mm_min", "stepdown_mm", "stepover_mm"),
+    "drill": ("point_angle",),
+}
+
+
 def _tool_assembly(camlib, spec):
     t = camlib["tools"]
-    kind = spec.get("type", "end_mill")
     dims = dict(
         diameter=spec["diameter"],
         flute_length=spec["flute_length"],
@@ -437,16 +581,13 @@ def _tool_assembly(camlib, spec):
     )
     if "shank_diameter" in spec:
         dims["shank_diameter"] = spec["shank_diameter"]
-    if kind == "end_mill":
+    if spec["type"] == "end_mill":
         cutter = t.EndMill(spec["id"], **dims)
-    elif kind == "drill":
-        cutter = t.Drill(spec["id"], point_angle=spec.get("point_angle", 118), **dims)
     else:
-        raise PostError(f"tool {spec['id']}: type must be end_mill or drill, not {kind!r}")
+        cutter = t.Drill(spec["id"], point_angle=spec["point_angle"], **dims)
     stickout = spec["stickout"]
-    holder_length = spec.get("holder_length", 40)
-    gauge = stickout + holder_length
-    radius = spec.get("holder_diameter", 2 * spec["diameter"]) / 2
+    gauge = stickout + spec["holder_length"]
+    radius = spec["holder_diameter"] / 2
     return t.ToolAssembly(
         spec["id"], cutter, stickout_mm=stickout, gauge_length_mm=gauge,
         holders=(t.HolderSection(z_min_mm=stickout, z_max_mm=gauge, radius_min_mm=radius,
@@ -458,12 +599,12 @@ def _cutting(spec, *, plunge=True):
     out = dict(
         feed_mm_min=spec["feed_mm_min"],
         spindle_rpm=spec["spindle_rpm"],
-        coolant=spec.get("coolant", "off"),
+        coolant=spec["coolant"],
         tool_number=spec["number"],
         length_register=spec.get("length_register", spec["number"]),
     )
     if plunge:
-        out["plunge_mm_min"] = spec.get("plunge_mm_min", spec["feed_mm_min"] / 3)
+        out["plunge_mm_min"] = spec["plunge_mm_min"]
     return out
 
 
@@ -475,14 +616,23 @@ class Library:
         self.tools = data.get("tools") or []
         if not self.tools:
             raise PostError("the tool library has no tools")
+        for n, tool in enumerate(self.tools):
+            name = tool.get("id", f"tools[{n}]")
+            if tool.get("type") not in TOOL_KEYS_BY_TYPE:
+                raise PostError(f"tool {name}: type must be end_mill or drill, not {tool.get('type')!r}")
+            missing = [k for k in TOOL_KEYS + TOOL_KEYS_BY_TYPE[tool["type"]] if k not in tool]
+            if missing:
+                raise PostError(f"tool {name}: missing {', '.join(missing)}")
+            if tool["holder_diameter"] < tool.get("shank_diameter", tool["diameter"]):
+                raise PostError(f"tool {name}: holder_diameter is smaller than the shank")
         ids = [t["id"] for t in self.tools]
         if len(set(ids)) != len(ids):
             raise PostError("tool ids must be unique")
         self.drill_tolerance = data.get("drill_tolerance_mm", 0.05)
+        self.breakthrough = data.get("breakthrough_mm", 1.0)
 
     def end_mills(self):
-        return sorted((t for t in self.tools if t.get("type", "end_mill") == "end_mill"),
-                      key=lambda t: t["diameter"])
+        return sorted((t for t in self.tools if t["type"] == "end_mill"), key=lambda t: t["diameter"])
 
     def clearing(self, name):
         wanted = self.data.get(f"{name}_tool")
@@ -498,9 +648,11 @@ class Library:
         raise PostError(f"no tool {tool_id!r} in the library")
 
     def drill(self, diameter):
-        fits = [t for t in self.tools if t.get("type") == "drill"
-                and abs(t["diameter"] - diameter) <= self.drill_tolerance]
-        return min(fits, key=lambda t: abs(t["diameter"] - diameter)) if fits else None
+        """The drill closest to the diameter and never larger, at most `drill_tolerance_mm`
+        under it."""
+        fits = [t for t in self.tools if t["type"] == "drill"
+                and -1e-9 <= diameter - t["diameter"] <= self.drill_tolerance]
+        return max(fits, key=lambda t: t["diameter"]) if fits else None
 
     def bore_mill(self, diameter):
         """The largest end mill that fits inside the diameter with room to helix."""
@@ -509,7 +661,69 @@ class Library:
 
 
 def _drill_tip_length(spec):
-    return spec["diameter"] / 2 / math.tan(math.radians(spec.get("point_angle", 118)) / 2)
+    return spec["diameter"] / 2 / math.tan(math.radians(spec["point_angle"]) / 2)
+
+
+def _drill_depth(op, drill, library, stock_bottom, op_id, notes):
+    """(depth_z_mm, depth_reference, allow_breakthrough_mm) for drilling one hole group."""
+    d, bottom_z = op["diameter"], op["bottom_z"]
+    tip = _drill_tip_length(drill)
+    if op["bottom"] == "through":
+        clear = op.get("exit_clear_mm")
+        want = library.breakthrough
+        if clear is None:
+            depth, ref, tip_z = bottom_z - want, "full_diameter", bottom_z - want - tip
+        else:
+            room = clear - EXIT_MARGIN  # how far the tip may go past the exit
+            if room >= tip:
+                through = min(want, room - tip)
+                depth, ref, tip_z = bottom_z - through, "full_diameter", bottom_z - through - tip
+                if through < want:
+                    notes.append(f"{op_id}: part material {clear} mm beyond the exit: drilled only "
+                                 f"{_r(through)} mm past it at full diameter")
+            else:
+                tip_z = bottom_z - max(0.0, room)
+                depth, ref = tip_z, "tip"
+                notes.append(f"{op_id}: part material {clear} mm beyond the exit: the ⌀{d} drill "
+                             "cannot reach full diameter at the exit without cutting it; finish it "
+                             "another way")
+        if tip_z < stock_bottom - 1e-9:
+            notes.append(f"{op_id}: the drill tip goes {_r(stock_bottom - tip_z)} mm below the "
+                         "stock bottom: support the part clear of the holes (spoilboard, parallels)")
+            allow = stock_bottom - tip_z + 0.01
+        else:
+            allow = 0
+        return depth, ref, allow
+    if op["bottom"] == "drill_point":
+        # quiddity's depth ends where the cone starts: full diameter there; the drill's own point
+        # then ends where a cone of its angle would.
+        notes.append(f"{op_id}: ⌀{d} drill-point holes: full diameter at the model's depth; the "
+                     f"point ends {_r(tip)} mm deeper, at the {drill['point_angle']}° drill's angle "
+                     "(the model's cone angle is not read)")
+        return bottom_z, "full_diameter", 0
+    if op["bottom"] == "flat":
+        notes.append(f"{op_id}: ⌀{d} flat-bottomed holes: the drill's tip stops at the bottom, so "
+                     f"full diameter ends {_r(tip)} mm short of it and a point is left")
+    else:
+        notes.append(f"{op_id}: ⌀{d} holes with an unknown bottom: the drill's tip stops at the "
+                     "model's depth")
+    return bottom_z, "tip", 0
+
+
+def _bore_floor(op, library, stock_bottom, op_id, notes):
+    """The Bore floor for a hole group: through holes go past the exit as far as the stock
+    (camlib bores no lower) and any part material beyond allow."""
+    bottom_z = op["bottom_z"]
+    if op["bottom"] != "through":
+        return bottom_z
+    past = library.breakthrough
+    if op.get("exit_clear_mm") is not None:
+        past = min(past, max(0.0, op["exit_clear_mm"] - EXIT_MARGIN))
+    floor = max(stock_bottom, bottom_z - past)
+    if floor > bottom_z - 0.05:
+        notes.append(f"{op_id}: ⌀{op['diameter']} through holes are bored to the exit and no "
+                     "further (the stock or the part ends there): expect a skin or burr to clean up")
+    return floor
 
 
 def operations_for(setup, library, camlib, *, clearance, retract):
@@ -517,7 +731,7 @@ def operations_for(setup, library, camlib, *, clearance, retract):
     ops_mod = camlib["operations"]
     surface = camlib["surface"]
     ops, tools, notes = [], {}, []
-    breakthrough = library.data.get("breakthrough_mm", 1.0)
+    stock_bottom = setup["stock"]["min"][2]
 
     def use(spec):
         if spec["id"] not in tools:
@@ -556,20 +770,14 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                                                 routing="economical"),
                 radial_allowance_mm=radial, bottom_allowance_mm=bottom, omit_empty_cuts=True,
                 **_cutting(spec)))
+            notes.append(f"{op_id}: clears {radial} mm from the walls and leaves a "
+                         f"{op.get('web_mm', '?')} mm web around the part; it cuts the margin where "
+                         "vise jaws on the stock would be, so hold the stock from below or by the web")
         elif kind == "holes":
             d = op["diameter"]
-            through = op["bottom"] == "through"
             drill = library.drill(d)
             if drill is not None:
-                if through:
-                    depth = op["bottom_z"] - breakthrough
-                    allow = breakthrough + _drill_tip_length(drill) + 0.01
-                    ref = "full_diameter"
-                else:
-                    # Never deeper than the model: the tip stops at the hole's bottom.
-                    depth, allow, ref = op["bottom_z"], 0, "tip"
-                    if op["bottom"] == "flat":
-                        notes.append(f"{op_id}: ⌀{d} has a flat bottom; the drill leaves a point")
+                depth, ref, allow = _drill_depth(op, drill, library, stock_bottom, op_id, notes)
                 extra = {}
                 if drill.get("peck_mm"):
                     extra["peck_mm"] = drill["peck_mm"]
@@ -584,7 +792,8 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                 notes.append(f"{op_id}: no drill of ⌀{d} and no end mill small enough to bore it "
                              f"({', '.join(op['features'])})")
                 continue
-            ops.append(_bore(ops_mod, op_id, use(mill), mill, op["centers"], d, op["bottom_z"],
+            floor = _bore_floor(op, library, stock_bottom, op_id, notes)
+            ops.append(_bore(ops_mod, op_id, use(mill), mill, op["centers"], d, floor,
                              clearance, retract))
         elif kind == "counterbore":
             d = op["diameter"]
@@ -605,7 +814,7 @@ def _bore(ops_mod, op_id, tool, spec, centers, diameter, floor, clearance, retra
         op_id, tool, centers, diameter_mm=diameter, floor_z_mm=floor,
         stepdown_mm=spec["stepdown_mm"], clearance_z_mm=clearance,
         radial_stepover_mm=min(spec["stepover_mm"], spec["diameter"] / 2),
-        entry_feed_mm_min=spec.get("plunge_mm_min", spec["feed_mm_min"] / 3),
+        entry_feed_mm_min=spec["plunge_mm_min"],
         retract_feed_mm_min=spec.get("retract_feed_mm_min", spec["feed_mm_min"]),
         retract_z_mm=retract, feed_z_mm=retract, **cutting)
 
@@ -635,18 +844,23 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
     """Posts each setup of a plan to `out_dir/<stem>-<setup>.nc`; returns the paths."""
     if plan_data.get("format") != PLAN_FORMAT:
         raise PostError("not a step2cam plan (run `step2cam plan` first)")
-    camlib = _import_camlib()
-    jobs, post_mod = camlib["jobs"], camlib["post"]
     library = Library(library_data)
     machine_spec = dict(library_data.get("machine") or {})
     if not machine_spec:
         raise PostError("the tool library needs a `machine` (camlib assumes nothing about it)")
+    if machine_spec.get("tool_change_position_mode") != "table":
+        # Other modes need a camlib ToolChangePosition matching the machine, not wired up here.
+        raise PostError('machine.tool_change_position_mode must be "table" (the only mode wired up)')
     dialect = machine_spec.pop("dialect", "linuxcnc")
     if dialect != "linuxcnc":
         raise PostError("only the linuxcnc dialect is wired up here; see camlib's examples for others")
     machine_name = machine_spec.pop("name", "machine")
+    camlib = _import_camlib()
+    jobs, post_mod = camlib["jobs"], camlib["post"]
     clearance_above = library_data.get("clearance_mm", 10.0)
     retract_above = library_data.get("retract_mm", 2.0)
+    for warning in plan_data.get("warnings", []):
+        log(f"warning: {warning}")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -657,6 +871,8 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
         clearance = top + clearance_above
         retract = min(top + retract_above, clearance)
         ops, tools, notes = operations_for(setup, library, camlib, clearance=clearance, retract=retract)
+        log(f"setup {setup['id']}: zero X0 Y0 on the {setup.get('zero', 'stock')}'s minimum corner, "
+            f"Z0 on its top (model point {setup['origin_model']})")
         for note in notes:
             log(f"note: {note}")
         if not ops:
@@ -776,6 +992,8 @@ def _summary(p):
         lines.append(f"{s['id']}: {', '.join(kinds)}")
     for s in p["skipped"]:
         lines.append(f"skipped {s['feature']}: {s['reason']}")
+    for w in p.get("warnings", []):
+        lines.append(f"warning: {w}")
     return "\n".join(lines)
 
 

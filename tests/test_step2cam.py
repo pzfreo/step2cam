@@ -1,14 +1,21 @@
-"""Tests of the step2cam bridge. Standard library only: camlib is replaced by a stand-in that
-records what the bridge asks of it, so the tool choices are checked without the CAM engine.
+"""Tests of the step2cam bridge.
 
     python3 -m unittest discover -s tests
+
+Standard library only by default: camlib is replaced by a stand-in that records what the bridge
+asks of it. With camlib's Python sources on the path (CAMLIB_PYTHON=<camlib checkout>/python),
+the operations are also built from camlib's real classes; with camlib installed (its engine
+built), a whole plan is posted to G-code.
 """
 
 import copy
 import io
 import json
-import types
+import math
+import os
 import sys
+import tempfile
+import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -31,16 +38,36 @@ def det(rows):
     return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
 
 
-def synthetic(holes, bounds=((-20, -20, -10), (20, 20, 0))):
-    """An analysis with just these hole records."""
+BINDING = {"source_sha256": "x", "face_count": 1, "loader_version": 2, "part": 0}
+BOX = ((-20, -20, -10), (20, 20, 0))
+
+
+def synthetic(holes, bounds=BOX, features=(), faces=()):
+    """An analysis with these hole records (and other features and faces)."""
     return {
-        "binding": {"source_sha256": "x", "face_count": 1, "loader_version": 2, "part": 0},
+        "binding": BINDING,
+        "faces": list(faces),
         "features": [
             {"id": f"holes:{n}", "family": "holes", "record": r, "faces": []}
             for n, r in enumerate(holes)
-        ],
+        ] + list(features),
         "dimensioning": {"bounds": [list(bounds[0]), list(bounds[1])]},
     }
+
+
+def mesh_of(triangles, bounds=BOX):
+    """A mesh of just these triangles, for the synthetic analysis."""
+    positions = [x for tri in triangles for p in tri for x in p]
+    return {"format": "pmi-assist-mesh", "version": 2, "binding": BINDING,
+            "bbox": [list(bounds[0]), list(bounds[1])], "positions": positions,
+            "indices": list(range(3 * len(triangles))), "faces": [], "missing": [], "edges": []}
+
+
+def square(z, half=5, cx=0, cy=0):
+    """Two triangles: a level square at `z`."""
+    a, b, c, d = ((cx - half, cy - half, z), (cx + half, cy - half, z), (cx + half, cy + half, z),
+                  (cx - half, cy + half, z))
+    return [(a, b, c), (a, c, d)]
 
 
 def hole(axis, location, diameter, depth, bottom="through", **extra):
@@ -79,6 +106,7 @@ class Plan(unittest.TestCase):
             self.assertEqual((op["top_z"], op["bottom_z"], op["bottom"]), (-1, -11, "through"))
         self.assertEqual(by_d[8.0]["centers"], [[52, 32]])
         self.assertEqual(plan["skipped"], [])
+        self.assertEqual(top["zero"], "stock")
 
     def test_the_mesh_adds_roughing_in_the_setup_frame(self):
         plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
@@ -132,16 +160,20 @@ class Plan(unittest.TestCase):
         self.assertEqual((op["top_z"], op["bottom_z"]), (0, -10))
         self.assertEqual(op["centers"], [[27, 22]])
 
-    def test_a_blind_hole_from_below_needs_the_bottom_setup(self):
+    def test_a_blind_hole_from_below_needs_the_bottom_setup_zeroed_on_the_part(self):
         a = synthetic([hole([0, 0, 1], [5, 3, -10], 5, 4, bottom="flat")])
-        plan = step2cam.plan(a, top_stock=0)
+        plan = step2cam.plan(a, top_stock=1)
         bottom = [s for s in plan["setups"] if s["id"] == "bottom"][0]
+        # By the time the part is turned over, the stock around it has been roughed away: the
+        # setup is zeroed on the part's own box, not on the stock's.
+        self.assertEqual(bottom["zero"], "part")
+        self.assertEqual(bottom["stock"], {"min": [0, 0, -10], "max": [40, 40, 0]})
         op = bottom["operations"][0]
         self.assertEqual((op["top_z"], op["bottom_z"], op["bottom"]), (0, -4, "flat"))
-        # Turned over about X: model y=3 lands at stock y = 20 - 3 + 2 margin.
-        self.assertEqual(op["centers"], [[27, 19]])
+        # Turned over about X: model y=3 lands at y = 20 - 3.
+        self.assertEqual(op["centers"], [[25, 17]])
         # The origin recorded for the bottom setup maps back to the model point.
-        self.assertEqual(bottom["origin_model"], [-22, 22, -10])
+        self.assertEqual(bottom["origin_model"], [-20, 20, -10])
 
     def test_counterbores_become_their_own_operation_above_the_bore(self):
         a = synthetic([
@@ -157,6 +189,104 @@ class Plan(unittest.TestCase):
         self.assertEqual(len(cbores), 1)
         self.assertEqual((cbores[0]["diameter"], cbores[0]["top_z"], cbores[0]["floor_z"]), (11, 0, -3.5))
         self.assertEqual(len(cbores[0]["centers"]), 2)
+
+    def test_a_spotface_is_the_outermost_step_above_a_counterbore(self):
+        # quiddity: steps narrow inwards; the shallow spotface is usually the outermost.
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.6, 3.5, cbore={"diameter": 11, "depth": 6},
+                            spotface={"diameter": 20, "depth": 0.5})])
+        ops = step2cam.plan(a, top_stock=0)["setups"][0]["operations"]
+        cbores = sorted(((o["diameter"], o["top_z"], o["floor_z"]) for o in ops
+                         if o["kind"] == "counterbore"), reverse=True)
+        self.assertEqual(cbores, [(20, 0, -0.5), (11, -0.5, -6.5)])
+        holes = [o for o in ops if o["kind"] == "holes"][0]
+        self.assertEqual((holes["bore_top_z"], holes["bottom_z"]), (-6.5, -10))
+
+    def test_outer_steps_come_before_the_counterbore(self):
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 5, 5, cbore={"diameter": 9, "depth": 3},
+                            outer_steps=[{"diameter": 16, "depth": 2}])])
+        ops = step2cam.plan(a, top_stock=0)["setups"][0]["operations"]
+        cbores = sorted(((o["diameter"], o["top_z"], o["floor_z"]) for o in ops
+                         if o["kind"] == "counterbore"), reverse=True)
+        self.assertEqual(cbores, [(16, 0, -2), (9, -2, -5)])
+
+    def test_a_through_hole_with_a_capped_exit_is_not_entered_from_it(self):
+        a = synthetic([hole([0, 0, 1], [5, 0, -10], 6, 10, exit_obstructions=[
+            {"location": [5, 0, 0], "faces": [3], "covered_fraction": 0.4}])])
+        setups = step2cam.plan(a, top_stock=0)["setups"]
+        self.assertEqual([s["id"] for s in setups], ["bottom"])
+        self.assertNotIn("entered_from_exit", json.dumps(setups))
+
+    def test_material_above_the_opening_sends_the_hole_to_its_other_end(self):
+        # A ledge 5 mm above the top opening of a plain through hole.
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6, 10)], bounds=((-20, -20, -10), (20, 20, 5)))
+        mesh = mesh_of(square(5), bounds=((-20, -20, -10), (20, 20, 5)))
+        plan = step2cam.plan(a, mesh, top_stock=0)
+        bottom = [s for s in plan["setups"] if s["id"] == "bottom"]
+        self.assertEqual(len(bottom), 1)
+        self.assertEqual(bottom[0]["operations"][0]["features"], ["holes:0"])
+        self.assertNotIn("holes", [o["kind"] for o in plan["setups"][0]["operations"]])
+
+    def test_a_blind_hole_under_material_is_skipped(self):
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6, 4, bottom="flat")],
+                      bounds=((-20, -20, -10), (20, 20, 5)))
+        plan = step2cam.plan(a, mesh_of(square(5), bounds=((-20, -20, -10), (20, 20, 5))))
+        reason = plan["skipped"][0]["reason"]
+        self.assertTrue(reason.startswith("part material above its opening from top"), reason)
+
+    def test_material_beyond_a_through_exit_is_measured(self):
+        # A through hole that breaks into a cavity, with its far wall 2 mm below the exit.
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.6, 6)])
+        plan = step2cam.plan(a, mesh_of(square(-8)), top_stock=0)
+        op = [o for o in plan["setups"][0]["operations"] if o["kind"] == "holes"][0]
+        self.assertEqual((op["bottom_z"], op["exit_clear_mm"]), (-6, 2))
+        self.assertTrue(any("ends 4.0 mm short of the part's far face" in w for w in plan["warnings"]))
+
+    def test_an_exit_on_the_parts_face_has_nothing_beyond_it(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        for op in plan["setups"][0]["operations"]:
+            if op["kind"] == "holes":
+                self.assertIsNone(op["exit_clear_mm"])
+        self.assertEqual(plan["warnings"], [])
+
+    def test_without_a_mesh_an_inner_exit_counts_as_blocked(self):
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.6, 6)])
+        plan = step2cam.plan(a, top_stock=0)
+        op = plan["setups"][0]["operations"][0]
+        self.assertEqual(op["exit_clear_mm"], 0)
+        self.assertTrue(plan["warnings"][0].startswith("no mesh"))
+
+    def test_roughing_covers_only_features_it_can_reach(self):
+        faces = [{"id": 0, "kind": "plane", "direction": [0, 0, 1]},
+                 {"id": 1, "kind": "plane", "direction": [0, 0, -1]},
+                 {"id": 2, "kind": "plane", "direction": [1, 0, 0]}]
+        features = [
+            {"id": "pockets:0", "family": "pockets", "record": {}, "faces": [0, 2]},  # opens up
+            {"id": "pockets:1", "family": "pockets", "record": {}, "faces": [1, 2]},  # opens down
+            {"id": "fillets:3", "family": "fillets", "record": {}, "faces": [2]},
+            {"id": "hole_patterns:4", "family": "hole_patterns", "record": {}, "faces": []},
+        ]
+        a = synthetic([], features=features, faces=faces)
+        plan = step2cam.plan(a, mesh_of(square(-10, half=20)))
+        self.assertEqual(plan["covered_by_roughing"], ["pockets:0", "fillets:3"])
+        self.assertEqual([s["feature"] for s in plan["skipped"]], ["pockets:1"])
+        # Without the mesh nothing is roughed, and every family is listed.
+        plan = step2cam.plan(a)
+        self.assertEqual([s["feature"] for s in plan["skipped"]],
+                         ["pockets:0", "pockets:1", "fillets:3"])
+
+    def test_roughing_says_what_web_it_leaves(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        rough = [o for o in plan["setups"][0]["operations"] if o["kind"] == "roughing"][0]
+        self.assertEqual(rough["web_mm"], 0.5)
+
+    def test_roughing_from_another_side(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"),
+                             rough_from="bottom")
+        first = plan["setups"][0]
+        self.assertEqual((first["id"], first["zero"]), ("bottom", "stock"))
+        # The plate's through holes are plain, so they are drilled from the roughing side.
+        self.assertEqual(sum(len(o["centers"]) for o in first["operations"] if o["kind"] == "holes"), 8)
+        self.assertEqual(len(plan["setups"]), 1)
 
     def test_oblique_holes_and_countersinks_are_listed_not_cut(self):
         a = synthetic([
@@ -247,19 +377,28 @@ def stand_in():
     return {mod: types.SimpleNamespace(**{n: maker(n) for n in ns}) for mod, ns in names.items()}
 
 
+def example_tools():
+    return json.loads((ROOT / "examples" / "tools.example.json").read_text(encoding="utf-8"))
+
+
+TIP_66 = 6.6 / 2 / math.tan(math.radians(59))
+TIP_42 = 4.2 / 2 / math.tan(math.radians(59))
+
+
 class Post(unittest.TestCase):
+    camlib = staticmethod(stand_in)
+
     def setUp(self):
-        self.library = step2cam.Library(json.loads((ROOT / "examples" / "tools.example.json").read_text()))
+        self.library = step2cam.Library(example_tools())
 
     def ops(self, plan, setup=0):
-        return step2cam.operations_for(plan["setups"][setup], self.library, stand_in(),
+        return step2cam.operations_for(plan["setups"][setup], self.library, self.camlib(),
                                        clearance=10, retract=2)
 
     def test_plate_drills_what_has_a_drill_and_bores_the_rest(self):
         plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
         ops, tools, notes = self.ops(plan)
         self.assertEqual([o.kind for o in ops], ["Facing", "Roughing", "Drilling", "Drilling", "Bore"])
-        self.assertEqual(notes, [])
         facing, rough, d42, d66, bore = ops
         self.assertEqual(facing.args[1].id, "em6")
         self.assertEqual(facing.kwargs["floor_z_mm"], -1)
@@ -270,26 +409,66 @@ class Post(unittest.TestCase):
         self.assertEqual(d42.args[1].id, "drill4.2")
         self.assertEqual(d66.args[1].id, "drill6.6")
         self.assertEqual(len(d66.args[2]), 6)
-        # Through: full diameter 1 mm past the bottom, the point allowed below the stock.
+        # Through, onto the part's face: full diameter 1 mm past it, the tip below the stock
+        # bottom (-11) allowed and said.
         self.assertEqual(d66.kwargs["depth_reference"], "full_diameter")
         self.assertEqual(d66.kwargs["depth_z_mm"], -12)
-        self.assertGreater(d66.kwargs["allow_breakthrough_mm"], 1 + 6.6 / 2 / 1.7)
+        self.assertAlmostEqual(d66.kwargs["allow_breakthrough_mm"], 1 + TIP_66 + 0.01)
+        self.assertTrue(any("below the stock bottom" in n for n in notes))
+        self.assertTrue(any("web" in n and "vise" in n for n in notes))
         self.assertEqual(d66.kwargs["peck_mm"], 4)
-        # No 8 mm drill: helical bore with the largest end mill that fits.
+        # No 8 mm drill: helical bore with the largest end mill that fits, to the stock bottom,
+        # which it cannot pass: a skin is expected and said.
         self.assertEqual((bore.args[1].id, bore.kwargs["diameter_mm"], bore.kwargs["floor_z_mm"]),
                          ("em6", 8.0, -11))
+        self.assertTrue(any("skin or burr" in n for n in notes))
         self.assertEqual(sorted(t.id for t in tools), ["drill4.2", "drill6.6", "em6"])
         for tool in tools:
-            gauge = tool.kwargs["gauge_length_mm"]
-            self.assertGreater(gauge, tool.kwargs["stickout_mm"])
+            self.assertGreater(tool.kwargs["gauge_length_mm"], tool.kwargs["stickout_mm"])
 
-    def test_blind_holes_stop_at_the_bottom_with_the_tip(self):
+    def test_stock_below_lets_a_bore_break_through(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"), bottom_stock=2)
+        ops, _, notes = self.ops(plan)
+        bore = [o for o in ops if o.kind == "Bore"][0]
+        self.assertEqual(bore.kwargs["floor_z_mm"], -12)
+        self.assertFalse(any("skin or burr" in n for n in notes))
+
+    def test_blind_flat_holes_stop_at_the_bottom_with_the_tip(self):
         a = synthetic([hole([0, 0, -1], [0, 0, 0], 4.2, 6, bottom="flat")])
         ops, _, notes = self.ops(step2cam.plan(a, top_stock=0))
         drill = ops[0]
         self.assertEqual((drill.kwargs["depth_reference"], drill.kwargs["depth_z_mm"]), ("tip", -6))
         self.assertEqual(drill.kwargs["allow_breakthrough_mm"], 0)
-        self.assertTrue(any("flat bottom" in n for n in notes))
+        self.assertTrue(any("full diameter ends" in n and "short" in n for n in notes))
+
+    def test_drill_point_holes_reach_full_diameter_at_the_models_depth(self):
+        # quiddity's depth stops where the cone starts.
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 4.2, 6, bottom="drill_point")])
+        ops, _, notes = self.ops(step2cam.plan(a, top_stock=0))
+        drill = ops[0]
+        self.assertEqual((drill.kwargs["depth_reference"], drill.kwargs["depth_z_mm"]),
+                         ("full_diameter", -6))
+        self.assertTrue(any("drill-point" in n for n in notes))
+
+    def test_part_material_beyond_the_exit_limits_the_drill(self):
+        # The far wall of a cavity 2 mm below the exit (EXIT_MARGIN 0.2 kept from it).
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.6, 6), hole([0, 0, -1], [10, 0, 0], 4.2, 6)])
+        mesh = mesh_of(square(-8, half=15, cx=5))
+        ops, _, notes = self.ops(step2cam.plan(a, mesh, top_stock=0))
+        ops = [o for o in ops if o.kind == "Drilling"]
+        by_tool = {o.args[1].id: o for o in ops}
+        # ⌀4.2: its tip fits in the 1.8 mm, so full diameter goes 1.8 - tip past the exit.
+        d42 = by_tool["drill4.2"]
+        self.assertEqual(d42.kwargs["depth_reference"], "full_diameter")
+        self.assertAlmostEqual(d42.kwargs["depth_z_mm"], -6 - (1.8 - TIP_42))
+        self.assertAlmostEqual(d42.kwargs["depth_z_mm"] - TIP_42, -7.8)
+        # ⌀6.6: its tip is longer than the room: tip at -7.8, full diameter never reaches the
+        # exit, and the note says so.
+        d66 = by_tool["drill6.6"]
+        self.assertEqual((d66.kwargs["depth_reference"], d66.kwargs["depth_z_mm"]), ("tip", -7.8))
+        self.assertTrue(any("cannot reach full diameter" in n for n in notes))
+        for op in ops:
+            self.assertEqual(op.kwargs["allow_breakthrough_mm"], 0)
 
     def test_a_hole_no_tool_fits_is_a_note_not_a_guess(self):
         a = synthetic([hole([0, 0, -1], [0, 0, 0], 2.5, 6)])
@@ -297,11 +476,48 @@ class Post(unittest.TestCase):
         self.assertEqual(ops, [])
         self.assertTrue(any("no drill of ⌀2.5" in n for n in notes))
 
+    def test_a_drill_is_never_larger_than_the_hole(self):
+        a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.58, 10), hole([0, 0, -1], [9, 0, 0], 6.64, 10)])
+        ops, _, _ = self.ops(step2cam.plan(a, top_stock=0))
+        chosen = {o.kwargs.get("diameter_mm") or o.args[1].id for o in ops}
+        self.assertEqual(chosen, {6.58, "drill6.6"})  # 6.58: bored; 6.64: the 6.6 drill
+
     def test_counterbores_are_bored_with_an_end_mill(self):
         a = synthetic([hole([0, 0, -1], [0, 0, 0], 6.6, 6.5, cbore={"diameter": 11, "depth": 3.5})])
         ops, _, _ = self.ops(step2cam.plan(a, top_stock=0))
         cbore = [o for o in ops if o.kind == "Bore"][0]
         self.assertEqual((cbore.kwargs["diameter_mm"], cbore.kwargs["floor_z_mm"]), (11, -3.5))
+
+    def test_the_plan_is_not_changed_by_posting(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"))
+        before = copy.deepcopy(plan)
+        self.ops(plan)
+        self.assertEqual(plan, before)
+
+
+class Library(unittest.TestCase):
+    def test_holder_and_cutting_data_have_no_defaults(self):
+        for key in ("holder_diameter", "holder_length", "coolant", "point_angle", "plunge_mm_min"):
+            data = example_tools()
+            for tool in data["tools"]:
+                tool.pop(key, None)
+            with self.subTest(key), self.assertRaises(step2cam.PostError) as caught:
+                step2cam.Library(data)
+            self.assertIn(key, str(caught.exception))
+
+    def test_a_holder_narrower_than_the_shank_is_refused(self):
+        data = example_tools()
+        data["tools"][0]["holder_diameter"] = 3
+        with self.assertRaises(step2cam.PostError):
+            step2cam.Library(data)
+
+    def test_only_table_tool_changes_are_posted(self):
+        data = example_tools()
+        data["machine"]["tool_change_position_mode"] = "z_home"
+        plan = step2cam.plan(fixture("plate.analysis.json"))
+        with tempfile.TemporaryDirectory() as out, self.assertRaises(step2cam.PostError) as caught:
+            step2cam.post(plan, data, out, log=lambda _: None)
+        self.assertIn("table", str(caught.exception))
 
     def test_the_wrong_camlib_is_named(self):
         saved = {k: v for k, v in sys.modules.items() if k == "camlib" or k.startswith("camlib.")}
@@ -316,11 +532,76 @@ class Post(unittest.TestCase):
             del sys.modules["camlib"]
             sys.modules.update(saved)
 
-    def test_the_plan_is_not_changed_by_posting(self):
-        plan = step2cam.plan(fixture("plate.analysis.json"))
-        before = copy.deepcopy(plan)
-        self.ops(plan)
-        self.assertEqual(plan, before)
+
+# -------------------------------------------------------------------------------------------
+# post, against camlib itself
+# -------------------------------------------------------------------------------------------
+
+if os.environ.get("CAMLIB_PYTHON"):
+    sys.path.insert(0, os.environ["CAMLIB_PYTHON"])
+
+
+def _camlib_classes():
+    try:
+        import camlib.operations as operations
+        import camlib.surface as surface
+        import camlib.tools as tools
+    except ImportError:
+        return None
+    if not hasattr(operations, "Drilling"):
+        return None
+    return dict(operations=operations, surface=surface, tools=tools)
+
+
+def _camlib_engine():
+    try:
+        import camlib.jobs  # noqa: F401  (needs camlib's compiled engine)
+    except ImportError:
+        return False
+    return True
+
+
+@unittest.skipUnless(_camlib_classes(), "camlib's Python sources (CAMLIB_PYTHON=<checkout>/python)")
+class PostWithCamlibClasses(Post):
+    """The same cases, built from camlib's real classes: a wrong argument name fails here."""
+
+    camlib = staticmethod(_camlib_classes)
+
+    def ops(self, plan, setup=0):
+        ops, tools, notes = super().ops(plan, setup)
+        wrapped = [Real(o) for o in ops]
+        for o in ops + tools:
+            o.to_dict()
+        return wrapped, [Real(t) for t in tools], notes
+
+
+class Real:
+    """A camlib object read through the stand-in's `kind`/`args`/`kwargs`/`id`."""
+
+    def __init__(self, obj):
+        self.obj = obj
+        self.kind = type(obj).__name__
+        self.id = getattr(obj, "id", None)
+        fields = list(getattr(obj, "__dataclass_fields__", {}))
+        self.kwargs = {f: getattr(obj, f) for f in fields}
+        self.args = tuple(Real(getattr(obj, f)) if hasattr(getattr(obj, f), "__dataclass_fields__")
+                          else getattr(obj, f) for f in fields[:3])
+        if self.kind == "SurfaceMesh":
+            self.args = (obj.triangles,)
+
+
+@unittest.skipUnless(_camlib_engine(), "camlib installed with its engine")
+class PostToGcode(unittest.TestCase):
+    def test_the_plate_posts(self):
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        with tempfile.TemporaryDirectory() as out:
+            log = []
+            written = step2cam.post(plan, example_tools(), out, stem="plate", log=log.append,
+                                    accept={"uncertain"})
+            self.assertEqual([p.name for p in written], ["plate-top.nc"])
+            text = written[0].read_text()
+            self.assertIn("G", text)
+            self.assertTrue(any(line.startswith("setup top:") for line in log), log)
 
 
 if __name__ == "__main__":
