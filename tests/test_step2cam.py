@@ -643,6 +643,22 @@ class PostToGcode(unittest.TestCase):
             self.assertIn("G", text)
             self.assertTrue(any(line.startswith("setup top:") for line in log), log)
 
+    def test_operation_updates_count_the_programs_motion_lines(self):
+        # demo/ ties G-code lines to operations by this count, so it must match the file.
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        updates = []
+        with tempfile.TemporaryDirectory() as out:
+            written = step2cam.post(plan, example_tools(), out, stem="plate", log=lambda _: None,
+                                    accept={"uncertain"},
+                                    on_operation=lambda setup, update: updates.append((setup, update)))
+            lines = written[0].read_text().splitlines()
+        motions = sum(line.split()[0] in ("G0", "G1", "G2", "G3") for line in lines if line.strip())
+        ends = [u for _, u in updates if u.stage == "end"]
+        self.assertEqual([s for s, _ in updates], ["top"] * len(updates))
+        self.assertEqual([u.operation for u in ends],
+                         [f"top-{n + 1}-{op['kind']}" for n, op in enumerate(plan["setups"][0]["operations"])])
+        self.assertEqual(ends[-1].completed, motions)
+
 
 if __name__ == "__main__":
     unittest.main()

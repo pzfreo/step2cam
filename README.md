@@ -27,7 +27,9 @@ python -m pip install git+https://github.com/stevecad/camlib   # camlib, for `po
   `pip install camlib` gets that one, and `step2cam post` will say so. Install camlib from
   GitHub as above. That compiles its Rust engine, so it needs a Rust toolchain
   ([rustup](https://rustup.rs)); camlib can also build a Linux wheel in Docker
-  (`packaging/build-manylinux-wheel.sh` in its repo).
+  (`packaging/build-manylinux-wheel.sh` in its repo). On macOS the build stops at linking with
+  undefined `_Py` symbols; set
+  `RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"` for the install.
 
 Planning needs only specify-core, so you can plan on one machine and post on another.
 
@@ -54,6 +56,21 @@ step2cam post part.plan.json --tools my-tools.json -o out/     # plan -> G-code,
 `step2cam step --part N` picks one part of an assembly; `--no-mesh` skips roughing.
 `step2cam plan analysis.json --mesh mesh.json` plans from JSON that `specify-core analyse` and
 `specify-core mesh` wrote.
+
+## Demo
+
+`demo/` is a local page: open a STEP file and see its recognised features beside the toolpaths
+that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line and the
+others follow; press Play and the feature being cut lights up.
+
+```bash
+python demo/serve.py    # needs specify-core and camlib; then open http://127.0.0.1:8765
+```
+
+It uses `examples/tools.example.json`, so a hole that library has no tool for is reported, not
+cut. If camlib refuses roughing for a part, the demo leaves roughing out and says so. Machining
+times are estimates from the feed rates; the timeline compresses them so that holes are not lost
+beside roughing. The server does the work for now, so this is not yet a GitHub Pages site.
 
 ## The plan (`specify-cam-plan`, version 1)
 

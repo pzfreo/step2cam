@@ -916,8 +916,11 @@ def _import_camlib():
                 surface=surface, tools=tools, verification=verification)
 
 
-def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(), log=print):
-    """Posts each setup of a plan to `out_dir/<stem>-<setup>.nc`; returns the paths."""
+def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(), log=print,
+         on_operation=None):
+    """Posts each setup of a plan to `out_dir/<stem>-<setup>.nc`; returns the paths.
+    `on_operation(setup_id, update)` receives camlib's operation updates: each says which
+    operation began or ended after how many of the program's motions."""
     if plan_data.get("format") != PLAN_FORMAT:
         raise PostError("not a step2cam plan (run `step2cam plan` first)")
     library = Library(library_data)
@@ -1001,8 +1004,11 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
             **machine_spec,
         )
         path = out_dir / f"{stem}-{setup['id']}.nc"
+        extra = {}
+        if on_operation is not None:
+            extra["on_operation"] = lambda update, setup_id=setup["id"]: on_operation(setup_id, update)
         program = job.post_nc(setup["id"], machine=machine, path=str(path), accept=accept,
-                              lowering=post_mod.LoweringOptions(native_arcs=True))
+                              lowering=post_mod.LoweringOptions(native_arcs=True), **extra)
         log(f"setup {setup['id']}: {path} ({program.lines} lines, {program.motions} motions; "
             f"unchecked: {program.unchecked})")
         written.append(path)
