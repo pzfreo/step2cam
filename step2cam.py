@@ -224,6 +224,72 @@ def _clear_below(triangles, centre, z, radius):
     return found
 
 
+# camlib refuses a roughing mesh whose stated error is larger than this (mm).
+CAMLIB_MAX_SURFACE_ERROR = 0.1
+# specify-core rounds mesh coordinates to 4 decimals: up to this much error per point (mm).
+ROUNDING_ERROR = 1e-4 * math.sqrt(3)
+
+
+def _point_to_triangle_2d(c, tri):
+    """Distance in a plane from the point `c` to the triangle `tri` (0 inside it)."""
+    if _disk_meets_triangle(c, 0.0, tri):
+        (ax, ay), (bx, by), (cx, cy) = [(p[0], p[1]) for p in tri]
+        px, py = c
+
+        def side(x1, y1, x2, y2):
+            return (x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)
+
+        s1, s2, s3 = side(ax, ay, bx, by), side(bx, by, cx, cy), side(cx, cy, ax, ay)
+        if (s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0):
+            return 0.0
+    best = math.inf
+    for a, b in ((tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = dx * dx + dy * dy
+        t = 0.0 if not length else max(0.0, min(1.0, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / length))
+        best = min(best, math.hypot(c[0] - (a[0] + t * dx), c[1] - (a[1] + t * dy)))
+    return best
+
+
+def _cylinder_error(triangles, face):
+    """How far a cylinder face's flat triangles stray from the cylinder: its radius less the
+    closest any triangle comes to the axis. Exact for triangles whose corners are on the
+    surface; the triangles lie inside the cylinder's convex section, so this is the most."""
+    axis = _unit(face["direction"])
+    # Two directions across the axis, to project onto the cylinder's cross-section.
+    helper = [1.0, 0.0, 0.0] if abs(axis[0]) < 0.9 else [0.0, 1.0, 0.0]
+    u = _unit([axis[1] * helper[2] - axis[2] * helper[1], axis[2] * helper[0] - axis[0] * helper[2],
+               axis[0] * helper[1] - axis[1] * helper[0]])
+    v = [axis[1] * u[2] - axis[2] * u[1], axis[2] * u[0] - axis[0] * u[2], axis[0] * u[1] - axis[1] * u[0]]
+    origin = face["origin"]
+    worst = 0.0
+    for tri in triangles:
+        flat = [(_dot(_add(p, _scale(origin, -1)), u), _dot(_add(p, _scale(origin, -1)), v)) for p in tri]
+        worst = max(worst, face["radius"] - _point_to_triangle_2d((0.0, 0.0), flat))
+    return worst
+
+
+def _surface_error(mesh, faces, deflection):
+    """The most the mesh strays from the part: none on flat faces, measured on cylinders, and
+    specify-core's chordal deflection bound on any other curved face; plus coordinate rounding."""
+    triangles = _mesh_triangles(mesh)
+    worst = 0.0
+    for index, (start, count) in enumerate(mesh.get("faces") or []):
+        if not count:
+            continue
+        face = faces.get(index) or {}
+        kind = face.get("kind")
+        if kind == "plane":
+            continue
+        if kind == "cylinder" and {"direction", "origin", "radius"} <= set(face):
+            worst = max(worst, _cylinder_error(triangles[start:start + count], face))
+        else:
+            worst = max(worst, deflection)
+    if not mesh.get("faces"):
+        worst = deflection
+    return worst + ROUNDING_ERROR
+
+
 def _hole_entries(record):
     """The ways a hole can be cut: (axis, mouth, reversed?) for its own opening and, for a
     plain through hole whose far opening is not partly capped, the other end too."""
@@ -479,7 +545,12 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
             part_top, part_bottom = part[1][2], part[0][2]
             if frame.stock[1][2] - part_top > 1e-6:
                 ops.append({"kind": "facing", "floor_z": _r(part_top)})
+            error = None
+            if mesh is not None and not mesh.get("missing"):
+                # specify-core meshes curved faces to 0.1% of the part's diagonal.
+                error = _surface_error(mesh, faces, math.dist(part_lo, part_hi) * 0.001)
             if mesh is not None:
+                floor = min(part_bottom + skin, part_top)
                 if mesh.get("missing"):
                     skipped.append(
                         {
@@ -488,9 +559,15 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
                             "with holes in it would let roughing cut into the part",
                         }
                     )
+                elif error > CAMLIB_MAX_SURFACE_ERROR:
+                    skipped.append(
+                        {
+                            "feature": "roughing",
+                            "reason": f"the mesh strays up to {_r(error)} mm from the part's "
+                            f"curved faces; camlib accepts at most {CAMLIB_MAX_SURFACE_ERROR} mm",
+                        }
+                    )
                 else:
-                    diagonal = math.dist(part_lo, part_hi)
-                    floor = min(part_bottom + skin, part_top)
                     ops.append(
                         {
                             "kind": "roughing",
@@ -500,9 +577,8 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
                             # leaves a web this thick that holds the part, and cuts where vise
                             # jaws on the stock's sides would be.
                             "web_mm": _r(floor - part_bottom),
-                            # specify-core meshes to 0.1% of the diagonal, then rounds to
-                            # 4 decimals.
-                            "surface_error_mm": _r(diagonal * 0.001 + 1e-4),
+                            # Rounded up, so the rounding never understates it.
+                            "surface_error_mm": math.ceil(error * 10**DECIMALS) / 10**DECIMALS,
                             "positions": _mesh_for(mesh, frame),
                             "indices": list(mesh["indices"]),
                         }

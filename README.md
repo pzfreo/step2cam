@@ -163,8 +163,11 @@ camlib plans, simulates, checks every move against the stock and posts with its 
 - neither tool knows your work offsets, clamps or tool lengths;
 - camlib's checks here protect the stock, not the finished part (no fixtures or protected
   bodies are declared);
-- the roughing mesh is specify-core's triangulation (deflection 0.1% of the part's
-  diagonal), not an exact surface, so the roughing allowance is kept at least twice that.
+- the roughing mesh is specify-core's triangulation, not an exact surface. Its error
+  (`surface_error_mm`) is measured: none on flat faces, the exact chord error on cylinders,
+  and specify-core's bound (0.1% of the part's diagonal) on any other curved face. The
+  roughing allowance is kept at least twice that. camlib refuses a mesh with more than
+  0.1 mm of error, so a large part with such faces is not roughed (the plan says why).
 
 **Simulate the G-code in your own tools, dry-run above the part, and single-block the first
 run.**

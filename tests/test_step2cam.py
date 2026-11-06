@@ -274,6 +274,46 @@ class Plan(unittest.TestCase):
         self.assertEqual([s["feature"] for s in plan["skipped"]],
                          ["pockets:0", "pockets:1", "fillets:3"])
 
+    def test_the_mesh_error_is_measured_on_flats_and_cylinders(self):
+        # The plate is flat faces and holes: its triangles stray only by the holes' chords,
+        # far less than specify-core's 0.1%-of-diagonal bound (0.117 mm here), which camlib
+        # (at most 0.1 mm) would refuse.
+        plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
+        rough = [o for o in plan["setups"][0]["operations"] if o["kind"] == "roughing"][0]
+        self.assertTrue(0.01 < rough["surface_error_mm"] < 0.02, rough["surface_error_mm"])
+        # Checked by sampling each cylinder triangle against its cylinder.
+        analysis, mesh = fixture("plate.analysis.json"), fixture("plate.mesh.json")
+        faces = {f["id"]: f for f in analysis["faces"]}
+        tris = step2cam._mesh_triangles(mesh)
+        sampled = 0.0
+        for index, (start, count) in enumerate(mesh["faces"]):
+            face = faces[index]
+            if face["kind"] != "cylinder":
+                continue
+            axis, origin = step2cam._unit(face["direction"]), face["origin"]
+            for t in tris[start:start + count]:
+                for i in range(6):
+                    for j in range(6 - i):
+                        w = (i / 5, j / 5, 1 - i / 5 - j / 5)
+                        q = [sum(w[k] * t[k][n] for k in range(3)) - origin[n] for n in range(3)]
+                        along = step2cam._dot(q, axis)
+                        radial = math.sqrt(max(0.0, step2cam._dot(q, q) - along * along))
+                        sampled = max(sampled, abs(face["radius"] - radial))
+        self.assertLessEqual(sampled, rough["surface_error_mm"])
+
+    def test_a_mesh_too_coarse_for_camlib_is_not_roughed(self):
+        # A curved face of a kind not measured here takes specify-core's bound: 0.1% of a
+        # 200 mm diagonal is over camlib's 0.1 mm.
+        bounds = ((0, 0, -10), (150, 130, 0))
+        faces = [{"id": 0, "kind": "bspline"}]
+        a = synthetic([], bounds=bounds, faces=faces)
+        mesh = mesh_of(square(-5, half=10, cx=50, cy=50), bounds=bounds)
+        mesh["faces"] = [[0, 2]]
+        plan = step2cam.plan(a, mesh)
+        self.assertNotIn("roughing", [o["kind"] for o in plan["setups"][0]["operations"]])
+        reason = [s["reason"] for s in plan["skipped"] if s["feature"] == "roughing"][0]
+        self.assertIn("camlib accepts at most 0.1 mm", reason)
+
     def test_roughing_says_what_web_it_leaves(self):
         plan = step2cam.plan(fixture("plate.analysis.json"), fixture("plate.mesh.json"))
         rough = [o for o in plan["setups"][0]["operations"] if o["kind"] == "roughing"][0]
