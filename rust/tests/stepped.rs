@@ -57,10 +57,11 @@ fn a_raised_boss_outline_is_not_followed_down_through_the_plate() {
     assert!(out["plan"]["skipped"].to_string().contains("r0.8 edge round"));
 }
 
-/// camlib cannot yet build a roughing shadow of a chamfered outline. If this starts failing because
-/// roughing runs, that has changed: this test and the note in the README can go.
+/// camlib refuses to rough a plate with rounded corners, a chamfered top edge and a boss together.
+/// If this starts failing because roughing runs, that has changed: this test and the note in the
+/// README can go.
 #[test]
-fn a_chamfered_outline_loses_roughing_says_why_and_keeps_the_rest() {
+fn a_chamfered_plate_with_a_boss_loses_roughing_says_why_and_keeps_the_rest() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["post_error"].is_null(), "{}", out["post_error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();

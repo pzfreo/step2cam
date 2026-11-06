@@ -256,11 +256,13 @@ camlib plans, simulates, checks every move against the stock and posts with its 
 **Simulate the G-code in your own tools, dry-run above the part, and single-block the first
 run.**
 
-## Known limit: chamfered outlines
+## Known limit: roughing a chamfered plate with a boss
 
-camlib currently refuses to rough a part whose outline has a chamfered top edge ("constructed region
-failed topology validation"). The operation is left out and reported, and the rest of the part is
-still cut. `tests/fixtures/synthetic/stepped-plate-chamfered.step` reproduces it.
+camlib refuses to rough a part with rounded upright corners, a chamfered top edge and a raised boss
+together ("constructed region failed topology validation"); take any one away and it roughs. Why is
+not yet known. The operation is left out and reported, and the rest of the part is still cut.
+`tests/fixtures/synthetic/stepped-plate-chamfered.step` reproduces it, and
+`roughing-refused.manifest.json` beside it is a smaller camlib job that does.
 
 ## Not done (yet)
 
