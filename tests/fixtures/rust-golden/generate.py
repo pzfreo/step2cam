@@ -36,3 +36,14 @@ with TemporaryDirectory() as out:
     written = step2cam.post(plate, library, out, stem="plate", accept={"uncertain"}, log=lambda _: None)
     (HERE / "plate-top.nc").write_text(written[0].read_text())
 (HERE / "plate.manifest.json").write_text(json.dumps(captured["manifest"]))
+
+# The same plate with its ⌀4.2 hole answered as tapped M5.
+analysis = fixture("plate.analysis.json")
+tapped = next(f["id"] for f in analysis["features"] if f["family"] == "holes" and f["record"]["diameter"] == 4.2)
+analysis["resume"] = {"answers": {f"hole.function:{tapped}": "tapped:M5"}}
+threaded = step2cam.plan(analysis, fixture("plate.mesh.json"))
+(HERE / "plate-thread.plan.json").write_text(json.dumps(threaded))
+with TemporaryDirectory() as out:
+    written = step2cam.post(threaded, library, out, stem="plate", accept={"uncertain"}, log=lambda _: None)
+    (HERE / "plate-thread-top.nc").write_text(written[0].read_text())
+(HERE / "plate-thread.manifest.json").write_text(json.dumps(captured["manifest"]))

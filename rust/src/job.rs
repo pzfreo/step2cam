@@ -2,15 +2,26 @@
 //! A job is camlib's manifest, plain JSON, one per setup.
 use crate::plan::{PLAN_FORMAT, r, show};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 
 /// Kept between a drill tip and material found beyond a through hole's exit (mm).
 const EXIT_MARGIN: f64 = 0.2;
 /// Every tool needs these: no defaults, as holder size and cutting data are specific to the tool,
 /// material and machine.
-const TOOL_KEYS: [&str; 12] = [
-    "id", "type", "number", "diameter", "flute_length", "overall_length", "stickout", "holder_length",
+const TOOL_KEYS: [&str; 11] = [
+    "id", "type", "number", "diameter", "overall_length", "stickout", "holder_length",
     "holder_diameter", "feed_mm_min", "spindle_rpm", "coolant",
 ];
+/// Thread milling passes, unless the tool says otherwise: the thread depth in two radial steps,
+/// then one spring pass at full depth.
+const RADIAL_PASSES: u64 = 2;
+const SPRING_PASSES: u64 = 1;
+/// camlib proves a thread mill's neck clear of the hole wall beside the groove from its stock
+/// grid: a cell up to its diagonal away can still count as wall. The grid is made fine enough for
+/// the neck's clearance, with this much in hand...
+const NECK_CELL_SAFETY: f64 = 1.25;
+/// ...but no finer than a stock grid of this many cells.
+const MAX_STOCK_CELLS: f64 = 16_000_000.;
 
 fn num(v: &Value, key: &str) -> Result<f64, String> {
     v.get(key).and_then(Value::as_f64).ok_or_else(|| format!("missing number {key}"))
@@ -37,9 +48,11 @@ impl<'a> Library<'a> {
             let name = tool["id"].as_str().map_or_else(|| format!("tools[{n}]"), String::from);
             let kind = tool["type"].as_str().unwrap_or("");
             let extra: &[&str] = match kind {
-                "end_mill" => &["plunge_mm_min", "stepdown_mm", "stepover_mm"],
-                "drill" => &["point_angle"],
-                other => return Err(format!("tool {name}: type must be end_mill or drill, not {other:?}")),
+                "end_mill" => &["flute_length", "plunge_mm_min", "stepdown_mm", "stepover_mm"],
+                "drill" => &["flute_length", "point_angle"],
+                // A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
+                "thread_mill" => &["tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"],
+                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, not {other:?}")),
             };
             let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
             if !missing.is_empty() {
@@ -48,6 +61,9 @@ impl<'a> Library<'a> {
             let shank = tool.get("shank_diameter").and_then(Value::as_f64).unwrap_or(num(tool, "diameter")?);
             if num(tool, "holder_diameter")? < shank {
                 return Err(format!("tool {name}: holder_diameter is smaller than the shank"));
+            }
+            if kind == "thread_mill" && num(tool, "neck_diameter")? >= num(tool, "diameter")? {
+                return Err(format!("tool {name}: a thread mill's neck must be narrower than its tooth"));
             }
         }
         for (i, t) in tools.iter().enumerate() {
@@ -89,6 +105,33 @@ impl<'a> Library<'a> {
     fn bore_mill(&self, diameter: f64) -> Option<&'a Value> {
         self.end_mills().into_iter().rfind(|t| t["diameter"].as_f64().unwrap_or(f64::MAX) < diameter - 0.05)
     }
+    /// The largest thread mill that can cut this thread: its pitch range (if it states one) takes
+    /// the pitch, it fits the drilled hole, its neck clears the crests and it reaches the thread's
+    /// bottom. With none, the reasons the others were refused.
+    fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<String>), String> {
+        let (major, start, pitch) = (num(op, "major")?, num(op, "start_diameter")?, num(op, "pitch")?);
+        let (mut best, mut why): (Option<&Value>, Vec<String>) = (None, vec![]);
+        for t in self.tools.iter().copied().filter(|t| t["type"] == "thread_mill") {
+            let (diameter, neck) = (num(t, "diameter")?, num(t, "neck_diameter")?);
+            let room = start / 2. - (major / 2. - diameter / 2.); // from the axis-side path to the drilled wall
+            let reach = num(t, "tooth_height")? + num(t, "neck_length")?;
+            let below = stock_top - num(op, "bottom_z")?;
+            let lowest = t.get("min_pitch_mm").and_then(Value::as_f64).unwrap_or(0.);
+            let highest = t.get("max_pitch_mm").and_then(Value::as_f64).unwrap_or(f64::INFINITY);
+            if !(lowest <= pitch && pitch <= highest) {
+                why.push(format!("{}: pitch {} outside its range", id(t), show(pitch)));
+            } else if diameter >= start - 0.05 {
+                why.push(format!("{}: ⌀{} does not fit the ⌀{} hole", id(t), show(diameter), show(start)));
+            } else if neck / 2. >= room - 0.01 {
+                why.push(format!("{}: its ⌀{} neck would rub the thread crests", id(t), show(neck)));
+            } else if reach <= below + 0.01 {
+                why.push(format!("{}: reaches {} mm, the thread ends {} mm below the stock top", id(t), show(reach), show(r(below))));
+            } else if best.is_none_or(|b| diameter > b["diameter"].as_f64().unwrap_or(0.)) {
+                best = Some(t);
+            }
+        }
+        Ok((best, why))
+    }
 }
 
 fn assembly(spec: &Value) -> Result<Value, String> {
@@ -97,6 +140,21 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     let gauge = stickout + num(spec, "holder_length")?;
     let radius = num(spec, "holder_diameter")? / 2.;
     let drill = spec["type"] == "drill";
+    if spec["type"] == "thread_mill" {
+        return Ok(json!({
+            "id": name,
+            "cutter": {
+                "id": name, "name": name, "shape": {"kind": "flat"}, "diameter_mm": diameter,
+                "cutting_length_mm": num(spec, "tooth_height")?, "overall_length_mm": num(spec, "overall_length")?,
+                "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
+                "flutes": 3, "center_cutting": false, "material": "carbide",
+                "neck": {"diameter_mm": num(spec, "neck_diameter")?, "length_mm": num(spec, "neck_length")?},
+            },
+            "stickout_mm": stickout,
+            "gauge_length_mm": gauge,
+            "holders": [{"z_min_mm": stickout, "z_max_mm": gauge, "radius_min_mm": radius, "radius_max_mm": radius}],
+        }));
+    }
     let shape = if drill {
         json!({"kind": "drill", "point_angle_rad": num(spec, "point_angle")?.to_radians()})
     } else {
@@ -213,6 +271,23 @@ fn bore(op_id: &str, spec: &Value, centers: &Value, diameter: f64, floor: f64, c
     Ok(out)
 }
 
+/// A slot's outline, counter-clockwise: its two straight sides and its round ends.
+fn obround(a: [f64; 2], b: [f64; 2], radius: f64) -> Value {
+    let length = (b[0] - a[0]).hypot(b[1] - a[1]);
+    let (ux, uy) = ((b[0] - a[0]) / length, (b[1] - a[1]) / length);
+    let (nx, ny) = (-uy * radius, ux * radius);
+    json!([
+        [a[0] - nx, a[1] - ny, 0.0],
+        [b[0] - nx, b[1] - ny, 1.0],
+        [b[0] + nx, b[1] + ny, 0.0],
+        [a[0] + nx, a[1] + ny, 1.0],
+    ])
+}
+
+fn point2(v: &Value) -> Result<[f64; 2], String> {
+    Ok([v[0].as_f64().ok_or("bad point")?, v[1].as_f64().ok_or("bad point")?])
+}
+
 /// camlib's surface mesh: triangles as they are up to 1024, then points shared by exact value.
 fn surface(op: &Value) -> Result<Value, String> {
     let p: Vec<f64> = op["positions"].as_array().ok_or("roughing has no positions")?.iter().filter_map(Value::as_f64).collect();
@@ -278,6 +353,11 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let retract = (top + retract_above).min(clearance);
 
         let (mut operations, mut used, mut notes): (Vec<Value>, Vec<&Value>, Vec<String>) = (vec![], vec![], vec![]);
+        // How deep each hole is open at its full diameter, once cut: a thread must not go lower.
+        let mut full_diameter_z: HashMap<String, f64> = HashMap::new();
+        // The coarsest stock grid the operations can be checked on, if one needs a finer one.
+        let mut needs_cell: Option<f64> = None;
+        let features_of = |op: &Value| -> Vec<String> { op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect() };
         for (n, op) in setup["operations"].as_array().ok_or("setup has no operations")?.iter().enumerate() {
             let kind = op["kind"].as_str().unwrap_or("");
             let op_id = format!("{setup_id}-{}-{kind}", n + 1);
@@ -320,6 +400,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     if let Some(drill) = library.drill(d) {
                         spec = drill;
                         let (depth, reference, allow) = drill_depth(op, drill, &library, stock_bottom, &op_id, &mut notes)?;
+                        let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
+                        full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
                         let mut out = json!({
                             "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
                             "depth_reference": reference, "peck_mm": drill.get("peck_mm").filter(|p| truthy_number(p)), "peck_mode": "full_retract",
@@ -332,6 +414,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     } else if let Some(mill) = library.bore_mill(d) {
                         spec = mill;
                         let floor = bore_floor(op, &library, stock_bottom, &op_id, &mut notes)?;
+                        full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, floor)));
                         bore(&op_id, mill, &op["centers"], d, floor, clearance, retract)?
                     } else {
                         let features: Vec<&str> = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
@@ -347,6 +430,79 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     };
                     spec = mill;
                     bore(&op_id, mill, &op["centers"], d, num(op, "floor_z")?, clearance, retract)?
+                }
+                "thread" => {
+                    let thread = format!("{} ({})", op["spec"].as_str().unwrap_or(""), features_of(op).join(", "));
+                    let features = features_of(op);
+                    if features.iter().any(|f| !full_diameter_z.contains_key(f)) {
+                        notes.push(format!("{op_id}: {thread}: the hole is not cut, so it is not threaded"));
+                        continue;
+                    }
+                    let open_z = features.iter().map(|f| full_diameter_z[f]).fold(f64::MIN, f64::max);
+                    let bottom_z = num(op, "bottom_z")?;
+                    if bottom_z < open_z - 1e-6 {
+                        notes.push(format!("{op_id}: {thread}: the thread would end {} mm below where the hole reaches full diameter; not threaded", show(r(open_z - bottom_z))));
+                        continue;
+                    }
+                    let (mill, why) = library.thread_mill(op, top)?;
+                    let Some(mill) = mill else {
+                        let reasons = if why.is_empty() { String::new() } else { format!(" ({})", why.join("; ")) };
+                        notes.push(format!("{op_id}: {thread}: no thread mill can cut it{reasons}"));
+                        continue;
+                    };
+                    let (major, start, pitch) = (num(op, "major")?, num(op, "start_diameter")?, num(op, "pitch")?);
+                    // The neck's clearance from the drilled wall, on the thread's final path circle.
+                    let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
+                    let cell = neck_room / (2f64.sqrt() * NECK_CELL_SAFETY);
+                    let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
+                    if cells > MAX_STOCK_CELLS {
+                        notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
+                        continue;
+                    }
+                    needs_cell = Some(needs_cell.map_or(cell, |c: f64| c.min(cell)));
+                    spec = mill;
+                    let mut out = json!({
+                        "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
+                        "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": true, "climb": true,
+                        "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
+                        "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
+                        "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
+                        "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, mill, true)?;
+                    notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, right hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
+                    out
+                }
+                "slot" => {
+                    let width = num(op, "width")?;
+                    let Some(mill) = library.bore_mill(width) else {
+                        notes.push(format!("{op_id}: no end mill small enough for the {} mm slot ({})", show(width), features_of(op).join(", ")));
+                        continue;
+                    };
+                    spec = mill;
+                    let mut floor = num(op, "floor_z")?;
+                    if op["bottom"] == "through" {
+                        let exit = floor;
+                        floor = stock_bottom.max(exit - library.breakthrough);
+                        if floor > exit - 0.05 {
+                            notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
+                        }
+                    }
+                    let mut out = json!({
+                        "kind": "pocket", "id": op_id, "tool": id(mill),
+                        "region": {
+                            "version": 1, "units": "mm", "name": op_id, "boundary_error_mm": 0.0,
+                            "components": [{"outer": {"vertices": obround(point2(&op["a"])?, point2(&op["b"])?, width / 2.)}, "holes": []}],
+                            "source": {"plan": PLAN_FORMAT},
+                        },
+                        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
+                        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
+                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+                        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+                        "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, mill, true)?;
+                    out
                 }
                 other => {
                     notes.push(format!("{op_id}: unknown operation kind {other:?}"));
@@ -368,6 +524,15 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let cell = match library_data.get("cell_size_mm").and_then(Value::as_f64).filter(|c| *c != 0.) {
             Some(c) => c,
             None => format!("{:.2}", (x1 - x0).max(y1 - y0) / 400.).parse::<f64>().unwrap_or(0.1).max(0.1),
+        };
+        let cell = match needs_cell {
+            Some(needed) if needed < cell => {
+                // Rounded down to a whole micrometre, so the grid is never coarser than needed.
+                let fine = (needed * 1000.).floor() / 1000.;
+                notes.push(format!("setup {setup_id}: stock grid {} mm, fine enough to prove the thread mill's neck clear of the hole wall", show(fine)));
+                fine
+            }
+            _ => cell,
         };
         // Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over X Y.
         let gauges = used.iter().map(|t| Ok(num(t, "stickout")? + num(t, "holder_length")?)).collect::<Result<Vec<f64>, String>>()?;

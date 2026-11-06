@@ -77,6 +77,8 @@ function operationName(op, setup, plan) {
   if (op.kind === "facing") return "Facing" + where;
   if (op.kind === "roughing") return "Roughing" + where;
   if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
+  if (op.kind === "thread") return `${op.spec} thread` + where;
+  if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
   return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
@@ -153,13 +155,14 @@ function parseProgram(data, operations) {
 }
 
 function nearestFeature(op, point) {
+  if (op?.kind === "slot") return op.features[0];
   if (!op?.centers) return null;
   let best = null, bestD = Infinity;
   op.centers.forEach((c, i) => {
     const d = Math.hypot(point[0] - c[0], point[1] - c[1]);
     if (d < bestD) { bestD = d; best = op.features[i]; }
   });
-  return bestD <= op.diameter ? best : null;
+  return bestD <= (op.diameter ?? op.start_diameter) ? best : null;
 }
 
 function arcPoints(from, to, words, plane, mode) {
@@ -602,8 +605,10 @@ function buildFeatureList(m) {
   const holes = ops.filter((o) => o.features?.length);
   if (holes.length) head("Features");
   for (const op of holes) {
-    const count = op.features.length;
-    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${count} ${count === 1 ? "hole" : "holes"}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
+    const slot = op.kind === "slot";
+    const count = slot ? 1 : op.features.length;
+    const what = slot ? "to size" : `${count} ${count === 1 ? "hole" : "holes"}`;
+    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
     if (count > 1) {
       const chips = document.createElement("div");
       chips.className = "chips";

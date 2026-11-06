@@ -81,6 +81,17 @@ the planned path, and camlib's stock-contact checks run, but camlib's whole-prog
 does not: its decoding of non-motion blocks is in camlib's Python. Only LinuxCNC output in mm is
 wired up. `rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit WebAssembly.
 
+`rust/` also goes further than `step2cam.py` in three ways:
+
+- **Slots:** a closed slot with round ends gets a `slot` operation of its own, a camlib `Pocket`
+  of its outline cut to size with the largest end mill that fits, after roughing and whichever
+  setup reaches it. Other slots are left to roughing.
+- **Mesh error:** it is measured on tori as well as cylinders, so a part is no longer refused
+  roughing on the 0.1%-of-diagonal bound alone. Other curved faces still count at that bound.
+- **Saying what is not cut:** convex edge rounds and chamfers are reported as not cut, and nothing
+  is reported as covered by roughing when roughing does not run. Features of an operation camlib
+  refuses say why.
+
 ## The plan (`specify-cam-plan`, version 1)
 
 The plan says **what** to cut, independent of tools and machine. Read it before posting.
@@ -108,7 +119,8 @@ The plan says **what** to cut, independent of tools and machine. Read it before 
     `exit_clear_mm`: how far beyond its exit there is no part material, `null` when it exits
     the part altogether;
   - `counterbore`: the enlargements at hole mouths (spotfaces, counterbores, stepped mouths),
-    widest and outermost first.
+    widest and outermost first;
+  - `thread`: internal threads, from Specify's answers (see [Threads](#threads)).
 - **Checks against the mesh** (only when the mesh is given):
   - a hole is cut only from a side where no part material is above its opening;
   - a plain through hole may be cut from its far end instead, unless quiddity reports that
@@ -125,6 +137,32 @@ The plan says **what** to cut, independent of tools and machine. Read it before 
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
 
+## Threads
+
+A hole is threaded when the part says what thread it is: an answer stored in the STEP file
+by [Specify](https://github.com/pzfreo/specify-core), `"hole.function:<hole>": "tapped:M5"`.
+The answer can be on one hole or on a hole pattern, which threads every hole in the pattern.
+
+- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`.
+  Right-hand only.
+- **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
+  answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
+  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm.
+- **How:** milled with a single-profile thread mill to the thread's major diameter, after the
+  hole is drilled. The hole must already be at full diameter as deep as the thread goes;
+  otherwise the thread is left out and the post says why. Check the fit with a plug gauge or
+  a screw before taking the part off the machine.
+- **Neck clearance:** a small thread mill's neck passes close to the drilled wall (0.1 mm for
+  the example tool in an M5 hole). camlib proves it clear on its stock grid, so `post` makes
+  that grid fine enough for the narrowest neck in the setup, and says so. If that would need
+  more than 16 million cells for the part, the thread is left out: use a thread mill with a
+  narrower neck.
+- **Threads written by other CAD tools:** these state no size in the file, so they are a
+  warning and are not cut. Answer the hole in Specify to have it threaded.
+
+Thread milling is used, not tapping, because it is safer on a machine that is not proven:
+a thread mill takes a light cut, and does not snap off in the hole if something is wrong.
+
 ## The tool library
 
 `post` reads a JSON tool library: see [`examples/tools.example.json`](examples/tools.example.json).
@@ -140,13 +178,20 @@ on purpose.
   it, and the post states the same position, so the program and the plan agree. `post`
   prints the position for each setup. By default it is over X0 Y0, at the clearance height
   plus the longest gauge length, so every tool's tip is above the clearance height.
-- `tools`: every tool needs `id`, `type` (`end_mill` or `drill`), `number`, `diameter`,
-  `flute_length`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
-  `feed_mm_min`, `spindle_rpm` and `coolant`. End mills also need `plunge_mm_min`,
-  `stepdown_mm` and `stepover_mm`; drills need `point_angle`. There are no defaults for these:
-  camlib checks the holder against the stock, so a guessed holder would make that check
-  meaningless. Optional: `shank_diameter`, `length_register` (default: `number`),
-  `retract_feed_mm_min` (default: the feed), `peck_mm` (drills).
+- `tools`: every tool needs `id`, `type` (`end_mill`, `drill` or `thread_mill`), `number`,
+  `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
+  `feed_mm_min`, `spindle_rpm` and `coolant`. Also, by type:
+  - **End mills:** `flute_length`, `plunge_mm_min`, `stepdown_mm` and `stepover_mm`.
+  - **Drills:** `flute_length` and `point_angle`.
+  - **Thread mills:** single-profile. `diameter` is the tooth's, so they also need
+    `tooth_height`, `neck_diameter` (narrower than the tooth), `neck_length` and
+    `plunge_mm_min`.
+
+  There are no defaults for these: camlib checks the holder against the stock, so a guessed
+  holder would make that check meaningless. Optional: `shank_diameter`, `length_register`
+  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills), and for
+  thread mills `min_pitch_mm`/`max_pitch_mm` (the pitches the tooth suits), `radial_passes`
+  (default 2) and `spring_passes` (default 1).
 - Library settings, with their defaults:
 
   | Setting | Default | Meaning |
@@ -159,7 +204,7 @@ on purpose.
   | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
   | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |
   | `tool_change_xy_mm` | `[0, 0]` (X0 Y0) | where X and Y are after a tool change |
-  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid |
+  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid (made finer where a thread mill's neck needs it) |
 
 How each operation gets a tool:
 
@@ -170,6 +215,7 @@ How each operation gets a tool:
 | `holes` | `Drilling` | the largest drill no bigger than the hole and within `drill_tolerance_mm` of it |
 | `holes` with no such drill | `Bore` (helical) | the largest end mill that fits |
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
+| `thread` | `ThreadMilling` (internal, helical, climb) | the largest thread mill whose pitch range takes the pitch, whose tooth fits the drilled hole, whose neck clears the thread crests and which reaches the thread's bottom |
 
 How deep holes are cut (the post prints a note for each case):
 
@@ -208,8 +254,8 @@ run.**
 ## Not done (yet)
 
 Finishing passes (walls and floors are left with the roughing allowance), removing the web,
-countersinks and chamfers, counterbores at the far end of through holes, tapping and thread
-milling (specify-core reads threads from answers, not geometry), contouring with tabs, fixtures
+countersinks, chamfers and edge rounds, slots with square ends, counterbores at the far end of through holes, tapping, left-hand,
+inch and external threads, contouring with tabs, fixtures
 and avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe
 work.
 

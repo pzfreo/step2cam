@@ -81,6 +81,38 @@ fn the_plates_g_code_is_byte_for_byte_python_s() {
     assert_eq!(ends, [53, 1975, 1992, 2070, 2108]);
 }
 
+/// The plate with its ⌀4.2 hole answered as tapped M5.
+fn tapped_plate() -> Value {
+    let mut analysis = json("tests/fixtures/plate.analysis.json");
+    analysis["resume"] = serde_json::json!({"answers": {"hole.function:holes:12": "tapped:M5"}});
+    analysis
+}
+
+#[test]
+fn a_tapped_hole_plans_as_in_python() {
+    let plan = step2cam::plan::plan(&tapped_plate(), Some(&json("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    same(&plan, &json("tests/fixtures/rust-golden/plate-thread.plan.json"), "plan").unwrap();
+}
+
+#[test]
+fn a_tapped_holes_job_is_python_s_job() {
+    let plan = json("tests/fixtures/rust-golden/plate-thread.plan.json");
+    let (jobs, _) = step2cam::job::jobs(&plan, &json("examples/tools.example.json")).unwrap();
+    let mut mine = jobs[0].manifest.clone();
+    let mut python = json("tests/fixtures/rust-golden/plate-thread.manifest.json");
+    mine["run"] = Value::Null;
+    python["run"] = Value::Null;
+    same(&mine, &python, "manifest").unwrap();
+}
+
+#[test]
+fn a_tapped_holes_g_code_is_byte_for_byte_python_s() {
+    let out = step2cam::process(&tapped_plate(), &json("tests/fixtures/plate.mesh.json"), &json("examples/tools.example.json")).unwrap();
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    let nc = out["programs"][0]["nc"].as_str().unwrap();
+    assert_eq!(nc, fs::read_to_string(root().join("tests/fixtures/rust-golden/plate-thread-top.nc")).unwrap());
+}
+
 #[test]
 fn an_arc_the_machine_refuses_becomes_lines_near_the_plan() {
     let analysis = json("tests/fixtures/plate.analysis.json");

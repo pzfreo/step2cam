@@ -191,8 +191,10 @@ def _disk_meets_triangle(c, r, tri):
         return (x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)
 
     s1, s2, s3 = side(ax, ay, bx, by), side(bx, by, cx, cy), side(cx, cy, ax, ay)
-    if (s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0):
-        return True  # the centre is inside (or the triangle is edge-on)
+    # An edge-on triangle projects to a line: nothing is inside it, and its edges are measured.
+    edge_on = abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) < 1e-9
+    if not edge_on and ((s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0)):
+        return True
     for (x1, y1), (x2, y2) in (((ax, ay), (bx, by)), ((bx, by), (cx, cy)), ((cx, cy), (ax, ay))):
         dx, dy = x2 - x1, y2 - y1
         length = dx * dx + dy * dy
@@ -313,7 +315,86 @@ def _steps(record):
     return sorted(steps, key=lambda s: -s["diameter"])
 
 
-def _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces):
+# ISO 261 coarse pitches, as specify-core offers tapped sizes (its `PITCH` table); a fine pitch
+# is written as specify-core writes it, `M10x1.25`.
+COARSE_PITCH = {
+    "M1.6": 0.35, "M2": 0.4, "M2.5": 0.45, "M3": 0.5, "M4": 0.7, "M5": 0.8, "M6": 1.0,
+    "M8": 1.25, "M10": 1.5, "M12": 1.75, "M16": 2.0, "M20": 2.5, "M24": 3.0,
+}
+
+
+def _thread_size(spec):
+    """(major diameter, pitch) of a metric thread spec (`M5`, `M10x1.25`), or None."""
+    size, _, fine = spec.partition("x")
+    if not size.startswith("M"):
+        return None
+    try:
+        major = float(size[1:])
+        pitch = float(fine) if fine else COARSE_PITCH.get(size)
+    except ValueError:
+        return None
+    if pitch is None or not (major > 0 and 0 < pitch < major):
+        return None
+    return major, pitch
+
+
+def _full_thread(depth, pitch):
+    """specify-core's default minimum full thread in a blind tapped hole of drill depth
+    `depth`: the depth less three pitches, rounded down to 0.5 mm, at least one pitch."""
+    down = math.floor((depth - 3.0 * pitch) * 2.0) / 2.0
+    return down if down > pitch else pitch
+
+
+def _threads(analysis, warnings):
+    """The internal threads asked for on holes, by hole feature id: from Specify's answers
+    (`hole.function:<hole or pattern>` = `tapped:M5` or `tapped:M5@5.5`). Threads another tool
+    wrote, which state no size, and answers that cannot be used become warnings."""
+    features = {f["id"]: f for f in analysis["features"]}
+    holes = [f for f in analysis["features"] if f.get("family") == "holes"]
+    answers = ((analysis.get("resume") or {}).get("answers")) or {}
+    found = {}
+    for key, value in answers.items():
+        if not key.startswith("hole.function:") or not isinstance(value, str):
+            continue
+        if not value.startswith("tapped:"):
+            continue
+        target = key.split(":", 1)[1]
+        spec, _, full = value[len("tapped:"):].partition("@")
+        size = _thread_size(spec)
+        if size is None:
+            warnings.append(f"{target}: tapped {spec} is not a metric size this bridge knows; "
+                            "not threaded")
+            continue
+        try:
+            full_depth = float(full) if full else None
+        except ValueError:
+            warnings.append(f"{target}: tapped {value!r} has an unreadable depth; not threaded")
+            continue
+        feature = features.get(target)
+        if feature is None:
+            warnings.append(f"{target}: tapped {spec}, but the part has no such feature now; "
+                            "not threaded")
+            continue
+        if feature.get("family") == "holes":
+            members = [feature]
+        else:  # a hole pattern or set: the holes whose faces it is made of
+            own = set(feature.get("faces") or [])
+            members = [h for h in holes if h.get("faces") and set(h["faces"]) <= own]
+        for hole in members:
+            found[hole["id"]] = {"spec": spec, "major": size[0], "pitch": size[1],
+                                 "full_depth": full_depth}
+    for item in analysis.get("existing") or []:
+        if item.get("type") != "internal thread":
+            continue
+        on = set(item.get("faces") or [])
+        for hole in holes:
+            if hole["id"] not in found and on & set(hole.get("faces") or []):
+                warnings.append(f"{hole['id']}: the file marks an internal thread here but states "
+                                "no size; not threaded (answer it in Specify to thread it)")
+    return found
+
+
+def _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces, thread=None):
     """A hole as setup-frame geometry: which setup, its centre, the bore's Z range, its
     enlargements and what is beyond a through hole's exit; or why it is skipped."""
     record = feature["record"]
@@ -388,6 +469,24 @@ def _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces):
                 f"the part's far face in the {name} setup; anything between (a counterbore or "
                 "chamfer at the far end, a shoulder) is not planned"
             )
+    if thread is not None:
+        # The thread runs down the bore from its top: all of it for a through hole, else the
+        # minimum full thread asked for (specify-core's default when none was).
+        top, bottom_z = hole["bore_top_z"], hole["bottom_z"]
+        length = top - bottom_z
+        if hole["bottom"] != "through":
+            full = thread["full_depth"] or _full_thread(record["depth"], thread["pitch"])
+            if full > length + 1e-9:
+                warnings.append(f"{feature['id']}: {thread['spec']} thread {full} mm deep is "
+                                f"deeper than the hole ({_r(length)} mm); not threaded")
+                thread = None
+            else:
+                bottom_z = top - full
+        if thread is not None:
+            hole["thread"] = {
+                "spec": thread["spec"], "major": _r(thread["major"]), "pitch": thread["pitch"],
+                "top_z": _r(top), "bottom_z": _r(bottom_z),
+            }
     if record.get("csink") and not reversed_:
         c = record["csink"]
         hole["csink"] = {
@@ -509,15 +608,21 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
     faces = {f["id"]: f for f in analysis.get("faces") or []}
     by_setup = {name: [] for name in SETUP_ORDER}
     skipped, covered, warnings = [], [], []
+    threads = _threads(analysis, warnings)
     if mesh is None:
         warnings.append("no mesh: hole approaches and what lies beyond through holes were not "
                         "checked against the part")
     for feature in analysis["features"]:
         family = feature.get("family")
         if family == "holes":
-            found, reason = _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces)
+            found, reason = _hole_geometry(feature, frames, preferred, mesh_triangles, part_faces,
+                                           threads.get(feature["id"]))
             if found is None:
                 skipped.append({"feature": feature["id"], "reason": reason})
+                if feature["id"] in threads:
+                    skipped.append({"feature": feature["id"],
+                                    "reason": f"its {threads[feature['id']]['spec']} thread: the hole "
+                                    "is not cut"})
             else:
                 by_setup[found[0]].append(found[1])
                 warnings.extend(found[2])
@@ -608,6 +713,16 @@ def plan(analysis, mesh=None, *, margin=2.0, top_stock=1.0, bottom_stock=0.0, sk
             lambda e: (("diameter", e["diameter"]), ("top_z", e["top_z"]), ("floor_z", e["floor_z"])),
             "counterbore",
         )
+        threaded = [dict(h["thread"], center=h["center"], feature=h["feature"],
+                         start_diameter=h["diameter"], through=h["bottom"] == "through")
+                    for h in holes if "thread" in h]
+        ops += _group(
+            threaded,
+            lambda t: (("spec", t["spec"]), ("major", t["major"]), ("pitch", t["pitch"]),
+                       ("start_diameter", t["start_diameter"]), ("top_z", t["top_z"]),
+                       ("bottom_z", t["bottom_z"]), ("through", t["through"])),
+            "thread",
+        )
         for h in holes:
             if "csink" in h:
                 skipped.append(
@@ -640,24 +755,41 @@ class PostError(ValueError):
 # Every tool needs these: no defaults, as holder size and cutting data are specific to the tool,
 # material and machine (a holder guessed too small would make camlib's holder checks pass
 # where the real one collides).
-TOOL_KEYS = ("id", "type", "number", "diameter", "flute_length", "overall_length", "stickout",
+TOOL_KEYS = ("id", "type", "number", "diameter", "overall_length", "stickout",
              "holder_length", "holder_diameter", "feed_mm_min", "spindle_rpm", "coolant")
 TOOL_KEYS_BY_TYPE = {
-    "end_mill": ("plunge_mm_min", "stepdown_mm", "stepover_mm"),
-    "drill": ("point_angle",),
+    "end_mill": ("flute_length", "plunge_mm_min", "stepdown_mm", "stepover_mm"),
+    "drill": ("flute_length", "point_angle"),
+    # A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
+    "thread_mill": ("tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"),
 }
+# Thread milling passes, unless the tool says otherwise: the thread depth in two radial steps,
+# then one spring pass at full depth.
+RADIAL_PASSES = 2
+SPRING_PASSES = 1
+# camlib proves a thread mill's neck clear of the hole wall beside the groove from its stock
+# grid: a cell up to its diagonal away can still count as wall. The grid is made fine enough
+# for the neck's clearance, with this much in hand...
+NECK_CELL_SAFETY = 1.25
+# ...but no finer than a stock grid of this many cells (16 bytes each in camlib, plus a copy).
+MAX_STOCK_CELLS = 16_000_000
 
 
 def _tool_assembly(camlib, spec):
     t = camlib["tools"]
     dims = dict(
         diameter=spec["diameter"],
-        flute_length=spec["flute_length"],
+        flute_length=spec.get("flute_length"),
         overall_length=spec["overall_length"],
     )
     if "shank_diameter" in spec:
         dims["shank_diameter"] = spec["shank_diameter"]
-    if spec["type"] == "end_mill":
+    if spec["type"] == "thread_mill":
+        dims.pop("flute_length")
+        cutter = t.ThreadMill(spec["id"], tooth_height=spec["tooth_height"],
+                              neck_diameter=spec["neck_diameter"], neck_length=spec["neck_length"],
+                              **dims)
+    elif spec["type"] == "end_mill":
         cutter = t.EndMill(spec["id"], **dims)
     else:
         cutter = t.Drill(spec["id"], point_angle=spec["point_angle"], **dims)
@@ -695,12 +827,15 @@ class Library:
         for n, tool in enumerate(self.tools):
             name = tool.get("id", f"tools[{n}]")
             if tool.get("type") not in TOOL_KEYS_BY_TYPE:
-                raise PostError(f"tool {name}: type must be end_mill or drill, not {tool.get('type')!r}")
+                raise PostError(f"tool {name}: type must be one of {', '.join(TOOL_KEYS_BY_TYPE)}, "
+                                f"not {tool.get('type')!r}")
             missing = [k for k in TOOL_KEYS + TOOL_KEYS_BY_TYPE[tool["type"]] if k not in tool]
             if missing:
                 raise PostError(f"tool {name}: missing {', '.join(missing)}")
             if tool["holder_diameter"] < tool.get("shank_diameter", tool["diameter"]):
                 raise PostError(f"tool {name}: holder_diameter is smaller than the shank")
+            if tool["type"] == "thread_mill" and not tool["neck_diameter"] < tool["diameter"]:
+                raise PostError(f"tool {name}: a thread mill's neck must be narrower than its tooth")
         ids = [t["id"] for t in self.tools]
         if len(set(ids)) != len(ids):
             raise PostError("tool ids must be unique")
@@ -729,6 +864,31 @@ class Library:
         fits = [t for t in self.tools if t["type"] == "drill"
                 and -1e-9 <= diameter - t["diameter"] <= self.drill_tolerance]
         return max(fits, key=lambda t: t["diameter"]) if fits else None
+
+    def thread_mill(self, op, stock_top):
+        """The largest thread mill that can cut this thread: its pitch range (if it states one)
+        takes the pitch, it fits the drilled hole, its neck clears the crests and it reaches
+        the thread's bottom. With none, the reasons the others were refused."""
+        major, start, pitch = op["major"], op["start_diameter"], op["pitch"]
+        fits, why = [], []
+        for t in self.tools:
+            if t["type"] != "thread_mill":
+                continue
+            r = t["diameter"] / 2
+            room = start / 2 - (major / 2 - r)  # from the axis-side path to the drilled wall
+            reach = t["tooth_height"] + t["neck_length"]
+            if not t.get("min_pitch_mm", 0) <= pitch <= t.get("max_pitch_mm", math.inf):
+                why.append(f"{t['id']}: pitch {pitch} outside its range")
+            elif not t["diameter"] < start - 0.05:
+                why.append(f"{t['id']}: ⌀{t['diameter']} does not fit the ⌀{start} hole")
+            elif not t["neck_diameter"] / 2 < room - 0.01:
+                why.append(f"{t['id']}: its ⌀{t['neck_diameter']} neck would rub the thread crests")
+            elif not reach > stock_top - op["bottom_z"] + 0.01:
+                why.append(f"{t['id']}: reaches {reach} mm, the thread ends "
+                           f"{_r(stock_top - op['bottom_z'])} mm below the stock top")
+            else:
+                fits.append(t)
+        return (max(fits, key=lambda t: t["diameter"]) if fits else None), why
 
     def bore_mill(self, diameter):
         """The largest end mill that fits inside the diameter with room to helix."""
@@ -802,12 +962,18 @@ def _bore_floor(op, library, stock_bottom, op_id, notes):
     return floor
 
 
-def operations_for(setup, library, camlib, *, clearance, retract):
-    """camlib operations for one plan setup, and notes on what was left out and why."""
+def operations_for(setup, library, camlib, *, clearance, retract, needs=None):
+    """camlib operations for one plan setup, and notes on what was left out and why. `needs`
+    (a dict), when given, gets `cell_mm`: the coarsest stock grid the operations can be
+    checked on, if one of them needs a finer grid than usual."""
+    needs = {} if needs is None else needs
     ops_mod = camlib["operations"]
     surface = camlib["surface"]
     ops, tools, notes = [], {}, []
     stock_bottom = setup["stock"]["min"][2]
+    stock_top = setup["stock"]["max"][2]
+    # How deep each hole is open at its full diameter, once cut: a thread must not go lower.
+    full_diameter_z = {}
 
     def use(spec):
         if spec["id"] not in tools:
@@ -857,6 +1023,8 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                 extra = {}
                 if drill.get("peck_mm"):
                     extra["peck_mm"] = drill["peck_mm"]
+                open_z = depth if ref == "full_diameter" else depth + _drill_tip_length(drill)
+                full_diameter_z.update(dict.fromkeys(op["features"], open_z))
                 ops.append(ops_mod.Drilling(
                     op_id, use(drill), op["centers"], depth_z_mm=depth, clearance_z_mm=clearance,
                     depth_reference=ref, retract_z_mm=retract, allow_breakthrough_mm=allow,
@@ -869,6 +1037,7 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                              f"({', '.join(op['features'])})")
                 continue
             floor = _bore_floor(op, library, stock_bottom, op_id, notes)
+            full_diameter_z.update(dict.fromkeys(op["features"], floor))
             ops.append(_bore(ops_mod, op_id, use(mill), mill, op["centers"], d, floor,
                              clearance, retract))
         elif kind == "counterbore":
@@ -879,6 +1048,44 @@ def operations_for(setup, library, camlib, *, clearance, retract):
                 continue
             ops.append(_bore(ops_mod, op_id, use(mill), mill, op["centers"], d, op["floor_z"],
                              clearance, retract))
+        elif kind == "thread":
+            thread = f"{op['spec']} ({', '.join(op['features'])})"
+            uncut = [f for f in op["features"] if f not in full_diameter_z]
+            if uncut:
+                notes.append(f"{op_id}: {thread}: the hole is not cut, so it is not threaded")
+                continue
+            open_z = max(full_diameter_z[f] for f in op["features"])
+            if op["bottom_z"] < open_z - 1e-6:
+                notes.append(f"{op_id}: {thread}: the thread would end {_r(open_z - op['bottom_z'])} "
+                             "mm below where the hole reaches full diameter; not threaded")
+                continue
+            mill, why = library.thread_mill(op, stock_top)
+            if mill is None:
+                notes.append(f"{op_id}: {thread}: no thread mill can cut it"
+                             + (f" ({'; '.join(why)})" if why else ""))
+                continue
+            # The neck's clearance from the drilled wall, on the thread's final path circle.
+            neck_room = (op["start_diameter"] / 2 - (op["major"] / 2 - mill["diameter"] / 2)
+                         - mill["neck_diameter"] / 2)
+            cell = neck_room / (math.sqrt(2) * NECK_CELL_SAFETY)
+            lo, hi = setup["stock"]["min"], setup["stock"]["max"]
+            cells = (hi[0] - lo[0]) / cell * (hi[1] - lo[1]) / cell
+            if cells > MAX_STOCK_CELLS:
+                notes.append(f"{op_id}: {thread}: {mill['id']}'s neck passes {_r(neck_room)} mm from "
+                             f"the hole wall; proving that needs a {_r(cell)} mm stock grid, too fine "
+                             "for this part (use a thread mill with a narrower neck)")
+                continue
+            needs["cell_mm"] = min(needs.get("cell_mm", math.inf), cell)
+            ops.append(ops_mod.ThreadMilling(
+                op_id, use(mill), op["centers"], internal=True, diameter_mm=op["major"],
+                start_diameter_mm=op["start_diameter"], pitch_mm=op["pitch"],
+                top_z_mm=op["top_z"], bottom_z_mm=op["bottom_z"], clearance_z_mm=clearance,
+                radial_passes=mill.get("radial_passes", RADIAL_PASSES),
+                spring_passes=mill.get("spring_passes", SPRING_PASSES),
+                retract_z_mm=retract, feed_z_mm=retract, **_cutting(mill)))
+            notes.append(f"{op_id}: {thread}: thread milled to the ⌀{op['major']} major diameter "
+                         f"(pitch {op['pitch']}, right hand) with {mill['id']}; check the fit "
+                         "with a gauge or screw before taking the part off")
         else:
             notes.append(f"{op_id}: unknown operation kind {kind!r}")
     return ops, list(tools.values()), notes
@@ -946,7 +1153,9 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
         top = setup["stock"]["max"][2]
         clearance = top + clearance_above
         retract = min(top + retract_above, clearance)
-        ops, tools, notes = operations_for(setup, library, camlib, clearance=clearance, retract=retract)
+        needs = {}
+        ops, tools, notes = operations_for(setup, library, camlib, clearance=clearance,
+                                           retract=retract, needs=needs)
         log(f"setup {setup['id']}: zero X0 Y0 on the {setup.get('zero', 'stock')}'s minimum corner, "
             f"Z0 on its top (model point {setup['origin_model']})")
         for note in notes:
@@ -956,6 +1165,11 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
             continue
         lo, hi = setup["stock"]["min"], setup["stock"]["max"]
         cell = library_data.get("cell_size_mm") or max(0.1, round(max(hi[0] - lo[0], hi[1] - lo[1]) / 400, 2))
+        if needs.get("cell_mm", math.inf) < cell:
+            # Rounded down to a whole micrometre, so the grid is never coarser than needed.
+            cell = math.floor(needs["cell_mm"] * 1000) / 1000
+            log(f"setup {setup['id']}: stock grid {cell} mm, fine enough to prove the thread "
+                "mill's neck clear of the hole wall")
         verification = camlib["verification"]
         # Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over
         # X Y, in this setup's work coordinates. The planner (Setup.tool_change) and the post
@@ -1082,8 +1296,14 @@ def _plan_kwargs(args):
 def _summary(p):
     lines = []
     for s in p["setups"]:
-        kinds = [o["kind"] + (f" ⌀{o['diameter']}×{len(o['centers'])}" if "centers" in o else "")
-                 for o in s["operations"]]
+        kinds = []
+        for o in s["operations"]:
+            if o["kind"] == "thread":
+                kinds.append(f"thread {o['spec']}×{len(o['centers'])}")
+            elif "centers" in o:
+                kinds.append(f"{o['kind']} ⌀{o['diameter']}×{len(o['centers'])}")
+            else:
+                kinds.append(o["kind"])
         lines.append(f"{s['id']}: {', '.join(kinds)}")
     for s in p["skipped"]:
         lines.append(f"skipped {s['feature']}: {s['reason']}")
