@@ -37,3 +37,12 @@ jobs:
           step2cam step tests/fixtures/plate.step -o plan.json
           step2cam post plan.json --tools examples/tools.example.json -o out --accept uncertain
           head -40 out/part-top.nc
+
+  rust:
+    # The Rust path against what the Python one wrote (tests/fixtures/rust-golden).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rust/fetch-camlib.sh
+      - run: cargo test --release
+        working-directory: rust

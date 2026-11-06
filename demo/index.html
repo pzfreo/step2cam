@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEP2CAM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/three-cad-viewer@5.1.3/dist/three-cad-viewer.css">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{"imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/",
+  "three-cad-viewer": "https://cdn.jsdelivr.net/npm/three-cad-viewer@5.1.3/dist/three-cad-viewer.esm.min.js"
+}}
+</script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>STEP2CAM</h1>
+    <div id="meta" class="meta"></div>
+    <div class="views" role="group" aria-label="Camera, shared by both views">
+      <button type="button" data-view="iso">Iso</button>
+      <button type="button" data-view="top">Top</button>
+      <button type="button" data-view="front">Front</button>
+    </div>
+    <label class="open">Open STEP file<input id="file" type="file" accept=".step,.stp,.STEP,.STP"></label>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="panes">
+    <section class="pane" aria-label="Recognised features">
+      <div class="pane-title"><h2>Recognised features</h2><span>specify-core, in three-cad-viewer</span></div>
+      <div class="pane-body">
+        <div class="view"><div id="cad"></div></div>
+        <div id="features" class="side features"></div>
+      </div>
+    </section>
+    <section class="pane" aria-label="Toolpaths">
+      <div class="pane-title"><h2>Toolpaths and G-code</h2><span>camlib, drawn from the posted file</span></div>
+      <div class="pane-body">
+        <div class="view" id="gcode-view"></div>
+        <div id="code" class="side code" tabindex="0" aria-label="G-code"><div id="code-spacer"><div id="code-rows"></div></div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <button type="button" id="play">Play</button>
+    <div class="scrub">
+      <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Program position">
+      <div id="segments" class="segments" role="group" aria-label="Operations, in program order"></div>
+    </div>
+    <div id="status" class="status" aria-live="off"></div>
+  </footer>
+
+  <p class="about">Runs in your browser: your file is not uploaded. A demo with placeholder tools and cutting data, not for a real machine. <a href="https://github.com/pzfreo/step2cam">step2cam</a> uses <a href="https://github.com/pzfreo/specify-core">specify-core</a>, <a href="https://github.com/stevecad/camlib">camlib</a> (<a href="licenses/camlib-LICENSE.txt">MIT</a>), <a href="https://github.com/bernhard-42/three-cad-viewer">three-cad-viewer</a> and <a href="https://threejs.org">three.js</a>.</p>
+
+  <div id="busy" class="busy" hidden><div>Analysing and posting, in your browser…</div></div>
+</div>
+</body>
+</html>

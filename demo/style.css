@@ -1,0 +1,90 @@
+:root {
+  --ground: #0f1318; --panel: #161b22; --view: #12161c; --line: #2b323c; --line-strong: #3a4350;
+  --text: #e7ebf0; --muted: #9aa4b2; --accent: #5aa9ff; --active: #26374c; --warn: #ffb020;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--ground); color: var(--text);
+  font: 14px/1.4 'IBM Plex Sans', system-ui, sans-serif; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+.app { height: 100vh; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; position: relative; }
+.app.dragging::after { content: "Drop a STEP file"; position: absolute; inset: 0; display: grid; place-items: center;
+  background: #0f1318e0; font-size: 24px; z-index: 40; pointer-events: none; }
+
+header { flex: none; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+h1 { margin: 0; font: 500 18px var(--mono); letter-spacing: .02em; }
+.meta { flex: 1 1 260px; color: var(--muted); min-width: 0; }
+.views { display: flex; gap: 4px; }
+.views button, .open { min-height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; display: inline-flex; align-items: center; }
+.views button:hover { background: var(--active); }
+.open { border-color: var(--accent); color: #a8d0ff; font-weight: 500; cursor: pointer; }
+.open:hover, .open:focus-within { background: #1c3a5c; }
+.open input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.banner { flex: none; padding: 8px 12px; border: 1px solid var(--warn); border-radius: 6px; color: #ffd98a; background: #2c2412; max-height: 96px; overflow-y: auto; white-space: pre-wrap; }
+
+.panes { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.pane-title { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.pane-title h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.pane-title span { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-body { flex: 1 1 0; min-height: 0; display: flex; }
+.view { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; background: var(--view); overflow: hidden; }
+.view canvas { display: block; }
+.side { flex: none; width: 236px; overflow-y: auto; border-left: 1px solid var(--line); }
+
+/* three-cad-viewer's own tree is replaced by the feature list beside it. */
+#cad { position: absolute; inset: 0; }
+#cad .tcv_cad_toolbar, #cad .tcv_cad_navigation, #cad .tcv_cad_view > :not(canvas) { display: none !important; }
+#cad .tcv_cad_viewer, #cad .tcv_cad_body, #cad .tcv_cad_view { margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: var(--view); }
+
+.features { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.features > * { flex: none; }
+.feature-row { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 4px 10px; text-align: left; background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
+.feature-row .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.feature-row > span:last-child { min-width: 0; }
+.feature-row .name { font-weight: 500; display: block; overflow-wrap: anywhere; }
+.feature-row .detail { font-size: 12px; color: var(--muted); display: block; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { min-width: 40px; min-height: 32px; padding: 0 6px; font: 12px var(--mono); background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
+.feature-row:hover, .chip:hover { border-color: var(--accent); }
+.is-lit { background: var(--active); border-color: var(--accent); }
+.is-pinned { border-color: #fff; }
+.side-head { margin: 8px 2px 2px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.side-note { font-size: 12px; color: var(--muted); margin: 0 2px; }
+.side-note b { color: var(--text); font-weight: 500; }
+
+.code { font: 11.5px/20px var(--mono); position: relative; }
+#code-spacer { position: relative; }
+#code-rows { position: absolute; left: 0; right: 0; }
+.code-row { height: 20px; display: flex; gap: 8px; padding: 0 8px; white-space: pre; overflow: hidden; color: #c3cad4; cursor: pointer; }
+.code-row .n { width: 36px; flex: none; text-align: right; color: var(--muted); }
+.code-row.other { color: #79828f; }
+.code-row.focus { background: var(--active); color: #fff; }
+.code-row.now { background: #fff; color: #0f1318; }
+.code-row.now .n { color: #0f1318; }
+
+footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+#play { min-height: 44px; min-width: 76px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--accent); background: #1c3a5c; font-weight: 500; }
+.scrub { flex: 3 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#scrub { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
+.segments { display: flex; gap: 2px; }
+.segment { position: relative; min-width: 8px; min-height: 26px; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: #1f252e; font-size: 12px; white-space: nowrap; }
+.segment .fill { position: absolute; left: 0; top: 0; bottom: 0; opacity: .4; }
+.segment .label { position: relative; }
+.status { flex: 1 1 280px; min-width: 0; font: 12.5px/18px var(--mono); }
+
+.about { flex: none; margin: 0; font-size: 12px; color: var(--muted); }
+.about a { color: #a8d0ff; }
+.busy { position: absolute; inset: 0; display: grid; place-items: center; background: #0f1318c0; font-size: 18px; z-index: 50; }
+[hidden] { display: none !important; }
+
+@media (max-width: 1000px) {
+  html, body { height: auto; }
+  .app { height: auto; overflow: visible; }
+  .panes { grid-template-columns: minmax(0, 1fr); }
+  .pane-body { flex-direction: column; }
+  .view { flex: none; width: 100%; aspect-ratio: 640 / 400; }
+  .side { width: 100%; max-height: 280px; border-left: 0; border-top: 1px solid var(--line); }
+}
