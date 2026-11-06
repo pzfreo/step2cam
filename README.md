@@ -86,8 +86,13 @@ wired up. `rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit 
 - **Slots:** a closed slot with round ends gets a `slot` operation of its own, a camlib `Pocket`
   of its outline cut to size with the largest end mill that fits, after roughing and whichever
   setup reaches it. Other slots are left to roughing.
-- **Mesh error:** it is measured on tori as well as cylinders, so a part is no longer refused
-  roughing on the 0.1%-of-diagonal bound alone. Other curved faces still count at that bound.
+- **Mesh error:** it is measured on cones and tori as well as cylinders, so a part is no longer
+  refused roughing on the 0.1%-of-diagonal bound alone. Other curved faces still count at that bound.
+- **Top edge rounds:** where the whole top edge of the outside wall, or of a hole or slot cut to
+  size, has one convex radius, the outside wall is finished to size (only if it runs straight down
+  to the roughing floor) and a 45° chamfer is cut that meets the round at its middle, so it never
+  cuts into the part. It is a chamfer, not the round, and needs a `chamfer_mill` tool (`angle` 90,
+  `tip_diameter`) in the library: the demo has one. Bottom edges are not cut.
 - **Saying what is not cut:** convex edge rounds and chamfers are reported as not cut, and nothing
   is reported as covered by roughing when roughing does not run. Features of an operation camlib
   refuses say why.
@@ -251,10 +256,16 @@ camlib plans, simulates, checks every move against the stock and posts with its 
 **Simulate the G-code in your own tools, dry-run above the part, and single-block the first
 run.**
 
+## Known limit: chamfered outlines
+
+camlib currently refuses to rough a part whose outline has a chamfered top edge ("constructed region
+failed topology validation"). The operation is left out and reported, and the rest of the part is
+still cut. `tests/fixtures/synthetic/stepped-plate-chamfered.step` reproduces it.
+
 ## Not done (yet)
 
 Finishing passes (walls and floors are left with the roughing allowance), removing the web,
-countersinks, chamfers and edge rounds, slots with square ends, counterbores at the far end of through holes, tapping, left-hand,
+countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end of through holes, tapping, left-hand,
 inch and external threads, contouring with tabs, fixtures
 and avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe
 work.

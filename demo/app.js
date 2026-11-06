@@ -79,6 +79,8 @@ function operationName(op, setup, plan) {
   if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
   if (op.kind === "thread") return `${op.spec} thread` + where;
   if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
+  if (op.kind === "wall_finish") return "Finish outside wall" + where;
+  if (op.kind === "edge_chamfer") return `${op.width} chamfer on r${op.radius} edges` + where;
   return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
@@ -156,6 +158,7 @@ function parseProgram(data, operations) {
 
 function nearestFeature(op, point) {
   if (op?.kind === "slot") return op.features[0];
+  if (op?.kind === "edge_chamfer") return null;
   if (!op?.centers) return null;
   let best = null, bestD = Infinity;
   op.centers.forEach((c, i) => {
@@ -605,9 +608,9 @@ function buildFeatureList(m) {
   const holes = ops.filter((o) => o.features?.length);
   if (holes.length) head("Features");
   for (const op of holes) {
-    const slot = op.kind === "slot";
-    const count = slot ? 1 : op.features.length;
-    const what = slot ? "to size" : `${count} ${count === 1 ? "hole" : "holes"}`;
+    const slot = op.kind === "slot", edges = op.kind === "edge_chamfer";
+    const count = slot || edges ? 1 : op.features.length;
+    const what = slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
     host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
     if (count > 1) {
       const chips = document.createElement("div");

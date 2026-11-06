@@ -22,6 +22,8 @@ const SPRING_PASSES: u64 = 1;
 const NECK_CELL_SAFETY: f64 = 1.25;
 /// ...but no finer than a stock grid of this many cells.
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
+/// How far out along a chamfer mill's cone the chamfer's lower edge is cut (mm), so the flank cuts.
+const TIP_CLEARANCE: f64 = 0.5;
 
 fn num(v: &Value, key: &str) -> Result<f64, String> {
     v.get(key).and_then(Value::as_f64).ok_or_else(|| format!("missing number {key}"))
@@ -52,7 +54,8 @@ impl<'a> Library<'a> {
                 "drill" => &["flute_length", "point_angle"],
                 // A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
                 "thread_mill" => &["tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"],
-                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, not {other:?}")),
+                "chamfer_mill" => &["flute_length", "angle", "tip_diameter", "plunge_mm_min"],
+                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, chamfer_mill, not {other:?}")),
             };
             let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
             if !missing.is_empty() {
@@ -105,6 +108,14 @@ impl<'a> Library<'a> {
     fn bore_mill(&self, diameter: f64) -> Option<&'a Value> {
         self.end_mills().into_iter().rfind(|t| t["diameter"].as_f64().unwrap_or(f64::MAX) < diameter - 0.05)
     }
+    /// A 90° chamfer mill wide enough for the width, with the tip clear of the edge.
+    fn chamfer_mill(&self, width: f64) -> Option<&'a Value> {
+        self.tools.iter().copied().find(|t| {
+            t["type"] == "chamfer_mill"
+                && t["angle"].as_f64() == Some(90.)
+                && t["diameter"].as_f64().unwrap_or(0.) / 2. >= t["tip_diameter"].as_f64().unwrap_or(f64::MAX) / 2. + TIP_CLEARANCE + width
+        })
+    }
     /// The largest thread mill that can cut this thread: its pitch range (if it states one) takes
     /// the pitch, it fits the drilled hole, its neck clears the crests and it reaches the thread's
     /// bottom. With none, the reasons the others were refused.
@@ -149,6 +160,21 @@ fn assembly(spec: &Value) -> Result<Value, String> {
                 "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
                 "flutes": 3, "center_cutting": false, "material": "carbide",
                 "neck": {"diameter_mm": num(spec, "neck_diameter")?, "length_mm": num(spec, "neck_length")?},
+            },
+            "stickout_mm": stickout,
+            "gauge_length_mm": gauge,
+            "holders": [{"z_min_mm": stickout, "z_max_mm": gauge, "radius_min_mm": radius, "radius_max_mm": radius}],
+        }));
+    }
+    if spec["type"] == "chamfer_mill" {
+        return Ok(json!({
+            "id": name,
+            "cutter": {
+                "id": name, "name": name,
+                "shape": {"kind": "chamfer", "included_angle_rad": num(spec, "angle")?.to_radians(), "tip_diameter_mm": num(spec, "tip_diameter")?},
+                "diameter_mm": diameter, "cutting_length_mm": num(spec, "flute_length")?, "overall_length_mm": num(spec, "overall_length")?,
+                "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
+                "flutes": 3, "center_cutting": true, "material": "carbide", "neck": null,
             },
             "stickout_mm": stickout,
             "gauge_length_mm": gauge,
@@ -282,6 +308,15 @@ fn obround(a: [f64; 2], b: [f64; 2], radius: f64) -> Value {
         [b[0] + nx, b[1] + ny, 0.0],
         [a[0] + nx, a[1] + ny, 1.0],
     ])
+}
+
+fn region(name: &str, outer: &Value, holes: &Value) -> Value {
+    let holes: Vec<Value> = holes.as_array().into_iter().flatten().map(|h| json!({"vertices": h})).collect();
+    json!({
+        "version": 1, "units": "mm", "name": name, "boundary_error_mm": 0.0,
+        "components": [{"outer": {"vertices": outer}, "holes": holes}],
+        "source": {"plan": PLAN_FORMAT},
+    })
 }
 
 fn point2(v: &Value) -> Result<[f64; 2], String> {
@@ -502,6 +537,46 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         "retract_z_mm": retract, "feed_z_mm": retract,
                     });
                     cutting(&mut out, mill, true)?;
+                    out
+                }
+                "wall_finish" => {
+                    // Only for a chamfer: other walls keep the roughing allowance, as ever.
+                    let width_needed = setup["operations"].as_array().into_iter().flatten().find(|o| o["kind"] == "edge_chamfer").map_or(Ok(0.), |o| num(o, "width"))?;
+                    if library.chamfer_mill(width_needed).is_none() {
+                        notes.push(format!("{op_id}: no chamfer mill for the edges, so the wall keeps its roughing allowance"));
+                        continue;
+                    }
+                    let Some(mill) = library.clearing("roughing")? else {
+                        notes.push(format!("{op_id}: no end mill to finish the wall with"));
+                        continue;
+                    };
+                    spec = mill;
+                    let mut out = json!({
+                        "kind": "contour", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
+                        "boundaries": "outer", "floor_z_mm": num(op, "floor_z")?, "stepdown_mm": num(mill, "stepdown_mm")?,
+                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+                        "boundary_tolerance_mm": 0.01, "reverse": false, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+                        "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, mill, true)?;
+                    out
+                }
+                "edge_chamfer" => {
+                    let width = num(op, "width")?;
+                    let Some(mill) = library.chamfer_mill(width) else {
+                        notes.push(format!("{op_id}: no 90° chamfer mill wide enough for the r{} edges, so they stay sharp", show(num(op, "radius")?)));
+                        continue;
+                    };
+                    spec = mill;
+                    let mut out = json!({
+                        "kind": "chamfer", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &op["holes"]),
+                        "boundaries": op["boundaries"], "top_z_mm": num(op, "top_z")?, "width_mm": width,
+                        "clearance_z_mm": clearance, "tip_clearance_mm": TIP_CLEARANCE, "width_step_mm": null,
+                        "boundary_tolerance_mm": 0.01, "reverse": false, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+                        "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, mill, true)?;
+                    notes.push(format!("{op_id}: the model's r{} top edges are cut as {} mm 45° chamfers meeting the round at its middle, not as the round; the bottom edges are not cut", show(num(op, "radius")?), show(width)));
                     out
                 }
                 other => {

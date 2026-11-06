@@ -494,6 +494,23 @@
    "coolant": "flood",
    "radial_passes": 2,
    "spring_passes": 1
+  },
+  {
+   "id": "cm6",
+   "type": "chamfer_mill",
+   "number": 29,
+   "diameter": 6,
+   "angle": 90,
+   "tip_diameter": 0.5,
+   "flute_length": 4,
+   "overall_length": 50,
+   "stickout": 20,
+   "holder_length": 40,
+   "holder_diameter": 20,
+   "feed_mm_min": 300,
+   "plunge_mm_min": 100,
+   "spindle_rpm": 8000,
+   "coolant": "flood"
   }
  ]
 }

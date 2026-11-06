@@ -313,7 +313,44 @@ fn torus_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
     Ok(Some(worst))
 }
 
-/// The most the mesh strays from the part: none on flat faces, measured on cylinders and tori, and
+/// How far a cone face's flat triangles stray from the cone, sampled across each triangle; None if
+/// its vertices do not lie on one. The analysis gives its axis: the slope is the vertices' own.
+fn cone_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
+    let axis = unit(v3(&face["direction"])?)?;
+    let origin = v3(&face["origin"])?;
+    let polar = |p: V3| {
+        let q = add(p, scale(origin, -1.));
+        let along = dot(q, axis);
+        ((dot(q, q) - along * along).max(0.).sqrt(), along)
+    };
+    let points: Vec<(f64, f64)> = triangles.iter().flatten().map(|p| polar(*p)).collect();
+    let (Some(low), Some(high)) = (points.iter().copied().min_by(|a, b| a.1.total_cmp(&b.1)), points.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1))) else {
+        return Ok(Some(0.));
+    };
+    if high.1 - low.1 < 1e-6 {
+        return Ok(None);
+    }
+    let slope = (high.0 - low.0) / (high.1 - low.1);
+    // Distance from the cone's line, in the plane through the axis.
+    let off = |p: (f64, f64)| (p.0 - (low.0 + slope * (p.1 - low.1))).abs() / slope.hypot(1.);
+    if points.iter().any(|p| off(*p) > 1e-3) {
+        return Ok(None);
+    }
+    const STEPS: usize = 8;
+    let mut worst: f64 = 0.;
+    for t in triangles {
+        for i in 0..=STEPS {
+            for j in 0..=STEPS - i {
+                let (u, v) = (i as f64 / STEPS as f64, j as f64 / STEPS as f64);
+                let w = 1. - u - v;
+                worst = worst.max(off(polar([0, 1, 2].map(|k| u * t[0][k] + v * t[1][k] + w * t[2][k]))));
+            }
+        }
+    }
+    Ok(Some(worst))
+}
+
+/// The most the mesh strays from the part: none on flat faces, measured on cylinders, tori and cones, and
 /// specify-core's chordal bound on other curved faces; plus coordinate rounding.
 fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflection: f64) -> Result<f64, String> {
     let triangles = mesh_triangles(mesh)?;
@@ -332,6 +369,8 @@ fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflection: f64) ->
         let complete = face.is_some_and(|x| ["direction", "origin", "radius"].iter().all(|k| x.get(*k).is_some()));
         if kind == Some("cylinder") && complete {
             worst = worst.max(cylinder_error(&triangles[start..start + count], face.unwrap())?);
+        } else if kind == Some("cone") && ["direction", "origin"].iter().all(|k| face.is_some_and(|x| x.get(*k).is_some())) {
+            worst = worst.max(cone_error(&triangles[start..start + count], face.unwrap())?.unwrap_or(deflection));
         } else if kind == Some("torus") && complete {
             worst = worst.max(torus_error(&triangles[start..start + count], face.unwrap())?.unwrap_or(deflection));
         } else {
@@ -777,6 +816,228 @@ fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str,
     Ok(None)
 }
 
+/// One piece of a slice through the mesh: a segment, and the mesh face it lies on.
+type Cut = ((f64, f64), (f64, f64), usize);
+
+/// Where the mesh crosses the plane at `z`.
+fn cuts_at(triangles: &[Tri], ranges: &[Value], z: f64) -> Option<Vec<Cut>> {
+    let mut cuts: Vec<Cut> = vec![];
+    for (face, range) in ranges.iter().enumerate() {
+        let (start, count) = (range[0].as_u64()? as usize, range[1].as_u64()? as usize);
+        for t in triangles.get(start..start + count)? {
+            let mut points = vec![];
+            for i in 0..3 {
+                let (a, b) = (t[i], t[(i + 1) % 3]);
+                if (a[2] < z) != (b[2] < z) {
+                    let u = (z - a[2]) / (b[2] - a[2]);
+                    points.push((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u));
+                }
+            }
+            if let [p, q] = points[..]
+                && (p.0 - q.0).hypot(p.1 - q.1) > 1e-7
+            {
+                cuts.push((p, q, face));
+            }
+        }
+    }
+    Some(cuts)
+}
+
+/// The cuts at `z` as closed loops, or None if they do not close. Faces are meshed apart, so ends
+/// that meet may differ by a little.
+fn slice(triangles: &[Tri], ranges: &[Value], z: f64) -> Option<Vec<Vec<Cut>>> {
+    const MEET: f64 = 2e-3;
+    let close = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).hypot(a.1 - b.1) <= MEET;
+    let cuts = cuts_at(triangles, ranges, z)?;
+    let mut used = vec![false; cuts.len()];
+    let mut loops = vec![];
+    for first in 0..cuts.len() {
+        if used[first] {
+            continue;
+        }
+        used[first] = true;
+        let mut chain = vec![cuts[first]];
+        loop {
+            let end = chain.last()?.1;
+            if chain.len() > 2 && close(end, chain[0].0) {
+                break;
+            }
+            let next = (0..cuts.len()).find(|i| !used[*i] && (close(cuts[*i].0, end) || close(cuts[*i].1, end)));
+            let Some(next) = next else {
+                if close(end, chain[0].0) {
+                    break;
+                }
+                return None;
+            };
+            used[next] = true;
+            let c = cuts[next];
+            chain.push(if close(c.0, end) { c } else { (c.1, c.0, c.2) });
+        }
+        loops.push(chain);
+    }
+    Some(loops)
+}
+
+/// Twice the area enclosed, positive when counter-clockwise.
+fn area(chain: &[Cut]) -> f64 {
+    chain.iter().map(|c| c.0.0 * c.1.1 - c.1.0 * c.0.1).sum()
+}
+
+fn reversed(chain: &[Cut]) -> Vec<Cut> {
+    chain.iter().rev().map(|c| (c.1, c.0, c.2)).collect()
+}
+
+fn contains(chain: &[Cut], p: (f64, f64)) -> bool {
+    chain.iter().filter(|c| (c.0.1 > p.1) != (c.1.1 > p.1) && p.0 < c.0.0 + (p.1 - c.0.1) / (c.1.1 - c.0.1) * (c.1.0 - c.0.0)).count() % 2 == 1
+}
+
+/// A loop as camlib's boundary, with its true lines and arcs: [x, y, bulge to the next vertex].
+/// None if a wall is not a flat or a cylinder along the tool.
+fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows) -> Result<Option<Vec<[f64; 3]>>, String> {
+    let n = chain.len();
+    let start = (0..n).find(|i| chain[*i].2 != chain[(i + n - 1) % n].2).unwrap_or(0);
+    let mut runs: Vec<Vec<Cut>> = vec![];
+    for i in 0..n {
+        let c = chain[(start + i) % n];
+        match runs.last_mut() {
+            Some(run) if run[0].2 == c.2 => run.push(c),
+            _ => runs.push(vec![c]),
+        }
+    }
+    let mut vertices = vec![];
+    for run in &runs {
+        let Some(face) = faces.get(&(run[0].2 as u64)) else { return Ok(None) };
+        match face["kind"].as_str() {
+            Some("plane") => vertices.push([r(run[0].0.0), r(run[0].0.1), 0.]),
+            Some("cylinder") => {
+                if rotate(rows, v3(&face["direction"])?)[2].abs() < 0.99 {
+                    return Ok(None);
+                }
+                let centre = frame.point(v3(&face["origin"])?);
+                let radius = f(face, "radius")?;
+                let angle = |p: (f64, f64)| (p.1 - centre[1]).atan2(p.0 - centre[0]);
+                let mut sweep = 0.;
+                for c in run {
+                    let mut step = angle(c.1) - angle(c.0);
+                    if step > std::f64::consts::PI {
+                        step -= std::f64::consts::TAU;
+                    } else if step < -std::f64::consts::PI {
+                        step += std::f64::consts::TAU;
+                    }
+                    sweep += step;
+                }
+                // A bulge is at most a half turn; more is written as equal arcs.
+                let arcs = (sweep.abs() / std::f64::consts::PI - 1e-6).ceil().max(1.);
+                let from = angle(run[0].0);
+                for k in 0..arcs as usize {
+                    let at = from + sweep * k as f64 / arcs;
+                    vertices.push([r(centre[0] + radius * at.cos()), r(centre[1] + radius * at.sin()), (sweep / arcs / 4.).tan()]);
+                }
+            }
+            _ => return Ok(None),
+        }
+    }
+    Ok(Some(vertices))
+}
+
+/// Finishes the outside wall and chamfers the top edges that the model rounds, in the roughing
+/// setup: (operations, ids of the rounds they stand for). A 45° chamfer meeting a round at its
+/// middle never cuts into the part. A loop qualifies only if its whole top edge has the one radius
+/// and its wall ends up at size: the outside (finished here) or a hole or slot's (already cut).
+fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value]) -> Result<(Vec<Value>, Vec<String>), String> {
+    let nothing = (vec![], vec![]);
+    let frame = &cx.frames[setup];
+    let rows = rows_of(setup);
+    let Some(ranges) = mesh["faces"].as_array() else { return Ok(nothing) };
+    let mut rounds: Vec<(&str, f64, V3)> = vec![];
+    for feature in cx.all_features {
+        if feature["family"] != "fillets" || feature["record"]["side"] != "convex" || upright(feature, faces, rows)? {
+            continue;
+        }
+        let radius = f(&feature["record"], "radius")?;
+        let Some(face) = feature["faces"][0].as_u64().and_then(|i| faces.get(&i)) else { continue };
+        let centre = frame.point(v3(&face["centroid"])?);
+        if centre[2] > part_top - radius - LEVEL_EPS {
+            rounds.push((feature["id"].as_str().unwrap_or(""), radius, centre));
+        }
+    }
+    let Some(radius) = rounds.first().map(|x| x.1) else { return Ok(nothing) };
+    if rounds.iter().any(|x| (x.1 - radius).abs() > LEVEL_EPS) {
+        return Ok(nothing);
+    }
+    let triangles = frame.triangles(triangles);
+    // Just below the round, the walls; at its middle, where a rounded edge has moved in.
+    let inset = radius * (1. - std::f64::consts::FRAC_1_SQRT_2);
+    let (Some(walls), Some(mids)) = (slice(triangles, ranges, part_top - radius - 0.05), cuts_at(triangles, ranges, part_top - inset)) else {
+        return Ok(nothing);
+    };
+    let Some(outer_at) = (0..walls.len()).max_by(|a, b| area(&walls[*a]).abs().total_cmp(&area(&walls[*b]).abs())) else { return Ok(nothing) };
+    let rounded = |chain: &[Cut]| {
+        chain.iter().all(|c| {
+            let p = ((c.0.0 + c.1.0) / 2., (c.0.1 + c.1.1) / 2.);
+            let near = mids.iter().map(|m| segment_distance(p, m.0, m.1)).fold(f64::MAX, f64::min);
+            (near - inset).abs() <= 0.08
+        })
+    };
+    let outer = if area(&walls[outer_at]) > 0. { walls[outer_at].clone() } else { reversed(&walls[outer_at]) };
+    let cut_to_size = |p: (f64, f64)| {
+        holes.iter().any(|h| {
+            let c = (h.center[0].as_f64().unwrap_or(f64::MAX), h.center[1].as_f64().unwrap_or(f64::MAX));
+            (c.0 - p.0).hypot(c.1 - p.1) < h.diameter / 2.
+        }) || slots.iter().any(|s| {
+            let (a, b) = ((s["a"][0].as_f64().unwrap_or(0.), s["a"][1].as_f64().unwrap_or(0.)), (s["b"][0].as_f64().unwrap_or(0.), s["b"][1].as_f64().unwrap_or(0.)));
+            segment_distance(p, a, b) < s["width"].as_f64().unwrap_or(0.) / 2.
+        })
+    };
+    let mut chamfered: Vec<Vec<Cut>> = vec![];
+    let mut inner: Vec<Value> = vec![];
+    for (i, chain) in walls.iter().enumerate() {
+        let (count, sum) = (chain.len() as f64, chain.iter().fold((0., 0.), |s, c| (s.0 + c.0.0, s.1 + c.0.1)));
+        let middle_of = (sum.0 / count, sum.1 / count);
+        if i == outer_at || !contains(&outer, chain[0].0) {
+            continue;
+        }
+        if rounded(chain) && cut_to_size(middle_of) {
+            let clockwise = if area(chain) < 0. { chain.clone() } else { reversed(chain) };
+            if let Some(vertices) = boundary(&clockwise, faces, frame, rows)? {
+                inner.push(json!(vertices));
+                chamfered.push(clockwise);
+            }
+        }
+    }
+    let Some(outline) = boundary(&outer, faces, frame, rows)? else { return Ok(nothing) };
+    // The finish runs down to the floor, so the wall must too: on a stepped part this outline
+    // is a raised part's, and following it down would cut what it stands on.
+    let largest = |z: f64| slice(triangles, ranges, z).and_then(|l| l.iter().map(|c| area(c).abs()).max_by(f64::total_cmp));
+    let same = |z: f64| largest(z).is_some_and(|a| (a - area(&outer)).abs() <= 0.005 * area(&outer));
+    let wall_low = floor + radius + 0.05;
+    let outside = rounded(&outer) && same(wall_low) && same((wall_low + part_top - radius) / 2.);
+    if outside {
+        chamfered.push(outer.clone());
+    } else if inner.is_empty() {
+        return Ok(nothing);
+    }
+    let ids: Vec<String> = rounds
+        .iter()
+        .filter(|x| chamfered.iter().flatten().any(|c| segment_distance((x.2[0], x.2[1]), c.0, c.1) <= radius + 0.5))
+        .map(|x| x.0.to_string())
+        .collect();
+    let mut ops = vec![];
+    if outside {
+        ops.push(json!({"kind": "wall_finish", "outer": outline, "floor_z": r(floor)}));
+    }
+    ops.push(json!({
+        "kind": "edge_chamfer", "radius": r(radius), "width": r(radius * (2. - 2f64.sqrt())), "top_z": r(part_top),
+        "outer": outline, "holes": inner, "boundaries": match (outside, inner.is_empty()) {
+            (true, true) => "outer",
+            (true, false) => "all",
+            _ => "holes",
+        },
+        "features": ids,
+    }));
+    Ok((ops, ids))
+}
+
 /// The part's box in model coordinates: quiddity gives `bounds` in its dimensioning `frame`.
 fn model_bounds(dimensioning: &Value) -> Result<Option<(V3, V3)>, String> {
     let Some(b) = dimensioning.get("bounds").filter(|b| truthy(Some(b))) else { return Ok(None) };
@@ -926,7 +1187,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         } else if in_slot.iter().any(|x| x == id) {
             // Cut by its slot's operation.
         } else if family == "fillets" && feature["record"]["side"] == "convex" && !upright(feature, &faces, rows_of(rough_from))? {
-            skipped.push(skip(id, format!("r{} edge round: no operation cuts it, so the edge stays sharp (break it by hand)", show(f(&feature["record"], "radius")?))));
+            skipped.push(skip(id, format!("r{} edge round: not reached from the roughing setup with its wall at size, so it stays sharp (break it by hand)", show(f(&feature["record"], "radius")?))));
         } else if ["chamfers", "oriented_chamfers"].contains(&family) {
             skipped.push(skip(id, "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)".into()));
         } else if family == "hole_patterns" {
@@ -997,7 +1258,16 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         ops.extend(hole_operations(holes));
         ops.extend(counterbore_operations(holes));
         ops.extend(thread_operations(holes));
-        ops.extend(setup_slots);
+        if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| o["kind"] == "roughing")) {
+            let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
+            let floor = (part.0[2] + options.skin).min(part.1[2]);
+            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots)?;
+            ops.extend(setup_slots);
+            ops.extend(edges);
+            skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
+        } else {
+            ops.extend(setup_slots);
+        }
         for h in holes {
             if h.csink {
                 skipped.push(skip(&h.feature, "countersink: not planned (chamfer it by hand)".into()));
