@@ -1,0 +1,56 @@
+{
+ "_comment": "An example tool library for step2cam post. Every number here is a placeholder: set the cutting data for your tools, material and machine, and the machine block for your controller. camlib has no defaults for these on purpose.",
+ "machine": {
+  "name": "Example three-axis LinuxCNC mill",
+  "dialect": "linuxcnc",
+  "output_units": "mm",
+  "decimals": 3,
+  "max_feed_mm_min": 5000,
+  "max_spindle_rpm": 24000,
+  "rapid_mm_min": 5000,
+  "planes": ["xy", "xz", "yz"],
+  "arcs": true,
+  "helices": true,
+  "max_sweep_rad": 6.283185307179586,
+  "max_tool_number": 99,
+  "max_length_register": 99,
+  "tool_changes": true,
+  "flood": true,
+  "mist": false,
+  "tool_change_position_mode": "table"
+ },
+ "clearance_mm": 10,
+ "retract_mm": 2,
+ "breakthrough_mm": 1,
+ "drill_tolerance_mm": 0.05,
+ "radial_allowance_mm": 0.3,
+ "bottom_allowance_mm": 0.2,
+ "tools": [
+  {
+   "id": "em6", "type": "end_mill", "number": 1,
+   "diameter": 6, "flute_length": 20, "overall_length": 60,
+   "stickout": 30, "holder_length": 40, "holder_diameter": 20,
+   "feed_mm_min": 600, "plunge_mm_min": 150, "spindle_rpm": 10000, "coolant": "flood",
+   "stepdown_mm": 1.5, "stepover_mm": 2.5
+  },
+  {
+   "id": "em3", "type": "end_mill", "number": 2,
+   "diameter": 3, "flute_length": 12, "overall_length": 50,
+   "stickout": 20, "holder_length": 40, "holder_diameter": 16,
+   "feed_mm_min": 400, "plunge_mm_min": 100, "spindle_rpm": 14000, "coolant": "flood",
+   "stepdown_mm": 0.75, "stepover_mm": 1.2
+  },
+  {
+   "id": "drill4.2", "type": "drill", "number": 3,
+   "diameter": 4.2, "flute_length": 43, "overall_length": 75, "point_angle": 118,
+   "stickout": 50, "holder_length": 40, "holder_diameter": 16,
+   "feed_mm_min": 150, "spindle_rpm": 3000, "coolant": "flood", "peck_mm": 3
+  },
+  {
+   "id": "drill6.6", "type": "drill", "number": 4,
+   "diameter": 6.6, "flute_length": 63, "overall_length": 101, "point_angle": 118,
+   "stickout": 70, "holder_length": 40, "holder_diameter": 20,
+   "feed_mm_min": 180, "spindle_rpm": 2000, "coolant": "flood", "peck_mm": 4
+  }
+ ]
+}

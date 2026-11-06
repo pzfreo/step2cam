@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "step2cam"
+version = "0.1.0"
+description = "STEP part features (specify-core / quiddity) to camlib toolpaths"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+# camlib (stevecad/camlib) is not on PyPI, and the `camlib` there is an unrelated package, so it
+# cannot be listed here: install it from GitHub (see the README).
+dependencies = ["specify-core>=0.1.12"]
+
+[project.scripts]
+step2cam = "step2cam:main"
+
+[tool.setuptools]
+py-modules = ["step2cam"]
