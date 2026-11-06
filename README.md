@@ -61,7 +61,8 @@ step2cam post part.plan.json --tools my-tools.json -o out/     # plan -> G-code,
 
 **https://pzfreo.github.io/step2cam/** opens a STEP file and shows its recognised features beside
 the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line
-and the others follow; press Play and the feature being cut lights up.
+and the others follow; press Play and the feature being cut lights up. Save writes each setup's
+G-code as `<part>-<setup>.nc`, with comments at its top saying what the file does not.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's

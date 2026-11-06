@@ -647,6 +647,40 @@ function buildTimeline(m) {
   }
 }
 
+// What the page says and a saved file would otherwise lose: it goes in the file as comments.
+function savedText(m, program) {
+  const setup = m.data.plan.setups.find((s) => s.id === program.setup);
+  const leftOut = m.data.plan.warnings.filter((w) => w.includes(" left out: "));
+  const notes = [
+    `step2cam demo, from ${m.data.name}, setup ${program.setup}`,
+    "PLACEHOLDER TOOLS AND CUTTING DATA: NOT FOR A REAL MACHINE",
+    `X0 Y0 on the minimum corner and Z0 on the top of the ${setup.zero}`,
+    ...leftOut.map((w) => `NOT CUT: ${w}`),
+  ];
+  const comments = notes.map((n) => `; ${n.replace(/[^\x20-\x7e]/g, "?")}`);
+  return `${comments.join("\n")}\n${program.nc}`;
+}
+
+function buildSaveButtons(m) {
+  const host = $("save");
+  host.replaceChildren();
+  const stem = m.data.name.replace(/\.[^.]*$/, "");
+  for (const program of m.data.programs) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = m.data.programs.length > 1 ? `Save ${program.setup}` : "Save G-code";
+    button.title = `Save ${stem}-${program.setup}.nc`;
+    button.addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([savedText(m, program)], { type: "text/plain" }));
+      link.download = `${stem}-${program.setup}.nc`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+    host.append(button);
+  }
+}
+
 function drawCode() {
   if (!model) return;
   const host = $("code"), rows = $("code-rows");
@@ -852,6 +886,7 @@ function show(data) {
   showToolpaths(model);
   buildFeatureList(model);
   buildTimeline(model);
+  buildSaveButtons(model);
   $("code-spacer").style.height = `${model.lines.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
