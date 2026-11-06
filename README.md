@@ -107,8 +107,13 @@ on purpose.
 
 - `machine`: camlib's `Machine` fields for your controller. Only `linuxcnc` and
   `"tool_change_position_mode": "table"` are wired up here; camlib's examples show GRBL, Haas,
-  FANUC, Siemens and Centroid posts. A tool change is assumed to leave the tool at X0 Y0 at
-  the clearance height.
+  FANUC, Siemens and Centroid posts.
+- **Tool changes:** after each tool change the machine must leave the spindle's gauge line
+  at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
+  M6 that moves there). camlib plans every new tool's first move down from there and checks
+  it, and the post states the same position, so the program and the plan agree. `post`
+  prints the position for each setup. By default it is over X0 Y0, at the clearance height
+  plus the longest gauge length, so every tool's tip is above the clearance height.
 - `tools`: every tool needs `id`, `type` (`end_mill` or `drill`), `number`, `diameter`,
   `flute_length`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
   `feed_mm_min`, `spindle_rpm` and `coolant`. End mills also need `plunge_mm_min`,
@@ -126,6 +131,8 @@ on purpose.
   | `drill_tolerance_mm` | 0.05 | how much smaller than the hole a drill may be (never larger) |
   | `radial_allowance_mm`, `bottom_allowance_mm` | 0.3, 0.2 | roughing allowances (at least twice the mesh's error) |
   | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
+  | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |
+  | `tool_change_xy_mm` | `[0, 0]` (X0 Y0) | where X and Y are after a tool change |
   | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid |
 
 How each operation gets a tool:
@@ -177,7 +184,7 @@ run.**
 Finishing passes (walls and floors are left with the roughing allowance), removing the web,
 countersinks and chamfers, counterbores at the far end of through holes, tapping and thread
 milling (specify-core reads threads from answers, not geometry), contouring with tabs, fixtures
-and avoid areas, tool-change positions other than `table`, 4/5-axis and oblique holes, lathe
+and avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe
 work.
 
 ## Tests

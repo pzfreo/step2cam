@@ -957,14 +957,33 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
         lo, hi = setup["stock"]["min"], setup["stock"]["max"]
         cell = library_data.get("cell_size_mm") or max(0.1, round(max(hi[0] - lo[0], hi[1] - lo[1]) / 400, 2))
         verification = camlib["verification"]
+        # Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over
+        # X Y, in this setup's work coordinates. The planner (Setup.tool_change) and the post
+        # (each tool's position_after_mm in the table) are told the same, and the machine must
+        # do it (an M6 that moves there).
+        gauges = {t.id: t.gauge_length_mm for t in tools}
+        lowest = clearance + max(gauges.values())
+        gauge_z = library_data.get("tool_change_gauge_z_mm")
+        if gauge_z is None:
+            gauge_z = lowest
+        elif gauge_z < lowest:
+            raise PostError(f"tool_change_gauge_z_mm {gauge_z} puts a tool tip below the clearance "
+                            f"height in setup {setup['id']}: it must be at least {_r(lowest)}")
+        change_xy = tuple(library_data.get("tool_change_xy_mm") or (lo[0], lo[1]))
+        tip_after = {tid: (change_xy[0], change_xy[1], gauge_z - g) for tid, g in gauges.items()}
+        log(f"setup {setup['id']}: after each tool change the spindle gauge line must be at "
+            f"X{_r(change_xy[0])} Y{_r(change_xy[1])} Z{_r(gauge_z)} (work coordinates)")
+        first_tool = getattr(ops[0], "tool", None)
+        first_id = getattr(first_tool, "id", None) or tools[0].id
         job = jobs.Job(
             f"step2cam-{setup['id']}", "1",
             (jobs.Setup(
                 setup["id"],
                 stock=camlib["simulation"].StockSpec(min_mm=tuple(lo), max_mm=tuple(hi), cell_size_mm=cell),
                 tools=tuple(tools), operations=tuple(ops),
-                initial_position_mm=(lo[0], lo[1], clearance),
+                initial_position_mm=tip_after[first_id],
                 verification=verification.StreamChecks(stock_contact=verification.StockContactOptions()),
+                tool_change=camlib["simulation"].ToolChangePosition(gauge_z_mm=gauge_z, xy_mm=change_xy),
             ),),
         )
         header = job.compile().setup(setup["id"]).program_header()
@@ -975,7 +994,7 @@ def post(plan_data, library_data, out_dir, *, stem="part", setups=None, accept=(
                 post_mod.ToolSetting.for_tool(
                     tool, number=numbers[tool.id]["number"],
                     length_register=numbers[tool.id].get("length_register", numbers[tool.id]["number"]),
-                    position_after_mm=header.initial_position_mm)
+                    position_after_mm=tip_after[tool.id])
                 for tool in header.tools
             ),
             dialect=post_mod.GCodeDialect.linuxcnc(),
