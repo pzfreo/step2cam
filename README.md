@@ -59,18 +59,26 @@ step2cam post part.plan.json --tools my-tools.json -o out/     # plan -> G-code,
 
 ## Demo
 
-`demo/` is a local page: open a STEP file and see its recognised features beside the toolpaths
-that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line and the
-others follow; press Play and the feature being cut lights up.
+**https://pzfreo.github.io/step2cam/** opens a STEP file and shows its recognised features beside
+the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line
+and the others follow; press Play and the feature being cut lights up.
+
+It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
+package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's
+engine) makes the toolpaths. It uses `demo/tools.json`: **placeholder tools and cutting data, not
+for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
+Machining times are estimates from the feed rates; the timeline compresses them so that holes are
+not lost beside roughing.
 
 ```bash
-python demo/serve.py    # needs specify-core and camlib; then open http://127.0.0.1:8765
+demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
 ```
 
-It uses `examples/tools.example.json`, so a hole that library has no tool for is reported, not
-cut. If camlib refuses roughing for a part, the demo leaves roughing out and says so. Machining
-times are estimates from the feed rates; the timeline compresses them so that holes are not lost
-beside roughing. The server does the work for now, so this is not yet a GitHub Pages site.
+`rust/` gives the same plans and G-code as `step2cam.py` (`rust/tests/parity.rs`), with these
+differences in checking. Every motion block is read back with camlib's decoder and compared with
+the planned path, and camlib's stock-contact checks run, but camlib's whole-program intent checker
+does not: its decoding of non-motion blocks is in camlib's Python. Only LinuxCNC output in mm is
+wired up. `rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit WebAssembly.
 
 ## The plan (`specify-cam-plan`, version 1)
 
@@ -219,11 +227,14 @@ Three levels, each used when it can be:
   name fails.
 - **With camlib installed:** a whole plan posted to G-code.
 
-CI runs all three. The fixtures in `tests/fixtures` are specify-core's test part `plate.step`,
+`rust/` has its own tests, `cargo test --release` after `rust/fetch-camlib.sh`: its plans, jobs
+and G-code against what Python wrote (`tests/fixtures/rust-golden`).
+
+CI runs all of these. The fixtures in `tests/fixtures` are specify-core's test part `plate.step`,
 and specify-core's output for it and for `spindle.step`. With specify-core installed,
 `plan_step` is checked against them.
 
 ## License
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
-and includes neither.
+and includes neither; the demo site's WebAssembly contains both.

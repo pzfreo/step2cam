@@ -4,3 +4,7 @@ build/
 dist/
 out/
 *.nc
+vendor/
+rust/target/
+site/
+demo/pkg/

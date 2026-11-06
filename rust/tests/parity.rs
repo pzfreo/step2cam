@@ -1,0 +1,110 @@
+//! The Rust path against the Python one: tests/fixtures/rust-golden holds what Python's
+//! step2cam.plan and step2cam.post wrote for the same input.
+use serde_json::Value;
+use std::{fs, path::PathBuf};
+
+fn root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
+}
+fn json(path: &str) -> Value {
+    serde_json::from_str(&fs::read_to_string(root().join(path)).unwrap()).unwrap()
+}
+/// Equal, with numbers compared by value (1 and 1.0) to within rounding of the last places.
+fn same(a: &Value, b: &Value, path: &str) -> Result<(), String> {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            if x == y || (x - y).abs() <= 1e-12 * x.abs().max(y.abs()) {
+                Ok(())
+            } else {
+                Err(format!("{path}: {x} != {y}"))
+            }
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            if x.len() != y.len() {
+                return Err(format!("{path}: {} items != {}", x.len(), y.len()));
+            }
+            x.iter().zip(y).enumerate().try_for_each(|(i, (p, q))| same(p, q, &format!("{path}[{i}]")))
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            let mut keys: Vec<_> = x.keys().chain(y.keys()).collect();
+            keys.sort();
+            keys.dedup();
+            keys.into_iter().try_for_each(|k| match (x.get(k), y.get(k)) {
+                (Some(p), Some(q)) => same(p, q, &format!("{path}.{k}")),
+                _ => Err(format!("{path}.{k}: only on one side")),
+            })
+        }
+        _ if a == b => Ok(()),
+        _ => Err(format!("{path}: {a} != {b}")),
+    }
+}
+
+#[test]
+fn the_plate_plans_as_in_python() {
+    let analysis = json("tests/fixtures/plate.analysis.json");
+    let mesh = json("tests/fixtures/plate.mesh.json");
+    let plan = step2cam::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    same(&plan, &json("tests/fixtures/rust-golden/plate.plan.json"), "plan").unwrap();
+}
+
+#[test]
+fn the_spindle_plans_without_a_mesh_as_in_python() {
+    let analysis = json("tests/fixtures/spindle.analysis.json");
+    let plan = step2cam::plan::plan(&analysis, None, &Default::default()).unwrap();
+    same(&plan, &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
+}
+
+#[test]
+fn the_plates_job_is_python_s_job() {
+    let plan = json("tests/fixtures/rust-golden/plate.plan.json");
+    let library = json("examples/tools.example.json");
+    let (jobs, _) = step2cam::job::jobs(&plan, &library).unwrap();
+    assert_eq!(jobs.len(), 1);
+    let mut mine = jobs[0].manifest.clone();
+    let mut python = json("tests/fixtures/rust-golden/plate.manifest.json");
+    // The run's random id and the job's hash.
+    mine["run"] = Value::Null;
+    python["run"] = Value::Null;
+    same(&mine, &python, "manifest").unwrap();
+}
+
+#[test]
+fn the_plates_g_code_is_byte_for_byte_python_s() {
+    let analysis = json("tests/fixtures/plate.analysis.json");
+    let mesh = json("tests/fixtures/plate.mesh.json");
+    let out = step2cam::process(&analysis, &mesh, &json("examples/tools.example.json")).unwrap();
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    let nc = out["programs"][0]["nc"].as_str().unwrap();
+    assert_eq!(nc, fs::read_to_string(root().join("tests/fixtures/rust-golden/plate-top.nc")).unwrap());
+    let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
+    assert_eq!(ends, [53, 1975, 1992, 2070, 2108]);
+}
+
+#[test]
+fn an_arc_the_machine_refuses_becomes_lines_near_the_plan() {
+    let analysis = json("tests/fixtures/plate.analysis.json");
+    let mesh = json("tests/fixtures/plate.mesh.json");
+    let mut library = json("examples/tools.example.json");
+    library["machine"]["arcs"] = Value::Bool(false);
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    let nc = out["programs"][0]["nc"].as_str().unwrap();
+    assert!(!nc.lines().any(|l| l.starts_with("G2 ") || l.starts_with("G3 ")));
+}
+
+#[test]
+fn an_operation_over_the_machines_limit_is_left_out_with_a_warning() {
+    let analysis = json("tests/fixtures/plate.analysis.json");
+    let mesh = json("tests/fixtures/plate.mesh.json");
+    let mut library = json("examples/tools.example.json");
+    // The drills feed slower than this; the end mill that faces, roughs and bores does not.
+    library["machine"]["max_feed_mm_min"] = serde_json::json!(200.0);
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    let warnings = out["plan"]["warnings"].to_string();
+    assert!(warnings.contains("left out") && warnings.contains("above the machine's limit"), "{warnings}");
+    let kinds: Vec<&str> = out["plan"]["setups"][0]["operations"].as_array().unwrap().iter().map(|o| o["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["holes", "holes"]);
+    assert!(out["programs"][0]["nc"].as_str().unwrap().contains("T3"));
+}

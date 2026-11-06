@@ -1,4 +1,4 @@
-// The step2cam demo page. Draws what demo/serve.py returns: features on the left in
+// The step2cam demo page. Draws what worker.js returns: features on the left in
 // three-cad-viewer, the posted G-code on the right in three.js, both in model coordinates and
 // one camera, with features, operations, toolpaths and G-code lines linked to each other.
 
@@ -807,8 +807,8 @@ function show(data) {
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
-  $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} holes · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} lines of G-code`;
-  const notes = [];
+  $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} lines of G-code`;
+  const notes = data.notice ? [data.notice] : [];
   if (data.post_error) notes.push(`Posting failed: ${data.post_error}`);
   notes.push(...data.plan.warnings);
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
@@ -825,23 +825,34 @@ function show(data) {
   applyFocus(false);
 }
 
-async function load(request) {
+// specify-core, step2cam and camlib all run in this worker, in the visitor's browser.
+const worker = new Worker("worker.js", { type: "module" });
+let job = 0;
+
+function run(name, bytes) {
+  const id = ++job;
   $("busy").hidden = false;
-  try {
-    const response = await request;
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error || response.statusText);
-    show(body);
-  } catch (error) {
-    console.error(error);
-    showBanner(`Could not process that file: ${error.message}`);
-  } finally {
-    $("busy").hidden = true;
-  }
+  showBanner("");
+  worker.postMessage({ id, name, bytes }, [bytes]);
 }
 
-function openFile(file) {
-  load(fetch("/api/process", { method: "POST", headers: { "X-File-Name": file.name }, body: file }));
+worker.onmessage = ({ data: { id, data, error } }) => {
+  if (id !== job) return;  // a newer file was opened meanwhile
+  $("busy").hidden = true;
+  if (error) {
+    console.error(error);
+    showBanner(`Could not process that file: ${error}`);
+    return;
+  }
+  show(data);
+};
+worker.onerror = (event) => {
+  $("busy").hidden = true;
+  showBanner(`The worker stopped: ${event.message}`);
+};
+
+async function openFile(file) {
+  run(file.name, await file.arrayBuffer());
 }
 
 $("file").addEventListener("change", (event) => {
@@ -891,4 +902,4 @@ new ResizeObserver(() => {
 
 initRight();
 initCadLinks();
-load(fetch("/api/example"));
+fetch("plate.step").then((r) => r.arrayBuffer()).then((bytes) => run("plate.step", bytes));
