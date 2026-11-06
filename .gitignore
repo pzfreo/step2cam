@@ -8,3 +8,4 @@ vendor/
 rust/target/
 site/
 demo/pkg/
+!tests/fixtures/rust-golden/*.nc
