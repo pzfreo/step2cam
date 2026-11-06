@@ -27,22 +27,12 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
 }
 
 /// Takes an operation named as job::jobs names them (`top-2-roughing`) out of the plan.
-fn remove_operation(plan: &mut Value, id: &str) -> bool {
+fn remove_operation(plan: &mut Value, id: &str) -> Option<Value> {
     let mut parts = id.splitn(3, '-');
-    let (Some(setup_id), Some(number)) = (parts.next(), parts.next().and_then(|n| n.parse::<usize>().ok())) else {
-        return false;
-    };
-    let setups = plan["setups"].as_array_mut();
-    let Some(setup) = setups.into_iter().flatten().find(|s| s["id"] == setup_id) else {
-        return false;
-    };
-    match setup["operations"].as_array_mut() {
-        Some(ops) if number >= 1 && number <= ops.len() => {
-            ops.remove(number - 1);
-            true
-        }
-        _ => false,
-    }
+    let (setup_id, number) = (parts.next()?, parts.next()?.parse::<usize>().ok()?);
+    let setup = plan["setups"].as_array_mut()?.iter_mut().find(|s| s["id"] == setup_id)?;
+    let ops = setup["operations"].as_array_mut()?;
+    (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))
 }
 
 /// Everything the page draws, from specify-core's analysis and mesh and a tool library. An
@@ -58,11 +48,25 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
         let Err(failure) = post_all(&plan, library, &machine, &mut programs, &mut log) else {
             break;
         };
-        let Some(operation) = failure.operation.filter(|id| remove_operation(&mut plan, id)) else {
+        let removed = failure.operation.as_deref().and_then(|id| remove_operation(&mut plan, id));
+        let (Some(operation), Some(removed)) = (failure.operation, removed) else {
             post_error = Some(failure.message);
             break;
         };
+        // Nothing is covered by roughing that does not run.
+        if operation.ends_with("-roughing") {
+            let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
+            if let Some(skipped) = plan["skipped"].as_array_mut() {
+                skipped.extend(covered.into_iter().map(|id| json!({"feature": id, "reason": "no operation of its own, and roughing was refused"})));
+            }
+        }
         let brief: String = failure.message.chars().take(160).collect();
+        // Its features say why they were not cut.
+        if let Some(skipped) = plan["skipped"].as_array_mut() {
+            for feature in removed["features"].as_array().into_iter().flatten() {
+                skipped.push(json!({"feature": feature, "reason": format!("left out: {brief}")}));
+            }
+        }
         if let Some(warnings) = plan["warnings"].as_array_mut() {
             warnings.push(json!(format!("{operation} left out: {brief}")));
         }

@@ -1,0 +1,2145 @@
+{
+ "schema": 1,
+ "binding": {
+  "source_sha256": "1e71caba689593eb357ca6ac0108130c2655adfda280909db88f49a8baf3c750",
+  "face_count": 43,
+  "loader_version": 2,
+  "part": 0
+ },
+ "faces": [
+  {
+   "id": 0,
+   "kind": "plane",
+   "area": 384.00000000000017,
+   "centroid": [
+    -50.0,
+    0.0,
+    4.0
+   ],
+   "direction": [
+    -1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 1,
+   "kind": "cylinder",
+   "area": 50.26548245743671,
+   "centroid": [
+    -48.183099,
+    -33.183099,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -45.0,
+    -30.0,
+    0.0
+   ],
+   "radius": 5.0
+  },
+  {
+   "id": 2,
+   "kind": "cylinder",
+   "area": 75.39822368615503,
+   "centroid": [
+    -49.709296,
+    0.0,
+    0.290704
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "origin": [
+    -49.2,
+    -30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 3,
+   "kind": "cylinder",
+   "area": 75.39822368615503,
+   "centroid": [
+    -49.709296,
+    -0.0,
+    7.709296
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "origin": [
+    -49.2,
+    -30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 4,
+   "kind": "cylinder",
+   "area": 50.26548245743671,
+   "centroid": [
+    -48.183099,
+    33.183099,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -45.0,
+    30.0,
+    0.0
+   ],
+   "radius": 5.0
+  },
+  {
+   "id": 5,
+   "kind": "torus",
+   "area": 9.29577734606378,
+   "centroid": [
+    -48.006225,
+    -33.006225,
+    0.302524
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -45.0,
+    -30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 6,
+   "kind": "torus",
+   "area": 9.295777346063783,
+   "centroid": [
+    -48.006225,
+    -33.006225,
+    7.697476
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -45.0,
+    -30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 7,
+   "kind": "plane",
+   "area": 576.0,
+   "centroid": [
+    0.0,
+    -35.0,
+    4.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "plane",
+   "area": 5721.050061795924,
+   "centroid": [
+    -1.586183,
+    -0.0,
+    0.0
+   ],
+   "direction": [
+    -0.0,
+    -0.0,
+    -1.0
+   ]
+  },
+  {
+   "id": 9,
+   "kind": "torus",
+   "area": 9.29577734606378,
+   "centroid": [
+    -48.006225,
+    33.006225,
+    0.302524
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -45.0,
+    30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 10,
+   "kind": "plane",
+   "area": 5721.050061795924,
+   "centroid": [
+    -1.586183,
+    0.0,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 11,
+   "kind": "torus",
+   "area": 9.295777346063783,
+   "centroid": [
+    -48.006225,
+    33.006225,
+    7.697476
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -45.0,
+    30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 12,
+   "kind": "plane",
+   "area": 576.0,
+   "centroid": [
+    0.0,
+    35.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 13,
+   "kind": "cylinder",
+   "area": 113.09733552923255,
+   "centroid": [
+    0.0,
+    -34.709296,
+    0.290704
+   ],
+   "direction": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "origin": [
+    45.0,
+    -34.2,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 14,
+   "kind": "cylinder",
+   "area": 113.09733552923255,
+   "centroid": [
+    -0.0,
+    -34.709296,
+    7.709296
+   ],
+   "direction": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "origin": [
+    45.0,
+    -34.2,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 15,
+   "kind": "cylinder",
+   "area": 50.26548245743671,
+   "centroid": [
+    48.183099,
+    -33.183099,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    45.0,
+    -30.0,
+    0.0
+   ],
+   "radius": 5.0
+  },
+  {
+   "id": 16,
+   "kind": "cylinder",
+   "area": 113.09733552923255,
+   "centroid": [
+    0.0,
+    34.709296,
+    0.290704
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "origin": [
+    -45.0,
+    34.2,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 17,
+   "kind": "torus",
+   "area": 9.29577734606378,
+   "centroid": [
+    48.006225,
+    -33.006225,
+    0.302524
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    45.0,
+    -30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 18,
+   "kind": "torus",
+   "area": 9.29577734606378,
+   "centroid": [
+    48.006225,
+    33.006225,
+    0.302524
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    45.0,
+    30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 19,
+   "kind": "cylinder",
+   "area": 75.39822368615503,
+   "centroid": [
+    49.709296,
+    -0.0,
+    0.290704
+   ],
+   "direction": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "origin": [
+    49.2,
+    30.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 20,
+   "kind": "cylinder",
+   "area": 138.230076757951,
+   "centroid": [
+    -38.0,
+    -24.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -38.0,
+    -24.0,
+    -1.0
+   ],
+   "radius": 2.75
+  },
+  {
+   "id": 21,
+   "kind": "cylinder",
+   "area": 138.230076757951,
+   "centroid": [
+    38.0,
+    -24.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    38.0,
+    -24.0,
+    -1.0
+   ],
+   "radius": 2.75
+  },
+  {
+   "id": 22,
+   "kind": "cylinder",
+   "area": 703.7167544041142,
+   "centroid": [
+    -0.0,
+    -0.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "radius": 14.0
+  },
+  {
+   "id": 23,
+   "kind": "cylinder",
+   "area": 138.230076757951,
+   "centroid": [
+    -38.0,
+    24.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -38.0,
+    24.0,
+    -1.0
+   ],
+   "radius": 2.75
+  },
+  {
+   "id": 24,
+   "kind": "cylinder",
+   "area": 138.230076757951,
+   "centroid": [
+    38.0,
+    24.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    38.0,
+    24.0,
+    -1.0
+   ],
+   "radius": 2.75
+  },
+  {
+   "id": 25,
+   "kind": "cylinder",
+   "area": 27.646015351590176,
+   "centroid": [
+    36.290704,
+    0.0,
+    0.290704
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "origin": [
+    36.8,
+    -11.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 26,
+   "kind": "torus",
+   "area": 16.939021151794044,
+   "centroid": [
+    32.0,
+    -13.740541,
+    0.277731
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    32.0,
+    -11.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 27,
+   "kind": "torus",
+   "area": 16.939021151794105,
+   "centroid": [
+    32.0,
+    13.740541,
+    0.277731
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    32.0,
+    11.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 28,
+   "kind": "cylinder",
+   "area": 27.646015351590176,
+   "centroid": [
+    27.709296,
+    -0.0,
+    0.290704
+   ],
+   "direction": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "origin": [
+    27.2,
+    11.0,
+    0.8
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 29,
+   "kind": "cylinder",
+   "area": 113.09733552923255,
+   "centroid": [
+    0.0,
+    34.709296,
+    7.709296
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "origin": [
+    -45.0,
+    34.2,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 30,
+   "kind": "torus",
+   "area": 9.295777346063783,
+   "centroid": [
+    48.006225,
+    -33.006225,
+    7.697476
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    45.0,
+    -30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 31,
+   "kind": "torus",
+   "area": 9.295777346063783,
+   "centroid": [
+    48.006225,
+    33.006225,
+    7.697476
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    45.0,
+    30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 32,
+   "kind": "cylinder",
+   "area": 75.39822368615503,
+   "centroid": [
+    49.709296,
+    0.0,
+    7.709296
+   ],
+   "direction": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "origin": [
+    49.2,
+    30.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 33,
+   "kind": "cylinder",
+   "area": 27.646015351590176,
+   "centroid": [
+    36.290704,
+    0.0,
+    7.709296
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "origin": [
+    36.8,
+    -11.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 34,
+   "kind": "torus",
+   "area": 16.93902115179406,
+   "centroid": [
+    32.0,
+    -13.740541,
+    7.722269
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    -11.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 35,
+   "kind": "torus",
+   "area": 16.939021151794115,
+   "centroid": [
+    32.0,
+    13.740541,
+    7.722269
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    11.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 36,
+   "kind": "cylinder",
+   "area": 27.646015351590176,
+   "centroid": [
+    27.709296,
+    -0.0,
+    7.709296
+   ],
+   "direction": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "origin": [
+    27.2,
+    11.0,
+    7.2
+   ],
+   "radius": 0.8
+  },
+  {
+   "id": 37,
+   "kind": "cylinder",
+   "area": 50.26548245743671,
+   "centroid": [
+    48.183099,
+    33.183099,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    45.0,
+    30.0,
+    0.0
+   ],
+   "radius": 5.0
+  },
+  {
+   "id": 38,
+   "kind": "plane",
+   "area": 384.00000000000017,
+   "centroid": [
+    50.0,
+    0.0,
+    4.0
+   ],
+   "direction": [
+    1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 39,
+   "kind": "plane",
+   "area": 140.8,
+   "centroid": [
+    36.0,
+    -0.0,
+    4.0
+   ],
+   "direction": [
+    -1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 40,
+   "kind": "cylinder",
+   "area": 80.42477193189873,
+   "centroid": [
+    32.0,
+    -13.546479,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    -11.0,
+    -1.0
+   ],
+   "radius": 4.0
+  },
+  {
+   "id": 41,
+   "kind": "cylinder",
+   "area": 80.42477193189873,
+   "centroid": [
+    32.0,
+    13.546479,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    11.0,
+    -1.0
+   ],
+   "radius": 4.0
+  },
+  {
+   "id": 42,
+   "kind": "plane",
+   "area": 140.8,
+   "centroid": [
+    28.0,
+    -0.0,
+    4.0
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "features": [
+  {
+   "id": "fillets:17",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     48.37,
+     -33.37,
+     0.234
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    17
+   ]
+  },
+  {
+   "id": "fillets:5",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     -48.37,
+     -33.37,
+     0.234
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    5
+   ]
+  },
+  {
+   "id": "fillets:18",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     48.37,
+     33.37,
+     0.234
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    18
+   ]
+  },
+  {
+   "id": "fillets:9",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     -48.37,
+     33.37,
+     0.234
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    9
+   ]
+  },
+  {
+   "id": "fillets:15",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 5.0,
+    "at": [
+     48.536,
+     -33.536,
+     4.0
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    15
+   ]
+  },
+  {
+   "id": "fillets:1",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 5.0,
+    "at": [
+     -48.536,
+     -33.536,
+     4.0
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    1
+   ]
+  },
+  {
+   "id": "fillets:37",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 5.0,
+    "at": [
+     48.536,
+     33.536,
+     4.0
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    37
+   ]
+  },
+  {
+   "id": "fillets:4",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 5.0,
+    "at": [
+     -48.536,
+     33.536,
+     4.0
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    4
+   ]
+  },
+  {
+   "id": "fillets:30",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     48.37,
+     -33.37,
+     7.766
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    30
+   ]
+  },
+  {
+   "id": "fillets:6",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     -48.37,
+     -33.37,
+     7.766
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    6
+   ]
+  },
+  {
+   "id": "fillets:31",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     48.37,
+     33.37,
+     7.766
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    31
+   ]
+  },
+  {
+   "id": "fillets:11",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 0.8,
+    "at": [
+     -48.37,
+     33.37,
+     7.766
+    ],
+    "turned": true,
+    "side": "convex"
+   },
+   "faces": [
+    11
+   ]
+  },
+  {
+   "id": "fillets:19",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     49.766,
+     0.0,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    19
+   ]
+  },
+  {
+   "id": "fillets:25",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     36.234,
+     0.0,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    25
+   ]
+  },
+  {
+   "id": "fillets:28",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     27.766,
+     0.0,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    28
+   ]
+  },
+  {
+   "id": "fillets:2",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     -49.766,
+     0.0,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    2
+   ]
+  },
+  {
+   "id": "fillets:32",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     49.766,
+     0.0,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    32
+   ]
+  },
+  {
+   "id": "fillets:33",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     36.234,
+     0.0,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    33
+   ]
+  },
+  {
+   "id": "fillets:36",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     27.766,
+     0.0,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    36
+   ]
+  },
+  {
+   "id": "fillets:3",
+   "family": "fillets",
+   "record": {
+    "axis": "y",
+    "radius": 0.8,
+    "at": [
+     -49.766,
+     0.0,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    3
+   ]
+  },
+  {
+   "id": "fillets:13",
+   "family": "fillets",
+   "record": {
+    "axis": "x",
+    "radius": 0.8,
+    "at": [
+     0.0,
+     -34.766,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    13
+   ]
+  },
+  {
+   "id": "fillets:16",
+   "family": "fillets",
+   "record": {
+    "axis": "x",
+    "radius": 0.8,
+    "at": [
+     0.0,
+     34.766,
+     0.234
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    16
+   ]
+  },
+  {
+   "id": "fillets:14",
+   "family": "fillets",
+   "record": {
+    "axis": "x",
+    "radius": 0.8,
+    "at": [
+     0.0,
+     -34.766,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    14
+   ]
+  },
+  {
+   "id": "fillets:29",
+   "family": "fillets",
+   "record": {
+    "axis": "x",
+    "radius": 0.8,
+    "at": [
+     0.0,
+     34.766,
+     7.766
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    29
+   ]
+  },
+  {
+   "id": "holes:20",
+   "family": "holes",
+   "record": {
+    "axis": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "location": [
+     -38.0,
+     -24.0,
+     8.0
+    ],
+    "diameter": 5.5,
+    "depth": 8.0,
+    "bottom": "through",
+    "cbore": null,
+    "spotface": null,
+    "csink": null
+   },
+   "faces": [
+    20
+   ]
+  },
+  {
+   "id": "holes:21",
+   "family": "holes",
+   "record": {
+    "axis": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "location": [
+     38.0,
+     -24.0,
+     8.0
+    ],
+    "diameter": 5.5,
+    "depth": 8.0,
+    "bottom": "through",
+    "cbore": null,
+    "spotface": null,
+    "csink": null
+   },
+   "faces": [
+    21
+   ]
+  },
+  {
+   "id": "holes:22",
+   "family": "holes",
+   "record": {
+    "axis": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "location": [
+     0.0,
+     0.0,
+     8.0
+    ],
+    "diameter": 28.0,
+    "depth": 8.0,
+    "bottom": "through",
+    "cbore": null,
+    "spotface": null,
+    "csink": null
+   },
+   "faces": [
+    22
+   ]
+  },
+  {
+   "id": "holes:23",
+   "family": "holes",
+   "record": {
+    "axis": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "location": [
+     -38.0,
+     24.0,
+     8.0
+    ],
+    "diameter": 5.5,
+    "depth": 8.0,
+    "bottom": "through",
+    "cbore": null,
+    "spotface": null,
+    "csink": null
+   },
+   "faces": [
+    23
+   ]
+  },
+  {
+   "id": "holes:24",
+   "family": "holes",
+   "record": {
+    "axis": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "location": [
+     38.0,
+     24.0,
+     8.0
+    ],
+    "diameter": 5.5,
+    "depth": 8.0,
+    "bottom": "through",
+    "cbore": null,
+    "spotface": null,
+    "csink": null
+   },
+   "faces": [
+    24
+   ]
+  },
+  {
+   "id": "slots:39.40.41.42",
+   "family": "slots",
+   "record": {
+    "width_axis": "x",
+    "long_axis": "y",
+    "width": 8.0,
+    "length": 30.0,
+    "w_center": 32.0,
+    "lo": -15.0,
+    "hi": 15.0,
+    "d_lo": 0.8,
+    "d_hi": 7.2,
+    "body_key": [
+     -50.0,
+     -35.0,
+     0.0,
+     50.0,
+     35.0,
+     8.0,
+     48221.885114,
+     16268.9372604
+    ],
+    "end_radius": 4.0,
+    "corner_radius": null,
+    "source": null
+   },
+   "faces": [
+    39,
+    40,
+    41,
+    42
+   ]
+  },
+  {
+   "id": "step_levels:39",
+   "family": "step_levels",
+   "record": {
+    "z": 37.21400305527671,
+    "x_span": [
+     -3.2,
+     3.2
+    ],
+    "y_span": [
+     -11.000000000000002,
+     10.999999999999998
+    ],
+    "body_key": [
+     -50.0,
+     -35.0,
+     0.0,
+     50.0,
+     35.0,
+     8.0,
+     48221.885114,
+     16268.9372604
+    ],
+    "origin": [
+     -1.2140030552767131,
+     1.0543819502015905e-15,
+     4.0
+    ],
+    "height_axis": "x",
+    "x_axis": "z",
+    "y_axis": "y"
+   },
+   "faces": [
+    39
+   ]
+  },
+  {
+   "id": "step_levels:42",
+   "family": "step_levels",
+   "record": {
+    "z": 29.214003055276713,
+    "x_span": [
+     -3.2,
+     3.2
+    ],
+    "y_span": [
+     -11.000000000000002,
+     10.999999999999998
+    ],
+    "body_key": [
+     -50.0,
+     -35.0,
+     0.0,
+     50.0,
+     35.0,
+     8.0,
+     48221.885114,
+     16268.9372604
+    ],
+    "origin": [
+     -1.2140030552767131,
+     1.0543819502015905e-15,
+     4.0
+    ],
+    "height_axis": "x",
+    "x_axis": "z",
+    "y_axis": "y"
+   },
+   "faces": [
+    42
+   ]
+  },
+  {
+   "id": "hole_patterns.rectangle:20.21.23.24",
+   "family": "hole_patterns",
+   "record": {
+    "holes": [
+     {
+      "axis": [
+       0.0,
+       0.0,
+       -1.0
+      ],
+      "location": [
+       38.0,
+       -24.0,
+       8.0
+      ],
+      "diameter": 5.5,
+      "depth": 8.0,
+      "bottom": "through",
+      "cbore": null,
+      "spotface": null,
+      "csink": null
+     },
+     {
+      "axis": [
+       0.0,
+       0.0,
+       -1.0
+      ],
+      "location": [
+       38.0,
+       24.0,
+       8.0
+      ],
+      "diameter": 5.5,
+      "depth": 8.0,
+      "bottom": "through",
+      "cbore": null,
+      "spotface": null,
+      "csink": null
+     },
+     {
+      "axis": [
+       0.0,
+       0.0,
+       -1.0
+      ],
+      "location": [
+       -38.0,
+       24.0,
+       8.0
+      ],
+      "diameter": 5.5,
+      "depth": 8.0,
+      "bottom": "through",
+      "cbore": null,
+      "spotface": null,
+      "csink": null
+     },
+     {
+      "axis": [
+       0.0,
+       0.0,
+       -1.0
+      ],
+      "location": [
+       -38.0,
+       -24.0,
+       8.0
+      ],
+      "diameter": 5.5,
+      "depth": 8.0,
+      "bottom": "through",
+      "cbore": null,
+      "spotface": null,
+      "csink": null
+     }
+    ],
+    "center": [
+     0.0,
+     0.0,
+     8.0
+    ],
+    "width": 76.0,
+    "height": 48.0,
+    "angle": 0.0,
+    "kind": "rectangle"
+   },
+   "faces": [
+    20,
+    21,
+    23,
+    24
+   ],
+   "members": [
+    "holes:21",
+    "holes:24",
+    "holes:23",
+    "holes:20"
+   ]
+  }
+ ],
+ "dimensioning": {
+  "frame": {
+   "origin": [
+    -1.2140030552767131,
+    1.0543819502015905e-15,
+    4.0
+   ],
+   "x": [
+    1.0,
+    -0.0,
+    -0.0
+   ],
+   "y": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "gauge": "orthogonal"
+  },
+  "bounds": [
+   [
+    -48.78599694472329,
+    -35.0,
+    -4.0
+   ],
+   [
+    51.21400305527671,
+    35.0,
+    4.0
+   ]
+  ],
+  "holes": [
+   {
+    "support": {
+     "feature": "hole:20",
+     "faces": [
+      20
+     ],
+     "body": 0,
+     "at": [
+      -36.785996945,
+      -24.0,
+      4.0
+     ],
+     "plane": false
+    },
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "diameter": 5.5,
+    "depth": null,
+    "traversal": 8.0,
+    "bottom": "through",
+    "details": []
+   },
+   {
+    "support": {
+     "feature": "hole:21",
+     "faces": [
+      21
+     ],
+     "body": 0,
+     "at": [
+      39.214003055,
+      -24.0,
+      4.0
+     ],
+     "plane": false
+    },
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "diameter": 5.5,
+    "depth": null,
+    "traversal": 8.0,
+    "bottom": "through",
+    "details": []
+   },
+   {
+    "support": {
+     "feature": "hole:22",
+     "faces": [
+      22
+     ],
+     "body": 0,
+     "at": [
+      1.2140030553,
+      0.0,
+      4.0
+     ],
+     "plane": false
+    },
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "diameter": 28.0,
+    "depth": null,
+    "traversal": 8.0,
+    "bottom": "through",
+    "details": []
+   },
+   {
+    "support": {
+     "feature": "hole:23",
+     "faces": [
+      23
+     ],
+     "body": 0,
+     "at": [
+      -36.785996945,
+      24.0,
+      4.0
+     ],
+     "plane": false
+    },
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "diameter": 5.5,
+    "depth": null,
+    "traversal": 8.0,
+    "bottom": "through",
+    "details": []
+   },
+   {
+    "support": {
+     "feature": "hole:24",
+     "faces": [
+      24
+     ],
+     "body": 0,
+     "at": [
+      39.214003055,
+      24.0,
+      4.0
+     ],
+     "plane": false
+    },
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "diameter": 5.5,
+    "depth": null,
+    "traversal": 8.0,
+    "bottom": "through",
+    "details": []
+   }
+  ],
+  "patterns": [
+   {
+    "members": [
+     "hole:20",
+     "hole:21",
+     "hole:24",
+     "hole:23"
+    ],
+    "arrangement": "grid"
+   }
+  ],
+  "planes": [
+   {
+    "support": {
+     "feature": "plane:0",
+     "faces": [
+      0
+     ],
+     "body": 0,
+     "at": [
+      -48.78599694472329,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:7",
+     "faces": [
+      7
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -35.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:8",
+     "faces": [
+      8
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -4.0
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:10",
+     "faces": [
+      10
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      4.0
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:12",
+     "faces": [
+      12
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      35.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:38",
+     "faces": [
+      38
+     ],
+     "body": 0,
+     "at": [
+      51.21400305527671,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:39",
+     "faces": [
+      39
+     ],
+     "body": 0,
+     "at": [
+      37.21400305527671,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:42",
+     "faces": [
+      42
+     ],
+     "body": 0,
+     "at": [
+      29.214003055276713,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   }
+  ],
+  "steps": {
+   "axis": 2,
+   "heights": [],
+   "shoulders": []
+  },
+  "cartesian_envelope": true,
+  "deferred": [
+   {
+    "id": "deferred:fillets:1",
+    "faces": [
+     1
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:11",
+    "faces": [
+     11
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:13",
+    "faces": [
+     13
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:14",
+    "faces": [
+     14
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:15",
+    "faces": [
+     15
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:16",
+    "faces": [
+     16
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:17",
+    "faces": [
+     17
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:18",
+    "faces": [
+     18
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:19",
+    "faces": [
+     19
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:2",
+    "faces": [
+     2
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:25",
+    "faces": [
+     25
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:28",
+    "faces": [
+     28
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:29",
+    "faces": [
+     29
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:3",
+    "faces": [
+     3
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:30",
+    "faces": [
+     30
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:31",
+    "faces": [
+     31
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:32",
+    "faces": [
+     32
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:33",
+    "faces": [
+     33
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:36",
+    "faces": [
+     36
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:37",
+    "faces": [
+     37
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:4",
+    "faces": [
+     4
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:5",
+    "faces": [
+     5
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:6",
+    "faces": [
+     6
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:9",
+    "faces": [
+     9
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:slots:39.40.41.42",
+    "faces": [
+     39,
+     40,
+     41,
+     42
+    ],
+    "family": "slots"
+   }
+  ],
+  "datums": [],
+  "round_axes": [],
+  "specified": [],
+  "policy": {
+   "origins": [
+    "automatic",
+    "automatic",
+    "automatic"
+   ],
+   "general_tolerance": true,
+   "references": false
+  }
+ },
+ "existing": [],
+ "part": {}
+}

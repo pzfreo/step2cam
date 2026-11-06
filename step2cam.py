@@ -191,8 +191,10 @@ def _disk_meets_triangle(c, r, tri):
         return (x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)
 
     s1, s2, s3 = side(ax, ay, bx, by), side(bx, by, cx, cy), side(cx, cy, ax, ay)
-    if (s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0):
-        return True  # the centre is inside (or the triangle is edge-on)
+    # An edge-on triangle projects to a line: nothing is inside it, and its edges are measured.
+    edge_on = abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) < 1e-9
+    if not edge_on and ((s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0)):
+        return True
     for (x1, y1), (x2, y2) in (((ax, ay), (bx, by)), ((bx, by), (cx, cy)), ((cx, cy), (ax, ay))):
         dx, dy = x2 - x1, y2 - y1
         length = dx * dx + dy * dy

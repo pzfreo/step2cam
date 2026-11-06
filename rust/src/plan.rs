@@ -209,6 +209,10 @@ fn side(a: (f64, f64), b: (f64, f64), p: (f64, f64)) -> f64 {
     (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0)
 }
 fn inside(c: (f64, f64), t: [(f64, f64); 3]) -> bool {
+    // A vertical triangle projects to a line: nothing is inside it, and its edges are measured.
+    if side(t[0], t[1], t[2]).abs() < 1e-9 {
+        return false;
+    }
     let (s1, s2, s3) = (side(t[0], t[1], c), side(t[1], t[2], c), side(t[2], t[0], c));
     (s1 >= 0. && s2 >= 0. && s3 >= 0.) || (s1 <= 0. && s2 <= 0. && s3 <= 0.)
 }
@@ -222,6 +226,10 @@ fn segment_distance(c: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
 fn disk_meets(c: (f64, f64), radius: f64, t: &Tri) -> bool {
     let p = t.map(|v| (v[0], v[1]));
     inside(c, p) || (0..3).any(|i| segment_distance(c, p[i], p[(i + 1) % 3]) < radius)
+}
+#[doc(hidden)]
+pub fn disk_meets_for_test(c: (f64, f64), radius: f64, t: &[[f64; 3]; 3]) -> bool {
+    disk_meets(c, radius, t)
 }
 /// Whether any part material lies above `z` within `radius` of `c` (setup frame).
 fn blocked_above(triangles: &[Tri], c: (f64, f64), z: f64, radius: f64) -> bool {
@@ -270,7 +278,42 @@ fn cylinder_error(triangles: &[Tri], face: &Value) -> Result<f64, String> {
     }
     Ok(worst)
 }
-/// The most the mesh strays from the part: none on flat faces, measured on cylinders, and
+/// How far a torus face's flat triangles stray from the torus, sampled across each triangle; None
+/// if the mesh does not fit a torus of the face's axis and (minor) radius. The analysis does not
+/// give the major radius: it is the one the mesh's vertices agree on.
+fn torus_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
+    let axis = unit(v3(&face["direction"])?)?;
+    let origin = v3(&face["origin"])?;
+    let minor = f(face, "radius")?;
+    let polar = |p: V3| {
+        let q = add(p, scale(origin, -1.));
+        let along = dot(q, axis);
+        ((dot(q, q) - along * along).max(0.).sqrt(), along)
+    };
+    let fits = |major: f64| triangles.iter().flatten().all(|p| {
+        let (rho, h) = polar(*p);
+        ((rho - major).hypot(h) - minor).abs() <= 1e-3
+    });
+    let Some(first) = triangles.first().map(|t| polar(t[0])) else { return Ok(Some(0.)) };
+    let offset = minor.mul_add(minor, -first.1 * first.1).max(0.).sqrt();
+    let Some(major) = [first.0 - offset, first.0 + offset].into_iter().find(|m| fits(*m)) else { return Ok(None) };
+    const STEPS: usize = 8;
+    let mut worst: f64 = 0.;
+    for t in triangles {
+        for i in 0..=STEPS {
+            for j in 0..=STEPS - i {
+                let (u, v) = (i as f64 / STEPS as f64, j as f64 / STEPS as f64);
+                let w = 1. - u - v;
+                let p = [0, 1, 2].map(|k| u * t[0][k] + v * t[1][k] + w * t[2][k]);
+                let (rho, h) = polar(p);
+                worst = worst.max(((rho - major).hypot(h) - minor).abs());
+            }
+        }
+    }
+    Ok(Some(worst))
+}
+
+/// The most the mesh strays from the part: none on flat faces, measured on cylinders and tori, and
 /// specify-core's chordal bound on other curved faces; plus coordinate rounding.
 fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflection: f64) -> Result<f64, String> {
     let triangles = mesh_triangles(mesh)?;
@@ -289,6 +332,8 @@ fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflection: f64) ->
         let complete = face.is_some_and(|x| ["direction", "origin", "radius"].iter().all(|k| x.get(*k).is_some()));
         if kind == Some("cylinder") && complete {
             worst = worst.max(cylinder_error(&triangles[start..start + count], face.unwrap())?);
+        } else if kind == Some("torus") && complete {
+            worst = worst.max(torus_error(&triangles[start..start + count], face.unwrap())?.unwrap_or(deflection));
         } else {
             worst = worst.max(deflection);
         }
@@ -331,6 +376,98 @@ struct Hole {
     exit_clear: Option<Option<f64>>,
     enlargements: Vec<(f64, f64, f64)>,
     csink: bool,
+    thread: Option<Value>,
+}
+
+/// An internal thread asked for on a hole.
+#[derive(Clone)]
+struct Thread {
+    spec: String,
+    major: f64,
+    pitch: f64,
+    full_depth: Option<f64>,
+}
+
+/// ISO 261 coarse pitches, as specify-core offers tapped sizes (its `PITCH` table).
+const COARSE_PITCH: [(&str, f64); 13] = [
+    ("M1.6", 0.35), ("M2", 0.4), ("M2.5", 0.45), ("M3", 0.5), ("M4", 0.7), ("M5", 0.8), ("M6", 1.0),
+    ("M8", 1.25), ("M10", 1.5), ("M12", 1.75), ("M16", 2.0), ("M20", 2.5), ("M24", 3.0),
+];
+
+/// (major diameter, pitch) of a metric thread spec (`M5`, `M10x1.25`).
+fn thread_size(spec: &str) -> Option<(f64, f64)> {
+    let (size, fine) = spec.split_once('x').map_or((spec, None), |(a, b)| (a, Some(b)));
+    let major: f64 = size.strip_prefix('M')?.parse().ok()?;
+    let pitch = match fine {
+        Some(text) => text.parse().ok()?,
+        None => COARSE_PITCH.iter().find(|(name, _)| *name == size)?.1,
+    };
+    (major > 0. && pitch > 0. && pitch < major).then_some((major, pitch))
+}
+
+/// specify-core's default minimum full thread in a blind tapped hole of drill depth `depth`: the
+/// depth less three pitches, rounded down to 0.5 mm, at least one pitch.
+fn full_thread(depth: f64, pitch: f64) -> f64 {
+    let down = ((depth - 3. * pitch) * 2.).floor() / 2.;
+    if down > pitch { down } else { pitch }
+}
+
+/// The internal threads asked for, by hole feature id: from Specify's answers
+/// (`hole.function:<hole or pattern>` = `tapped:M5` or `tapped:M5@5.5`). Threads another tool wrote,
+/// which state no size, and answers that cannot be used become warnings.
+fn threads(analysis: &Value, warnings: &mut Vec<String>) -> HashMap<String, Thread> {
+    let features: Vec<&Value> = analysis["features"].as_array().into_iter().flatten().collect();
+    let holes: Vec<&&Value> = features.iter().filter(|f| f["family"] == "holes").collect();
+    let faces_of = |f: &Value| -> Vec<u64> { f["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect() };
+    let mut found = HashMap::new();
+    for (key, value) in analysis["resume"]["answers"].as_object().into_iter().flatten() {
+        let (Some(target), Some(answer)) = (key.strip_prefix("hole.function:"), value.as_str().and_then(|v| v.strip_prefix("tapped:"))) else {
+            continue;
+        };
+        let (spec, full) = answer.split_once('@').map_or((answer, None), |(a, b)| (a, Some(b)));
+        let Some((major, pitch)) = thread_size(spec) else {
+            warnings.push(format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"));
+            continue;
+        };
+        let full_depth = match full.filter(|text| !text.is_empty()).map(str::parse::<f64>) {
+            None => None,
+            Some(Ok(depth)) => Some(depth),
+            Some(Err(_)) => {
+                warnings.push(format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")));
+                continue;
+            }
+        };
+        let Some(feature) = features.iter().find(|f| f["id"].as_str() == Some(target)) else {
+            warnings.push(format!("{target}: tapped {spec}, but the part has no such feature now; not threaded"));
+            continue;
+        };
+        let thread = Thread { spec: spec.to_string(), major, pitch, full_depth };
+        if feature["family"] == "holes" {
+            found.insert(target.to_string(), thread);
+        } else {
+            // A hole pattern or set: the holes whose faces it is made of.
+            let own = faces_of(feature);
+            for hole in &holes {
+                let faces = faces_of(hole);
+                if !faces.is_empty() && faces.iter().all(|x| own.contains(x)) {
+                    found.insert(hole["id"].as_str().unwrap_or("").to_string(), thread.clone());
+                }
+            }
+        }
+    }
+    for item in analysis["existing"].as_array().into_iter().flatten() {
+        if item["type"] != "internal thread" {
+            continue;
+        }
+        let on = faces_of(item);
+        for hole in &holes {
+            let id = hole["id"].as_str().unwrap_or("");
+            if !found.contains_key(id) && faces_of(hole).iter().any(|x| on.contains(x)) {
+                warnings.push(format!("{id}: the file marks an internal thread here but states no size; not threaded (answer it in Specify to thread it)"));
+            }
+        }
+    }
+    found
 }
 
 struct Context<'a> {
@@ -338,10 +475,26 @@ struct Context<'a> {
     preferred: &'a [&'static str],
     triangles: Option<&'a [Tri]>,
     part_faces: &'a HashMap<&'static str, f64>,
+    all_features: &'a [Value],
+}
+
+impl Context<'_> {
+    /// A feature's id, with those of the flat-wall features recognised from its own faces.
+    fn absorbed(&self, feature: &Value) -> Vec<String> {
+        let own: Vec<u64> = feature["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect();
+        let mut ids = vec![feature["id"].as_str().unwrap_or("").to_string()];
+        for other in self.all_features {
+            let faces: Vec<u64> = other["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect();
+            if other["family"] == "step_levels" && !faces.is_empty() && faces.iter().all(|x| own.contains(x)) {
+                ids.push(other["id"].as_str().unwrap_or("").to_string());
+            }
+        }
+        ids
+    }
 }
 
 /// A hole as setup-frame geometry, or why it is skipped.
-fn hole_geometry(feature: &Value, cx: &Context) -> Result<Result<(&'static str, Hole, Vec<String>), String>, String> {
+fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Result<Result<(&'static str, Hole, Vec<String>), String>, String> {
     let record = &feature["record"];
     let id = feature["id"].as_str().unwrap_or("").to_string();
     let axis0 = unit(v3(&record["axis"])?)?;
@@ -417,6 +570,7 @@ fn hole_geometry(feature: &Value, cx: &Context) -> Result<Result<(&'static str, 
         exit_clear: None,
         enlargements,
         csink: false,
+        thread: None,
     };
     let mut warnings = vec![];
     if bottom_kind == "through" {
@@ -433,6 +587,25 @@ fn hole_geometry(feature: &Value, cx: &Context) -> Result<Result<(&'static str, 
                  anything between (a counterbore or chamfer at the far end, a shoulder) is not planned",
                 show(r(bottom[2] - part_bottom))
             ));
+        }
+    }
+    if let Some(thread) = thread {
+        // The thread runs down the bore from its top: all of it for a through hole, else the
+        // minimum full thread asked for (specify-core's default when none was).
+        let (top, mut end) = (hole.bore_top_z, hole.bottom_z);
+        let length = top - end;
+        let mut fits = true;
+        if hole.bottom != "through" {
+            let full = thread.full_depth.filter(|d| *d != 0.).unwrap_or_else(|| full_thread(depth, thread.pitch));
+            if full > length + 1e-9 {
+                warnings.push(format!("{id}: {} thread {} mm deep is deeper than the hole ({} mm); not threaded", thread.spec, show(full), show(r(length))));
+                fits = false;
+            } else {
+                end = top - full;
+            }
+        }
+        if fits {
+            hole.thread = Some(json!({"spec": thread.spec, "major": r(thread.major), "pitch": thread.pitch, "top_z": r(top), "bottom_z": r(end)}));
         }
     }
     hole.csink = truthy(record.get("csink")) && !chosen.reversed;
@@ -506,6 +679,104 @@ fn counterbore_operations(holes: &[Hole]) -> Vec<Value> {
         .collect()
 }
 
+fn thread_operations(holes: &[Hole]) -> Vec<Value> {
+    let key = |h: &Hole, t: &Value| (t["spec"].as_str().unwrap_or("").to_string(), t["major"].as_f64().unwrap_or(0.), t["pitch"].as_f64().unwrap_or(0.), h.diameter, t["top_z"].as_f64().unwrap_or(0.), t["bottom_z"].as_f64().unwrap_or(0.), h.bottom == "through");
+    let mut groups: Vec<(_, Vec<&Hole>)> = vec![];
+    for h in holes {
+        let Some(t) = &h.thread else { continue };
+        let k = key(h, t);
+        match groups.iter_mut().find(|g| g.0 == k) {
+            Some(g) => g.1.push(h),
+            None => groups.push((k, vec![h])),
+        }
+    }
+    groups.sort_by(|(a, _), (b, _)| {
+        a.0.cmp(&b.0)
+            .then(a.1.total_cmp(&b.1))
+            .then(a.2.total_cmp(&b.2))
+            .then(a.3.total_cmp(&b.3))
+            .then(a.4.total_cmp(&b.4))
+            .then(a.5.total_cmp(&b.5))
+            .then(a.6.cmp(&b.6))
+    });
+    groups
+        .into_iter()
+        .map(|(k, members)| {
+            json!({
+                "kind": "thread", "spec": k.0, "major": k.1, "pitch": k.2, "start_diameter": k.3,
+                "top_z": k.4, "bottom_z": k.5, "through": k.6,
+                "centers": members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
+                "features": members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
+            })
+        })
+        .collect()
+}
+
+/// A closed slot with round ends as an operation of its own, cut to size: which setup, and the
+/// operation. None if it is not that shape or no setup can reach it; roughing is then all it gets.
+fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+    let record = &feature["record"];
+    let index = |key: &str| ["x", "y", "z"].iter().position(|a| record[key].as_str() == Some(a));
+    let (Some(w), Some(l), Some(triangles)) = (index("width_axis"), index("long_axis"), cx.triangles) else {
+        return Ok(None);
+    };
+    if w == l {
+        return Ok(None);
+    }
+    let depth_axis = 3 - w - l;
+    let width = f(record, "width")?;
+    let radius = width / 2.;
+    let round_ends = record["end_radius"].as_f64().is_some_and(|e| (e - radius).abs() <= LEVEL_EPS);
+    let (lo, hi) = (f(record, "lo")?, f(record, "hi")?);
+    if !round_ends || hi - lo <= width + LEVEL_EPS {
+        return Ok(None);
+    }
+    let (w_center, d_lo, d_hi) = (f(record, "w_center")?, f(record, "d_lo")?, f(record, "d_hi")?);
+    let model = |along: f64, down: f64| {
+        let mut p = [0.; 3];
+        p[w] = w_center;
+        p[l] = along;
+        p[depth_axis] = down;
+        p
+    };
+    for name in cx.preferred {
+        if rows_of(name)[2][depth_axis].abs() < 0.99 {
+            continue;
+        }
+        let frame = &cx.frames[name];
+        let mesh = frame.triangles(triangles);
+        let (a, b) = (frame.point(model(lo + radius, d_lo)), frame.point(model(hi - radius, d_lo)));
+        let wall_top = frame.point(model(lo, d_lo))[2].max(frame.point(model(lo, d_hi))[2]);
+        // The footprint, as discs along the centre line.
+        let count = (((hi - lo - width) / (radius / 4.)).ceil() as usize).max(1);
+        let centres: Vec<(f64, f64)> = (0..=count)
+            .map(|i| {
+                let t = i as f64 / count as f64;
+                (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+            })
+            .collect();
+        // Well inside the walls: the mesh's flat facets cut inside their curved ends.
+        let inner = radius * 0.8;
+        if centres.iter().any(|c| blocked_above(mesh, *c, wall_top, inner)) {
+            continue;
+        }
+        let gap = centres.iter().filter_map(|c| clear_below(mesh, *c, wall_top, inner)).reduce(f64::min);
+        let part = cx.part_faces[name];
+        let top = bounds(&mesh.iter().flatten().copied().collect::<Vec<_>>()).1[2];
+        // With nothing under it, a slot ends where the part around it does: past any edge round.
+        let exit = centres.iter().flat_map(|c| mesh.iter().filter(|t| disk_meets(*c, radius + 1., t))).flatten().map(|p| p[2]).fold(wall_top, f64::min).max(part);
+        let floor = gap.map_or(exit, |g| wall_top - g);
+        let features = cx.absorbed(feature);
+        return Ok(Some((name, json!({
+            "kind": "slot", "width": r(width), "length": r(hi - lo),
+            "a": [r(a[0]), r(a[1])], "b": [r(b[0]), r(b[1])],
+            "top_z": r(top), "floor_z": r(floor), "bottom": if gap.is_some() { "blind" } else { "through" },
+            "features": features,
+        }))));
+    }
+    Ok(None)
+}
+
 /// The part's box in model coordinates: quiddity gives `bounds` in its dimensioning `frame`.
 fn model_bounds(dimensioning: &Value) -> Result<Option<(V3, V3)>, String> {
     let Some(b) = dimensioning.get("bounds").filter(|b| truthy(Some(b))) else { return Ok(None) };
@@ -531,6 +802,18 @@ fn reachable(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Resu
             && truthy(face.get("direction"))
             && rotate(rows, v3(&face["direction"])?)[2] < -0.01
         {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Whether a feature is all cylinders along a setup's tool: a corner of a wall, which that setup's
+/// roughing follows, not a rounded edge.
+fn upright(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Result<bool, String> {
+    for index in feature.get("faces").and_then(Value::as_array).into_iter().flatten() {
+        let Some(face) = index.as_u64().and_then(|i| faces.get(&i)) else { return Ok(false) };
+        if face["kind"].as_str() != Some("cylinder") || rotate(rows, v3(&face["direction"])?)[2].abs() < 0.99 {
             return Ok(false);
         }
     }
@@ -607,24 +890,45 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         .filter_map(|x| x["id"].as_u64().map(|id| (id, x)))
         .collect();
 
-    let cx = Context { frames: &frames, preferred: &preferred, triangles: triangles.as_deref(), part_faces: &part_faces };
+    let all_features: &[Value] = analysis["features"].as_array().ok_or("features is not a list")?;
+    let cx = Context { frames: &frames, preferred: &preferred, triangles: triangles.as_deref(), part_faces: &part_faces, all_features };
     let mut by_setup: HashMap<&'static str, Vec<Hole>> = HashMap::new();
+    let mut slots: HashMap<&'static str, Vec<Value>> = HashMap::new();
     let (mut skipped, mut covered, mut warnings) = (vec![], vec![], vec![]);
+    let asked = threads(analysis, &mut warnings);
     if mesh.is_none() {
         warnings.push("no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string());
     }
     let skip = |feature: &str, reason: String| json!({"feature": feature, "reason": reason});
-    for feature in analysis["features"].as_array().ok_or("features is not a list")? {
+    let mut in_slot: Vec<String> = vec![];
+    for feature in all_features.iter().filter(|x| x["family"] == "slots") {
+        if let Some((name, op)) = slot_operation(feature, &cx)? {
+            in_slot.extend(op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from));
+            slots.entry(name).or_default().push(op);
+        }
+    }
+    for feature in all_features {
         let family = feature["family"].as_str().unwrap_or("");
         let id = feature["id"].as_str().unwrap_or("");
         if family == "holes" {
-            match hole_geometry(feature, &cx)? {
+            match hole_geometry(feature, &cx, asked.get(id))? {
                 Ok((name, hole, w)) => {
                     by_setup.entry(name).or_default().push(hole);
                     warnings.extend(w);
                 }
-                Err(reason) => skipped.push(skip(id, reason)),
+                Err(reason) => {
+                    skipped.push(skip(id, reason));
+                    if let Some(thread) = asked.get(id) {
+                        skipped.push(skip(id, format!("its {} thread: the hole is not cut", thread.spec)));
+                    }
+                }
             }
+        } else if in_slot.iter().any(|x| x == id) {
+            // Cut by its slot's operation.
+        } else if family == "fillets" && feature["record"]["side"] == "convex" && !upright(feature, &faces, rows_of(rough_from))? {
+            skipped.push(skip(id, format!("r{} edge round: no operation cuts it, so the edge stays sharp (break it by hand)", show(f(&feature["record"], "radius")?))));
+        } else if ["chamfers", "oriented_chamfers"].contains(&family) {
+            skipped.push(skip(id, "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)".into()));
         } else if family == "hole_patterns" {
             // Its member holes are planned one by one.
         } else if TURNED.contains(&family) {
@@ -643,6 +947,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         let frame = &frames[name];
         let empty = vec![];
         let holes = by_setup.get(name).unwrap_or(&empty);
+        let setup_slots = slots.remove(name).unwrap_or_default();
         let mut ops: Vec<Value> = vec![];
         if *name == rough_from {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
@@ -686,11 +991,13 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 }
             }
         }
-        if ops.is_empty() && holes.is_empty() {
+        if ops.is_empty() && holes.is_empty() && setup_slots.is_empty() {
             continue;
         }
         ops.extend(hole_operations(holes));
         ops.extend(counterbore_operations(holes));
+        ops.extend(thread_operations(holes));
+        ops.extend(setup_slots);
         for h in holes {
             if h.csink {
                 skipped.push(skip(&h.feature, "countersink: not planned (chamfer it by hand)".into()));
@@ -701,6 +1008,15 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         frame.describe(&mut setup);
         setup.insert("operations".into(), json!(ops));
         setups.push(Value::Object(setup));
+    }
+
+    // Nothing is covered by roughing that does not run.
+    let roughs = setups.iter().any(|s| s["operations"].as_array().into_iter().flatten().any(|o| o["kind"] == "roughing"));
+    if !roughs && triangles.is_some() {
+        for id in covered.drain(..) {
+            let id: Value = id;
+            skipped.push(skip(id.as_str().unwrap_or(""), "no operation of its own, and roughing is not planned".into()));
+        }
     }
 
     Ok(json!({

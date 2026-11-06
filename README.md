@@ -81,6 +81,17 @@ the planned path, and camlib's stock-contact checks run, but camlib's whole-prog
 does not: its decoding of non-motion blocks is in camlib's Python. Only LinuxCNC output in mm is
 wired up. `rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit WebAssembly.
 
+`rust/` also goes further than `step2cam.py` in three ways:
+
+- **Slots:** a closed slot with round ends gets a `slot` operation of its own, a camlib `Pocket`
+  of its outline cut to size with the largest end mill that fits, after roughing and whichever
+  setup reaches it. Other slots are left to roughing.
+- **Mesh error:** it is measured on tori as well as cylinders, so a part is no longer refused
+  roughing on the 0.1%-of-diagonal bound alone. Other curved faces still count at that bound.
+- **Saying what is not cut:** convex edge rounds and chamfers are reported as not cut, and nothing
+  is reported as covered by roughing when roughing does not run. Features of an operation camlib
+  refuses say why.
+
 ## The plan (`specify-cam-plan`, version 1)
 
 The plan says **what** to cut, independent of tools and machine. Read it before posting.
@@ -243,7 +254,7 @@ run.**
 ## Not done (yet)
 
 Finishing passes (walls and floors are left with the roughing allowance), removing the web,
-countersinks and chamfers, counterbores at the far end of through holes, tapping, left-hand,
+countersinks, chamfers and edge rounds, slots with square ends, counterbores at the far end of through holes, tapping, left-hand,
 inch and external threads, contouring with tabs, fixtures
 and avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe
 work.
