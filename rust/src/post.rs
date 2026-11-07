@@ -12,8 +12,9 @@ use camlib::{
     post_intent::{IntentChecker, Settings},
     post_lowering::Options as Lowering,
     post_rounding::{RadiusTolerance, circular_words},
+    material::Assessment,
     stream::{DEFAULT_FRAME_LIMIT, StreamManifest, StreamProducer},
-    stream_verification::Binding,
+    stream_verification::{Binding, Check},
     verification::Status,
 };
 use serde::{Deserialize, Serialize};
@@ -118,6 +119,8 @@ pub struct Program {
     pub motions: u64,
     /// Motions camlib's stock-contact check could not clear.
     pub uncertain: u64,
+    /// The stock after the last move against the part, where the job asks for it.
+    pub material: Option<camlib::material::Report>,
 }
 
 /// What a tool change's blocks mean on this machine: tool id and length register by number, and
@@ -537,6 +540,13 @@ fn tool_table(manifest: &StreamManifest, raw: &serde_json::Value) -> Result<Tool
     Ok(table)
 }
 
+fn gouge_message(report: &camlib::material::Report) -> String {
+    let at = report.findings.iter().find(|f| f.gouge == Assessment::DefiniteExcess).map_or(String::new(), |f| {
+        format!(", first near X{} Y{}, {} mm deep", f.xy_mm[0], f.xy_mm[1], f.gouge_height_mm[0])
+    });
+    format!("the finished stock cuts into the part: camlib's material check found {} cells below it{at}", report.gouge.definite_cells)
+}
+
 /// Plans, simulates, checks and posts one job. A definite stock-contact violation refuses the
 /// program; motions the check could not clear are counted.
 pub fn post(manifest_json: &str, machine: Machine) -> Result<Program, Failure> {
@@ -646,6 +656,21 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
     for event in held.iter().flatten() {
         post.event(event).map_err(Failure::from)?;
     }
+    let material = match producer.start_material_verification(None)? {
+        None => None,
+        Some(_) => {
+            let bytes = producer.finish_material_verification(&cancel)?;
+            match binding.decode(&bytes, producer.completed(), None)?.check {
+                Check::Material { report, .. } => {
+                    if report.gouge.definite_cells > 0 {
+                        return Err(Failure::from(gouge_message(&report)));
+                    }
+                    Some(*report)
+                }
+                _ => return Err(Failure::from("camlib's material check gave no report".to_string())),
+            }
+        }
+    };
     producer.finish(DEFAULT_FRAME_LIMIT)?;
-    Ok(Program { motions: producer.completed(), nc: post.finish()?, operations, uncertain })
+    Ok(Program { motions: producer.completed(), nc: post.finish()?, operations, uncertain, material })
 }

@@ -212,7 +212,19 @@ A hole no tool fits is reported, not guessed.
 camlib plans, simulates and checks every move against the stock. An operation with a definite
 violation is left out and reported; motions the check could not clear are counted in the log, and
 **are still written**. Every block written is decoded again and compared with the plan by camlib's
-intent checker, and a mismatch stops the program being given out. And:
+intent checker, and a mismatch stops the program being given out.
+
+The stock left by the last move of the roughing setup is compared with the part's mesh. A program
+that definitely cuts into the part is refused; the log says how much is undecided and how much is
+at least left on the part. That check has limits:
+
+- it sees the part from above, as heights on the stock grid, so it cannot decide cells beside a wall,
+  and it cannot see a mistake under an overhang;
+- it covers the roughing setup only: a setup with no roughing, such as side holes, is not compared
+  (the log says so);
+- the stock it reads is the planned one. The intent checker is what ties the written blocks to that plan.
+
+And:
 
 - neither tool knows your work offsets, clamps or tool lengths;
 - camlib's checks here protect the stock, not the finished part (no fixtures or protected
@@ -245,6 +257,8 @@ cargo test --release --manifest-path rust/Cargo.toml
   intended change moves it.
 - `rust/tests/checker.rs`: tampers with written blocks and expects camlib's intent checker to
   refuse the program.
+- `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong
+  toolpaths that must be refused.
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.

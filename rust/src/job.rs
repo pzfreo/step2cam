@@ -12,6 +12,9 @@ const TOOL_KEYS: [&str; 11] = [
     "id", "type", "number", "diameter", "overall_length", "stickout", "holder_length",
     "holder_diameter", "feed_mm_min", "spindle_rpm", "coolant",
 ];
+/// Twice a triangle's area (mm²) at or below which camlib's surface mesh calls it degenerate, at
+/// the tolerance of 1e-5 mm that the job gives it.
+const NO_AREA: f64 = 1e-10;
 /// Thread milling passes, unless the tool says otherwise: the thread depth in two radial steps,
 /// then one spring pass at full depth.
 const RADIAL_PASSES: u64 = 2;
@@ -332,12 +335,20 @@ fn surface(op: &Value) -> Result<Value, String> {
         "source": {"plan": PLAN_FORMAT},
     });
     let point = |i: usize| [p[3 * i], p[3 * i + 1], p[3 * i + 2]];
-    if idx.len() / 3 < 1024 {
-        out["triangles"] = json!(idx.chunks_exact(3).map(|t| [point(t[0]), point(t[1]), point(t[2])]).collect::<Vec<_>>());
+    // A triangle with no area has no surface, and camlib refuses a mesh that has one.
+    let has_area = |t: &&[usize]| {
+        let (a, b, c) = (point(t[0]), point(t[1]), point(t[2]));
+        let (u, v) = ([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
+        let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt() > NO_AREA
+    };
+    let triangles: Vec<&[usize]> = idx.chunks_exact(3).filter(|t| has_area(t)).collect();
+    if triangles.len() < 1024 {
+        out["triangles"] = json!(triangles.iter().map(|t| [point(t[0]), point(t[1]), point(t[2])]).collect::<Vec<_>>());
     } else {
         let mut lookup = std::collections::HashMap::new();
         let (mut vertices, mut indices) = (vec![], vec![]);
-        for t in idx.chunks_exact(3) {
+        for t in triangles {
             let mut row = [0usize; 3];
             for (k, i) in t.iter().enumerate() {
                 let q = point(*i);
@@ -625,6 +636,22 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         };
         let first = operations[0]["tool"].as_str().unwrap_or("");
         let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
+        // The whole part is known only where it is roughed: the final stock is compared with it.
+        let material = match setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")) {
+            Some(rough) => {
+                let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
+                let base = z.fold(f64::INFINITY, f64::min);
+                json!([{"after_operation": null, "target": {
+                    "version": 1, "units": "mm", "id": format!("step2cam-{setup_id}-part"), "revision": "1",
+                    "surface": surface(rough)?, "base_z_mm": base,
+                    // surface_error_mm bounds the mesh's distance from the part both ways, so the
+                    // part lies between the mesh solid eroded and dilated by it. Without saying so
+                    // camlib proves no material under the mesh, and cannot find a definite gouge.
+                    "source_enclosure": "offset",
+                }}])
+            }
+            None => json!([]),
+        };
         let manifest = json!({
             "version": 1,
             "run": {"id": format!("step2cam-{setup_id}"), "revision": "1"},
@@ -634,7 +661,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "sweep": {"tolerance_mm": 1e-5, "chord_error_mm": 0.002, "max_tip_step_mm": 0.1, "max_segments": 100000,
                       "max_scratch_cells": u32::MAX, "max_changed_cells": u32::MAX, "max_cell_visits": 100000000},
             "operations": operations,
-            "verification": {"scene": null, "material": [], "stock_contact": {
+            "verification": {"scene": null, "material": material, "stock_contact": {
                 "tolerance_mm": 1e-5, "spatial_resolution_mm": 0.001, "max_nodes": 200000, "max_cell_reads": 2000000, "max_findings": 128}},
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,

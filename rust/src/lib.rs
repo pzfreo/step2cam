@@ -9,6 +9,20 @@ pub mod post;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
+/// What camlib's comparison of the finished stock with the part found, for the log.
+fn material_note(report: Option<&camlib::material::Report>) -> String {
+    let Some(report) = report else {
+        return "the finished stock is not compared with the part: this setup has no roughing, which holds the part's mesh".into();
+    };
+    if !report.complete {
+        return "camlib's comparison of the finished stock with the part did not finish: it says nothing".into();
+    }
+    format!(
+        "finished stock against the part: no definite gouge, up to {:.0} mm³ undecided (walls and curved faces); at least {:.0} mm³ left on the part",
+        report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
+    )
+}
+
 fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), post::Failure> {
     let (jobs, notes) = job::jobs(plan, library)?;
     log.extend(notes);
@@ -21,7 +35,9 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
         if program.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, program.uncertain));
         }
-        programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions}));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(program.material.as_ref())));
+        let material = program.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge}));
+        programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions, "material": material}));
     }
     Ok(())
 }

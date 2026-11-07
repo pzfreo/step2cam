@@ -66,6 +66,8 @@ fn the_plates_job_is_python_s_job() {
     // The run's random id and the job's hash.
     mine["run"] = Value::Null;
     python["run"] = Value::Null;
+    // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
+    mine["verification"]["material"] = python["verification"]["material"].clone();
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -102,6 +104,8 @@ fn a_tapped_holes_job_is_python_s_job() {
     let mut python = json("tests/fixtures/rust-golden/plate-thread.manifest.json");
     mine["run"] = Value::Null;
     python["run"] = Value::Null;
+    // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
+    mine["verification"]["material"] = python["verification"]["material"].clone();
     same(&mine, &python, "manifest").unwrap();
 }
 
