@@ -66,7 +66,9 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
         };
         let removed = failure.operation.as_deref().and_then(|id| remove_operation(&mut plan, id));
         let (Some(operation), Some(removed)) = (failure.operation, removed) else {
+            // Nothing is given out: not even a setup that posted before this one stopped.
             post_error = Some(failure.message);
+            programs.clear();
             break;
         };
         // Nothing is covered by roughing that does not run.

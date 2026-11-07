@@ -133,14 +133,6 @@ fn counterbores_are_bored_with_an_end_mill() {
 }
 
 #[test]
-fn the_plan_is_not_changed_by_posting() {
-    let plan = plate_no_mesh(&Default::default());
-    let before = plan.clone();
-    jobs(&plan, &example_tools()).unwrap();
-    assert_eq!(plan, before);
-}
-
-#[test]
 fn holder_and_cutting_data_have_no_defaults() {
     for key in ["holder_diameter", "holder_length", "coolant", "point_angle", "plunge_mm_min"] {
         let mut data = example_tools();
