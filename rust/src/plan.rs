@@ -1011,6 +1011,141 @@ fn segments_apart(p: ((f64, f64), (f64, f64)), q: ((f64, f64), (f64, f64))) -> f
     [segment_distance(p.0, q.0, q.1), segment_distance(p.1, q.0, q.1), segment_distance(q.0, p.0, p.1), segment_distance(q.1, p.0, p.1)].into_iter().fold(f64::MAX, f64::min)
 }
 
+/// Whether anything of the part is above a height within this box, seen from above. What only
+/// touches its edge does not count: that is the walls of the space being cut.
+fn occupied_above(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: f64) -> bool {
+    const EDGE: f64 = 0.01;
+    let (lo, hi) = ((lo.0 + EDGE, lo.1 + EDGE), (hi.0 - EDGE, hi.1 - EDGE));
+    if lo.0 >= hi.0 || lo.1 >= hi.1 {
+        return false;
+    }
+    let inside = |p: (f64, f64)| p.0 > lo.0 && p.0 < hi.0 && p.1 > lo.1 && p.1 < hi.1;
+    let corners = [lo, (hi.0, lo.1), hi, (lo.0, hi.1)];
+    mesh.iter().any(|triangle| {
+        let shape = clip_above(triangle, z);
+        if shape.len() < 3 {
+            return false;
+        }
+        let edge = |i: usize| (shape[i], shape[(i + 1) % shape.len()]);
+        let turn = |a: (f64, f64), b: (f64, f64), p: (f64, f64)| (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
+        let holds = |p: (f64, f64)| {
+            let sides: Vec<f64> = (0..shape.len()).map(|i| turn(edge(i).0, edge(i).1, p)).collect();
+            sides.iter().all(|s| *s > 0.) || sides.iter().all(|s| *s < 0.)
+        };
+        shape.iter().copied().any(inside)
+            || corners.iter().copied().any(holds)
+            || (0..shape.len()).any(|i| (0..4).any(|k| segments_apart(edge(i), (corners[k], corners[(k + 1) % 4])) == 0.))
+    })
+}
+
+/// A notch or square-ended slot: a box of empty space, cut as a pocket with an end mill that fits.
+/// specify-core's record says where the box is; the mesh must agree that nothing is in it, or the
+/// feature is left as it was. A notch's open side is cut past the part. Its corners stay as round
+/// as the cutter, which the job says.
+fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+    let record = &feature["record"];
+    let index = |key: &str| ["x", "y", "z"].iter().position(|a| record[key].as_str() == Some(a));
+    let (Some(w), Some(l), Some(triangles)) = (index("width_axis"), index("long_axis"), cx.triangles) else {
+        return Ok(None);
+    };
+    if w == l {
+        return Ok(None);
+    }
+    let depth_axis = 3 - w - l;
+    let width = f(record, "width")?;
+    let (w_center, along, across) = (f(record, "w_center")?, (f(record, "lo")?, f(record, "hi")?), (f(record, "d_lo")?, f(record, "d_hi")?));
+    // Which way the feature opens, along the axis across it: only a pocket has one.
+    let open = record["open_sign"].as_f64().unwrap_or(0.);
+    for name in cx.preferred {
+        let rows = rows_of(name);
+        let Some(tool_axis) = [l, depth_axis].into_iter().find(|a| rows[2][*a].abs() >= 0.99) else { continue };
+        let (depth, side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
+        // A pocket opening along the tool has no side to run out of.
+        let run_out = if side_axis == depth_axis { width / 2. + 1. } else { 0. };
+        let side_ends = (side.0 - if open < 0. { run_out } else { 0. }, side.1 + if open > 0. { run_out } else { 0. });
+        let model = |width_at: f64, side_at: f64, depth_at: f64| {
+            let mut p = [0.; 3];
+            p[w] = width_at;
+            p[side_axis] = side_at;
+            p[tool_axis] = depth_at;
+            p
+        };
+        let frame = &cx.frames[name];
+        let (a, b) = (frame.point(model(w_center - width / 2., side_ends.0, depth.0)), frame.point(model(w_center + width / 2., side_ends.1, depth.1)));
+        let (lo, hi) = ((a[0].min(b[0]), a[1].min(b[1])), (a[0].max(b[0]), a[1].max(b[1])));
+        let (floor, top) = (a[2].min(b[2]), a[2].max(b[2]));
+        let mesh = frame.triangles(triangles);
+        if occupied_above(mesh, lo, hi, floor + 1e-3) {
+            continue;
+        }
+        let part = cx.part_faces[name];
+        let part_top = bounds(&mesh.iter().flatten().copied().collect::<Vec<_>>()).1[2];
+        let through = floor <= part + LEVEL_EPS;
+        let (r2, corner) = (|p: (f64, f64)| json!([r(p.0), r(p.1), 0.]), (hi.0, lo.1));
+        return Ok(Some((name, json!({
+            "kind": "notch", "width": r(width), "length": r(side.1 - side.0), "open": open != 0. && run_out > 0.,
+            "outer": [r2(lo), r2(corner), r2(hi), r2((lo.0, hi.1))],
+            "top_z": r(part_top), "floor_z": r(if through { part } else { floor }), "wall_top": r(top), "bottom": if through { "through" } else { "blind" },
+            "features": cx.absorbed(feature),
+        }))));
+    }
+    Ok(None)
+}
+
+/// A V-channel, cut by running a sharp V-bit along it with its tip on the channel's root. The bit
+/// must be no wider than the channel: the job picks one. The channel must run out of the part at
+/// both ends, as the bit's cone is wider than its tip.
+fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+    let record = &feature["record"];
+    let Some(triangles) = cx.triangles else { return Ok(None) };
+    let (axis, opening, at) = (v3(&record["axis"])?, v3(&record["opening"])?, v3(&record["at"])?);
+    let (length, width, depth, angle) = (f(record, "length")?, f(record, "width")?, f(record, "depth")?, f(record, "included_angle_degrees")?);
+    for name in cx.preferred {
+        let rows = rows_of(name);
+        if (0..3).map(|k| rows[2][k] * opening[k]).sum::<f64>() < 0.99 {
+            continue;
+        }
+        let frame = &cx.frames[name];
+        let end = |by: f64| frame.point(add(at, scale(axis, by)));
+        let (a, b, root) = (end(-length / 2.), end(length / 2.), frame.point(at));
+        let top = root[2] + depth;
+        let run_out = width / 2. + 1.;
+        // In this frame the channel lies along X or Y.
+        let along_x = (a[0] - b[0]).abs() > (a[1] - b[1]).abs();
+        let reach = |p: V3, q: V3| -> ((f64, f64), (f64, f64)) {
+            let (half_x, half_y) = if along_x { (0., width / 2.) } else { (width / 2., 0.) };
+            let (lo_x, hi_x) = (p[0].min(q[0]) - half_x, p[0].max(q[0]) + half_x);
+            let (lo_y, hi_y) = (p[1].min(q[1]) - half_y, p[1].max(q[1]) + half_y);
+            ((lo_x, lo_y), (hi_x, hi_y))
+        };
+        let beyond = |p: V3, q: V3, by: f64| {
+            let n = ((p[0] - q[0]).hypot(p[1] - q[1])).max(1e-9);
+            [p[0] + (p[0] - q[0]) / n * by, p[1] + (p[1] - q[1]) / n * by, p[2]]
+        };
+        let (out_a, out_b) = (beyond(a, b, run_out), beyond(b, a, run_out));
+        let mesh = frame.triangles(triangles);
+        let (ends_a, ends_b) = (reach(a, out_a), reach(b, out_b));
+        let whole = reach(a, b);
+        if occupied_above(mesh, ends_a.0, ends_a.1, root[2] + 1e-3) || occupied_above(mesh, ends_b.0, ends_b.1, root[2] + 1e-3) || occupied_above(mesh, whole.0, whole.1, top + 1e-3) {
+            continue;
+        }
+        // The bit's body is wider than the channel, above the surface the channel is cut in.
+        let path = reach(out_a, out_b);
+        let corner = |x: f64, y: f64| (x, y);
+        let points = [corner(path.0.0, path.0.1), corner(path.1.0, path.0.1), corner(path.1.0, path.1.1), corner(path.0.0, path.1.1)];
+        let outline: Vec<Cut> = (0..4).map(|i| (points[i], points[(i + 1) % 4], 0)).collect();
+        let room = room_beside(mesh, &outline, top, 0.01);
+        let part_top = bounds(&mesh.iter().flatten().copied().collect::<Vec<_>>()).1[2];
+        return Ok(Some((name, json!({
+            "kind": "v_channel", "angle": r(angle), "width": r(width), "depth": r(depth), "length": r(length),
+            "a": [r(out_a[0]), r(out_a[1])], "b": [r(out_b[0]), r(out_b[1])], "top_z": r(top), "root_z": r(root[2]),
+            "on_flat": top < part_top - LEVEL_EPS, "room": room.map(r),
+            "features": cx.absorbed(feature),
+        }))));
+    }
+    Ok(None)
+}
+
 /// Whether a point is in the part's section: an odd count of the mesh's cuts along +X from it.
 fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
     let crosses = |c: &&Cut| (c.0.1 > p.1) != (c.1.1 > p.1) && c.0.0 + (p.1 - c.0.1) / (c.1.1 - c.0.1) * (c.1.0 - c.0.0) > p.0;
@@ -1115,7 +1250,7 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
         holes.iter().any(|h| {
             let c = (h.center[0].as_f64().unwrap_or(f64::MAX), h.center[1].as_f64().unwrap_or(f64::MAX));
             (c.0 - p.0).hypot(c.1 - p.1) < h.diameter / 2.
-        }) || slots.iter().any(|s| {
+        }) || slots.iter().filter(|s| s["kind"] == "slot").any(|s| {
             let (a, b) = ((s["a"][0].as_f64().unwrap_or(0.), s["a"][1].as_f64().unwrap_or(0.)), (s["b"][0].as_f64().unwrap_or(0.), s["b"][1].as_f64().unwrap_or(0.)));
             segment_distance(p, a, b) < s["width"].as_f64().unwrap_or(0.) / 2.
         })
@@ -1292,6 +1427,18 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let mut in_slot: Vec<String> = vec![];
     for feature in all_features.iter().filter(|x| x["family"] == "slots") {
         if let Some((name, op)) = slot_operation(feature, &cx)? {
+            in_slot.extend(op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from));
+            slots.entry(name).or_default().push(op);
+        }
+    }
+    // Slots that are not round-ended, notches and V-channels: what roughing's mill cannot get into.
+    for feature in all_features.iter().filter(|x| ["slots", "pockets", "v_channels"].contains(&x["family"].as_str().unwrap_or(""))) {
+        let id = feature["id"].as_str().unwrap_or("");
+        if in_slot.iter().any(|x| x == id) {
+            continue;
+        }
+        let planned = if feature["family"] == "v_channels" { v_channel_operation(feature, &cx)? } else { notch_operation(feature, &cx)? };
+        if let Some((name, op)) = planned {
             in_slot.extend(op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from));
             slots.entry(name).or_default().push(op);
         }

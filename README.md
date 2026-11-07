@@ -79,6 +79,13 @@ The plan says **what** to cut, independent of tools and machine.
   - `slot`: a closed slot with round ends, cut to size with a camlib `Pocket` of its outline and
     the largest end mill that fits, after roughing, from whichever setup reaches it. Other slots
     are left to roughing;
+  - `notch`: square-ended slots and notches, as a pocket with the largest end mill that fits and
+    reaches, cut past the part on a notch's open side. specify-core's record says where the box is,
+    and the mesh must show it empty above the floor, or it is not cut. Its inside corners stay as
+    round as the cutter;
+  - `v_channel`: a V-channel that runs out of the part at both ends, with a sharp V-bit no wider
+    than the channel, its tip along the root. A narrower bit leaves a little on the walls, and the
+    log says how much. A channel in a flat goes with that flat;
   - `flats`, straight after roughing, where the part has upward flat faces between its top and
     the roughing floor. Those are off the roughing layers, so they can have up to a stepdown (plus
     the bottom allowance) left on them; camlib's `Flat` cuts each at its exact height, in one pass
@@ -200,6 +207,8 @@ How each operation gets a tool:
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
 | `thread` | `ThreadMilling` (internal, helical, climb) | the largest thread mill whose pitch range takes the pitch, whose tooth fits the drilled hole, whose neck clears the thread crests and which reaches the thread's bottom |
 | `slot` | `Pocket` | the largest end mill that fits |
+| `notch` | `Pocket` | the largest end mill narrower than the width that reaches the depth |
+| `v_channel` | `Trace` | the widest `chamfer_mill` with `tip_diameter` 0, an `angle` no wider than the channel's, and `stepdown_mm` |
 | `flats` | `Flat` | the largest end mill (or `roughing_tool`) |
 | `wall_finish` | `Contour` | the largest end mill (or `roughing_tool`) |
 | `edge_chamfer` | `Chamfer` | a 90° chamfer mill wide enough |
