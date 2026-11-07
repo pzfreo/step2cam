@@ -8,12 +8,12 @@
    "version": 1,
    "stage": "requirements",
    "rationale": "A tapped answer whose size is not a metric thread this bridge can size (ISO 261 coarse pitch, or an explicit fine pitch) is not threaded.",
-   "code": "plan.rs threads",
+   "code": "plan.rs threads, thread_size; reference.rs coarse_pitch",
    "sources": [
     {
      "kind": "standard",
      "ref": "ISO 261",
-     "note": "coarse pitches, as specify-core offers them"
+     "via": "reference/iso261-coarse-pitch.json"
     }
    ]
   },
@@ -58,11 +58,12 @@
    "version": 1,
    "stage": "requirements",
    "rationale": "A blind thread deeper than its hole is not threaded. The full-thread depth is the one asked for, else specify-core's default: the drill depth less three pitches, rounded down to 0.5 mm, at least one pitch.",
-   "code": "plan.rs hole_geometry, full_thread",
+   "code": "plan.rs hole_geometry; reference.rs full_thread",
    "sources": [
     {
      "kind": "practice",
-     "note": "specify-core's default minimum full thread"
+     "note": "specify-core's default minimum full thread",
+     "via": "reference/full-thread.json"
     }
    ]
   },
@@ -206,7 +207,14 @@
    "code": "plan.rs thread_operations",
    "sources": [
     {
-     "kind": "step2cam"
+     "kind": "standard",
+     "ref": "ISO 261",
+     "via": "reference/iso261-coarse-pitch.json"
+    },
+    {
+     "kind": "practice",
+     "note": "specify-core's default minimum full thread",
+     "via": "reference/full-thread.json"
     }
    ]
   },

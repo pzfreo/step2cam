@@ -1,8 +1,13 @@
 # step2cam in three phases: Specify, CAPP, execution
 
 Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
-step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) are
-done; the rest is planned.
+step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) and
+step 4 (the thread tables as reference data) are done; the rest is planned.
+
+Step 4 moved only data that comes from a standard or recognised practice. The numeric tolerances
+in the code (`LEVEL_EPS`, `AXIS_TOLERANCE`, camlib's surface-error limit, the comparison budgets)
+are step2cam's own judgement or camlib's limits, not reference data, so they stay as named
+constants beside the code that uses them.
 
 Decided (7 November 2026):
 - CAPP reads specify-core's output as it is. It has no feature schema of its own.

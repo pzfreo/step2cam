@@ -1,0 +1,19 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "thread.full_depth.blind",
+ "title": "Minimum full thread in a blind tapped hole, when none is asked for",
+ "formula": "max(floor((drill_depth - less_pitches * pitch) / round_down_mm) * round_down_mm, at_least_pitches * pitch), the larger taken only if strictly greater",
+ "parameters": {
+  "less_pitches": 3,
+  "round_down_mm": 0.5,
+  "at_least_pitches": 1
+ },
+ "source": {
+  "practice": "specify-core's default minimum full thread: the drill depth less three pitches for the tap's lead and the drill point, rounded down to 0.5 mm",
+  "obtained_from": [
+   "specify-core src/standards.rs full_thread"
+  ],
+  "checked_against_standard": false
+ }
+}

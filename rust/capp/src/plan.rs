@@ -428,28 +428,15 @@ struct Thread {
     full_depth: Option<f64>,
 }
 
-/// ISO 261 coarse pitches, as specify-core offers tapped sizes (its `PITCH` table).
-const COARSE_PITCH: [(&str, f64); 13] = [
-    ("M1.6", 0.35), ("M2", 0.4), ("M2.5", 0.45), ("M3", 0.5), ("M4", 0.7), ("M5", 0.8), ("M6", 1.0),
-    ("M8", 1.25), ("M10", 1.5), ("M12", 1.75), ("M16", 2.0), ("M20", 2.5), ("M24", 3.0),
-];
-
 /// (major diameter, pitch) of a metric thread spec (`M5`, `M10x1.25`).
 fn thread_size(spec: &str) -> Option<(f64, f64)> {
     let (size, fine) = spec.split_once('x').map_or((spec, None), |(a, b)| (a, Some(b)));
     let major: f64 = size.strip_prefix('M')?.parse().ok()?;
     let pitch = match fine {
         Some(text) => text.parse().ok()?,
-        None => COARSE_PITCH.iter().find(|(name, _)| *name == size)?.1,
+        None => crate::reference::coarse_pitch(size)?,
     };
     (major > 0. && pitch > 0. && pitch < major).then_some((major, pitch))
-}
-
-/// specify-core's default minimum full thread in a blind tapped hole of drill depth `depth`: the
-/// depth less three pitches, rounded down to 0.5 mm, at least one pitch.
-fn full_thread(depth: f64, pitch: f64) -> f64 {
-    let down = ((depth - 3. * pitch) * 2.).floor() / 2.;
-    if down > pitch { down } else { pitch }
 }
 
 /// The internal threads asked for, by hole feature id: from Specify's answers
@@ -640,7 +627,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         let length = top - end;
         let mut fits = true;
         if hole.bottom != "through" {
-            let full = thread.full_depth.filter(|d| *d != 0.).unwrap_or_else(|| full_thread(depth, thread.pitch));
+            let full = thread.full_depth.filter(|d| *d != 0.).unwrap_or_else(|| crate::reference::full_thread(depth, thread.pitch));
             if full > length + 1e-9 {
                 warnings.push(("requirement.thread.too_deep", format!("{id}: {} thread {} mm deep is deeper than the hole ({} mm); not threaded", thread.spec, show(full), show(r(length)))));
                 fits = false;

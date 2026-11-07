@@ -154,11 +154,14 @@ A hole is threaded when the part says what thread it is: an answer stored in the
 by [Specify](https://github.com/pzfreo/specify-core), `"hole.function:<hole>": "tapped:M5"`.
 The answer can be on one hole or on a hole pattern, which threads every hole in the pattern.
 
-- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`.
+- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`. The
+  coarse pitches are the table `rust/capp/rulebase/reference/iso261-coarse-pitch.json`, from two
+  public sources that agree, not checked against ISO 261 itself.
   Right-hand only.
 - **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
   answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
-  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm.
+  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
+  (`rulebase/reference/full-thread.json`).
 - **How:** milled with a single-profile thread mill to the thread's major diameter, after the
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
   otherwise the thread is left out and the log says why. Check the fit with a plug gauge or
