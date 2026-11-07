@@ -283,7 +283,7 @@ avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, l
 
 ```bash
 rust/fetch-camlib.sh
-cargo test --release --manifest-path rust/Cargo.toml
+cargo test --release --workspace --manifest-path rust/Cargo.toml
 ```
 
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
@@ -299,6 +299,11 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.
+- `rust/tests/schemas.rs`: the tool libraries and every fixture's plan against the JSON Schemas in
+  `schemas/` (`resources-1`, `plan-1`).
+
+The planning is being split out into its own crate, `rust/capp`, as `docs/capp-plan.md` sets
+out. What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
 for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the

@@ -1,0 +1,753 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:step2cam:schema:plan:1",
+ "title": "step2cam plan, version 1",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model.",
+ "type": "object",
+ "required": [
+  "format",
+  "version",
+  "units",
+  "source",
+  "part",
+  "setups",
+  "covered_by_roughing",
+  "skipped",
+  "warnings"
+ ],
+ "properties": {
+  "format": {
+   "const": "specify-cam-plan"
+  },
+  "version": {
+   "const": 1
+  },
+  "units": {
+   "const": "mm"
+  },
+  "source": {
+   "description": "specify-core's binding: which file and part the analysis is of.",
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "part": {
+   "$ref": "#/$defs/box"
+  },
+  "setups": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/setup"
+   }
+  },
+  "covered_by_roughing": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "skipped": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "feature",
+     "reason"
+    ],
+    "properties": {
+     "feature": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     }
+    },
+    "additionalProperties": false
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  }
+ },
+ "additionalProperties": false,
+ "$defs": {
+  "box": {
+   "type": "object",
+   "required": [
+    "min",
+    "max"
+   ],
+   "properties": {
+    "min": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "max": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    }
+   },
+   "additionalProperties": false
+  },
+  "setup": {
+   "type": "object",
+   "required": [
+    "id",
+    "zero",
+    "rotation",
+    "origin_model",
+    "stock",
+    "operations"
+   ],
+   "properties": {
+    "id": {
+     "enum": [
+      "top",
+      "bottom",
+      "front",
+      "back",
+      "left",
+      "right"
+     ]
+    },
+    "zero": {
+     "enum": [
+      "stock",
+      "part"
+     ]
+    },
+    "rotation": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "enum": [
+        -1,
+        0,
+        1
+       ]
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "origin_model": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "stock": {
+     "$ref": "#/$defs/box"
+    },
+    "operations": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/operation"
+     }
+    },
+    "part_surface": {
+     "description": "Kept by step2cam::process when roughing is refused, so the stock can still be compared with the part."
+    }
+   },
+   "additionalProperties": false
+  },
+  "operation": {
+   "oneOf": [
+    {
+     "description": "Face the stock down to the part's top.",
+     "type": "object",
+     "required": [
+      "kind",
+      "floor_z"
+     ],
+     "properties": {
+      "kind": {
+       "const": "facing"
+      },
+      "floor_z": {
+       "type": "number"
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Rough the stock down to the part's mesh (setup frame), leaving a web.",
+     "type": "object",
+     "required": [
+      "kind",
+      "top_z",
+      "floor_z",
+      "web_mm",
+      "surface_error_mm",
+      "positions",
+      "indices"
+     ],
+     "properties": {
+      "kind": {
+       "const": "roughing"
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "web_mm": {
+       "type": "number",
+       "minimum": 0
+      },
+      "surface_error_mm": {
+       "type": "number",
+       "minimum": 0
+      },
+      "positions": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "indices": {
+       "type": "array",
+       "items": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Finish the upward flat faces between the top and the roughing floor.",
+     "type": "object",
+     "required": [
+      "kind",
+      "floor_z",
+      "levels"
+     ],
+     "properties": {
+      "kind": {
+       "const": "flats"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "levels": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Holes of one size and depth. exit_clear_mm is present for through holes: the clear depth below the exit, null for none.",
+     "type": "object",
+     "required": [
+      "kind",
+      "diameter",
+      "top_z",
+      "bore_top_z",
+      "bottom_z",
+      "bottom",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "holes"
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "bore_top_z": {
+       "type": "number"
+      },
+      "bottom_z": {
+       "type": "number"
+      },
+      "bottom": {
+       "type": "string",
+       "description": "specify-core's bottom: through, flat, drill_point …"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "exit_clear_mm": {
+       "type": [
+        "number",
+        "null"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Counterbores and spotfaces of one size.",
+     "type": "object",
+     "required": [
+      "kind",
+      "diameter",
+      "top_z",
+      "floor_z",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "counterbore"
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Internal metric threads of one size.",
+     "type": "object",
+     "required": [
+      "kind",
+      "spec",
+      "major",
+      "pitch",
+      "start_diameter",
+      "top_z",
+      "bottom_z",
+      "through",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "thread"
+      },
+      "spec": {
+       "type": "string"
+      },
+      "major": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "pitch": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "start_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "bottom_z": {
+       "type": "number"
+      },
+      "through": {
+       "type": "boolean"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A round-ended slot, a to b its end centres.",
+     "type": "object",
+     "required": [
+      "kind",
+      "width",
+      "length",
+      "a",
+      "b",
+      "top_z",
+      "floor_z",
+      "bottom",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "slot"
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "minimum": 0
+      },
+      "a": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "b": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "bottom": {
+       "enum": [
+        "blind",
+        "through"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A square-ended slot or notch; open when one side runs out of the part.",
+     "type": "object",
+     "required": [
+      "kind",
+      "width",
+      "length",
+      "open",
+      "outer",
+      "top_z",
+      "floor_z",
+      "wall_top",
+      "bottom",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "notch"
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "open": {
+       "type": "boolean"
+      },
+      "outer": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "x, y and the bulge of the edge to the next vertex"
+       },
+       "minItems": 2,
+       "description": "Closed outline: each vertex is x, y and the bulge of the edge to the next (a circle is two half-circle arcs)."
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "wall_top": {
+       "type": "number"
+      },
+      "bottom": {
+       "enum": [
+        "blind",
+        "through"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A V-channel, cut along a to b with the bit's tip on root_z.",
+     "type": "object",
+     "required": [
+      "kind",
+      "angle",
+      "width",
+      "depth",
+      "length",
+      "a",
+      "b",
+      "top_z",
+      "root_z",
+      "on_flat",
+      "room",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "v_channel"
+      },
+      "angle": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "depth": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "a": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "b": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "root_z": {
+       "type": "number"
+      },
+      "on_flat": {
+       "type": "boolean"
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Finish a vertical wall's outline down to floor_z; room is the clearance beside it, null if unlimited.",
+     "type": "object",
+     "required": [
+      "kind",
+      "wall",
+      "outer",
+      "floor_z",
+      "on_flat",
+      "room"
+     ],
+     "properties": {
+      "kind": {
+       "const": "wall_finish"
+      },
+      "wall": {
+       "type": "string"
+      },
+      "outer": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "x, y and the bulge of the edge to the next vertex"
+       },
+       "minItems": 2,
+       "description": "Closed outline: each vertex is x, y and the bulge of the edge to the next (a circle is two half-circle arcs)."
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "on_flat": {
+       "type": "boolean"
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Edge rounds on the top face, cut as a chamfer.",
+     "type": "object",
+     "required": [
+      "kind",
+      "needs_wall",
+      "wall_features",
+      "radius",
+      "width",
+      "top_z",
+      "outer",
+      "holes",
+      "boundaries",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "edge_chamfer"
+      },
+      "needs_wall": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "wall_features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "radius": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "outer": {
+       "type": "array"
+      },
+      "holes": {
+       "type": "array"
+      },
+      "boundaries": {
+       "enum": [
+        "outer",
+        "holes",
+        "all"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "additionalProperties": false
+    }
+   ]
+  }
+ }
+}

@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rust/fetch-camlib.sh
-      - run: cargo test --release
+      - run: cargo test --release --workspace
         working-directory: rust
       - name: The frozen fixtures are what specify-core writes
         run: tests/specify-link.sh

@@ -54,8 +54,8 @@ their ids, and the requirements on them, are exactly as specify-core writes them
   (`src/materials.rs`), which also gives its family.
 - **Upstream need:** the analysis format has a version but no published JSON Schema. CAPP
   should validate its input against a schema, and that schema belongs in specify-core next to
-  the PMI's. This goes on specify-core's `docs/upstream-needs.md`. Until it exists, CAPP checks
-  the fields it reads, as `plan.rs` does now.
+  the PMI's. It is recorded as S1 in step2cam's `docs/upstream-needs.md`. Until it exists, CAPP
+  checks the fields it reads, as `plan.rs` does now.
 
 **2. CAPP** (computer-aided process planning). The crate `rust/capp` in this repository, as a
 workspace member beside the existing crate. It is a pure function: JSON in, JSON out, with no
@@ -353,8 +353,8 @@ it changes output.
 
 1. **Workspace and schemas.** Add an empty `capp` crate as a member of `rust/`'s workspace. Write the
    JSON Schemas for `resources.json` (from `tools.json` as it is) and the current plan output,
-   and validate them in tests. Add the analysis-schema need to specify-core's
-   `docs/upstream-needs.md`. No behaviour change.
+   and validate them in tests. Record the analysis-schema need in `docs/upstream-needs.md`. No
+   behaviour change.
 2. **Move planning into `capp`.** Move `plan.rs`, tool selection and `settle` out of `job.rs`, and
    the geometry into `capp`, unchanged. `job.rs` becomes the camlib adapter, reading resolved
    tools from the plan. Then replace the retry loop with `exclusions`.
