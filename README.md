@@ -79,7 +79,15 @@ The plan says **what** to cut, independent of tools and machine.
   - `slot`: a closed slot with round ends, cut to size with a camlib `Pocket` of its outline and
     the largest end mill that fits, after roughing, from whichever setup reaches it. Other slots
     are left to roughing;
-  - `wall_finish` and `edge_chamfer`: see [Top edge rounds](#top-edge-rounds).
+  - `flats`, straight after roughing, where the part has upward flat faces between its top and
+    the roughing floor. Those are off the roughing layers, so they can have up to a stepdown (plus
+    the bottom allowance) left on them; camlib's `Flat` cuts each at its exact height, in one pass
+    with the roughing end mill, staying a tool radius from walls;
+  - `wall_finish`: the outside of each solid outline with upright walls, to size, in each band
+    between flats, so a raised boss's wall stops at the plate it stands on. A wall with less room
+    beside it than the end mill's diameter is left with the roughing allowance (`room`), and so is
+    a sloped wall or the inside of a pocket;
+  - `edge_chamfer`: see [Top edge rounds](#top-edge-rounds).
 - **Checks against the mesh** (only when the mesh is given):
   - a hole is cut only from a side where no part material is above its opening;
   - a plain through hole may be cut from its far end instead, unless quiddity reports that
@@ -92,18 +100,17 @@ The plan says **what** to cut, independent of tools and machine.
   features roughing cannot reach (a flat face of the feature points away from the roughing setup),
   or every feature when there is no mesh or roughing does not run. Features of an operation camlib
   refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
-  their flat faces, and they are left with the roughing allowance (there is no general finishing
-  pass).
+  their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
+  allowance.
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
 
 ## Top edge rounds
 
-Where the whole top edge of the outside wall, or of a hole or slot cut to size, has one convex
-radius, the outside wall is finished to size (only if it runs straight down to the roughing floor,
-so a raised boss's outline is not followed through the plate below it) and a 45° chamfer is cut
-that meets the round at its middle, so it never cuts into the part. It is a chamfer, not the round,
+Where the whole top edge of the outside wall (only if that wall is finished and runs straight down
+to the roughing floor), or of a hole or slot cut to size, has one convex radius, a 45° chamfer is
+cut that meets the round at its middle, so it never cuts into the part. It is a chamfer, not the round,
 and needs a `chamfer_mill` tool in the library: the demo has one. Bottom edges are not cut.
 
 ## Threads
@@ -187,7 +194,8 @@ How each operation gets a tool:
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
 | `thread` | `ThreadMilling` (internal, helical, climb) | the largest thread mill whose pitch range takes the pitch, whose tooth fits the drilled hole, whose neck clears the thread crests and which reaches the thread's bottom |
 | `slot` | `Pocket` | the largest end mill that fits |
-| `wall_finish` | `Contour`, only if the edge chamfer has a tool | the largest end mill (or `roughing_tool`) |
+| `flats` | `Flat` | the largest end mill (or `roughing_tool`) |
+| `wall_finish` | `Contour` | the largest end mill (or `roughing_tool`) |
 | `edge_chamfer` | `Chamfer` | a 90° chamfer mill wide enough |
 
 How deep holes are cut (the log has a note for each case):
@@ -240,8 +248,8 @@ run.**
 
 ## Not done (yet)
 
-Finishing passes (walls and floors are left with the roughing allowance), removing the web,
-countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end
+Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for flats and walls the
+roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end
 of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
 avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work.
 
@@ -253,8 +261,8 @@ cargo test --release --manifest-path rust/Cargo.toml
 ```
 
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
-  baseline written by the Python version this project started as. It is compared by hand when an
-  intended change moves it.
+  baseline written by the Python version this project started as, since moved only by the plate's
+  wall finish. It is compared by hand when an intended change moves it.
 - `rust/tests/checker.rs`: tampers with written blocks and expects camlib's intent checker to
   refuse the program.
 - `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong

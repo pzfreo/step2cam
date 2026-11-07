@@ -441,6 +441,21 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         out
                     }
                 }
+                "flats" => {
+                    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+                    let (Some(rough), Some(s)) = (rough, library.clearing("roughing")?) else {
+                        notes.push(format!("{op_id}: left out: it follows roughing, with the same end mill"));
+                        continue;
+                    };
+                    spec = s;
+                    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
+                    let mut out = json!({
+                        "kind": "flat", "id": op_id, "tool": id(s), "surface": surface(rough)?,
+                        "floor_z_mm": num(op, "floor_z")?, "stepover_mm": stepover, "clearance_z_mm": clearance,
+                    });
+                    cutting(&mut out, s, true)?;
+                    out
+                }
                 "holes" => {
                     let d = num(op, "diameter")?;
                     if let Some(drill) = library.drill(d) {
@@ -551,16 +566,14 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     out
                 }
                 "wall_finish" => {
-                    // Only for a chamfer: other walls keep the roughing allowance, as ever.
-                    let width_needed = setup["operations"].as_array().into_iter().flatten().find(|o| o["kind"] == "edge_chamfer").map_or(Ok(0.), |o| num(o, "width"))?;
-                    if library.chamfer_mill(width_needed).is_none() {
-                        notes.push(format!("{op_id}: no chamfer mill for the edges, so the wall keeps its roughing allowance"));
-                        continue;
-                    }
                     let Some(mill) = library.clearing("roughing")? else {
                         notes.push(format!("{op_id}: no end mill to finish the wall with"));
                         continue;
                     };
+                    if op["room"].as_f64().is_some_and(|room| room < num(mill, "diameter").unwrap_or(f64::MAX)) {
+                        notes.push(format!("{op_id}: {} mm beside the wall is too narrow for {}, so it keeps its roughing allowance", show(num(op, "room")?), id(mill)));
+                        continue;
+                    }
                     spec = mill;
                     let mut out = json!({
                         "kind": "contour", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),

@@ -48,12 +48,21 @@ fn the_side_holes_are_drilled_from_the_front() {
     assert_eq!(holes[0]["centers"].as_array().unwrap().len(), 2);
 }
 
-/// The top outline is the boss's: a finish following it down to the floor would cut the plate.
+/// The plate is 12 mm thick and its boss 6 mm above that, from a stock top 1 mm above the boss, so
+/// the plate's top is at Z-7. The boss's wall stops there; the plate's runs on to the floor.
 #[test]
-fn a_raised_boss_outline_is_not_followed_down_through_the_plate() {
+fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
     let out = process();
-    let kinds: Vec<String> = out["plan"]["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).map(|o| o["kind"].as_str().unwrap().to_string()).collect();
-    assert!(!kinds.iter().any(|k| k == "wall_finish"), "{kinds:?}");
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    let top = operations(&out, "top");
+    let flats: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "flats").collect();
+    assert_eq!(flats.len(), 1);
+    assert_eq!(flats[0]["levels"], serde_json::json!([-7.0]));
+    let walls: Vec<f64> = top.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["floor_z"].as_f64().unwrap()).collect();
+    assert_eq!(walls, [-18.5, -7.0]);
+    let ids: Vec<&str> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap()).collect();
+    assert!(ids.iter().filter(|i| i.ends_with("wall_finish")).count() == 2 && ids.iter().any(|i| i.ends_with("flats")), "{ids:?} {}", out["log"]);
+    // A top edge that stays only rounded is still said so.
     assert!(out["plan"]["skipped"].to_string().contains("r0.8 edge round"));
 }
 

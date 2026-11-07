@@ -892,7 +892,7 @@ fn contains(chain: &[Cut], p: (f64, f64)) -> bool {
 }
 
 /// A loop as camlib's boundary, with its true lines and arcs: [x, y, bulge to the next vertex].
-/// None if a wall is not a flat or a cylinder along the tool.
+/// None if a wall is not an upright flat or a cylinder along the tool.
 fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows) -> Result<Option<Vec<[f64; 3]>>, String> {
     let n = chain.len();
     let start = (0..n).find(|i| chain[*i].2 != chain[(i + n - 1) % n].2).unwrap_or(0);
@@ -908,7 +908,12 @@ fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &R
     for run in &runs {
         let Some(face) = faces.get(&(run[0].2 as u64)) else { return Ok(None) };
         match face["kind"].as_str() {
-            Some("plane") => vertices.push([r(run[0].0.0), r(run[0].0.1), 0.]),
+            Some("plane") => {
+                if rotate(rows, v3(&face["direction"])?)[2].abs() > 1e-6 {
+                    return Ok(None);
+                }
+                vertices.push([r(run[0].0.0), r(run[0].0.1), 0.]);
+            }
             Some("cylinder") => {
                 if rotate(rows, v3(&face["direction"])?)[2].abs() < 0.99 {
                     return Ok(None);
@@ -940,11 +945,72 @@ fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &R
     Ok(Some(vertices))
 }
 
-/// Finishes the outside wall and chamfers the top edges that the model rounds, in the roughing
-/// setup: (operations, ids of the rounds they stand for). A 45° chamfer meeting a round at its
-/// middle never cuts into the part. A loop qualifies only if its whole top edge has the one radius
-/// and its wall ends up at size: the outside (finished here) or a hole or slot's (already cut).
-fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value]) -> Result<(Vec<Value>, Vec<String>), String> {
+/// Whether a point is in the part's section: an odd count of the mesh's cuts along +X from it.
+fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
+    let crosses = |c: &&Cut| (c.0.1 > p.1) != (c.1.1 > p.1) && c.0.0 + (p.1 - c.0.1) / (c.1.1 - c.0.1) * (c.1.0 - c.0.0) > p.0;
+    cuts.iter().filter(crosses).count() % 2 == 1
+}
+
+/// Finishes the outsides of the part's solid outlines, in the roughing setup, at each band between
+/// flats: a contour stops at its band's floor, so a raised part's outline is not followed through
+/// what it stands on. An outline already finished from a lower band is not repeated, as a contour
+/// starts at the top of the stock. The outline is the band's middle, or lower where a side hole
+/// breaks that: what tapers in stays clear of the cutter, and what flares out at the foot or
+/// overhangs above leaves no room beside it.
+fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64]) -> Result<Vec<Value>, String> {
+    const ABOVE: f64 = 0.05;
+    const SMALLEST: f64 = 0.5; // mm²: less is a sliver between faces, not an outline.
+    let distance = |p: (f64, f64), chain: &[Cut]| chain.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
+    let mut finished: Vec<Vec<Cut>> = vec![];
+    let mut ops = vec![];
+    for (band_at, band) in heights.windows(2).enumerate() {
+        let (low, high) = (band[0], band[1]);
+        // Everything the cutter passes on its way down from the top of the stock to this floor.
+        let passed: Vec<Vec<Cut>> = heights[band_at..]
+            .windows(2)
+            .flat_map(|b| [b[0] + ABOVE, (b[0] + b[1]) / 2., b[1] - ABOVE])
+            .filter_map(|z| slice(triangles, ranges, z))
+            .flatten()
+            .collect();
+        for fraction in [0.5, 0.25, 0.125] {
+            let z = low + (high - low) * fraction;
+            let (Some(section), Some(cuts)) = (slice(triangles, ranges, z), cuts_at(triangles, ranges, z)) else { continue };
+            for chain in &section {
+                let size = area(chain).abs();
+                let repeat = finished.iter().any(|f| (area(f).abs() - size).abs() <= 0.005 * size && distance(chain[0].0, f) <= 2. * ABOVE);
+                if size < SMALLEST || repeat {
+                    continue;
+                }
+                let outline = if area(chain) > 0. { chain.clone() } else { reversed(chain) };
+                // Part on its left, nothing on its right: a solid's outside, not a hole's wall.
+                let Some(longest) = outline.iter().max_by(|a, b| (a.1.0 - a.0.0).hypot(a.1.1 - a.0.1).total_cmp(&(b.1.0 - b.0.0).hypot(b.1.1 - b.0.1))) else { continue };
+                let length = (longest.1.0 - longest.0.0).hypot(longest.1.1 - longest.0.1);
+                let (mid, left) = (((longest.0.0 + longest.1.0) / 2., (longest.0.1 + longest.1.1) / 2.), (-(longest.1.1 - longest.0.1) / length * ABOVE, (longest.1.0 - longest.0.0) / length * ABOVE));
+                if !in_section((mid.0 + left.0, mid.1 + left.1), &cuts) || in_section((mid.0 - left.0, mid.1 - left.1), &cuts) {
+                    continue;
+                }
+                let Some(vertices) = boundary(&outline, faces, frame, rows)? else { continue };
+                // A contour knows only its outline: the cutter needs room beside it. Its own wall
+                // is not in the way, and nor is what it encloses.
+                let room = passed
+                    .iter()
+                    .filter(|other| !contains(&outline, other[0].0) && other.iter().any(|c| distance(c.0, &outline) > 2. * ABOVE))
+                    .flat_map(|other| other.iter().map(|c| distance(c.0, &outline)))
+                    .fold(f64::MAX, f64::min);
+                finished.push(outline);
+                ops.push(json!({"kind": "wall_finish", "outer": vertices, "floor_z": r(low), "room": if room == f64::MAX { Value::Null } else { json!(r(room)) }}));
+            }
+        }
+    }
+    Ok(ops)
+}
+
+/// Chamfers the top edges that the model rounds, in the roughing setup: (operations, ids of the
+/// rounds they stand for). A 45° chamfer meeting a round at its middle never cuts into the part.
+/// A loop qualifies only if its whole top edge has the one radius and its wall ends up at size:
+/// the outside (`wall_finished` is the outside finished down to the floor) or a hole or slot's
+/// (already cut).
+fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value], wall_finished: bool) -> Result<(Vec<Value>, Vec<String>), String> {
     let nothing = (vec![], vec![]);
     let frame = &cx.frames[setup];
     let rows = rows_of(setup);
@@ -1006,12 +1072,11 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
         }
     }
     let Some(outline) = boundary(&outer, faces, frame, rows)? else { return Ok(nothing) };
-    // The finish runs down to the floor, so the wall must too: on a stepped part this outline
-    // is a raised part's, and following it down would cut what it stands on.
+    // The wall must run down to the floor: on a stepped part this outline is a raised part's.
     let largest = |z: f64| slice(triangles, ranges, z).and_then(|l| l.iter().map(|c| area(c).abs()).max_by(f64::total_cmp));
     let same = |z: f64| largest(z).is_some_and(|a| (a - area(&outer)).abs() <= 0.005 * area(&outer));
     let wall_low = floor + radius + 0.05;
-    let outside = rounded(&outer) && same(wall_low) && same((wall_low + part_top - radius) / 2.);
+    let outside = wall_finished && rounded(&outer) && same(wall_low) && same((wall_low + part_top - radius) / 2.);
     if outside {
         chamfered.push(outer.clone());
     } else if inner.is_empty() {
@@ -1022,11 +1087,7 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
         .filter(|x| chamfered.iter().flatten().any(|c| segment_distance((x.2[0], x.2[1]), c.0, c.1) <= radius + 0.5))
         .map(|x| x.0.to_string())
         .collect();
-    let mut ops = vec![];
-    if outside {
-        ops.push(json!({"kind": "wall_finish", "outer": outline, "floor_z": r(floor)}));
-    }
-    ops.push(json!({
+    let ops = vec![json!({
         "kind": "edge_chamfer", "radius": r(radius), "width": r(radius * (2. - 2f64.sqrt())), "top_z": r(part_top),
         "outer": outline, "holes": inner, "boundaries": match (outside, inner.is_empty()) {
             (true, true) => "outer",
@@ -1034,7 +1095,7 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
             _ => "holes",
         },
         "features": ids,
-    }));
+    })];
     Ok((ops, ids))
 }
 
@@ -1248,6 +1309,23 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                             "positions": positions,
                             "indices": m["indices"].clone(),
                         }));
+                        // Flats between the top, which facing cuts, and the floor are off the
+                        // roughing layers, so they can have up to a stepdown left on them.
+                        let top = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p))).1[2];
+                        let mut levels: Vec<f64> = faces
+                            .values()
+                            .filter(|f| f["kind"] == "plane")
+                            .filter_map(|f| {
+                                let up = rotate(&frame.rows, v3(&f["direction"]).ok()?)[2] > 1. - 1e-9;
+                                up.then(|| Some(r(frame.point(v3(&f["centroid"]).ok()?)[2])))?
+                            })
+                            .filter(|z| *z > floor && *z < r(top))
+                            .collect();
+                        levels.sort_by(f64::total_cmp);
+                        levels.dedup();
+                        if !levels.is_empty() {
+                            ops.push(json!({"kind": "flats", "floor_z": r(floor), "levels": levels}));
+                        }
                     }
                 }
             }
@@ -1261,8 +1339,17 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| o["kind"] == "roughing")) {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
             let floor = (part.0[2] + options.skin).min(part.1[2]);
-            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots)?;
+            let mut heights = vec![floor];
+            heights.extend(ops.iter().find(|o| o["kind"] == "flats").into_iter().flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64));
+            heights.push(part.1[2]);
+            let walls = match m["faces"].as_array() {
+                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights)?,
+                None => vec![],
+            };
+            let wall_finished = walls.iter().any(|w| w["floor_z"].as_f64() == Some(r(floor)));
+            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, wall_finished)?;
             ops.extend(setup_slots);
+            ops.extend(walls);
             ops.extend(edges);
             skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
         } else {

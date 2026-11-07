@@ -80,7 +80,8 @@ fn the_plates_g_code_is_byte_for_byte_python_s() {
     let nc = out["programs"][0]["nc"].as_str().unwrap();
     assert_eq!(nc, fs::read_to_string(root().join("tests/fixtures/rust-golden/plate-top.nc")).unwrap());
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
-    assert_eq!(ends, [53, 1975, 1992, 2070, 2108]);
+    assert_eq!(&ends[..5], [53, 1975, 1992, 2070, 2108]);
+    assert_eq!(ends.len(), 6); // the wall finish
 }
 
 /// The plate with its ⌀4.2 hole answered as tapped M5.
