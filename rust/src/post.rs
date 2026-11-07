@@ -27,6 +27,7 @@ const GEOMETRY_TOLERANCE: f64 = 1e-5;
 const ARC_SAMPLES: u32 = 16;
 /// How many lowered segments of an arc are checked at a time: camlib's most.
 const LOWERED_BATCH: usize = 64;
+const DEPTH_TOLERANCE: f64 = 0.01;
 const RADIUS_TOLERANCE: RadiusTolerance = RadiusTolerance { absolute_mm: 0.00127, relative: 0.001 };
 /// Metric, absolute, incremental arc centres, XY, feed per minute, fixed spindle speed, no cutter
 /// compensation, no length offset, no cycle, no G92 offset, exact path, spindle and coolant off.
@@ -613,6 +614,35 @@ fn gouge_message(report: &camlib::material::Report) -> String {
     format!("the finished stock cuts into the part: camlib's material check found {} cells below it{at}", report.gouge.definite_cells)
 }
 
+/// The most material a flat's cut can definitely meet: cutter centre and rim along the move. camlib
+/// proves a flat clear of the part, not how much stock is in the way. A cell's lower bound says
+/// what cannot have been cut, so what roughing only partly reached does not count.
+fn deepest_cut(stock: &camlib::stock::Stock, motion: &Motion, radius: f64) -> f64 {
+    let (start, end) = match &motion.curve {
+        Curve::Line { start, end } => (*start, *end),
+        curve => (curve.end(), curve.end()),
+    };
+    let ([nx, ny], [wx, wy]) = (stock.dimensions(), stock.cell_widths_mm());
+    let (min, cells) = (stock.spec().min_mm, stock.cells());
+    let top_at = |x: f64, y: f64| -> f64 {
+        let (i, j) = (((x - min[0]) / wx).floor(), ((y - min[1]) / wy).floor());
+        if i < 0. || j < 0. || i as usize >= nx || j as usize >= ny { f64::NEG_INFINITY } else { cells[j as usize * nx + i as usize].lower_mm }
+    };
+    let length = (end[0] - start[0]).hypot(end[1] - start[1]);
+    let steps = (length / wx.min(wy)).ceil().max(1.) as usize;
+    let mut deepest = f64::NEG_INFINITY;
+    for step in 0..=steps {
+        let t = step as f64 / steps as f64;
+        let (x, y) = (start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t);
+        deepest = deepest.max(top_at(x, y));
+        for k in 0..8 {
+            let angle = f64::from(k) * std::f64::consts::FRAC_PI_4;
+            deepest = deepest.max(top_at(x + 0.9 * radius * angle.cos(), y + 0.9 * radius * angle.sin()));
+        }
+    }
+    deepest - end[2]
+}
+
 /// The stock against the part, if the job asks for it at this point. A definite gouge refuses the
 /// whole program, and so does a comparison that ran out of budget: it has not looked everywhere.
 fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool) -> Result<Option<camlib::material::Report>, Failure> {
@@ -664,7 +694,7 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
     let mut active: Option<&str> = None;
     let mut material = None;
 
-    for operation in &manifest.operations {
+    for (index, operation) in manifest.operations.iter().enumerate() {
         let mut one = || -> Result<(), Stop> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
@@ -709,9 +739,22 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
             for event in plan.take_events() {
                 post.event(&event)?;
             }
+            // What a flat may take: what roughing leaves on a flat between its layers.
+            let flat_limit = raw["operations"][index].get("kind").filter(|k| *k == "flat").and_then(|_| {
+                let rough = raw["operations"].as_array()?.iter().find(|o| o["kind"] == "roughing" && o["tool"] == raw["operations"][index]["tool"])?;
+                let radius = raw["tools"].as_array()?.iter().find(|t| t["id"] == rough["tool"])?["cutter"]["diameter_mm"].as_f64()? / 2.;
+                Some((rough["stepdown_mm"].as_f64()? + rough["bottom_allowance_mm"].as_f64()?, radius))
+            });
             let guard = camlib::limits::LinkGuard::new(operation.limits(), tool, manifest.sweep.tolerance_mm)?;
             while let Some(motion) = plan.next_motion_with_stock(producer.stock()?, &cancel)? {
                 let motion = manifest.retract_policy(motion, producer.stock()?, operation.declares_retract_feed());
+                if let Some((limit, radius)) = flat_limit.filter(|_| motion.feed_mm_min.is_some()) {
+                    let depth = deepest_cut(producer.stock()?, &motion, radius);
+                    if depth > limit + DEPTH_TOLERANCE {
+                        let at = motion.curve.end();
+                        return Err(Stop::Refused(format!("a flat would cut {depth:.1} mm deep near X{:.1} Y{:.1}, where roughing did not reach; its most is {limit:.1} mm", at[0], at[1])));
+                    }
+                }
                 if let Some(g) = &guard {
                     g.check(&motion)?;
                 }

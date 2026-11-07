@@ -42,6 +42,10 @@ for (const [step, stem] of [
   ["plate.step", "plate"],
   ["synthetic/stepped-plate.step", "synthetic/stepped-plate"],
   ["synthetic/stepped-plate-chamfered.step", "synthetic/stepped-plate-chamfered"],
+  ["synthetic/walls/overhang.step", "synthetic/walls/overhang"],
+  ["synthetic/walls/island.step", "synthetic/walls/island"],
+  ["synthetic/walls/channel.step", "synthetic/walls/channel"],
+  ["synthetic/walls/round-boss.step", "synthetic/walls/round-boss"],
 ]) {
   const name = path.basename(step);
   const bytes = new Uint8Array(read(step));

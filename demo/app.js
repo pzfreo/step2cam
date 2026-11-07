@@ -79,6 +79,7 @@ function operationName(op, setup, plan) {
   if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
   if (op.kind === "thread") return `${op.spec} thread` + where;
   if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
+  if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
   if (op.kind === "edge_chamfer") return `${op.width} chamfer on r${op.radius} edges` + where;
   return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
@@ -629,7 +630,7 @@ function buildFeatureList(m) {
   const others = [...m.features.values()].filter((f) => !f.operations.length);
   if (others.length) head("Not cut by a feature operation");
   for (const f of others) {
-    const note = f.covered ? "covered by roughing" : f.skipped || "not planned";
+    const note = f.covered ? "roughed, not finished" : f.skipped || "not planned";
     host.append(button("feature-row", `<span class="swatch" style="background:${f.color}"></span><span><span class="name">${escapeHtml(f.id)}</span><span class="detail">${escapeHtml(note)}</span></span>`, f.id));
   }
 }

@@ -380,6 +380,71 @@ pub struct Job {
 }
 
 /// One camlib job for each setup of a plan that has something it can cut.
+/// Why this outside wall cannot be finished, if it cannot. A contour knows only its outline: it has
+/// to follow a roughing that cleared the stock beside the wall, with room for the cutter and for
+/// the allowance roughing leaves on whatever stands opposite.
+fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<String>, String> {
+    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+    let Some(rough) = rough else {
+        return Ok(Some("no roughing has cleared the stock beside the wall, so it is not finished".into()));
+    };
+    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+        return Ok(Some("the flat this wall stands on is not cut, so it is not finished".into()));
+    }
+    let Some(mill) = library.clearing("roughing")? else {
+        return Ok(Some("no end mill to finish the wall with".into()));
+    };
+    let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
+    let needed = num(mill, "diameter")? + 2. * radial;
+    Ok(op["room"].as_f64().filter(|room| *room < needed).map(|room| format!("{} mm beside the wall is too narrow for {} (it needs {}), so it keeps its roughing allowance", show(room), id(mill), show(r(needed)))))
+}
+
+/// Takes out of the plan what can no longer be cut: walls and flats with nothing to follow, and an
+/// outside chamfer whose wall is not at size, whose rounds go back to not being cut.
+pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
+    let library = Library::new(library_data)?;
+    let (mut warnings, mut skipped) = (vec![], vec![]);
+    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
+        let setup_id = setup["id"].as_str().unwrap_or("").to_string();
+        let view = setup.clone();
+        let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
+        let mut refused = vec![];
+        for op in ops.iter().filter(|o| o["kind"] == "wall_finish") {
+            if let Some(why) = wall_refusal(&view, op, &library)? {
+                warnings.push(json!(format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?))));
+                refused.push(op["wall"].clone());
+            }
+        }
+        let rough = ops.iter().any(|o| o["kind"] == "roughing");
+        ops.retain(|o| !(o["kind"] == "wall_finish" && refused.contains(&o["wall"])) && (rough || o["kind"] != "flats"));
+        let walls: Vec<Value> = ops.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["wall"].clone()).collect();
+        ops.retain_mut(|op| {
+            if op["kind"] != "edge_chamfer" || op["needs_wall"].is_null() || walls.contains(&op["needs_wall"]) {
+                return true;
+            }
+            let radius = op["radius"].as_f64().unwrap_or(0.);
+            let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
+            skipped.extend(lost.iter().map(|id| json!({"feature": id, "reason": format!("r{} edge round: its wall keeps its roughing allowance, so it is not chamfered", show(radius))})));
+            if op["boundaries"] != "all" {
+                return false;
+            }
+            op["boundaries"] = json!("holes");
+            op["needs_wall"] = Value::Null;
+            if let Some(features) = op["features"].as_array_mut() {
+                features.retain(|f| !lost.contains(f));
+            }
+            true
+        });
+    }
+    if let Some(list) = plan["warnings"].as_array_mut() {
+        list.extend(warnings);
+    }
+    if let Some(list) = plan["skipped"].as_array_mut() {
+        list.extend(skipped);
+    }
+    Ok(())
+}
+
 pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
     if plan["format"] != PLAN_FORMAT {
         return Err("not a step2cam plan".into());
@@ -447,6 +512,22 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; it cuts the margin where vise jaws on the stock would be, so hold the stock from below or by the web", show(radial), show(num(op, "web_mm")?)));
                         out
                     }
+                }
+                "flats" => {
+                    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+                    let (Some(rough), Some(s)) = (rough, library.clearing("roughing")?) else {
+                        notes.push(format!("{op_id}: left out: it follows roughing, with the same end mill"));
+                        continue;
+                    };
+                    spec = s;
+                    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
+                    let mut out = json!({
+                        "kind": "flat", "id": op_id, "tool": id(s), "surface": surface(rough)?,
+                        "floor_z_mm": num(op, "floor_z")?, "stepover_mm": stepover, "clearance_z_mm": clearance,
+                        "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, s, true)?;
+                    out
                 }
                 "holes" => {
                     let d = num(op, "diameter")?;
@@ -558,22 +639,17 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     out
                 }
                 "wall_finish" => {
-                    // Only for a chamfer: other walls keep the roughing allowance, as ever.
-                    let width_needed = setup["operations"].as_array().into_iter().flatten().find(|o| o["kind"] == "edge_chamfer").map_or(Ok(0.), |o| num(o, "width"))?;
-                    if library.chamfer_mill(width_needed).is_none() {
-                        notes.push(format!("{op_id}: no chamfer mill for the edges, so the wall keeps its roughing allowance"));
+                    if let Some(why) = wall_refusal(setup, op, &library)? {
+                        notes.push(format!("{op_id}: {why}"));
                         continue;
                     }
-                    let Some(mill) = library.clearing("roughing")? else {
-                        notes.push(format!("{op_id}: no end mill to finish the wall with"));
-                        continue;
-                    };
+                    let Some(mill) = library.clearing("roughing")? else { continue };
                     spec = mill;
                     let mut out = json!({
                         "kind": "contour", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
                         "boundaries": "outer", "floor_z_mm": num(op, "floor_z")?, "stepdown_mm": num(mill, "stepdown_mm")?,
                         "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-                        "boundary_tolerance_mm": 0.01, "reverse": false, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+                        "boundary_tolerance_mm": 0.01, "reverse": true, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
                         "retract_z_mm": retract, "feed_z_mm": retract,
                     });
                     cutting(&mut out, mill, true)?;

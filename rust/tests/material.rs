@@ -19,12 +19,12 @@ fn process(part: &str) -> Value {
 fn left_on_part(out: &Value) -> f64 {
     out["programs"][0]["material"]["residual"]["volume_mm3"][0].as_f64().unwrap()
 }
-/// A part's first job with one of its operations changed, posted.
+/// A part's first job with the last of its operations of this kind changed, posted.
 fn post_with(part: &str, kind: &str, change: &dyn Fn(&mut Value)) -> Result<step2cam::post::Program, step2cam::post::Failure> {
     let plan = step2cam::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&plan, &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
-    change(manifest["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == kind).unwrap());
+    change(manifest["operations"].as_array_mut().unwrap().iter_mut().rev().find(|o| o["kind"] == kind).unwrap());
     let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
     post(&manifest.to_string(), machine)
 }
@@ -51,9 +51,11 @@ fn correct_parts_finish_without_a_definite_gouge() {
 }
 
 #[test]
-fn it_finds_the_thickness_left_around_a_boss() {
-    // The stepped plate's flats are not on a roughing layer: about 3 mm is left over most of it.
-    assert!(left_on_part(&process("synthetic/stepped-plate")) > 10_000.);
+fn the_thickness_around_a_boss_is_cut_away() {
+    // Without the flats operation about 3 mm stays on the stepped plate: 16,000 mm³. What is left
+    // now includes the web around the part, about 500 mm³, which no operation removes.
+    let out = process("synthetic/stepped-plate");
+    assert!(left_on_part(&out) < 2_000., "{}", left_on_part(&out));
     assert!(left_on_part(&process("mounting-plate")) < 1_000.);
 }
 
@@ -93,6 +95,13 @@ fn a_wall_cut_too_far_in_is_refused() {
         }
     };
     assert!(refused("mounting-plate", "contour", &shrink));
+}
+
+#[test]
+fn a_boss_wall_followed_down_into_the_plate_is_refused() {
+    let part = "synthetic/stepped-plate";
+    assert!(!refused(part, "contour", &|_| {}));
+    assert!(refused(part, "contour", &|o| o["floor_z_mm"] = (o["floor_z_mm"].as_f64().unwrap() - 1.).into()));
 }
 
 #[test]

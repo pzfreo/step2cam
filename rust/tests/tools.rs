@@ -28,8 +28,8 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     let plan = plan(&plate(), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (ops, tools, notes) = posted(&plan, &example_tools());
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "drilling", "drilling", "bore"]);
-    let [facing, rough, d42, d66, bore] = &ops[..] else { unreachable!() };
+    assert_eq!(kinds, ["facing", "roughing", "drilling", "drilling", "bore", "contour"]);
+    let [facing, rough, d42, d66, bore, _wall] = &ops[..] else { unreachable!() };
     assert_eq!(facing["tool"], "em6");
     assert_eq!(number(&facing["floor_z_mm"]), -1.);
     let mesh = &rough["target"];

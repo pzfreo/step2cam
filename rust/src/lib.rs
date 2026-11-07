@@ -67,6 +67,10 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
     loop {
         programs.clear();
         log.clear();
+        if let Err(message) = job::settle(&mut plan, library) {
+            post_error = Some(message);
+            break;
+        }
         let Err(failure) = post_all(&plan, library, &machine, &mut programs, &mut log) else {
             break;
         };
