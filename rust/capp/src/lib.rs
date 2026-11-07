@@ -6,5 +6,6 @@
 pub mod plan;
 pub mod resources;
 pub mod settle;
+pub mod trace;
 
 pub use settle::{exclude, finish, resolve, settle};

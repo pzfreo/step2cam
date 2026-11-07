@@ -1,6 +1,7 @@
 //! specify-core analysis (+ mesh) -> cam plan: what to cut, per setup, independent of tools and
 //! machine. Each setup is the part turned so its tool comes down -Z, with X0 Y0 on the minimum
 //! corner and Z0 on the top of the stock (the roughing setup) or of the part's box (later ones).
+use crate::trace::{Trace, because};
 use serde_json::{Map, Value, json};
 use std::cell::OnceCell;
 use std::collections::HashMap;
@@ -454,7 +455,7 @@ fn full_thread(depth: f64, pitch: f64) -> f64 {
 /// The internal threads asked for, by hole feature id: from Specify's answers
 /// (`hole.function:<hole or pattern>` = `tapped:M5` or `tapped:M5@5.5`). Threads another tool wrote,
 /// which state no size, and answers that cannot be used become warnings.
-fn threads(analysis: &Value, warnings: &mut Vec<String>) -> HashMap<String, Thread> {
+fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Thread> {
     let features: Vec<&Value> = analysis["features"].as_array().into_iter().flatten().collect();
     let holes: Vec<&&Value> = features.iter().filter(|f| f["family"] == "holes").collect();
     let faces_of = |f: &Value| -> Vec<u64> { f["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect() };
@@ -465,19 +466,19 @@ fn threads(analysis: &Value, warnings: &mut Vec<String>) -> HashMap<String, Thre
         };
         let (spec, full) = answer.split_once('@').map_or((answer, None), |(a, b)| (a, Some(b)));
         let Some((major, pitch)) = thread_size(spec) else {
-            warnings.push(format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"));
+            trace.warn("requirement.thread.unknown_size", target, format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"));
             continue;
         };
         let full_depth = match full.filter(|text| !text.is_empty()).map(str::parse::<f64>) {
             None => None,
             Some(Ok(depth)) => Some(depth),
             Some(Err(_)) => {
-                warnings.push(format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")));
+                trace.warn("requirement.thread.unreadable_depth", target, format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")));
                 continue;
             }
         };
         let Some(feature) = features.iter().find(|f| f["id"].as_str() == Some(target)) else {
-            warnings.push(format!("{target}: tapped {spec}, but the part has no such feature now; not threaded"));
+            trace.warn("requirement.thread.no_feature", target, format!("{target}: tapped {spec}, but the part has no such feature now; not threaded"));
             continue;
         };
         let thread = Thread { spec: spec.to_string(), major, pitch, full_depth };
@@ -502,7 +503,7 @@ fn threads(analysis: &Value, warnings: &mut Vec<String>) -> HashMap<String, Thre
         for hole in &holes {
             let id = hole["id"].as_str().unwrap_or("");
             if !found.contains_key(id) && faces_of(hole).iter().any(|x| on.contains(x)) {
-                warnings.push(format!("{id}: the file marks an internal thread here but states no size; not threaded (answer it in Specify to thread it)"));
+                trace.warn("requirement.thread.no_size", id, format!("{id}: the file marks an internal thread here but states no size; not threaded (answer it in Specify to thread it)"));
             }
         }
     }
@@ -533,7 +534,11 @@ impl Context<'_> {
 }
 
 /// A hole as setup-frame geometry, or why it is skipped.
-fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Result<Result<(&'static str, Hole, Vec<String>), String>, String> {
+/// What became of a hole: its setup, the hole, its warnings (rule, text) and the setups it lies
+/// along that were rejected because part material stands above its opening.
+type Placed = (&'static str, Hole, Vec<(&'static str, String)>, Vec<&'static str>);
+
+fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Result<Result<Placed, (&'static str, String)>, String> {
     let record = &feature["record"];
     let id = feature["id"].as_str().unwrap_or("").to_string();
     let axis0 = unit(v3(&record["axis"])?)?;
@@ -563,16 +568,16 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
     }
     if options.is_empty() {
         if !blocked.is_empty() {
-            return Ok(Err(format!(
+            return Ok(Err(("setup.hole.blocked_above", format!(
                 "part material above its opening from {}: a three-axis tool cannot reach it",
                 blocked.join(", ")
-            )));
+            ))));
         }
         let axis = v3(&record["axis"])?;
-        return Ok(Err(format!(
+        return Ok(Err(("setup.hole.oblique", format!(
             "oblique axis [{}, {}, {}]: needs a setup this bridge does not make",
             show(r(axis[0])), show(r(axis[1])), show(r(axis[2]))
-        )));
+        ))));
     }
     let rank = |name: &str| cx.preferred.iter().position(|p| *p == name).unwrap_or(usize::MAX);
     let mut best = 0;
@@ -621,11 +626,11 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         };
         hole.exit_clear = Some(clear.map(r));
         if !on_face {
-            warnings.push(format!(
+            warnings.push(("process.hole.short_of_far_face", format!(
                 "{id}: the through hole ends {} mm short of the part's far face in the {name} setup; \
                  anything between (a counterbore or chamfer at the far end, a shoulder) is not planned",
                 show(r(bottom[2] - part_bottom))
-            ));
+            )));
         }
     }
     if let Some(thread) = thread {
@@ -637,7 +642,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         if hole.bottom != "through" {
             let full = thread.full_depth.filter(|d| *d != 0.).unwrap_or_else(|| full_thread(depth, thread.pitch));
             if full > length + 1e-9 {
-                warnings.push(format!("{id}: {} thread {} mm deep is deeper than the hole ({} mm); not threaded", thread.spec, show(full), show(r(length))));
+                warnings.push(("requirement.thread.too_deep", format!("{id}: {} thread {} mm deep is deeper than the hole ({} mm); not threaded", thread.spec, show(full), show(r(length)))));
                 fits = false;
             } else {
                 end = top - full;
@@ -648,7 +653,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         }
     }
     hole.csink = truthy(record.get("csink")) && !chosen.reversed;
-    Ok(Ok((name, hole, warnings)))
+    Ok(Ok((name, hole, warnings, blocked)))
 }
 
 /// Holes of one diameter, depth and ending as one operation over their centres, in the order of
@@ -1158,7 +1163,7 @@ fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
 /// starts at the top of the stock. The outline is the band's middle, or lower where a side hole
 /// breaks that: what tapers in stays clear of the cutter, and what flares out at the foot or
 /// overhangs above leaves no room beside it. Returns the operations and each one's outline.
-fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, warnings: &mut Vec<String>) -> Result<(Vec<Value>, Vec<Vec<Cut>>), String> {
+fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, trace: &mut Trace, setup: &str) -> Result<(Vec<Value>, Vec<Vec<Cut>>), String> {
     const ABOVE: f64 = 0.05;
     const SMALLEST: f64 = 0.5; // mm²: less is a sliver between faces, not an outline.
     let distance = |p: (f64, f64), chain: &[Cut]| chain.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
@@ -1199,7 +1204,7 @@ fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Va
             }
         }
         if unreadable && !had_wall {
-            warnings.push(format!("an outside wall above Z{} is not upright planes and cylinders, so it keeps its roughing allowance", show(r(low))));
+            trace.warn("process.wall_finish.not_upright", setup, format!("an outside wall above Z{} is not upright planes and cylinders, so it keeps its roughing allowance", show(r(low))));
         }
     }
     Ok((ops, finished))
@@ -1418,12 +1423,14 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let cx = Context { frames: &frames, preferred: &preferred, triangles: triangles.as_deref(), part_faces: &part_faces, all_features };
     let mut by_setup: HashMap<&'static str, Vec<Hole>> = HashMap::new();
     let mut slots: HashMap<&'static str, Vec<Value>> = HashMap::new();
-    let (mut skipped, mut covered, mut warnings) = (vec![], vec![], vec![]);
-    let asked = threads(analysis, &mut warnings);
+    let mut trace = Trace::default();
+    let mut covered: Vec<Value> = vec![];
+    // The decision that put each hole in its setup.
+    let mut placed: HashMap<String, String> = HashMap::new();
+    let asked = threads(analysis, &mut trace);
     if mesh.is_none() {
-        warnings.push("no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string());
+        trace.warn("process.no_mesh_checks", "part", "no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string());
     }
-    let skip = |feature: &str, reason: String| json!({"feature": feature, "reason": reason});
     let mut in_slot: Vec<String> = vec![];
     for feature in all_features.iter().filter(|x| x["family"] == "slots") {
         if let Some((name, op)) = slot_operation(feature, &cx)? {
@@ -1448,33 +1455,39 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         let id = feature["id"].as_str().unwrap_or("");
         if family == "holes" {
             match hole_geometry(feature, &cx, asked.get(id))? {
-                Ok((name, hole, w)) => {
+                Ok((name, hole, w, blocked)) => {
+                    let considered: Vec<Value> = blocked.iter().map(|b| json!({"candidate": b, "rejected": "part material above its opening"})).collect();
+                    let says = format!("cut from the {name} setup");
+                    placed.insert(id.to_string(), trace.decide("setup.hole.first_reachable", id, "chosen", &says, json!({"chosen": name, "considered": considered})));
                     by_setup.entry(name).or_default().push(hole);
-                    warnings.extend(w);
+                    for (rule, text) in w {
+                        trace.warn(rule, id, text);
+                    }
                 }
-                Err(reason) => {
-                    skipped.push(skip(id, reason));
+                Err((rule, reason)) => {
+                    trace.skip(rule, id, reason);
                     if let Some(thread) = asked.get(id) {
-                        skipped.push(skip(id, format!("its {} thread: the hole is not cut", thread.spec)));
+                        trace.skip("process.hole.thread_lost", id, format!("its {} thread: the hole is not cut", thread.spec));
                     }
                 }
             }
         } else if in_slot.iter().any(|x| x == id) {
             // Cut by its slot's operation.
         } else if family == "fillets" && feature["record"]["side"] == "convex" && !upright(feature, &faces, rows_of(rough_from))? {
-            skipped.push(skip(id, format!("r{} edge round: not reached from the roughing setup with its wall at size, so it stays sharp (break it by hand)", show(f(&feature["record"], "radius")?))));
+            trace.skip("process.edge_round.not_reached", id, format!("r{} edge round: not reached from the roughing setup with its wall at size, so it stays sharp (break it by hand)", show(f(&feature["record"], "radius")?)));
         } else if ["chamfers", "oriented_chamfers"].contains(&family) {
-            skipped.push(skip(id, "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)".into()));
+            trace.skip("process.chamfer.not_cut", id, "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)".into());
         } else if family == "hole_patterns" {
             // Its member holes are planned one by one.
         } else if TURNED.contains(&family) {
-            skipped.push(skip(id, "turned feature: make it on a lathe".into()));
+            trace.skip("process.turned", id, "turned feature: make it on a lathe".into());
         } else if triangles.is_none() {
-            skipped.push(skip(id, format!("{family}: no operation of its own; give the mesh to rough it")));
+            trace.skip("process.no_mesh", id, format!("{family}: no operation of its own; give the mesh to rough it"));
         } else if reachable(feature, &faces, rows_of(rough_from))? {
+            trace.decide("process.covered_by_roughing", id, "covered", &format!("{family}: no operation of its own; roughing reaches it"), Value::Null);
             covered.push(json!(id));
         } else {
-            skipped.push(skip(id, format!("{family}: faces away from the {rough_from} setup, where roughing runs; not planned")));
+            trace.skip("process.faces_away", id, format!("{family}: faces away from the {rough_from} setup, where roughing runs; not planned"));
         }
     }
 
@@ -1495,19 +1508,19 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 let floor = (part_bottom + options.skin).min(part_top);
                 if missing {
                     let list: Vec<String> = m["missing"].as_array().into_iter().flatten().map(Value::to_string).collect();
-                    skipped.push(skip("roughing", format!(
+                    trace.skip("process.roughing.missing_faces", "roughing", format!(
                         "faces [{}] did not triangulate: a mesh with holes in it would let roughing cut into the part",
                         list.join(", ")
-                    )));
+                    ));
                 } else {
                     // specify-core meshes curved faces to 0.1% of the part's diagonal.
                     let d = [part_hi[0] - part_lo[0], part_hi[1] - part_lo[1], part_hi[2] - part_lo[2]];
                     let error = surface_error(m, &faces, dot(d, d).sqrt() * 0.001)?;
                     if error > CAMLIB_MAX_SURFACE_ERROR {
-                        skipped.push(skip("roughing", format!(
+                        trace.skip("process.roughing.mesh_error", "roughing", format!(
                             "the mesh strays up to {} mm from the part's curved faces; camlib accepts at most {} mm",
                             show(r(error)), show(CAMLIB_MAX_SURFACE_ERROR)
-                        )));
+                        ));
                     } else {
                         let positions: Vec<f64> = nums(&m["positions"])?
                             .chunks_exact(3)
@@ -1549,6 +1562,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         }
         ops.extend(hole_operations(holes));
         ops.extend(counterbore_operations(holes));
+        let mut chamfered: Vec<String> = vec![];
         if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| o["kind"] == "roughing")) {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
             let floor = (part.0[2] + options.skin).min(part.1[2]);
@@ -1558,7 +1572,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
             let error = ops.iter().find(|o| o["kind"] == "roughing").and_then(|o| o["surface_error_mm"].as_f64()).unwrap_or(0.);
             let own = (2. * error).max(0.01);
             let (walls, outlines) = match m["faces"].as_array() {
-                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut warnings)?,
+                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut trace, name)?,
                 None => (vec![], vec![]),
             };
             // The wall that finishes this outline right down to the floor.
@@ -1567,11 +1581,11 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                     w["floor_z"].as_f64() == Some(r(floor)) && (area(o).abs() - area(outer).abs()).abs() <= 0.005 * area(outer).abs() && o.iter().all(|c| outer.iter().any(|d| segment_distance(c.0, d.0, d.1) <= 0.1))
                 }).and_then(|(w, _)| w["wall"].as_str().map(String::from))
             };
-            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, &wall_of)?;
+            let edges;
+            (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, &wall_of)?;
             ops.extend(setup_slots);
             ops.extend(walls);
             ops.extend(edges);
-            skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
         } else {
             ops.extend(setup_slots);
         }
@@ -1580,9 +1594,42 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         ops.extend(thread_operations(holes));
         for h in holes {
             if h.csink {
-                skipped.push(skip(&h.feature, "countersink: not planned (chamfer it by hand)".into()));
+                trace.skip("process.countersink.not_cut", &h.feature, "countersink: not planned (chamfer it by hand)".into());
             }
         }
+        // Why each operation is here: its setup, the order, the rule that made it, and for holes
+        // the decision that put them in this setup.
+        let stock = json!({"min": rp(frame.stock.0), "max": rp(frame.stock.1)});
+        let in_setup = trace.decide("setup.stock.part_box_with_margins", name, "chosen", &format!("the {name} setup, zeroed on the {}", frame.zeroed_on), json!({"zero": frame.zeroed_on, "stock": stock}));
+        let order = trace.decide("sequence.fixed_order", name, "chosen", "facing, roughing, flats, holes, counterbores, slots and notches, walls, edge chamfers, threads last", Value::Null);
+        for op in &mut ops {
+            let kind = op["kind"].as_str().unwrap_or("").to_string();
+            let features: Vec<String> = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect();
+            let rule = match kind.as_str() {
+                "facing" => "process.facing",
+                "roughing" => "process.roughing",
+                "flats" => "process.flats",
+                "holes" => "process.holes",
+                "counterbore" => "process.counterbore",
+                "thread" => "process.thread",
+                "slot" => "process.slot",
+                "notch" => "process.notch",
+                "v_channel" => "process.v_channel",
+                "wall_finish" => "process.wall_finish",
+                _ => "process.edge_chamfer",
+            };
+            let says = if features.is_empty() { format!("{kind} in the {name} setup") } else { format!("{kind} in the {name} setup: {}", features.join(", ")) };
+            let made = trace.decide(rule, &format!("{name}:{kind}"), "planned", &says, json!({"features": features}));
+            let holes_placed: Vec<String> = features.iter().filter_map(|f| placed.get(f).cloned()).collect();
+            if kind == "edge_chamfer" {
+                // Rounds skipped earlier are cut as this chamfer after all.
+                for id in features.iter().filter(|f| chamfered.contains(f)) {
+                    trace.supersede(id, "skipped", &made);
+                }
+            }
+            because(op, [in_setup.clone(), order.clone(), made].into_iter().chain(holes_placed));
+        }
+        trace.skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
         let mut setup = Map::new();
         setup.insert("id".into(), json!(name));
         frame.describe(&mut setup);
@@ -1594,8 +1641,9 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let roughs = setups.iter().any(|s| s["operations"].as_array().into_iter().flatten().any(|o| o["kind"] == "roughing"));
     if !roughs && triangles.is_some() {
         for id in covered.drain(..) {
-            let id: Value = id;
-            skipped.push(skip(id.as_str().unwrap_or(""), "no operation of its own, and roughing is not planned".into()));
+            let id = id.as_str().unwrap_or("").to_string();
+            let not_cut = trace.skip("process.no_roughing", &id, "no operation of its own, and roughing is not planned".into());
+            trace.supersede(&id, "covered", &not_cut);
         }
     }
 
@@ -1607,7 +1655,8 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         "part": {"min": rp(part_lo), "max": rp(part_hi)},
         "setups": setups,
         "covered_by_roughing": covered,
-        "skipped": skipped,
-        "warnings": warnings,
+        "skipped": trace.skipped,
+        "warnings": trace.warnings,
+        "decisions": trace.decisions,
     }))
 }

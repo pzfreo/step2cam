@@ -1,7 +1,8 @@
 # step2cam in three phases: Specify, CAPP, execution
 
-Status: step 1 (schemas) and step 2 (planning, tool choice and exclusions in the `capp` crate)
-are done; the rest is planned.
+Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
+step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) are
+done; the rest is planned.
 
 Decided (7 November 2026):
 - CAPP reads specify-core's output as it is. It has no feature schema of its own.

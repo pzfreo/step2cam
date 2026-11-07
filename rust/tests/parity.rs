@@ -10,6 +10,24 @@ fn finished(plan: &Value, library: &Value) -> Value {
     plan
 }
 
+/// The plan without its decision trace (`decisions`, each operation's `because`, each skipped
+/// feature's `decision`): what the frozen baseline has, which predates the trace.
+fn untraced(plan: &Value) -> Value {
+    let mut plan = plan.clone();
+    if let Some(o) = plan.as_object_mut() {
+        o.remove("decisions");
+    }
+    for setup in plan["setups"].as_array_mut().into_iter().flatten() {
+        for op in setup["operations"].as_array_mut().into_iter().flatten() {
+            op.as_object_mut().map(|o| o.remove("because"));
+        }
+    }
+    for skipped in plan["skipped"].as_array_mut().into_iter().flatten() {
+        skipped.as_object_mut().map(|o| o.remove("decision"));
+    }
+    plan
+}
+
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }
@@ -52,14 +70,14 @@ fn the_plate_plans_as_in_python() {
     let analysis = json("tests/fixtures/plate.analysis.json");
     let mesh = json("tests/fixtures/plate.mesh.json");
     let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-    same(&plan, &json("tests/fixtures/rust-golden/plate.plan.json"), "plan").unwrap();
+    same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate.plan.json"), "plan").unwrap();
 }
 
 #[test]
 fn the_spindle_plans_without_a_mesh_as_in_python() {
     let analysis = json("tests/fixtures/spindle.analysis.json");
     let plan = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
-    same(&plan, &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
+    same(&untraced(&plan), &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
 }
 
 #[test]
@@ -101,7 +119,7 @@ fn tapped_plate() -> Value {
 #[test]
 fn a_tapped_hole_plans_as_in_python() {
     let plan = capp::plan::plan(&tapped_plate(), Some(&json("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
-    same(&plan, &json("tests/fixtures/rust-golden/plate-thread.plan.json"), "plan").unwrap();
+    same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate-thread.plan.json"), "plan").unwrap();
 }
 
 #[test]

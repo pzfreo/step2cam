@@ -131,6 +131,12 @@ The plan says **what** to cut, independent of tools and machine.
   allowance.
 - **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
   that cuts it, or why none can (`tool_note`).
+- **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
+  made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
+  rationale, sources and where the code applies it. Each operation's `because` names the
+  decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
+  its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
+  warning is a decision too. A decision a later one replaced says `superseded_by`.
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
