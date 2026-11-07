@@ -36,7 +36,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     let travel = &mill["axes"]["travel_mm"];
     let jaws = mill["workholding"].as_array().into_iter().flatten().find(|w| w["kind"] == "vise").and_then(|w| w["max_jaw_opening_mm"].as_f64());
     let mut lost: Vec<(String, String)> = vec![];
-    for setup in plan["setups"].as_array_mut().into_iter().flatten() {
+    for setup in plan["setups"].as_array_mut().into_iter().flatten().filter(|s| s["kind"] != "lathe") {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         trace.decide("machine.for_setup", &setup_id, "chosen", &format!("cut on {}, a 3-axis mill", name(mill)), json!({"chosen": id}));
         setup["machine"] = json!(id);
@@ -74,8 +74,8 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
 
 /// Caps cutting data at the spindle's top speed, scaling the feeds so each tooth takes the same
 /// chip. Returns what it did, for the trace.
-pub fn cap_speed(technology: &mut Value, resources: &Value) -> Option<String> {
-    let max = mill(resources)?["spindle"]["max_rpm"].as_f64()?;
+pub fn cap_speed(technology: &mut Value, machine: &Value) -> Option<String> {
+    let max = machine["spindle"]["max_rpm"].as_f64()?;
     let rpm = technology["spindle_rpm"].as_f64()?;
     if rpm <= max {
         return None;
@@ -96,7 +96,7 @@ pub fn cap_speed(technology: &mut Value, resources: &Value) -> Option<String> {
 pub fn check_changer(plan: &Value, resources: &Value, trace: &mut Trace) {
     let Some(mill) = mill(resources) else { return };
     let changer = &mill["tool_changer"];
-    for setup in plan["setups"].as_array().into_iter().flatten() {
+    for setup in plan["setups"].as_array().into_iter().flatten().filter(|s| s["kind"] != "lathe") {
         let setup_id = setup["id"].as_str().unwrap_or("");
         let mut tools: Vec<&str> = setup["operations"].as_array().into_iter().flatten().filter_map(|o| o["tool"].as_str()).collect();
         tools.sort_unstable();

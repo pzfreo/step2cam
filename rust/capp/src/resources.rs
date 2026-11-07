@@ -39,13 +39,26 @@ impl<'a> Library<'a> {
         for (n, tool) in tools.iter().enumerate() {
             let name = tool["id"].as_str().map_or_else(|| format!("tools[{n}]"), String::from);
             let kind = tool["type"].as_str().unwrap_or("");
+            // Lathe tools: no shank or holder to fit in a mill's spindle.
+            let lathe: Option<&[&str]> = match kind {
+                "turning_tool" => Some(&["nose_radius_mm", "max_depth_mm", "feed_mm_rev"]),
+                "parting_tool" => Some(&["width_mm", "max_depth_mm", "feed_mm_rev"]),
+                _ => None,
+            };
+            if let Some(extra) = lathe {
+                let missing: Vec<&str> = ["id", "type", "number", "spindle_rpm", "coolant"].iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
+                if !missing.is_empty() {
+                    return Err(format!("tool {name}: missing {}", missing.join(", ")));
+                }
+                continue;
+            }
             let extra: &[&str] = match kind {
                 "end_mill" => &["flute_length", "plunge_mm_min", "stepdown_mm", "stepover_mm"],
                 "drill" => &["flute_length", "point_angle"],
                 // A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
                 "thread_mill" => &["tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"],
                 "chamfer_mill" => &["flute_length", "angle", "tip_diameter", "plunge_mm_min"],
-                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, chamfer_mill, not {other:?}")),
+                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, chamfer_mill, turning_tool, parting_tool, not {other:?}")),
             };
             let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
             if !missing.is_empty() {
@@ -102,6 +115,10 @@ impl<'a> Library<'a> {
             return self.tools.iter().copied().find(|t| id(t) == wanted).map(Some).ok_or_else(|| format!("no tool {wanted:?} in the library"));
         }
         Ok(self.pick("largest_end_mill", &[]))
+    }
+    /// The tool a named selector prefers (`rulebase/rules/tools.json`).
+    pub fn pick_selector(&self, selector: &str, inputs: &[(&str, f64)]) -> Option<&'a Value> {
+        self.pick(selector, inputs)
     }
     pub fn drill(&self, diameter: f64) -> Option<&'a Value> {
         self.pick("drill", &[("diameter", diameter)])

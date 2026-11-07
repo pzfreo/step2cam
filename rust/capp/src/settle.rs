@@ -22,6 +22,10 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
         settle(plan, library)?;
     }
     let mut trace = Trace::take(plan);
+    crate::lathe::route(plan, library, &mut trace);
+    trace.store(plan);
+    settle(plan, library)?;
+    let mut trace = Trace::take(plan);
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
     resolve(plan, library)?;
@@ -188,7 +192,8 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let view = setup.clone();
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
-        let top = view["stock"]["max"][2].as_f64().ok_or("bad stock")?;
+        let on_lathe = view["kind"] == "lathe";
+        let top = if on_lathe { 0. } else { view["stock"]["max"][2].as_f64().ok_or("bad stock")? };
         let has_rough = view["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "roughing"));
         for op in setup["operations"].as_array_mut().ok_or("setup has no operations")? {
             let kind = op["kind"].as_str().unwrap_or("").to_string();
@@ -262,6 +267,24 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     Some((rule, why)) => (Err(Some(why)), rule),
                     None => (library.clearing("roughing")?.ok_or(None), "tool.wall.roughing_mill"),
                 },
+                "lathe_face" | "lathe_rough" => {
+                    considered = library.considered("turning_rough", &[]);
+                    (library.pick_selector("turning_rough", &[]).ok_or_else(|| Some("no turning tool in the library".into())), "tool.lathe.turning")
+                }
+                "lathe_finish" => {
+                    considered = library.considered("turning_finish", &[]);
+                    (library.pick_selector("turning_finish", &[]).ok_or_else(|| Some("no turning tool in the library".into())), "tool.lathe.turning")
+                }
+                "lathe_drill" => {
+                    let d = num(op, "diameter")?;
+                    considered = library.considered("drill", &[("diameter", d)]);
+                    (library.drill(d).ok_or_else(|| Some(format!("no drill of ⌀{} for the tailstock ({})", show(d), features()))), "tool.lathe.drill")
+                }
+                "lathe_part_off" => {
+                    let d = num(op, "diameter")?;
+                    considered = library.considered("parting", &[("diameter", d)]);
+                    (library.pick_selector("parting", &[("diameter", d)]).ok_or_else(|| Some(format!("no parting tool reaches the centre of ⌀{} bar", show(d)))), "tool.lathe.parting")
+                }
                 "edge_chamfer" => {
                     let (width, radius) = (num(op, "width")?, num(op, "radius")?);
                     considered = library.considered("chamfer_mill", &[("width", width)]);
@@ -297,7 +320,8 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     None => format!("{name}'s own cutting data: the material is in no ISO 513 group"),
                 };
                 why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));
-                if let Some(capped) = crate::machines::cap_speed(&mut technology, library_data) {
+                let machine = if on_lathe { crate::lathe::lathe(library_data) } else { crate::machines::mill(library_data) };
+                if let Some(capped) = machine.and_then(|m| crate::machines::cap_speed(&mut technology, m)) {
                     why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
                 }
                 op["technology"] = technology;
@@ -314,7 +338,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
 /// 513 group (`cutting_data`) in their place. And where they came from: `tool`, or
 /// `cutting_data.<group>`.
 fn technology(tool: &Value, group: Option<&str>) -> (Value, String) {
-    const KEYS: [&str; 5] = ["feed_mm_min", "spindle_rpm", "plunge_mm_min", "stepdown_mm", "stepover_mm"];
+    const KEYS: [&str; 6] = ["feed_mm_min", "feed_mm_rev", "spindle_rpm", "plunge_mm_min", "stepdown_mm", "stepover_mm"];
     let mut out = serde_json::Map::new();
     for key in KEYS {
         if let Some(v) = tool.get(key) {

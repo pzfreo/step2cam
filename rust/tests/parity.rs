@@ -19,6 +19,7 @@ fn untraced(plan: &Value) -> Value {
         // Also newer than the baseline: the material Specify was told.
         o.remove("material");
         o.remove("rulebase");
+        o.remove("turned");
     }
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         for op in setup["operations"].as_array_mut().into_iter().flatten() {

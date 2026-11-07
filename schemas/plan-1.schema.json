@@ -136,6 +136,106 @@
    },
    "additionalProperties": false,
    "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
+  },
+  "turned": {
+   "description": "The part's turned profile, for a lathe: null when specify-core found no turned steps.",
+   "oneOf": [
+    {
+     "type": "null"
+    },
+    {
+     "type": "object",
+     "required": [
+      "axis",
+      "origin",
+      "steps",
+      "axial_holes",
+      "on_profile"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "axis": {
+       "enum": [
+        "x",
+        "y",
+        "z"
+       ]
+      },
+      "origin": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 3,
+       "maxItems": 3
+      },
+      "steps": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "feature",
+         "lo",
+         "hi",
+         "diameter"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "feature": {
+          "type": "string"
+         },
+         "lo": {
+          "type": "number"
+         },
+         "hi": {
+          "type": "number"
+         },
+         "diameter": {
+          "type": "number"
+         }
+        }
+       }
+      },
+      "axial_holes": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "feature": {
+          "type": "string"
+         },
+         "diameter": {
+          "type": "number"
+         },
+         "depth": {
+          "type": [
+           "number",
+           "null"
+          ]
+         },
+         "bottom": {},
+         "at": {
+          "type": "number"
+         },
+         "inward": {
+          "enum": [
+           "up",
+           "down"
+          ]
+         }
+        }
+       }
+      },
+      "on_profile": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
   }
  },
  "additionalProperties": false,
@@ -167,75 +267,14 @@
    "additionalProperties": false
   },
   "setup": {
-   "type": "object",
-   "required": [
-    "id",
-    "zero",
-    "rotation",
-    "origin_model",
-    "stock",
-    "operations"
-   ],
-   "properties": {
-    "id": {
-     "enum": [
-      "top",
-      "bottom",
-      "front",
-      "back",
-      "left",
-      "right"
-     ]
+   "oneOf": [
+    {
+     "$ref": "#/$defs/mill_setup"
     },
-    "zero": {
-     "enum": [
-      "stock",
-      "part"
-     ]
-    },
-    "rotation": {
-     "type": "array",
-     "items": {
-      "type": "array",
-      "items": {
-       "enum": [
-        -1,
-        0,
-        1
-       ]
-      },
-      "minItems": 3,
-      "maxItems": 3
-     },
-     "minItems": 3,
-     "maxItems": 3
-    },
-    "origin_model": {
-     "type": "array",
-     "items": {
-      "type": "number"
-     },
-     "minItems": 3,
-     "maxItems": 3
-    },
-    "stock": {
-     "$ref": "#/$defs/box"
-    },
-    "operations": {
-     "type": "array",
-     "items": {
-      "$ref": "#/$defs/operation"
-     }
-    },
-    "part_surface": {
-     "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
-    },
-    "machine": {
-     "type": "string",
-     "description": "The machine it is cut on, once capp::finish has run."
+    {
+     "$ref": "#/$defs/lathe_setup"
     }
-   },
-   "additionalProperties": false
+   ]
   },
   "operation": {
    "oneOf": [
@@ -333,6 +372,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -464,6 +506,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -573,6 +618,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -719,6 +767,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -850,6 +901,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -999,6 +1053,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1147,6 +1204,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1300,6 +1360,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1462,6 +1525,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1594,6 +1660,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1743,6 +1812,9 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
         }
        },
        "additionalProperties": false,
@@ -1849,6 +1921,756 @@
     }
    },
    "additionalProperties": false
+  },
+  "mill_setup": {
+   "type": "object",
+   "required": [
+    "id",
+    "zero",
+    "rotation",
+    "origin_model",
+    "stock",
+    "operations"
+   ],
+   "properties": {
+    "id": {
+     "enum": [
+      "top",
+      "bottom",
+      "front",
+      "back",
+      "left",
+      "right"
+     ]
+    },
+    "zero": {
+     "enum": [
+      "stock",
+      "part"
+     ]
+    },
+    "rotation": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "enum": [
+        -1,
+        0,
+        1
+       ]
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "origin_model": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "stock": {
+     "$ref": "#/$defs/box"
+    },
+    "operations": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/operation"
+     }
+    },
+    "part_surface": {
+     "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
+    },
+    "machine": {
+     "type": "string",
+     "description": "The machine it is cut on, once capp::finish has run."
+    }
+   },
+   "additionalProperties": false
+  },
+  "lathe_setup": {
+   "type": "object",
+   "required": [
+    "id",
+    "kind",
+    "machine",
+    "axis",
+    "free_end",
+    "chuck_end",
+    "bar",
+    "operations"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "const": "lathe"
+    },
+    "kind": {
+     "const": "lathe"
+    },
+    "machine": {
+     "type": "string"
+    },
+    "axis": {
+     "enum": [
+      "x",
+      "y",
+      "z"
+     ]
+    },
+    "free_end": {
+     "type": "number"
+    },
+    "chuck_end": {
+     "type": "number"
+    },
+    "bar": {
+     "type": "object",
+     "required": [
+      "diameter",
+      "length"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "diameter": {
+       "type": "number"
+      },
+      "length": {
+       "type": "number"
+      }
+     }
+    },
+    "operations": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/lathe_operation"
+     }
+    }
+   },
+   "description": "Turning from bar on a lathe, once capp::finish has run: planned, not posted."
+  },
+  "lathe_operation": {
+   "oneOf": [
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "features",
+      "w_mm",
+      "bar_diameter",
+      "stock_mm"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "const": "lathe_face"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "w_mm": {
+       "type": "number"
+      },
+      "bar_diameter": {
+       "type": "number"
+      },
+      "stock_mm": {
+       "type": "number"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "features",
+      "profile",
+      "bar_diameter",
+      "allowance_mm"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "const": "lathe_rough"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "profile": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "from_w",
+         "to_w",
+         "diameter",
+         "feature"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "from_w": {
+          "type": "number"
+         },
+         "to_w": {
+          "type": "number"
+         },
+         "diameter": {
+          "type": "number"
+         },
+         "feature": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      "bar_diameter": {
+       "type": "number"
+      },
+      "allowance_mm": {
+       "type": "number"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "features",
+      "profile"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "const": "lathe_finish"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "profile": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "from_w",
+         "to_w",
+         "diameter",
+         "feature"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "from_w": {
+          "type": "number"
+         },
+         "to_w": {
+          "type": "number"
+         },
+         "diameter": {
+          "type": "number"
+         },
+         "feature": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "features",
+      "diameter",
+      "from_w"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "const": "lathe_drill"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "diameter": {
+       "type": "number"
+      },
+      "depth": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "bottom": {},
+      "from_w": {
+       "type": "number"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "features",
+      "w_mm",
+      "diameter"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "const": "lathe_part_off"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "feed_mm_rev": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "w_mm": {
+       "type": "number"
+      },
+      "diameter": {
+       "type": "number"
+      }
+     }
+    }
+   ]
   }
  }
 }

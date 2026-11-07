@@ -15,7 +15,7 @@ fn rules() -> Value {
     serde_json::from_str(capp::trace::RULES).unwrap()
 }
 
-const STAGES: [&str; 8] = ["requirement", "setup", "process", "sequence", "feasibility", "tool", "execution", "machine"];
+const STAGES: [&str; 9] = ["requirement", "setup", "process", "sequence", "feasibility", "tool", "execution", "machine", "lathe"];
 
 #[test]
 fn the_rules_in_the_code_are_the_rules_in_the_inventory() {

@@ -171,6 +171,46 @@
     "tool.min_pitch_mm": 0,
     "tool.max_pitch_mm": "inf"
    }
+  },
+  {
+   "id": "turning_rough",
+   "tool_type": "turning_tool",
+   "description": "For facing and roughing on the lathe: the turning tool that takes the deepest cut.",
+   "inputs": [],
+   "keep": [],
+   "prefer": {
+    "largest": "tool.max_depth_mm",
+    "ties": "first"
+   }
+  },
+  {
+   "id": "turning_finish",
+   "tool_type": "turning_tool",
+   "description": "For finishing on the lathe: the turning tool with the smallest nose radius, which follows shoulders most closely.",
+   "inputs": [],
+   "keep": [],
+   "prefer": {
+    "smallest": "tool.nose_radius_mm",
+    "ties": "first"
+   }
+  },
+  {
+   "id": "parting",
+   "tool_type": "parting_tool",
+   "description": "The narrowest parting tool that reaches the bar's centre: it wastes the least material.",
+   "inputs": [
+    "diameter"
+   ],
+   "keep": [
+    {
+     "if": "tool.max_depth_mm >= diameter / 2",
+     "else_reject": "{tool.id}: reaches {tool.max_depth_mm:raw} mm, short of the centre of ⌀{diameter} bar"
+    }
+   ],
+   "prefer": {
+    "smallest": "tool.width_mm",
+    "ties": "first"
+   }
   }
  ]
 }

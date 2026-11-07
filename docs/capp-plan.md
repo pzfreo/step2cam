@@ -212,11 +212,17 @@ with up to 5 tool libraries, one with a twin of every tool to test tie-breaks. S
 only when a material is given and a tool states cutting data for its group. Step 8 changes it only
 where a machine limits something; with the example library's generous mill, outputs match.
 
+9. (part) The lathe. A part with turned steps is turned first, from bar, on the resources' lathe:
+   face the free end, rough and finish the profile, drill the holes on the axis from the
+   tailstock, part off. The mill's setups then start from the turned part. Capacity, the bar,
+   which end faces the tailstock and every tool are traced decisions. The demo's lathe is the
+   Sherline 4400 CNC. The lathe setup is planned, not posted: camlib does not turn.
+
 Planned:
-- **The lathe.** A machine of kind `lathe`, and turned features (specify-core's `turned_bodies`,
-  `turned_steps`, `face_grooves`) planned on it rather than skipped: setups held in a chuck,
-  facing, turning, grooving and parting, each traced. camlib cuts only on mills, so lathe
-  operations would be planned and explained but not posted until a turning engine is added.
+- **More of the lathe:** `turned_bodies` (specify-core gives no position along the axis) and
+  `face_grooves`; necks and undercuts, which need a grooving or profiling tool; a turning engine,
+  so the lathe setup has toolpaths and G-code; the mill's setups starting from a turned stock
+  rather than the block.
 - **More of the mill:** an indexer or trunnion (3+2) merging the setups it can reach into one
   clamping; spindle power limiting cutting data.
 - **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a

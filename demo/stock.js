@@ -25,7 +25,8 @@ function profile(tool) {
 }
 
 export function createStock(model, toModel) {
-  const setups = model.data.plan.setups;
+  // The mill's setups: a lathe setup is planned, not posted, and has no block of stock here.
+  const setups = model.data.plan.setups.filter((s) => s.kind !== "lathe");
   const fields = setups.map((setup) => {
     const lo = setup.stock.min, hi = setup.stock.max;
     const cell = Math.max(Math.max(hi[0] - lo[0], hi[1] - lo[1]) / 400, 0.1);

@@ -884,6 +884,255 @@
      "note": "the machine's limits are the shop's, in the resources' machines"
     }
    ]
+  },
+  {
+   "id": "lathe.route",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A part with turned steps is turned first, from bar, on the resources' lathe, the first machine of kind lathe. Without a lathe its turned steps are not cut.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.capacity",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "Bar larger than the lathe turns (its swing over the carriage), or longer than its distance between centres, is not turned.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.orientation",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The smaller end faces the tailstock: each step is turned towards the chuck, and the part is parted off at the larger end.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.bar",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The bar is the largest diameter plus the shop's oversize, rounded up to a whole mm; its length adds the facing, parting and chuck grip allowances. Bar no larger than the spindle bore is fed through it.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.face",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The free end is faced first.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.rough",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The profile is roughed from the bar, leaving the shop's allowance.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.finish",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The profile is finished to size.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.drill",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A hole on the axis opening at the free end is drilled from the tailstock.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.part_off",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The part is parted off from the bar at its larger end.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.turned_surface",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A feature whose faces all lie on the turned profile (planes square to the axis, cylinders and cones on it) is made by turning.",
+   "code": "lathe.rs route; plan.rs turned_profile",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.mill_after_turning",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A part turned first comes to the mill at size: facing, roughing and what follows roughing are not needed there, and nothing is left to roughing.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "lathe.drilled_on_lathe",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A hole drilled on the lathe is not drilled again on the mill.",
+   "code": "lathe.rs route",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "tool.lathe.turning",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Roughing and facing use the turning tool that takes the deepest cut; finishing the one with the smallest nose radius.",
+   "code": "rules/tools.json turning_rough, turning_finish",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#turning_rough"
+   ]
+  },
+  {
+   "id": "tool.lathe.drill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A hole on the lathe is drilled with the drill the mill would use: the largest not larger than it, within drill_tolerance_mm.",
+   "code": "rules/tools.json drill",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#drill"
+   ]
+  },
+  {
+   "id": "tool.lathe.parting",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Parting off uses the narrowest parting tool that reaches the bar's centre.",
+   "code": "rules/tools.json parting",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "how a turned part is commonly made from bar"
+    },
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#parting"
+   ]
   }
  ]
 }

@@ -8,7 +8,8 @@
   "obtained_from": [
    "https://steptools.com/stds/smrl/data/modules/machining_features/sys/modindex.htm",
    "https://steptools.com/stds/stepnc/tech_resources/stepnc_arm_html/t_machining_operation.html",
-   "https://steptools.com/stds/stepnc/tech_resources/stepnc_arm_html/t_milling_machining_operation.html"
+   "https://steptools.com/stds/stepnc/tech_resources/stepnc_arm_html/t_milling_machining_operation.html",
+   "ISO 14649-12 (turning) names as listed in the same STEP Tools machining_operation and machining_features pages"
   ],
   "agreement": "every name used below is in these published lists (read 2026-11-07); the lists are below as read",
   "checked_against_standard": false
@@ -43,7 +44,11 @@
    "Step",
    "Thread",
    "Through_bottom_condition",
-   "Vee_profile"
+   "Vee_profile",
+   "Outer_diameter",
+   "Outer_diameter_to_shoulder",
+   "Revolved_flat",
+   "General_revolution"
   ],
   "operations": [
    "back_boring",
@@ -60,7 +65,11 @@
    "side_finish_milling",
    "side_rough_milling",
    "tapping",
-   "thread_drilling"
+   "thread_drilling",
+   "facing_finish",
+   "contouring_rough",
+   "contouring_finish",
+   "cutting_in"
   ]
  },
  "kinds": {
@@ -138,6 +147,32 @@
    "operation": null,
    "exact": false,
    "note": "the model's rounds are cut as 45° chamfers by a chamfer mill; ISO 14649-11 lists no chamfering operation for milling"
+  },
+  "lathe_face": {
+   "feature": "Revolved_flat",
+   "operation": "facing_finish",
+   "exact": true
+  },
+  "lathe_rough": {
+   "feature": "Outer_diameter_to_shoulder",
+   "operation": "contouring_rough",
+   "exact": true
+  },
+  "lathe_finish": {
+   "feature": "Outer_diameter_to_shoulder",
+   "operation": "contouring_finish",
+   "exact": true
+  },
+  "lathe_drill": {
+   "feature": "Round_hole",
+   "operation": "drilling",
+   "exact": true
+  },
+  "lathe_part_off": {
+   "feature": "General_revolution",
+   "operation": "cutting_in",
+   "exact": false,
+   "note": "parting off: cutting_in is ISO 14649-12's plunge into the part, and the part has no feature of its own for the cut"
   }
  }
 }

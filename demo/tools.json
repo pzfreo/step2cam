@@ -54,6 +54,30 @@
    "coolant": [
     "air"
    ]
+  },
+  {
+   "id": "sherline",
+   "name": "the Sherline 4400 CNC lathe",
+   "kind": "lathe",
+   "_comment": "Sherline 4400, from its published specifications (sherline.com compare-lathes, and resellers' copies, read 2026-11-07): 90 mm swing over the bed, 45 mm over the carriage, 430 mm (17\") between centres, a 10 mm spindle bore, 70-2800 rpm. The chuck grip is a placeholder.",
+   "swing_mm": {
+    "over_bed": 90,
+    "over_carriage": 45
+   },
+   "between_centres_mm": 430,
+   "spindle": {
+    "max_rpm": 2800,
+    "bore_mm": 10
+   },
+   "tool_changer": {
+    "kind": "manual"
+   },
+   "workholding": [
+    {
+     "kind": "chuck",
+     "grip_mm": 12
+    }
+   ]
   }
  ],
  "clearance_mm": 10,
@@ -562,6 +586,43 @@
    "spindle_rpm": 8000,
    "coolant": "flood",
    "stepdown_mm": 0.5
+  },
+  {
+   "id": "tt-rough",
+   "type": "turning_tool",
+   "number": 40,
+   "nose_radius_mm": 0.4,
+   "max_depth_mm": 1.5,
+   "feed_mm_rev": 0.1,
+   "spindle_rpm": 1500,
+   "coolant": "flood"
+  },
+  {
+   "id": "tt-finish",
+   "type": "turning_tool",
+   "number": 41,
+   "nose_radius_mm": 0.2,
+   "max_depth_mm": 0.5,
+   "feed_mm_rev": 0.05,
+   "spindle_rpm": 2200,
+   "coolant": "flood"
+  },
+  {
+   "id": "pt2",
+   "type": "parting_tool",
+   "number": 42,
+   "width_mm": 2,
+   "max_depth_mm": 15,
+   "feed_mm_rev": 0.03,
+   "spindle_rpm": 600,
+   "coolant": "flood"
   }
- ]
+ ],
+ "turning": {
+  "_comment": "The shop's turning allowances: placeholders.",
+  "bar_oversize_mm": 1,
+  "face_allowance_mm": 0.5,
+  "part_off_allowance_mm": 3,
+  "allowance_mm": 0.3
+ }
 }

@@ -163,6 +163,11 @@ function operationName(op, setup, plan) {
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
   if (op.kind === "edge_chamfer") return `${op.width} chamfer on r${op.radius} edges` + where;
+  if (op.kind === "lathe_face") return "Face the free end (lathe)";
+  if (op.kind === "lathe_rough") return "Rough-turn the profile (lathe)";
+  if (op.kind === "lathe_finish") return "Finish-turn the profile (lathe)";
+  if (op.kind === "lathe_drill") return `⌀${op.diameter} drilled from the tailstock (lathe)`;
+  if (op.kind === "lathe_part_off") return "Part off (lathe)";
   return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
@@ -905,15 +910,22 @@ async function buildPlan(m) {
   fact(`<b>${plan.setups.length} ${plan.setups.length === 1 ? "setup" : "setups"}</b>, ${[...m.operations.values()].length} operations, ${plan.skipped.length} features not cut, ${plan.warnings.length} warnings.`);
 
   for (const setup of plan.setups) {
-    const lo = setup.stock.min, hi = setup.stock.max;
-    head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
-    const onMachine = (plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
-    fact(`${onMachine ? `${escapeHtml(onMachine.says[0].toUpperCase() + onMachine.says.slice(1))}. ` : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
+    if (setup.kind === "lathe") {
+      head("Lathe setup · planned, not posted");
+      const route = (plan.decisions || []).find((d) => d.rule.startsWith("lathe.route@") && d.outcome === "chosen");
+      const orient = (plan.decisions || []).find((d) => d.rule.startsWith("lathe.orientation@"));
+      fact(`${route ? escapeHtml(route.says[0].toUpperCase() + route.says.slice(1)) + ". " : ""}${orient ? escapeHtml(orient.says[0].toUpperCase() + orient.says.slice(1)) + ". " : ""}camlib does not turn, so this setup has no toolpaths or G-code.`);
+    } else {
+      const lo = setup.stock.min, hi = setup.stock.max;
+      head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
+      const onMachine = (plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
+      fact(`${onMachine ? `${escapeHtml(onMachine.says[0].toUpperCase() + onMachine.says.slice(1))}. ` : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
+    }
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const card = document.createElement("section");
       card.className = `plan-op${o && o.time ? "" : " unused"}`;
-      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : setup.kind === "lathe" ? ' <span class="tag">on the lathe</span>' : ' <span class="tag warn">not posted</span>'}</span>`, key);
       card.append(headBtn);
       const iso = op.iso14649;
       const open = document.createElement("details");
@@ -1055,7 +1067,7 @@ async function showStory(m) {
   const count = (n, one, many = `${one}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
   const families = new Map();
   for (const f of m.features.values()) families.set(f.family, (families.get(f.family) || 0) + 1);
-  const named = [["holes", "hole"], ["slots", "slot"], ["pockets", "notch", "notches"], ["v_channels", "V-channel"], ["fillets", "edge round"]]
+  const named = [["turned_steps", "turned step"], ["holes", "hole"], ["slots", "slot"], ["pockets", "notch", "notches"], ["v_channels", "V-channel"], ["fillets", "edge round"]]
     .filter(([fam]) => families.get(fam)).map(([fam, one, many]) => count(families.get(fam), one, many));
   $("story-features").textContent = `Reads the solid's ${count(data.analysis.binding.face_count, "face")} and finds ${count(m.features.size, "feature")}${named.length ? `: ${named.join(", ")}` : ""}.`;
   const ops = plan.setups.flatMap((s) => s.operations);
@@ -1064,7 +1076,8 @@ async function showStory(m) {
   $("story-plan").textContent = `Decides how to make it: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
   const checked = data.programs.filter((p) => p.material);
   const check = data.post_error ? "Posting failed." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
-  $("story-toolpaths").textContent = data.post_error ? "Posting failed: see the message above." : `Turns the plan into toolpaths and ${count(m.lines.length, "line")} of G-code, ${check}`;
+  const lathe = plan.setups.some((s) => s.kind === "lathe") ? " The lathe setup is planned only: camlib does not turn." : "";
+  $("story-toolpaths").textContent = data.post_error ? "Posting failed: see the message above." : `Turns the plan into toolpaths and ${count(m.lines.length, "line")} of G-code, ${check}${lathe}`;
   $("story").hidden = false;
 }
 

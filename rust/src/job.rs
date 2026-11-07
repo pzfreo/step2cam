@@ -302,6 +302,11 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
     let (mut jobs, mut log) = (vec![], vec![]);
     for setup in plan["setups"].as_array().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("");
+        // camlib cuts on mills only: a lathe setup is planned and explained, not posted.
+        if setup["kind"] == "lathe" {
+            log.push(format!("note: setup {setup_id}: planned for the lathe ({}); camlib does not turn, so it has no G-code", setup["machine"].as_str().unwrap_or("lathe")));
+            continue;
+        }
         let (lo, hi) = (&setup["stock"]["min"], &setup["stock"]["max"]);
         let bound = |v: &Value, i: usize| v[i].as_f64().ok_or("bad stock");
         let top = bound(hi, 2)?;

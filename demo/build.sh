@@ -15,7 +15,7 @@ rm -rf site
 mkdir -p site/licenses
 wasm-pack build rust --release --target web --no-typescript --no-pack --out-dir ../site/step2cam
 cp demo/index.html demo/app.js demo/stock.js demo/worker.js demo/style.css site/
-cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
+cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step tests/fixtures/spindle.step site/
 cp demo/tools.json site/tools.json
 cp rust/capp/rulebase/rules.json site/rules.json
 

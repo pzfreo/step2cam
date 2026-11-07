@@ -89,6 +89,32 @@
    "items": {
     "$ref": "#/$defs/machine_capabilities"
    }
+  },
+  "turning": {
+   "type": "object",
+   "additionalProperties": false,
+   "patternProperties": {
+    "^_": {}
+   },
+   "description": "The shop's turning allowances.",
+   "properties": {
+    "bar_oversize_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "face_allowance_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "part_off_allowance_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "allowance_mm": {
+     "type": "number",
+     "minimum": 0
+    }
+   }
   }
  },
  "patternProperties": {
@@ -767,6 +793,114 @@
       "^_": {}
      },
      "additionalProperties": false
+    },
+    {
+     "description": "A lathe turning tool.",
+     "type": "object",
+     "required": [
+      "id",
+      "type",
+      "number",
+      "spindle_rpm",
+      "coolant",
+      "nose_radius_mm",
+      "max_depth_mm",
+      "feed_mm_rev"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "minLength": 1
+      },
+      "type": {
+       "const": "turning_tool"
+      },
+      "number": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "spindle_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "coolant": {
+       "enum": [
+        "off",
+        "flood",
+        "mist"
+       ]
+      },
+      "feed_mm_rev": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "max_depth_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "nose_radius_mm": {
+       "type": "number",
+       "minimum": 0
+      }
+     },
+     "patternProperties": {
+      "^_": {}
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A lathe parting tool.",
+     "type": "object",
+     "required": [
+      "id",
+      "type",
+      "number",
+      "spindle_rpm",
+      "coolant",
+      "width_mm",
+      "max_depth_mm",
+      "feed_mm_rev"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "minLength": 1
+      },
+      "type": {
+       "const": "parting_tool"
+      },
+      "number": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "spindle_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "coolant": {
+       "enum": [
+        "off",
+        "flood",
+        "mist"
+       ]
+      },
+      "feed_mm_rev": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "max_depth_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "width_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     },
+     "patternProperties": {
+      "^_": {}
+     },
+     "additionalProperties": false
     }
    ]
   },
@@ -856,6 +990,11 @@
       "max_bar_diameter_mm": {
        "type": "number",
        "exclusiveMinimum": 0
+      },
+      "bore_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "A lathe spindle's bore: bar no larger is fed through it."
       }
      }
     },
@@ -911,9 +1050,34 @@
        "max_diameter_mm": {
         "type": "number",
         "exclusiveMinimum": 0
+       },
+       "grip_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "description": "How much of the bar a lathe chuck holds."
        }
       }
      }
+    },
+    "swing_mm": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "over_bed": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "over_carriage": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     },
+     "description": "A lathe's largest diameter: over the bed, and over the carriage (what it turns)."
+    },
+    "between_centres_mm": {
+     "type": "number",
+     "exclusiveMinimum": 0,
+     "description": "A lathe's longest work."
     }
    }
   }

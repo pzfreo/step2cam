@@ -1335,6 +1335,64 @@ fn upright(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Result
 }
 
 /// The cam plan for an analysis (and optionally its mesh).
+/// The part's turned profile, for a lathe to make (`crate::lathe`): the turning axis, the steps
+/// along it, the holes on the axis, and the features whose faces all lie on the profile. None when
+/// specify-core found no turned steps.
+fn turned_profile(analysis: &Value, faces: &HashMap<u64, &Value>) -> Result<Option<Value>, String> {
+    let steps: Vec<&Value> = analysis["features"].as_array().into_iter().flatten().filter(|f| f["family"] == "turned_steps").collect();
+    let Some(first) = steps.first() else { return Ok(None) };
+    let axis_name = first["record"]["axis"].as_str().unwrap_or("z");
+    let axis: V3 = match axis_name { "x" => [1., 0., 0.], "y" => [0., 1., 0.], _ => [0., 0., 1.] };
+    let origin = v3(&first["record"]["profile"]["axis_origin"]).unwrap_or([0., 0., 0.]);
+    let along = |p: V3| dot([p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]], axis);
+    let off_axis = |p: V3| {
+        let d = [p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]];
+        let t = dot(d, axis);
+        let q = [d[0] - t * axis[0], d[1] - t * axis[1], d[2] - t * axis[2]];
+        dot(q, q).sqrt()
+    };
+    let mut out_steps = vec![];
+    for step in &steps {
+        let rec = &step["record"];
+        if rec["axis"].as_str() != Some(axis_name) {
+            continue;
+        }
+        out_steps.push(json!({"feature": step["id"], "lo": f(rec, "lo")?, "hi": f(rec, "hi")?, "diameter": f(rec, "diameter")?}));
+    }
+    // Holes along the axis, opening at one end: a lathe drills these from its tailstock.
+    let mut axial = vec![];
+    for hole in analysis["features"].as_array().into_iter().flatten().filter(|x| x["family"] == "holes") {
+        let rec = &hole["record"];
+        let (Ok(dir), Ok(at)) = (v3(&rec["axis"]), v3(&rec["location"])) else { continue };
+        if dot(dir, axis).abs() < 1. - 1e-6 || off_axis(at) > 0.01 {
+            continue;
+        }
+        axial.push(json!({
+            "feature": hole["id"], "diameter": f(rec, "diameter")?, "depth": rec["depth"].as_f64(),
+            "bottom": rec["bottom"], "at": r(along(at)), "inward": if dot(dir, axis) < 0. { "down" } else { "up" },
+        }));
+    }
+    // Features whose faces all lie on the profile: planes square to the axis, and cylinders and
+    // cones on it. Turning makes them.
+    let on_profile = |face: &Value| -> bool {
+        let Ok(dir) = v3(&face["direction"]) else { return false };
+        match face["kind"].as_str() {
+            Some("plane") => dot(dir, axis).abs() > 1. - 1e-6,
+            Some("cylinder" | "cone") => dot(dir, axis).abs() > 1. - 1e-6 && v3(&face["origin"]).is_ok_and(|o| off_axis(o) <= 0.01),
+            _ => false,
+        }
+    };
+    let mut surfaces = vec![];
+    // Holes and the steps themselves have operations of their own.
+    for feature in analysis["features"].as_array().into_iter().flatten().filter(|x| !["holes", "hole_patterns", "turned_steps"].contains(&x["family"].as_str().unwrap_or(""))) {
+        let ids: Vec<u64> = feature["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).collect();
+        if !ids.is_empty() && ids.iter().all(|id| faces.get(id).is_some_and(|x| on_profile(x))) {
+            surfaces.push(feature["id"].clone());
+        }
+    }
+    Ok(Some(json!({"axis": axis_name, "origin": rp(origin), "steps": out_steps, "axial_holes": axial, "on_profile": surfaces})))
+}
+
 pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result<Value, String> {
     if analysis.get("features").is_none() || analysis.get("dimensioning").is_none() {
         return Err("not a specify-core analysis".into());
@@ -1646,6 +1704,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         }
     }
 
+    let turned = turned_profile(analysis, &faces)?;
     Ok(json!({
         "format": PLAN_FORMAT,
         "version": 1,
@@ -1660,5 +1719,6 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         "warnings": trace.warnings,
         "decisions": trace.decisions,
         "rulebase": crate::trace::rulebase(),
+        "turned": turned,
     }))
 }

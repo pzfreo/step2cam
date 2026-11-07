@@ -39,7 +39,9 @@ the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath
 and the others follow; press Play and the feature being cut lights up. Save writes each setup's
 G-code as `<part>-<setup>.nc`, with comments at its top saying what the file does not.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
-part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
+part `plate.step`, the complex plate is `tests/fixtures/synthetic/stepped-plate.step`, and the
+turned spindle is specify-core's test part `spindle.step`, turned on the demo's lathe and then
+cross-drilled on its mill.
 
 The page tells the story in three panes, in the order the work happens:
 1. **What the part is:** the features specify-core recognised.
@@ -240,6 +242,21 @@ on purpose.
   360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
   changer. So the demo leaves out its larger tools and bores the larger holes. Its G-code is still
   posted for LinuxCNC, not for the Carvera's own controller.
+
+  A machine of `"kind": "lathe"` turns parts with turned steps first, from bar:
+  - `swing_mm.over_carriage` and `between_centres_mm` refuse bar it cannot take;
+  - `spindle.bore_mm` says whether the bar is fed through the spindle;
+  - its chuck's `grip_mm` is part of the bar's length;
+  - `spindle.max_rpm` caps its cutting data.
+
+  The lathe setup faces the free end (the smaller end faces the tailstock), roughs and finishes
+  the profile, drills holes on the axis from the tailstock, and parts off. The mill's setups then
+  start from the turned part: no facing or roughing from a block, and not the holes the lathe
+  drilled. Turning tools are `turning_tool` (`nose_radius_mm`, `max_depth_mm`, `feed_mm_rev`)
+  and `parting_tool` (`width_mm`, `max_depth_mm`, `feed_mm_rev`); the shop's allowances are in
+  `turning`. **The lathe setup is planned and explained, not posted:** camlib does not turn. The
+  demo's lathe is the **Sherline 4400 CNC**, from its published specifications: 45 mm over the
+  carriage, 430 mm between centres, a 10 mm spindle bore, 2,800 rpm.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks
@@ -378,8 +395,8 @@ cargo test --release --workspace --manifest-path rust/Cargo.toml
 The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
 What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
 
-The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
-for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the
+The fixtures in `tests/fixtures` are specify-core's test parts `plate.step` and `spindle.step`,
+specify-core's output for them and for `mounting-plate.step` (see its LICENSE file), and the
 synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build123d.
 
 ## License

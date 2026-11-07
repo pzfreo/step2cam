@@ -32,6 +32,21 @@
   ],
   [
    "thread"
+  ],
+  [
+   "lathe_face"
+  ],
+  [
+   "lathe_rough"
+  ],
+  [
+   "lathe_finish"
+  ],
+  [
+   "lathe_drill"
+  ],
+  [
+   "lathe_part_off"
   ]
  ]
 }
