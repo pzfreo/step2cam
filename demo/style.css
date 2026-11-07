@@ -29,8 +29,9 @@ h1 { margin: 0; font: 500 18px var(--mono); letter-spacing: .02em; }
 .checks ul { margin: 6px 0 2px; padding-left: 20px; color: var(--muted); font-size: 13px; }
 .banner { flex: none; padding: 8px 12px; border: 1px solid var(--warn); border-radius: 6px; color: #ffd98a; background: #2c2412; max-height: 96px; overflow-y: auto; white-space: pre-wrap; }
 
-.panes { position: relative; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px; }
-.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.panes { position: relative; flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr); gap: 10px; }
+.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; container-type: inline-size; }
+.pane[data-pane="plan"] { border-color: #3f6f9f; }
 .pane-title { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .pane-title h2 { margin: 0; font-size: 14px; font-weight: 600; }
 .pane-title span { flex: 1 1 auto; text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -38,12 +39,6 @@ h1 { margin: 0; font: 500 18px var(--mono); letter-spacing: .02em; }
 .pane-size { flex: none; min-height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); }
 .pane-size:hover { background: var(--active); color: var(--text); }
 .pane-size[aria-pressed="true"] { border-color: var(--accent); color: #a8d0ff; }
-/* One view takes the whole width; the other comes back with Restore. Narrow screens stack the
-   views instead, and have no buttons. */
-@media (min-width: 1001px) {
-  .panes[data-only] { grid-template-columns: minmax(0, 1fr); }
-  .panes[data-only="features"] > .pane[data-pane="toolpaths"], .panes[data-only="toolpaths"] > .pane[data-pane="features"] { display: none; }
-}
 .pane-body { flex: 1 1 0; min-height: 0; display: flex; }
 .view { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; background: var(--view); overflow: hidden; }
 .view canvas { display: block; }
@@ -115,39 +110,9 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .busy { position: absolute; inset: 0; display: grid; place-items: center; background: #0f1318c0; font-size: 18px; z-index: 50; }
 [hidden] { display: none !important; }
 
-/* Narrow screens: the page scrolls, with both 3D views side by side and pinned at the top, so
-   that what a tap links stays in sight. The panes dissolve into one grid. */
-@media (max-width: 1000px) {
-  html, body { height: auto; }
-  .app { height: auto; overflow: visible; }
-  .panes { flex: none; gap: 6px; }
-  .pane, .pane-body { display: contents; }
-  .pane-title { display: none; }
-  .view { grid-row: 1; height: min(48vw, 55vh); position: sticky; top: 0; z-index: 20; border: 1px solid var(--line); border-radius: 6px; }
-  .side { grid-row: 2; width: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
-  .code-panel { height: 340px; width: auto; }
-  .view-tools { top: 4px; left: 4px; right: 4px; flex-wrap: wrap; gap: 3px; }
-  .view-tools button { min-height: 24px; padding: 0 6px; font-size: 11px; }
-  footer { position: sticky; bottom: 0; z-index: 30; gap: 8px; }
-  .scrub { flex: 1 1 200px; }
-  .status { flex-basis: 100%; }
-}
-/* A phone on its side has no height to spare for a pinned bar as well as the pinned views. */
-@media (max-width: 1000px) and (max-height: 500px) {
-  footer { position: static; }
-}
-@media (max-width: 600px) {
-  .side { grid-row: auto; grid-column: 1 / -1; }
-}
 
-/* The process plan: a drawer over the right of the page. */
-.plan { position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); z-index: 45; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line-strong); box-shadow: -12px 0 32px #0008; }
-.plan-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.plan-head h2 { flex: 1 1 auto; margin: 0; font-size: 16px; font-weight: 600; }
-.plan-head button { min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; }
-.plan-head button:hover { background: var(--active); }
-.plan-intro { flex: none; margin: 0; padding: 8px 14px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); }
-.plan-body { flex: 1 1 0; overflow-y: auto; padding: 10px 14px 24px; display: flex; flex-direction: column; gap: 8px; }
+.plan-pane { flex-direction: column; }
+.plan-body { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 10px 12px 24px; display: flex; flex-direction: column; gap: 8px; }
 .plan-body h3 { margin: 14px 0 2px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .plan-body h3:first-child { margin-top: 0; }
 .plan-fact { margin: 0; font-size: 13px; }
@@ -179,4 +144,73 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .plan-note { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 6px; padding: 6px 10px; font-size: 13px; background: #1b2129; }
 .plan-note.skip { border-left-color: #ff7a4d; }
 .plan-note .who { font-weight: 600; }
-@media (max-width: 640px) { .plan-facts, .why { padding-left: 10px; margin-left: 10px; } .plan-facts { padding-left: 10px; } }
+
+/* The story: what each phase did, left to right. Each step opens its pane. */
+.story { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr); align-items: stretch; }
+.story-step { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; min-height: 44px; }
+.story-step:hover { border-color: var(--line-strong); }
+.story-step[data-pane="plan"] { border-color: #3f6f9f; background: #172131; }
+.story-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #1d3550; color: #a8d0ff; display: grid; place-items: center; font-weight: 600; font-size: 13px; }
+.story-step[data-pane="plan"] .story-n { background: var(--accent); color: var(--ground); }
+.story-name { display: block; font-weight: 600; }
+.story-who { color: var(--muted); font-weight: 400; }
+.story-text { display: block; color: #c3cad4; font-size: 13px; }
+.story-arrow { display: grid; place-items: center; color: #59626f; }
+
+/* One pane open, the others shrunk to rails (always, on narrow screens; on wide ones, Expand). */
+.pane-rail { display: none; flex: 1 1 auto; width: 100%; padding: 10px 0; background: transparent; border: 0; color: var(--muted); }
+.pane-rail span { writing-mode: vertical-rl; transform: rotate(180deg); font-weight: 600; white-space: nowrap; }
+.pane-rail:hover { background: var(--active); color: var(--text); }
+.pane.shrunk { border-color: var(--line); }
+.pane.shrunk > .pane-rail { display: flex; align-items: center; justify-content: center; }
+.pane.shrunk > .pane-title, .pane.shrunk > .pane-body { display: none; }
+.panes.single .pane-size[data-pane] { display: none; }
+
+/* A narrow pane puts its list under its view rather than beside it. */
+@container (max-width: 640px) {
+  .pane-body:not(.plan-pane) { flex-direction: column; }
+  .pane-body:not(.plan-pane) > .side { width: auto; flex: 0 0 42%; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+/* The fuller view of one operation. */
+.plan-detail h3 { margin: 10px 0 2px; }
+.detail-back { align-self: flex-start; min-height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; font-size: 13px; }
+.detail-title { margin: 4px 0 0; font-size: 18px; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.detail-title .swatch { width: 14px; height: 14px; border-radius: 3px; }
+.detail-decisions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.detail-decisions > li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 13.5px; }
+.detail-decisions .n { width: 24px; height: 24px; border-radius: 50%; background: #1d3550; color: #a8d0ff; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.considered { max-height: 200px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--line); border-radius: 6px; background: #1b2129; padding: 6px 10px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; font-size: 12.5px; }
+.considered .who { color: #ffb59c; font-family: var(--mono); font-size: 12px; }
+.considered .who.chosen { color: #7ee2a8; }
+.rule-card { border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; background: var(--view); font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.rule-card .rule-id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.rule-card p { margin: 0; color: #c3cad4; }
+.rule-card dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; font-size: 12.5px; }
+.rule-card dt { color: var(--muted); }
+.rule-card dd { margin: 0; overflow-wrap: anywhere; }
+.full-view { margin: 0 10px 8px 44px; align-self: flex-start; min-height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: #a8d0ff; font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .story { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .story-arrow { display: none; }
+  .story-text { display: none; }
+}
+@media (max-width: 1000px) {
+  footer { gap: 8px; }
+  .scrub { flex: 1 1 200px; }
+  .status { flex-basis: 100%; }
+}
+.plan-lead { color: var(--muted); }
+.op-meta { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+.why > .plan-facts { padding-left: 0; margin-top: 4px; }
+.why > ol { margin: 6px 0; }
+.full-view { margin: 4px 0 2px; }
+.story-step[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* A phone: the page scrolls, and the open pane takes most of the screen's height. */
+@media (max-width: 700px) {
+  html, body { height: auto; }
+  .app { height: auto; overflow: visible; }
+  .panes { flex: none; height: 78vh; gap: 6px; }
+  .pane-rail { padding: 6px 0; }
+}

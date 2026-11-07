@@ -41,16 +41,29 @@ G-code as `<part>-<setup>.nc`, with comments at its top saying what the file doe
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
-**Plan** opens the process plan for review:
+The page tells the story in three panes, in the order the work happens:
+1. **What the part is:** the features specify-core recognised.
+2. **How to make it:** the process plan.
+3. **Making it:** camlib's toolpaths and G-code.
+
+A bar above the panes sums up each step for the part opened: faces and features found; setups,
+operations, tools and decisions; lines of G-code and the gouge check.
+
+In the plan pane:
 - **The part:** its material and ISO 513 group.
 - **Each setup:** its operations in the order they will be cut.
-- **Each operation:** its tool, cutting data, ISO 14649 names and estimated time.
-- **Why:** under each operation, the chain of decisions behind it, each citing the rule it was
-  made by, with the tools turned down and the rule's rationale and sources.
+- **Each operation:** opens inline to show its tool, cutting data, ISO 14649 names and the decisions
+  behind it, each citing the written rule it was made by. **Full view** lists every tool it
+  considered, with why each was turned down or passed over, and each rule's rationale, sources and
+  use in this plan.
 - **Problems:** what was refused, what was not cut and the warnings, each with its rule.
+- **Save plan:** downloads the plan as JSON, trace included.
 
-Hovering an operation lights it in both views, and clicking pins it. **Save plan** downloads the
-plan as JSON, trace included.
+Hovering or clicking a feature, an operation, a toolpath or a G-code line lights the same thing in
+all three panes.
+
+On a screen narrower than 1300 px one pane is open and the others are rails: click a rail or a
+step in the bar to open it. On a wider screen, **Expand** does the same.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's
