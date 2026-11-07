@@ -174,6 +174,7 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
 fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
     let library = Library::new(library_data)?;
     let group = material(plan, library_data, trace);
+    let plan_material = plan["material"]["used"].as_str().map(String::from);
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let view = setup.clone();
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
@@ -261,6 +262,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),
                     Some(g) => format!("{name}'s own cutting data: it has none for ISO 513 group {g}"),
+                    None if plan_material.is_none() => format!("{name}'s own cutting data: no material is given"),
                     None => format!("{name}'s own cutting data: the material is in no ISO 513 group"),
                 };
                 why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));

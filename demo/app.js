@@ -805,6 +805,182 @@ function buildTimeline(m) {
   }
 }
 
+// ------------------------------------------------------------------------------------------
+// The process plan: what the planner decided and why, for a person to check
+// ------------------------------------------------------------------------------------------
+
+// The rules the planner cites, with their rationale and sources (rulebase/rules.json).
+let rulesById = null;
+async function loadRules() {
+  if (rulesById) return rulesById;
+  try {
+    const doc = await (await fetch("rules.json")).json();
+    rulesById = new Map(doc.rules.map((r) => [`${r.id}@${r.version}`, r]));
+  } catch {
+    rulesById = new Map();
+  }
+  return rulesById;
+}
+
+const STAGES = { requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
+
+function describeSource(src) {
+  const what = src.kind === "standard" ? src.ref : src.kind === "practice" ? "recognised practice" : "step2cam's own judgement";
+  const via = src.via ? ` (${src.via})` : "";
+  const note = src.note ? `: ${src.note}` : "";
+  return `${what}${note}${via}`;
+}
+
+function decisionItem(d, rules) {
+  const li = document.createElement("li");
+  li.className = `decision${d.superseded_by ? " superseded" : ""}`;
+  const rule = rules.get(d.rule);
+  const rejected = (d.considered || []).filter((c) => c.rejected);
+  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
+    + `<span class="rule">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)} · ${escapeHtml(d.id)}</span>`
+    + (rejected.length ? `<ul>${rejected.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "");
+  if (rule) {
+    const more = document.createElement("details");
+    more.className = "rule-detail";
+    more.innerHTML = `<summary>The rule</summary><p>${escapeHtml(rule.rationale)}</p>`
+      + `<p>Source: ${rule.sources.map((s) => escapeHtml(describeSource(s))).join("; ")}</p>`
+      + (rule.data ? `<p>Kept as data in ${rule.data.map(escapeHtml).join(", ")}</p>` : "")
+      + `<p>Applied in ${escapeHtml(rule.code)}</p>`;
+    li.append(more);
+  }
+  return li;
+}
+
+function whyList(ids, decisions, rules, label = "Why") {
+  const found = ids.map((id) => decisions.get(id)).filter(Boolean);
+  const box = document.createElement("details");
+  box.className = "why";
+  box.innerHTML = `<summary>${escapeHtml(label)} (${found.length} ${found.length === 1 ? "decision" : "decisions"})</summary>`;
+  const list = document.createElement("ol");
+  for (const d of found) list.append(decisionItem(d, rules));
+  box.append(list);
+  return box;
+}
+
+function facts(rows) {
+  const dl = document.createElement("dl");
+  dl.className = "plan-facts";
+  for (const [k, v] of rows) {
+    if (v == null || v === "") continue;
+    dl.insertAdjacentHTML("beforeend", `<dt>${escapeHtml(k)}</dt><dd>${v}</dd>`);
+  }
+  return dl;
+}
+
+function describeTechnology(t) {
+  if (!t) return null;
+  const parts = [];
+  if (t.spindle_rpm != null) parts.push(`${t.spindle_rpm} rpm`);
+  if (t.feed_mm_min != null) parts.push(`feed ${t.feed_mm_min} mm/min`);
+  if (t.plunge_mm_min != null) parts.push(`plunge ${t.plunge_mm_min}`);
+  if (t.stepdown_mm != null) parts.push(`stepdown ${t.stepdown_mm} mm`);
+  if (t.stepover_mm != null) parts.push(`stepover ${t.stepover_mm} mm`);
+  const from = t.source === "tool" ? "the tool's own" : `the tool's data for group ${t.source.split(".")[1]}`;
+  return `${escapeHtml(parts.join(", "))} <span class="tag">${escapeHtml(from)}</span>`;
+}
+
+async function buildPlan(m) {
+  const host = $("plan-body");
+  host.replaceChildren();
+  const plan = m.data.plan, rules = await loadRules();
+  if (model !== m) return;  // another part was opened meanwhile
+  const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
+  const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
+  const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
+
+  head("Part");
+  const material = plan.material || {};
+  const from = material.override ? "the tool library's override" : material.specified ? "Specify" : null;
+  fact(`<b>Material:</b> ${material.used ? `${escapeHtml(material.used)} (from ${from})` : "not given"}${material.iso513 ? ` <span class="tag">ISO 513 group ${escapeHtml(material.iso513)}</span>` : material.used ? ' <span class="tag warn">no ISO 513 group</span>' : ""}`);
+  const materialWhy = (plan.decisions || []).filter((d) => d.rule.startsWith("requirement.material.group@")).map((d) => d.id);
+  if (materialWhy.length) host.append(whyList(materialWhy, decisions, rules));
+  const posted = new Set(m.data.programs.map((p) => p.setup));
+  fact(`<b>${plan.setups.length} ${plan.setups.length === 1 ? "setup" : "setups"}</b>, ${[...m.operations.values()].length} operations, ${plan.skipped.length} features not cut, ${plan.warnings.length} warnings.`);
+
+  for (const setup of plan.setups) {
+    const lo = setup.stock.min, hi = setup.stock.max;
+    head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
+    fact(`Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
+    setup.operations.forEach((op, n) => {
+      const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
+      const card = document.createElement("section");
+      card.className = `plan-op${o && o.time ? "" : " unused"}`;
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)}${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
+      card.append(headBtn);
+      const iso = op.iso14649;
+      card.append(facts([
+        ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
+        ["Cutting data", describeTechnology(op.technology)],
+        ["Features", op.features?.length ? escapeHtml(op.features.join(", ")) : null],
+        ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.bottom_condition ? `, ${escapeHtml(iso.bottom_condition)}` : ""}${iso.exact ? "" : ' <span class="tag">closest</span>'}` : null],
+        ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
+      ]));
+      if (op.because?.length) card.append(whyList(op.because, decisions, rules));
+      host.append(card);
+    });
+  }
+
+  // What was refused by camlib, not cut, or needs a look: each with the rule behind it.
+  const refused = (plan.decisions || []).filter((d) => d.rule.startsWith("execution.refused@") && d.outcome === "removed");
+  if (refused.length) {
+    head("Refused by camlib");
+    for (const d of refused) {
+      const note = document.createElement("div");
+      note.className = "plan-note";
+      note.innerHTML = `<span class="who">${escapeHtml(d.subject)}</span>: ${escapeHtml(d.says)}`;
+      note.append(whyList([d.id], decisions, rules, "Rule"));
+      host.append(note);
+    }
+  }
+  if (plan.skipped.length) {
+    head("Not cut");
+    for (const s of plan.skipped) {
+      const note = document.createElement("div");
+      note.className = "plan-note skip";
+      const f = m.features.get(s.feature);
+      note.innerHTML = `<span class="who">${escapeHtml(f?.name || s.feature)}</span> <span class="tag">${escapeHtml(s.feature)}</span>: ${escapeHtml(s.reason)}`;
+      if (s.decision) note.append(whyList([s.decision], decisions, rules, "Rule"));
+      if (f) rowEvents(note, s.feature);
+      host.append(note);
+    }
+  }
+  if (plan.warnings.length) {
+    head("Warnings");
+    const warned = (plan.decisions || []).filter((d) => d.outcome === "warning");
+    plan.warnings.forEach((w, i) => {
+      const note = document.createElement("div");
+      note.className = "plan-note";
+      note.textContent = w;
+      const d = warned[i];
+      if (d && d.says === w) note.append(whyList([d.id], decisions, rules, "Rule"));
+      host.append(note);
+    });
+  }
+  applyFocus(false);
+}
+
+function openPlan(open) {
+  $("plan").hidden = !open;
+  $("plan-open").setAttribute("aria-expanded", String(open));
+  if (open) $("plan-close").focus();
+}
+
+function savePlan() {
+  if (!model) return;
+  const name = (model.data.name || "part").replace(/\.(step|stp)$/i, "");
+  const blob = new Blob([JSON.stringify(model.data.plan, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name}-plan.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 // What the page says and a saved file would otherwise lose: it goes in the file as comments.
 function savedText(m, program) {
   const setup = m.data.plan.setups.find((s) => s.id === program.setup);
@@ -1153,6 +1329,8 @@ function show(data) {
   buildFeatureList(model);
   buildTimeline(model);
   buildSaveButtons(model);
+  buildPlan(model);
+  $("plan-open").disabled = false;
   $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
@@ -1279,6 +1457,13 @@ const resized = new ResizeObserver(() => {
 });
 resized.observe($("gcode-view"));
 resized.observe($("cad").parentElement);
+
+$("plan-open").addEventListener("click", () => openPlan($("plan").hidden));
+$("plan-close").addEventListener("click", () => openPlan(false));
+$("plan-save").addEventListener("click", savePlan);
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("plan").hidden) openPlan(false);
+});
 
 initRight();
 initCadLinks();
