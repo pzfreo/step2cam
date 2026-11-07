@@ -102,3 +102,20 @@ pub fn because(op: &mut Value, ids: impl IntoIterator<Item = String>) {
         list.extend(ids.into_iter().map(Value::String));
     }
 }
+
+/// Which rulebase a plan was made with: a hash (64-bit FNV-1a) over every rule and reference file
+/// shipped in the crate, in a fixed order. Two plans with the same hash were made by the same rules
+/// and data.
+pub fn rulebase() -> Value {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS]
+        .into_iter()
+        .chain(crate::reference::TABLES.iter().map(|(_, text)| *text));
+    for text in files {
+        for byte in text.bytes().chain([0u8]) {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0100_0000_01b3);
+        }
+    }
+    json!({"hash": format!("fnv1a64:{hash:016x}")})
+}

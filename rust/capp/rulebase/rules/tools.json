@@ -1,7 +1,7 @@
 {
  "format": "capp-rules",
  "version": 1,
- "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, with `else_reject` saying why where it is given. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values and the tool's fields (`tool.diameter`).",
+ "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, with `else_reject` saying why where it is given. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values (drill_tolerance_mm), step2cam's constants (tip_clearance_mm) and the tool's fields (`tool.diameter`). A tool field that is missing or not a number fails every comparison, so that tool is not chosen.",
  "selectors": [
   {
    "id": "largest_end_mill",

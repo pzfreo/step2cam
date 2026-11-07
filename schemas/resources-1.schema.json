@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as job.rs and post.rs read it today. Every number in the shipped files is a placeholder.",
+ "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs), job.rs and post.rs read it. Every number in the shipped files is a placeholder.",
  "type": "object",
  "required": [
   "machine",
@@ -51,7 +51,8 @@
   },
   "cell_size_mm": {
    "type": "number",
-   "exclusiveMinimum": 0
+   "minimum": 0,
+   "description": "The stock grid camlib checks on; 0 or absent for the default."
   },
   "tool_change_gauge_z_mm": {
    "type": "number"
@@ -73,14 +74,18 @@
     }
    },
    "additionalProperties": false
+  },
+  "facing_tool": {
+   "type": "string",
+   "description": "The id of the end mill for facing; the largest end mill when absent or empty."
+  },
+  "roughing_tool": {
+   "type": "string",
+   "description": "The id of the end mill for roughing; the largest end mill when absent or empty."
   }
  },
  "patternProperties": {
-  "^_": {},
-  "^[a-z_]+_tool$": {
-   "type": "string",
-   "description": "The id of the tool to clear with for this operation kind (roughing_tool, facing_tool …); the largest end mill when absent or empty."
-  }
+  "^_": {}
  },
  "additionalProperties": false,
  "$defs": {
@@ -404,7 +409,8 @@
       },
       "peck_mm": {
        "type": "number",
-       "exclusiveMinimum": 0
+       "minimum": 0,
+       "description": "Peck depth; 0 or absent for no pecking."
       },
       "cutting_data": {
        "type": "object",

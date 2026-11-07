@@ -52,7 +52,12 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
         trace.skip("execution.refused", feature, format!("left out: {brief}"));
     }
     trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"));
-    trace.supersede(operation, "removed", &refused);
+    // Its own decisions (what made it, its tool and cutting data) no longer stand; those it shares
+    // with the rest of the setup (the setup, the order, where its holes are cut) do.
+    let own: Vec<&str> = removed["because"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id)) && (d["stage"] == "process" || d["stage"] == "tools")) {
+        d["superseded_by"] = json!(refused);
+    }
     trace.store(plan);
     Some(removed)
 }
@@ -94,8 +99,15 @@ fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Opt
 /// Takes out of the plan what can no longer be cut: walls and flats with nothing to follow, and an
 /// outside chamfer whose wall is not at size, whose rounds go back to not being cut.
 pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
-    let library = Library::new(library_data)?;
     let mut trace = Trace::take(plan);
+    let result = settle_with(plan, library_data, &mut trace);
+    // Whatever happened, the plan keeps what it had said and decided.
+    trace.store(plan);
+    result
+}
+
+fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
+    let library = Library::new(library_data)?;
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         let view = setup.clone();
@@ -147,16 +159,21 @@ pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
             true
         });
     }
-    trace.store(plan);
     Ok(())
 }
 
 /// Names the tool that cuts each operation (`tool`), or says why none can (`tool_note`; null when
 /// nothing needs saying). An operation kind this does not know is left without either.
 pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
-    let library = Library::new(library_data)?;
     let mut trace = Trace::take(plan);
-    let group = material(plan, library_data, &mut trace);
+    let result = resolve_with(plan, library_data, &mut trace);
+    trace.store(plan);
+    result
+}
+
+fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
+    let library = Library::new(library_data)?;
+    let group = material(plan, library_data, trace);
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let view = setup.clone();
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
@@ -185,12 +202,13 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
                 }
                 "thread" => {
                     let (mill, why) = library.thread_mill(op, top)?;
-                    considered = why.iter().map(|w| {
-                        let (candidate, rejected) = w.split_once(": ").unwrap_or(("", w));
+                    considered = why.iter().map(|(candidate, text)| {
+                        let rejected = text.strip_prefix(&format!("{candidate}: ")).unwrap_or(text);
                         json!({"candidate": candidate, "rejected": rejected})
                     }).collect();
                     let tool = mill.ok_or_else(|| {
-                        let reasons = if why.is_empty() { String::new() } else { format!(" ({})", why.join("; ")) };
+                        let texts: Vec<&str> = why.iter().map(|(_, t)| t.as_str()).collect();
+                        let reasons = if texts.is_empty() { String::new() } else { format!(" ({})", texts.join("; ")) };
                         Some(format!("{} ({}): no thread mill can cut it{reasons}", op["spec"].as_str().unwrap_or(""), features()))
                     });
                     (tool, "tool.thread_mill")
@@ -253,7 +271,6 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
             because(op, why);
         }
     }
-    trace.store(plan);
     Ok(())
 }
 

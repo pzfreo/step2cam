@@ -8,17 +8,30 @@ fn read(path: &str) -> Value {
     serde_json::from_str(&fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(path)).unwrap()).unwrap()
 }
 
+/// Names as specify-core offers them (its src/materials.rs), with the group each belongs in.
 #[test]
-fn materials_fall_in_their_groups() {
+fn specify_cores_materials_fall_in_their_groups() {
     let group = |m: &str| iso513_group(m).map(|(g, _)| g);
-    assert_eq!(group("Aluminium 6082-T6").as_deref(), Some("N"));
-    assert_eq!(group("Stainless steel 303").as_deref(), Some("M"), "stainless before steel");
-    assert_eq!(group("Steel EN8 (080M40)").as_deref(), Some("P"));
-    assert_eq!(group("Brass CZ121").as_deref(), Some("N"));
-    assert_eq!(group("Titanium Grade 5").as_deref(), Some("S"));
-    assert_eq!(group("Acetal (POM)").as_deref(), Some("N"));
-    assert_eq!(group("3D printing: PLA"), None);
-    assert_eq!(group("Unobtainium"), None);
+    let cases: &[(&str, Option<&str>)] = &[
+        ("Aluminium 6082-T6", Some("N")), ("Aluminium MIC-6 cast plate", Some("N")),
+        ("Stainless steel 303 (1.4305)", Some("M")), ("Stainless steel 17-4PH (1.4542)", Some("M")),
+        ("Steel 4140 (42CrMo4)", Some("P")), ("Silver steel (115CrV3)", Some("P")), ("Tool steel D2 (1.2379)", Some("P")),
+        ("Brass CZ121 (CW614N)", Some("N")), ("Aluminium bronze CA104 (CW307G)", Some("N")), ("Beryllium copper C17200 (CW101C)", Some("N")),
+        ("Titanium grade 5 Ti-6Al-4V (3.7165)", Some("S")), ("Inconel 718 (2.4668)", Some("S")), ("Monel 400 (2.4360)", Some("S")), ("Hastelloy C-276 (2.4819)", Some("S")),
+        ("Cast iron EN-GJL-250", Some("K")), ("Ductile iron EN-GJS-500-7", Some("K")),
+        ("Magnesium AZ31B", Some("N")), ("Zinc alloy Zamak 3", Some("N")),
+        ("POM-C acetal copolymer", Some("N")), ("PA66 30% glass-filled", Some("N")), ("PEEK", Some("N")), ("PVC rigid", Some("N")), ("PET", Some("N")),
+        ("PPSU", Some("N")), ("Garolite G-10 / FR-4", Some("N")), ("Tufnol Whale (paper phenolic)", Some("N")), ("Polyimide (Vespel)", Some("N")),
+        ("UHMW-PE", Some("N")), ("PP polypropylene", Some("N")), ("PTFE, glass-filled (Rulon)", Some("N")),
+        // Printed: not cut from stock as these groups mean.
+        ("PLA (FDM)", None), ("ABS (FDM)", None), ("PA12 (MJF)", None), ("Tough resin (SLA)", None),
+        ("Stainless steel 316L (DMLS)", None), ("Titanium Ti-6Al-4V (DMLS)", None), ("Maraging steel MS1 (DMLS)", None),
+        // Nothing places it; and whole words only.
+        ("Tungsten heavy alloy", None), ("Unobtainium", None), ("Competition grade", None),
+    ];
+    for (name, want) in cases {
+        assert_eq!(group(name).as_deref(), *want, "{name}");
+    }
 }
 
 fn plate(material: Option<&str>) -> Value {

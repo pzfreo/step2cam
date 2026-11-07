@@ -71,7 +71,7 @@ fn the_iso14649_names_are_published_names() {
         for o in names(&entry["operation"]).into_iter().chain(names(&entry["operation_by_tool"])) {
             assert!(operations.contains(&o), "{kind}: {o} is not a published operation name");
         }
-        if entry["exact"] == false {
+        if entry["exact"] == false || entry.get("exact_by_tool").is_some() {
             assert!(entry["note"].is_string(), "{kind}: an inexact mapping says why");
         }
     }
@@ -89,4 +89,7 @@ fn a_finished_plan_names_each_operation_in_iso14649() {
     assert!(holes.iter().any(|h| h["iso14649"]["operation"] == "drilling"));
     assert!(holes.iter().any(|h| h["iso14649"]["operation"] == "bottom_and_side_finish_milling"), "the bored hole");
     assert!(holes.iter().all(|h| h["iso14649"]["feature"] == "Round_hole" && h["iso14649"]["bottom_condition"].is_string()));
+    for h in &holes {
+        assert_eq!(h["iso14649"]["exact"], h["iso14649"]["operation"] == "drilling", "a bored hole's names are only the closest");
+    }
 }

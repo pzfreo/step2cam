@@ -129,5 +129,43 @@ fn the_same_inputs_give_the_same_plan() {
             plan.to_string()
         };
         assert_eq!(once(), once(), "{part}");
+        assert!(once().contains("\"rulebase\":{\"hash\":\"fnv1a64:"), "{part}: the plan says which rulebase made it");
     }
+}
+
+/// When finishing fails (here a library naming a roughing tool it does not have), the plan still
+/// has what planning said and decided.
+#[test]
+fn a_failed_finish_keeps_the_trace() {
+    let analysis = read("tests/fixtures/plate.analysis.json");
+    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    let before = plan["decisions"].as_array().unwrap().len();
+    let (skipped, warnings) = (plan["skipped"].clone(), plan["warnings"].clone());
+    assert!(before > 0);
+    let mut library = read("examples/tools.example.json");
+    library["roughing_tool"] = serde_json::json!("nope");
+    assert!(capp::finish(&mut plan, &library, &[]).is_err());
+    assert!(plan["decisions"].as_array().unwrap().len() >= before, "decisions kept");
+    assert_eq!(plan["skipped"], skipped);
+    assert_eq!(plan["warnings"], warnings);
+}
+
+/// A refused operation's own decisions are superseded by the refusal; those it shares with the
+/// rest of its setup are not, and one refusal is never linked to another.
+#[test]
+fn a_refusal_supersedes_only_its_operations_own_decisions() {
+    let analysis = read("tests/fixtures/plate.analysis.json");
+    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    let library = read("examples/tools.example.json");
+    let refusals = [serde_json::json!({"operation": "top-3-holes", "message": "first"}), serde_json::json!({"operation": "top-3-holes", "message": "second"})];
+    capp::finish(&mut plan, &library, &refusals).unwrap();
+    let decisions = plan["decisions"].as_array().unwrap();
+    let refused: Vec<&Value> = decisions.iter().filter(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed").collect();
+    assert_eq!(refused.len(), 2);
+    assert!(refused.iter().all(|d| d.get("superseded_by").is_none()), "both refusals stand");
+    for d in decisions.iter().filter(|d| d.get("superseded_by").is_some_and(|by| refused.iter().any(|r| r["id"] == *by))) {
+        assert!(d["stage"] == "process" || d["stage"] == "tools", "{d}");
+    }
+    let order = decisions.iter().find(|d| d["rule"] == "sequence.fixed_order@1").unwrap();
+    assert!(order.get("superseded_by").is_none(), "shared with the setup's other operations");
 }

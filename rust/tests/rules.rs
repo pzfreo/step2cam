@@ -51,3 +51,28 @@ fn every_kind_of_operation_has_its_place() {
     assert_eq!(rank("notch").unwrap(), rank("slot").unwrap());
     assert!(rank("knurl").is_err());
 }
+
+/// A tool field the library does not give as a number disqualifies that tool, as it did before
+/// the rules were data: it neither panics nor is chosen.
+#[test]
+fn a_tool_with_a_field_that_is_not_a_number_is_not_chosen() {
+    let mut short = mill("bad", 6.);
+    short["flute_length"] = Value::Null;
+    let mut bit = json!({"id": "vb", "type": "chamfer_mill", "number": 3, "diameter": 6, "overall_length": 50, "stickout": 30,
+        "holder_length": 20, "holder_diameter": 20, "feed_mm_min": 300, "spindle_rpm": 9000, "coolant": "flood",
+        "flute_length": 5, "angle": 60, "tip_diameter": "0", "plunge_mm_min": 100, "stepdown_mm": 1});
+    let data = library(json!([short, mill("good", 4.), bit.clone()]));
+    let lib = Library::new(&data).unwrap();
+    assert_eq!(lib.pocket_mill(10., 5.).unwrap()["id"], "good");
+    assert!(lib.v_bit(90.).is_none(), "a tip diameter written as text does not qualify");
+    bit["tip_diameter"] = json!(0);
+    let data = library(json!([bit]));
+    assert_eq!(Library::new(&data).unwrap().v_bit(90.).unwrap()["id"], "vb");
+}
+
+#[test]
+fn and_does_not_look_past_a_false_left_side() {
+    assert_eq!(eval("0 && nope > 1", &none).unwrap(), 0.);
+    assert!(eval("1 && nope > 1", &none).is_err());
+    assert_eq!(eval("1E3", &none).unwrap(), 1000.);
+}

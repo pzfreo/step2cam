@@ -7,7 +7,7 @@
    "id": "requirement.thread.unknown_size",
    "version": 1,
    "stage": "requirements",
-   "rationale": "A tapped answer whose size is not a metric thread this bridge can size (ISO 261 coarse pitch, or an explicit fine pitch) is not threaded.",
+   "rationale": "A tapped answer is threaded only for an ISO 261 coarse size this table lists, or a size with an explicit pitch (M10x1.25); an explicit pitch is taken as given, not checked against ISO 261's fine pitches.",
    "code": "plan.rs threads, thread_size; reference.rs coarse_pitch",
    "sources": [
     {
@@ -71,13 +71,18 @@
    "id": "requirement.material.group",
    "version": 1,
    "stage": "requirements",
-   "rationale": "The part's material is Specify's answer (part.material), unless the resources override it (overrides.material). It is placed in an ISO 513 group by the words of its name, a stand-in until specify-core gives the material's family.",
+   "rationale": "The part's material is Specify's answer (part.material), unless the resources override it (overrides.material). It is placed in an ISO 513 group by the whole words of its name; a printed material or a name nothing matches gets no group, and the tools' own cutting data are used. A stand-in until specify-core gives the material's family.",
    "code": "settle.rs material; reference.rs iso513_group",
    "sources": [
     {
      "kind": "standard",
      "ref": "ISO 513",
+     "note": "the six groups",
      "via": "reference/iso513-groups.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "placing a material by the words of its name, a stand-in"
     }
    ]
   },
@@ -223,12 +228,17 @@
     {
      "kind": "standard",
      "ref": "ISO 261",
+     "note": "coarse pitches",
      "via": "reference/iso261-coarse-pitch.json"
     },
     {
      "kind": "practice",
      "note": "specify-core's default minimum full thread",
      "via": "reference/full-thread.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "thread milling rather than tapping, through holes threaded their whole depth"
     }
    ]
   },
@@ -308,7 +318,7 @@
    "id": "process.edge_round.not_reached",
    "version": 1,
    "stage": "process",
-   "rationale": "A convex edge round not reached from the roughing setup with its wall at size stays sharp.",
+   "rationale": "A convex edge round whose faces are not all cylinders along the roughing setup's axis (a horizontal round, not a vertical corner) is not cut by roughing or a wall and stays sharp; one on the top face may still be cut as an edge chamfer, which then replaces this decision.",
    "code": "plan.rs plan, upright",
    "sources": [
     {
@@ -389,7 +399,7 @@
    "id": "process.covered_by_roughing",
    "version": 1,
    "stage": "process",
-   "rationale": "A feature with no operation of its own whose flat faces face the roughing setup is taken as covered by roughing (a heuristic); where flats or walls do not reach it, it keeps the roughing allowance.",
+   "rationale": "A feature with no operation of its own, none of whose flat faces points away from the roughing setup, is taken as covered by roughing (a heuristic); where flats or walls do not reach it, it keeps the roughing allowance.",
    "code": "plan.rs plan, reachable",
    "sources": [
     {
@@ -458,7 +468,7 @@
    "id": "sequence.fixed_order",
    "version": 1,
    "stage": "sequence",
-   "rationale": "In each setup: facing, roughing, flats, holes, counterbores, slots and notches, walls, edge chamfers, then threads last, as nothing should cut near a finished thread and the stock is compared with the part just before them.",
+   "rationale": "In each setup: facing, roughing, flats, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, then threads last, as nothing should cut near a finished thread and the stock is compared with the part just before them.",
    "code": "plan.rs plan",
    "sources": [
     {
@@ -509,7 +519,7 @@
    "id": "feasibility.wall.room",
    "version": 1,
    "stage": "feasibility",
-   "rationale": "The room beside a wall must take the end mill and the roughing allowance on whatever stands opposite (at least twice the mesh's error).",
+   "rationale": "The room beside a wall must take the end mill and the roughing allowance on whatever stands opposite: the library's radial_allowance_mm (0.3 mm by default) or twice the mesh's error, whichever is more.",
    "code": "settle.rs wall_refusal",
    "sources": [
     {
@@ -596,7 +606,7 @@
    "id": "tool.clearing",
    "version": 1,
    "stage": "tools",
-   "rationale": "Facing, roughing, flats and walls use the end mill the library names for the operation (roughing_tool, facing_tool …), else the largest end mill.",
+   "rationale": "Facing and roughing use the end mill the library names for them (facing_tool, roughing_tool), else the largest end mill.",
    "code": "resources.rs Library::clearing",
    "sources": [
     {
@@ -676,10 +686,8 @@
    "code": "settle.rs technology",
    "sources": [
     {
-     "kind": "standard",
-     "ref": "ISO 513",
-     "note": "cutting data are given by workpiece material group",
-     "via": "reference/iso513-groups.json"
+     "kind": "practice",
+     "note": "tool makers give cutting data by ISO 513 workpiece group"
     },
     {
      "kind": "step2cam",
@@ -721,7 +729,7 @@
    "id": "tool.v_channel.v_bit",
    "version": 1,
    "stage": "tools",
-   "rationale": "The widest sharp V-bit no wider than the channel: a wider one would cut its walls, a flat tip could not reach the root.",
+   "rationale": "The widest sharp V-bit whose included angle is no more than the channel's: a wider angle would cut its walls, a flat tip could not reach the root.",
    "code": "resources.rs Library::v_bit",
    "sources": [
     {

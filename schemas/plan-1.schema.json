@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:plan:1",
  "title": "step2cam plan, version 1",
- "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them.",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
  "type": "object",
  "required": [
   "format",
@@ -122,6 +122,20 @@
     "specified"
    ],
    "additionalProperties": false
+  },
+  "rulebase": {
+   "type": "object",
+   "required": [
+    "hash"
+   ],
+   "properties": {
+    "hash": {
+     "type": "string",
+     "pattern": "^fnv1a64:[0-9a-f]{16}$"
+    }
+   },
+   "additionalProperties": false,
+   "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
   }
  },
  "additionalProperties": false,
@@ -214,7 +228,7 @@
      }
     },
     "part_surface": {
-     "description": "Kept by step2cam::process when roughing is refused, so the stock can still be compared with the part."
+     "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
     }
    },
    "additionalProperties": false

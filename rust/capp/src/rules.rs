@@ -53,7 +53,7 @@ fn tokens(text: &str) -> Result<Vec<Token>, String> {
             i += 1;
         } else if c.is_ascii_digit() || (c == '.' && chars.get(i + 1).is_some_and(char::is_ascii_digit)) {
             let start = i;
-            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.' || chars[i] == 'e' || ((chars[i] == '-' || chars[i] == '+') && chars[i - 1] == 'e')) {
+            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.' || chars[i] == 'e' || chars[i] == 'E' || ((chars[i] == '-' || chars[i] == '+') && (chars[i - 1] == 'e' || chars[i - 1] == 'E'))) {
                 i += 1;
             }
             let s: String = chars[start..i].iter().collect();
@@ -87,6 +87,8 @@ struct Parser<'a, 'b> {
     tokens: Vec<Token>,
     at: usize,
     lookup: &'b Lookup<'a>,
+    /// False while parsing the right of an `&&` whose left is false: names are not looked up.
+    live: bool,
 }
 
 impl Parser<'_, '_> {
@@ -108,7 +110,10 @@ impl Parser<'_, '_> {
     fn all(&mut self) -> Result<f64, String> {
         let mut v = self.cmp()?;
         while self.eat("&&") {
+            let was = self.live;
+            self.live = was && v != 0.;
             let w = self.cmp()?;
+            self.live = was;
             v = if v != 0. && w != 0. { 1. } else { 0. };
         }
         Ok(v)
@@ -167,7 +172,13 @@ impl Parser<'_, '_> {
             }
             Some(Token::Name(name)) => {
                 self.at += 1;
-                if name == "inf" { Ok(f64::INFINITY) } else { (self.lookup)(&name) }
+                if name == "inf" {
+                    Ok(f64::INFINITY)
+                } else if !self.live {
+                    Ok(0.)
+                } else {
+                    (self.lookup)(&name)
+                }
             }
             other => Err(format!("expected a value, found {other:?}")),
         }
@@ -176,7 +187,7 @@ impl Parser<'_, '_> {
 
 /// The value of an expression.
 pub fn eval(text: &str, lookup: &Lookup) -> Result<f64, String> {
-    let mut p = Parser { tokens: tokens(text)?, at: 0, lookup };
+    let mut p = Parser { tokens: tokens(text)?, at: 0, lookup, live: true };
     let v = p.all()?;
     if p.at != p.tokens.len() {
         return Err(format!("trailing input in {text:?}"));
@@ -212,24 +223,30 @@ pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, Str
 
 // ---- Tool selectors ----
 
+/// A tool turned down, and why in full (`<tool id>: <reason>`).
+pub type Rejection = (String, String);
+
 /// The tool a selector prefers among those that qualify, and why each other one was turned down
 /// (where the selector has words for that), in library order.
-pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<String>), String> {
+pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
     let rule = tools_rule(selector)?;
     let wanted = rule["tool_type"].as_str().ok_or_else(|| format!("selector {selector} has no tool_type"))?;
     let defaults = &rule["defaults"];
-    let (mut kept, mut why): (Vec<&Value>, Vec<String>) = (vec![], vec![]);
+    let (mut kept, mut why): (Vec<&Value>, Vec<Rejection>) = (vec![], vec![]);
     for tool in tools.iter().copied().filter(|t| t["type"] == wanted) {
         let mut values: HashMap<String, f64> = HashMap::new();
         let lookup_in = |values: &HashMap<String, f64>, name: &str| -> Result<f64, String> {
             if let Some(field) = name.strip_prefix("tool.") {
-                return match tool[field].as_f64() {
-                    Some(v) => Ok(v),
+                // A field the tool does not give as a number cannot qualify it: NaN fails every
+                // comparison, so the tool is not chosen. A default stands in where the selector
+                // gives one.
+                return Ok(match tool[field].as_f64() {
+                    Some(v) => v,
                     None => match &defaults[name] {
-                        Value::String(s) if s == "inf" => Ok(f64::INFINITY),
-                        v => v.as_f64().ok_or_else(|| format!("missing number {field}")),
+                        Value::String(s) if s == "inf" => f64::INFINITY,
+                        v => v.as_f64().unwrap_or(f64::NAN),
                     },
-                };
+                });
             }
             values.get(name).or_else(|| inputs.get(name)).or_else(|| params.get(name)).copied().ok_or_else(|| format!("selector {selector}: no value {name}"))
         };
@@ -244,7 +261,7 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
             let lookup = |n: &str| lookup_in(&values, n);
             if eval(condition["if"].as_str().unwrap_or(""), &lookup)? == 0. {
                 if let Some(template) = condition["else_reject"].as_str() {
-                    why.push(fill(template, tool, &lookup)?);
+                    why.push((tool["id"].as_str().unwrap_or("").to_string(), fill(template, tool, &lookup)?));
                 }
                 ok = false;
                 break;

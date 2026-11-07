@@ -90,13 +90,17 @@
     "flat": "Flat_hole_bottom",
     "drill_point": "Conical_hole_bottom"
    },
-   "exact": true,
-   "note": "drilled with a drill, or bored by helix with an end mill"
+   "note": "drilled with a drill (drilling, exact), or bored by helix with an end mill, for which bottom_and_side_finish_milling is the closest",
+   "exact_by_tool": {
+    "drill": true,
+    "end_mill": false
+   }
   },
   "counterbore": {
    "feature": "Counterbore_hole",
    "operation": "bottom_and_side_finish_milling",
-   "exact": true
+   "exact": false,
+   "note": "Counterbore_hole is the whole compound feature, bore and enlargement; this operation cuts only the enlargement (a counterbore or spotface)"
   },
   "thread": {
    "feature": "Thread",

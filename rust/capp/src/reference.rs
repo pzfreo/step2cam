@@ -59,7 +59,11 @@ pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
         Some(by) => tool_type.and_then(|t| by.get(t)).cloned().unwrap_or(Value::Null),
         None => entry["operation"].clone(),
     };
-    let mut out = serde_json::json!({"feature": feature, "operation": operation, "exact": entry["exact"]});
+    let exact = match entry.get("exact_by_tool") {
+        Some(by) => tool_type.and_then(|t| by.get(t)).cloned().unwrap_or(Value::Bool(false)),
+        None => entry["exact"].clone(),
+    };
+    let mut out = serde_json::json!({"feature": feature, "operation": operation, "exact": exact});
     if let Some(bottom) = entry.get("bottom_condition").and_then(|b| b.get(op["bottom"].as_str()?)) {
         out["bottom_condition"] = bottom.clone();
     }
@@ -69,19 +73,20 @@ pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
     Some(out)
 }
 
-/// The ISO 513 group a material named in Specify falls in, and the words that placed it: the
-/// first entry of `iso513-groups.json`'s `by_words` with a word in the name, ignoring case. None
-/// for a name it cannot place, or one it never places (a printed material).
+/// The ISO 513 group a material named in Specify falls in, and the word that placed it
+/// (`iso513-groups.json`): the name's lower-case words are matched whole, a phrase as consecutive
+/// words. None for a name with a word in `never` (a printing process), or one nothing matches.
 pub fn iso513_group(material: &str) -> Option<(String, String)> {
     static TABLE: OnceLock<Value> = OnceLock::new();
     let table = TABLE.get_or_init(|| table("iso513-groups.json"));
-    let name = material.to_lowercase();
-    let never = table["placing"]["never"].as_array()?;
-    if never.iter().filter_map(Value::as_str).any(|w| name.contains(w)) {
+    let words: Vec<String> = material.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).map(String::from).collect();
+    let spaced = format!(" {} ", words.join(" "));
+    let has = |phrase: &str| spaced.contains(&format!(" {phrase} "));
+    if table["placing"]["never"].as_array()?.iter().filter_map(Value::as_str).any(has) {
         return None;
     }
     for entry in table["placing"]["by_words"].as_array()? {
-        if let Some(word) = entry[0].as_array()?.iter().filter_map(Value::as_str).find(|w| name.contains(*w)) {
+        if let Some(word) = entry[0].as_array()?.iter().filter_map(Value::as_str).find(|w| has(w)) {
             return Some((entry[1].as_str()?.to_string(), word.to_string()));
         }
     }

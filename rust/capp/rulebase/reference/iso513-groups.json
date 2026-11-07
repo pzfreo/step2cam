@@ -13,7 +13,7 @@
   "checked_against_standard": false
  },
  "groups": {
-  "P": "steel and cast steel, other than austenitic stainless steel",
+  "P": "steel and cast steel, other than stainless steel (ISO 513 puts some ferritic and martensitic stainless in P; this table places every stainless steel in M, as tool makers commonly do)",
   "M": "stainless steel",
   "K": "cast iron",
   "N": "non-ferrous metals, such as aluminium and copper alloys, and non-metallic materials",
@@ -21,7 +21,19 @@
   "H": "hardened steel and chilled cast iron"
  },
  "placing": {
-  "_comment": "A stand-in: specify-core's answer is the material's name (part.material), not its family, so the name is matched against these words, first match wins, ignoring case. Tool steel is placed in P as supplied (annealed); hardened it is H, which a name does not say. A printed or unnamed material has no group.",
+  "_comment": "A stand-in until specify-core gives the material's family (step2cam docs/upstream-needs.md, S2): specify-core's answer is the material's name (part.material), so its words are matched. The name is split into lower-case words; an entry matches when one of its words, or phrases of words, appears whole. A name with a word in `never` (a printing process, or no material) gets no group; otherwise the first entry that matches places it. Tool steel goes in P, as supplied; hardened it is H, which the name does not say. A name nothing matches gets no group, and the tools' own cutting data are used.",
+  "never": [
+   "fdm",
+   "sla",
+   "sls",
+   "slm",
+   "mjf",
+   "dmls",
+   "dlp",
+   "polyjet",
+   "any",
+   "none"
+  ],
   "by_words": [
    [
     [
@@ -33,15 +45,20 @@
     [
      "titanium",
      "inconel",
-     "nickel alloy",
      "hastelloy",
-     "superalloy"
+     "monel",
+     "superalloy",
+     "nickel alloy"
     ],
     "S"
    ],
    [
     [
-     "cast iron"
+     "cast iron",
+     "ductile iron",
+     "grey iron",
+     "gjl",
+     "gjs"
     ],
     "K"
    ],
@@ -54,15 +71,13 @@
    [
     [
      "aluminium",
-     "aluminum"
-    ],
-    "N"
-   ],
-   [
-    [
+     "aluminum",
      "brass",
      "copper",
-     "bronze"
+     "bronze",
+     "magnesium",
+     "zamak",
+     "zinc"
     ],
     "N"
    ],
@@ -71,18 +86,40 @@
      "plastic",
      "acetal",
      "pom",
-     "delrin",
      "nylon",
      "polyamide",
+     "pa6",
+     "pa66",
+     "pa11",
+     "pa12",
      "peek",
      "abs",
      "polycarbonate",
+     "pc",
      "acrylic",
      "pmma",
      "ptfe",
+     "rulon",
      "hdpe",
      "uhmw",
-     "polypropylene"
+     "polypropylene",
+     "pp",
+     "pvc",
+     "pet",
+     "pvdf",
+     "pei",
+     "pps",
+     "psu",
+     "ppsu",
+     "polysulfone",
+     "pbt",
+     "polyimide",
+     "vespel",
+     "garolite",
+     "g 10",
+     "fr 4",
+     "tufnol",
+     "phenolic"
     ],
     "N"
    ],
@@ -92,12 +129,6 @@
     ],
     "P"
    ]
-  ],
-  "never": [
-   "3d printing",
-   "printed",
-   "any",
-   "none"
   ]
  }
 }

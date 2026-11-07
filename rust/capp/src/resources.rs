@@ -71,10 +71,13 @@ impl<'a> Library<'a> {
     }
     /// The tool the named selector in `rulebase/rules/tools.json` prefers, and why it turned
     /// the others down where it says.
-    fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<String>), String> {
+    fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)]);
         crate::rules::select(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
+    /// A selector can fail only if the shipped rules are wrong (tests/rules.rs runs them all); a
+    /// tool library cannot make it fail, as a field that is not a number just disqualifies the
+    /// tool.
     fn pick(&self, selector: &str, inputs: &[(&str, f64)]) -> Option<&'a Value> {
         self.select(selector, inputs).unwrap_or_else(|e| panic!("{e}")).0
     }
@@ -100,7 +103,7 @@ impl<'a> Library<'a> {
         self.pick("chamfer_mill", &[("width", width)])
     }
     /// The thread mill for this thread operation, and why the others were turned down.
-    pub fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<String>), String> {
+    pub fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
         let inputs = [
             ("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?), ("pitch", num(op, "pitch")?),
             ("stock_top", stock_top), ("bottom_z", num(op, "bottom_z")?),

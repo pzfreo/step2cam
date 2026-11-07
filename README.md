@@ -145,13 +145,15 @@ The plan says **what** to cut, independent of tools and machine.
   (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `capp::finish`
   has run. A tool may state its cutting data for a group (`cutting_data: {"N": {"feed_mm_min": …,
   "spindle_rpm": …}}`); each operation's **`technology`** is the cutting data it uses, and says
-  whether they are the tool's own or its data for the group. The group is found from words in the
-  material's name until specify-core gives the material's family (`docs/upstream-needs.md`, S2).
+  whether they are the tool's own or its data for the group. The group is found from the whole
+  words of the material's name (a printed material, or a name nothing matches, has none) until
+  specify-core gives the material's family (`docs/upstream-needs.md`, S2).
 - **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
   the feature it machines and the operation, from
   `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
-  AP238 lists, not checked against ISO 14649 itself; thread milling, edge chamfers and V-channels
-  have no exact ISO 14649-11 operation and say so (`exact: false`).
+  AP238 lists, not checked against ISO 14649 itself. Where the names are only the closest
+  (thread milling, edge chamfers, V-channels, counterbores, holes bored by helix) they say so
+  (`exact: false`).
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
@@ -308,9 +310,10 @@ run.**
 ## Not done (yet)
 
 Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for flats and walls the
-roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end
+roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, counterbores at the far end
 of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
-avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work.
+avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work, more than
+one machine (`docs/capp-plan.md`, Planned), fits (reaming).
 
 ## Tests
 

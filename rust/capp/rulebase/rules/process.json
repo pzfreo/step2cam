@@ -5,9 +5,9 @@
  "conditions": {
   "cut_by_slot": "a slot, notch or V-channel operation was planned that includes it",
   "convex": "an edge round on the outside of the part",
-  "not_upright": "not reached from the roughing setup with its wall at size",
+  "not_upright": "its faces are not all cylinders along the roughing setup's axis: a horizontal round, not a vertical corner",
   "no_mesh": "no mesh was given",
-  "reachable": "its flat faces face the roughing setup"
+  "reachable": "none of its flat faces points away from the roughing setup"
  },
  "cases": [
   {

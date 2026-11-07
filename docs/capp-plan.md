@@ -1,25 +1,7 @@
 # step2cam in three phases: Specify, CAPP, execution
 
-Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
-step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) and
-step 4 (the thread tables as reference data), step 5 (ISO 14649 names) and step 6 (tool
-selection, operation order and feature handling as JSON rules) are done. Of step 7, the material
-(from Specify, overridable, placed in an ISO 513 group) and cutting data by group are done; the
-rest of step 7 and step 8 are planned.
-
-Step 5 was done as names on each operation (`iso14649`: feature, operation, hole bottom
-condition, exact or closest), not as a restructured plan format v2. Renaming the plan's own
-structure would have meant rewriting the page and the camlib adapter with no change in what
-they do, while the names alone are what an AP238 export needs. The names were checked against
-STEP Tools' published AP238 lists, which settled the rows marked "check" below: a notch is a
-`Rectangular_open_pocket` (or `_closed_`), roughing a `General_removal_volume`, a V-channel a
-`Slot` with a `Vee_profile`; ISO 14649-11 has no milling operation for thread milling or
-chamfering, so those say `exact: false`.
-
-Step 4 moved only data that comes from a standard or recognised practice. The numeric tolerances
-in the code (`LEVEL_EPS`, `AXIS_TOLERANCE`, camlib's surface-error limit, the comparison budgets)
-are step2cam's own judgement or camlib's limits, not reference data, so they stay as named
-constants beside the code that uses them.
+This document describes the design as built (steps 1–6 and the first part of step 7) and the work
+still planned. The proposal it started from is in the history of this file.
 
 Decided (7 November 2026):
 - CAPP reads specify-core's output as it is. It has no feature schema of its own.
@@ -28,374 +10,223 @@ Decided (7 November 2026):
 - The material comes from Specify, and `resources.json` can override it.
 - ISO data comes from public sources only. No standards are bought.
 
-## Why change
+## Why
 
-Today the logic between feature recognition and camlib is about 2,500 lines of Rust in
-`rust/src/plan.rs` and `rust/src/job.rs`. It works, but its knowledge is mixed in with the code
-that applies it:
+Before this work, the logic between feature recognition and camlib was about 2,500 lines of Rust in
+`rust/src/plan.rs` and `rust/src/job.rs`, with its knowledge mixed into the code that applied it:
+- Standards data was buried in code.
+- Rules had no names.
+- Decisions could not be traced.
+- `job.rs` both decided and wrote camlib's manifest.
 
-- **Standards data is buried in code.** `COARSE_PITCH` (ISO 261) sits in `plan.rs`, and the
-  full-thread rule in `full_thread()`.
-- **Rules have no names.** "Threads last", "largest end mill that fits the slot", "a wall finish
-  needs roughing first" and "a flat may be at most a stepdown deep" are `if` statements in five
-  different places.
-- **Decisions cannot be traced.** The output says what was planned and, for skipped features, a
-  sentence of prose. It does not say which rule chose an operation or a tool, what else was
-  considered, or why that was rejected.
-- **The phases are mixed.** `job.rs` both decides (tool choice, `settle`) and writes camlib's
-  manifest. `lib.rs` feeds camlib's refusals back by editing the plan.
-
-A search in November 2026 found no open-source project that encodes this knowledge. Open
-recognisers stop at labelling features, open CAM tools expect the user to choose operations, and
-the rule sets in FeatureCAM, CAMWorks, NX and CAM Assist are closed. So step2cam is building it,
-and it should be built as a reusable thing with a contract, not as glue.
+A search in November 2026 found no open-source project that encodes this knowledge:
+- Open recognisers stop at labelling features.
+- Open CAM tools expect the user to choose operations.
+- The rule sets in FeatureCAM, CAMWorks, NX and CAM Assist are closed.
 
 ## The three phases
 
 ```
-STEP ─► 1. Specify ─► analysis + PMI + mesh ─► 2. CAPP ─► process-plan.json ─► 3. Execution ─► G-code
-        (specify-core,  (specify-core's own      rules,                         camlib adapter   + checks
-         unchanged)      formats)                reference data,                post (LinuxCNC)
-                                                 resources.json                 others later
+STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► G-code
+        (specify-core)                    rust/capp                  step2cam: camlib adapter,
+                                          + resources.json           post (LinuxCNC), checks
 ```
 
-**1. Specify** (specify-core, unchanged). STEP in, then the analysis, the PMI and the mesh out,
-in specify-core's own formats. step2cam has no feature schema of its own: features, faces and
-their ids, and the requirements on them, are exactly as specify-core writes them.
+**1. Specify** (specify-core, unchanged). STEP in; the analysis and the mesh out, in specify-core's
+own formats. Features, faces, their ids and the answers given in Specify are exactly as specify-core
+writes them. The material is Specify's `part.material` answer. The PMI (`haecceity.pmi/1`, whose
+schema specify-core publishes) holds threads, fits, tolerances and surface textures; CAPP reads
+threads from the answers today and does not yet read fits or finishes.
 
-- **Features and geometry:** the analysis (`schema: 1`), with `features`, `faces`,
-  `dimensioning` and the user's `answers`, and the mesh (`pmi-assist-mesh`).
-- **Requirements:** the PMI, `haecceity.pmi/1`, whose schema is published in specify-core
-  (`crates/specify-core-py/python/specify_core/schema/haecceity.pmi-1.json`). It holds
-  threads, fits, tolerances, surface textures and material. Thread designations reach step2cam
-  today through Specify's answers (`hole.function:` … `tapped:M6`).
-- **Material:** Specify's `part.material` answer, a name from specify-core's material list
-  (`src/materials.rs`), which also gives its family.
-- **Upstream need:** the analysis format has a version but no published JSON Schema. CAPP
-  should validate its input against a schema, and that schema belongs in specify-core next to
-  the PMI's. It is recorded as S1 in step2cam's `docs/upstream-needs.md`. Until it exists, CAPP
-  checks the fields it reads, as `plan.rs` does now.
+**2. CAPP** (`rust/capp`, a crate in this workspace). Pure functions, JSON in and JSON out, no I/O and
+no camlib:
+- `capp::plan::plan(analysis, mesh, options)` decides what to cut in which setup.
+- `capp::finish(plan, resources, exclusions)` takes out what these resources cannot cut, and
+  what an execution engine refused; places the material in its ISO 513 group; and names each
+  operation's tool, cutting data and ISO 14649 names.
 
-**2. CAPP** (computer-aided process planning). The crate `rust/capp` in this repository, as a
-workspace member beside the existing crate. It is a pure function: JSON in, JSON out, with no
-I/O and no camlib.
+**3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
+operation's tool and cutting data and writes camlib's manifest; the post-processor (`post.rs`);
+and the browser entry point (`process`). An operation camlib refuses goes back to `capp::finish`
+as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
+from the planned one without it.
 
-- In:
-  - specify-core's analysis, PMI and mesh, as above;
-  - `resources.json`: the machine, tools, cutting data, stock and fixturing options, shop
-    policy, and optional overrides such as the material;
-  - the **rulebase**: versioned and shipped with the crate;
-  - optionally `exclusions.json`.
-- Out: `process-plan.json`. This holds setups, workplans and workingsteps: each a feature, an
-  operation, a tool, technology and a strategy. It also holds what was not planned and why, and
-  the **decision trace**.
+## Documents and schemas
 
-**3. Execution.** It takes the process plan and produces machine output.
+step2cam's own documents have JSON Schemas (2020-12) in `schemas/`, and tests validate the shipped
+tool libraries and every fixture's plan against them. Inputs from specify-core are specify-core's;
+its analysis has no published schema yet (`docs/upstream-needs.md`, S1; specify-core#157).
 
-- **camlib adapter:** what is left of `job.rs` once its decisions move to CAPP. It turns a
-  workingstep into camlib manifest entries.
-- **Post-processing** (`post.rs`) and camlib's material comparison stay here.
-- **Others, later:** an ISO 14649 / AP238 (STEP-NC) export of the plan, which is nearly free if
-  the plan uses its vocabulary, and potentially a FreeCAD CAM adapter.
-- **Refusals:** an execution engine can refuse a workingstep. The refusal goes back to CAPP as
-  `exclusions.json`, and CAPP replans. The trace records "refused by camlib: …" against the rule
-  that chose it. This replaces `remove_operation` editing the plan in `lib.rs`.
-
-## Schemas
-
-step2cam's own documents are JSON Schema (2020-12), versioned, in `schemas/`. Every document
-carries `format` and `version`. Tests validate every fixture and every output against them.
-Inputs from specify-core are validated against specify-core's schemas, not copies of them.
-
-| Document | Owner | Holds |
+| Document | Schema | Holds |
 |---|---|---|
-| analysis, PMI, mesh | specify-core | Features, faces, requirements, material |
-| `resources.json` | the user or the shop | Machine (axes, travels, spindle, tool changer), tool library (ISO 13399 property names), cutting data (by ISO 513 material group), stock and fixturing options, shop policy values, `overrides` |
-| `rulebase/` | step2cam | Reference tables, rules, rule metadata (below) |
-| `process-plan.json` | CAPP | Setups, workplans, workingsteps, unplanned features, decision trace, rulebase version and hash |
-| `exclusions.json` | execution, back to CAPP | Workingsteps an engine refused, with its message |
+| analysis, mesh | specify-core's | Features, faces, answers (threads, material) |
+| resources (`demo/tools.json`) | `resources-1` | The machine, the tools, shop policy values, `overrides`, and per tool optional `cutting_data` by ISO 513 group |
+| plan | `plan-1` | Setups and operations (each with `tool`, `tool_note`, `technology`, `iso14649`, `because`), `material`, `skipped`, `warnings`, `decisions`, `rulebase` |
 
-### Material
+The plan carries `format` and `version`; the tool libraries may, and the shipped ones do not.
 
-The material comes from Specify's `part.material` answer, unless `resources.json` sets
-`overrides.material`, for example to run a job in a different stock than the drawing says. The
-trace records which one was used and why.
+## The rulebase
 
-CAPP needs the ISO 513 group (P, M, K, N, S, H) to choose cutting data. A reference table maps
-specify-core's material families to groups, for example aluminium to N and stainless steel to M.
-A material the table cannot place is a decision with a clear reason: it falls back to the
-`resources.json` default and says so.
-
-### Output vocabulary: ISO 14649
-
-Features stay specify-core's: a workingstep cites the specify-core feature id it machines. What
-uses ISO 14649 is the plan's own structure: workplan, workingstep, setup, operations and tool
-types, written in snake_case. Each workingstep also records the ISO 14649-10 feature type its
-specify-core family corresponds to, so an AP238 export is a mapping.
-
-The rows marked "check" need confirming against the published EXPRESS schema before they are
-fixed.
-
-| specify-core family or today's plan kind | ISO 14649 |
-|---|---|
-| hole | `round_hole`, with `through_bottom_condition` / `flat_hole_bottom` / `conical_hole_bottom` |
-| hole with cbore, spotface | `counterbore_hole` (compound) |
-| hole with csink | `countersunk_hole` (compound) |
-| tapped hole | `round_hole` + `thread` |
-| slot (round-ended) | `slot`, `rounded_u_profile` / `square_u_profile` |
-| notch (open on one side) | `open_pocket` (check) or `step` |
-| v_channel | `slot` with `vee_profile` (check) |
-| step_levels, flats | `planar_face` / `step` |
-| outer walls | `general_outside_profile` |
-| fillets | `edge_round` |
-| chamfers | `chamfer` |
-| roughing of the rest | no exact entity; `region` is closest (check) |
-| facing / flats | `plane_milling` |
-| walls | `side_milling` / `bottom_and_side_milling` |
-| drill, spot | `drilling`, `center_drilling` |
-| thread | `thread_milling` (and `tapping` once tapping exists) |
-| bore by helix | `boring` is turning-style in 14649; helical milling is `bottom_and_side_milling` with a helix strategy (check) |
-
-Fields 14649 does not have, such as the camlib-specific strategy, go under `ext.step2cam`.
-
-## The rulebase: how knowledge is stored
-
-There are four kinds of knowledge. They are stored apart, so that every value has a known kind
-and source:
-
-1. **Reference data:** facts from standards, as tables with no logic. Candidates:
-   - ISO 261/262 thread sizes and pitches; ISO 68-1 and 724 basic profile and minor diameter.
-   - Tap-drill sizes (ISO 2306).
-   - ISO 273 clearance holes.
-   - ISO 286 tolerance grades and hole fits.
-   - ISO 2768 general tolerances, the default when a dimension states none.
-   - ISO 513 material groups.
-   - ISO 13399 tool property names (DC, APMX, LF, RE, KAPR …).
-   - ISO 15065 countersinks.
-2. **Rules:** decisions with conditions, each with an id. Every rule names one or more sources,
-   which may be a standard, recognised practice, or step2cam's own heuristic.
-3. **Shop policy:** numbers a shop chooses, such as margins, allowances, clearance planes,
-   breakthrough and preferred tools. They live in `resources.json`, not the rulebase. That way a
-   placeholder can't pass as a standard.
-4. **Geometric predicates:** questions answered by computing on the part. Examples:
-   `reachable`, `room_beside`, `occupied_above`, `clear_below` and `surface_error`. These stay
-   Rust code in the CAPP crate, because they are algorithms, but each has an id and returns its
-   evidence, so a rule can cite it.
-
-### Layout
-
-All JSON, in `rust/capp/rulebase/`, embedded in the crate at build time so the WASM build needs no
-file access:
+All JSON, in `rust/capp/rulebase/`, embedded in the crate so the WASM build needs no file access:
 
 ```
 rulebase/
-  manifest.json                  version, content hash, list of files
-  reference/iso261-pitch.json    { "source": {...}, "columns": [...], "rows": [...] }
-  reference/iso68-profile.json   formulas: H = 0.866025 P, minor diameter D1 = D - 1.082532 P
-  reference/tap-drill.json
-  reference/iso286-it-grades.json
-  reference/iso513-groups.json   and specify-core material family -> group
-  rules/setups.json              setup and orientation choice
-  rules/process/holes.json       feature -> alternative operation sequences
-  rules/process/slots.json
-  rules/process/walls.json
-  rules/tools.json               tool selection
-  rules/technology.json          cutting data selection
-  rules/sequence.json            precedence and grouping
+  rules.json                     every rule: id, version, stage, rationale, sources, code, data
+  reference/
+    iso261-coarse-pitch.json     ISO 261 coarse pitches (two public sources)
+    full-thread.json             specify-core's default minimum full thread, as a formula
+    iso14649-names.json          ISO 14649 feature and operation names for each operation kind
+    iso513-groups.json           ISO 513 groups, and how a material's name is placed in one
+  rules/
+    tools.json                   tool selectors: which tools qualify, why others are turned down, which wins
+    sequence.json                the order of operations in a setup
+    process.json                 what becomes of a feature of each family
 ```
 
-### A rule
+Knowledge is kept apart by kind, so every value has a known kind and source:
+1. **Reference data:** values from standards or recognised practice. Each table says where its
+   values came from and `checked_against_standard: false`.
+2. **Rules:** each has an id and a version, and names its sources: a standard, recognised practice,
+   or step2cam's own judgement. Where a rule's logic is data, it names the file (`data`).
+3. **Shop policy:** margins, allowances, clearances, preferred tools and cutting data. These live in
+   the resources, never in the rulebase, so a placeholder can't pass as a standard.
+4. **Geometry:** reachability, the room beside a wall, what lies above a hole and the like stay Rust
+   code. The rule files name these conditions, and `process.json` lists what each means.
 
-```json
-{
-  "id": "process.hole.threaded.thread_mill",
-  "version": 1,
-  "stage": "process_selection",
-  "applies_to": { "family": "holes" },
-  "when": [
-    { "fact": "requirement.thread.system", "is": "iso_metric" },
-    { "predicate": "reachable", "from": "setup" }
-  ],
-  "then": {
-    "sequence": [
-      { "operation": "center_drilling", "unless": { "fact": "policy.skip_spot", "is": true } },
-      { "operation": "drilling", "diameter": { "table": "tap_drill", "key": "requirement.thread.designation" } },
-      { "operation": "thread_milling", "depth": { "rule": "thread.full_depth.blind" } }
-    ]
-  },
-  "preference": 20,
-  "sources": [
-    { "kind": "standard", "ref": "ISO 2306", "via": "public table, see reference/tap-drill.json" },
-    { "kind": "step2cam", "note": "thread milling, not tapping: no tapping head on the demo machine" }
-  ],
-  "rationale": "A metric thread is drilled to the tap-drill size and then thread-milled."
-}
-```
+The numeric tolerances in the code (`LEVEL_EPS`, `AXIS_TOLERANCE`, camlib's surface-error limit,
+the comparison budgets) are step2cam's own judgement or camlib's limits, not reference data, so
+they stay as named constants beside the code that uses them.
 
-`applies_to` names specify-core's family; facts such as `requirement.thread.designation` are
-read from specify-core's PMI and answers through a fixed, documented set of fact names. That set
-is the one place that knows specify-core's field paths.
+### Rules as data
 
-The rule language stays deliberately small:
-- **Conditions:** an AND list of fact comparisons and predicate calls.
-- **Outcome:** either an operation sequence, or a choice among candidates with ordered ranking
-  keys. Most tool rules are "the largest that fits", which ranking keys express.
-- **Values:** looked up from tables or computed by named formulas.
-
-There is no general expression language: a rule that needs more becomes a named Rust function
-with an id and metadata, and the trace treats it the same way. If more than a handful of rules
-end up as functions, that is a sign the rule language needs one more construct, not that every
-rule should be code.
+Tool selection, the operation order and the handling of each feature family are data. The tool
+selectors use a small expression language (`rust/capp/src/rules.rs`): numbers, names (the
+selector's inputs, its `let` values, `tool.<field>`, the library's `drill_tolerance_mm`, step2cam's
+`tip_clearance_mm`), `+ - * /`, comparisons, `&&` (which does not look past a false left side) and
+parentheses. It evaluates left to right with the usual precedence, so it does the same
+floating-point arithmetic, in the same order, as the code it replaced. A tool field that is missing
+or not a number fails every comparison, so that tool is not chosen. Ties go to the first or the
+last in library order, as each selector says.
 
 ### Traceability
 
-Every outcome in `process-plan.json` cites the decisions behind it:
+Every choice is a decision citing its rule as `id@version`. Each operation's `because` names its
+decisions:
+- its setup;
+- the order;
+- the rule that made it;
+- the setup chosen for its holes;
+- its tool, with the tools turned down;
+- its cutting data.
 
-```json
-"workingsteps": [
-  { "id": "ws-top-07", "feature": "holes:4", "iso14649_feature": "round_hole",
-    "operation": "thread_milling", "tool": "tm4", "because": ["d-012", "d-031", "d-044"] }
-],
-"decisions": [
-  { "id": "d-031", "stage": "tool_selection", "subject": "ws-top-07",
-    "question": "which tool for thread_milling M6x1 in holes:4",
-    "rule": "tools.thread_mill.largest_fitting@1",
-    "inputs": { "pitch": 1.0, "start_diameter": 5.0, "depth_below_top": 12.0 },
-    "considered": [
-      { "candidate": "tm6", "rejected": "its ⌀4.8 tooth does not fit the ⌀5 hole", "rule": "tools.thread_mill.fits_hole@1" },
-      { "candidate": "tm3", "rejected": "its ⌀2.2 neck would rub the crests", "rule": "tools.thread_mill.neck_clears@1" }
-    ],
-    "chosen": "tm4",
-    "depends_on": ["d-012"] }
-]
-```
+Each `skipped` entry names its `decision`, and each warning is a decision too. A decision a later
+one replaced says `superseded_by`. When an operation is refused, its own decisions (what made it,
+its tool and cutting data) are superseded by the refusal; those it shares with its setup are not.
 
-This makes the following possible:
-- **Why this tool, and why not that one:** read the decision.
-- **Which outputs rely on a rule or table:** search `rule` across plans.
-- **Reproducibility:** the plan records the rulebase version and hash, so the same inputs and
-  rulebase give the same plan, byte for byte. A test enforces this.
-- **Unplanned features** are decisions too, with the rule that excluded them. This replaces
-  today's `skipped` and `warnings` prose.
-- **The page** can show this: click a toolpath, and see its decision chain.
+Tests check:
+- The rule ids in the code and the rule files are exactly those in `rules.json`.
+- Every warning, skip and operation goes back to decisions that exist.
+- The same inputs give the same plan.
+- If `finish` fails, the plan keeps what it had said and decided.
+
+The plan records which rulebase made it (`rulebase.hash`, a hash over every rule and reference
+file).
+
+The page shows the plan in a **Plan** drawer: each operation with its tool, cutting data and ISO
+names, and the decision chain behind it, with each rule's rationale and sources.
+
+### Material
+
+The material is Specify's `part.material` answer, unless the resources set `overrides.material`.
+specify-core gives the material's name but not its family (specify-core#158), so the name's whole
+words are matched against `iso513-groups.json`:
+- `stainless` places it in M, `aluminium` and the plastics in N, `steel` in P, and so on.
+- A printed material (`(FDM)`, `(DMLS)` …) gets no group.
+- A name nothing matches gets no group.
+- Tool steel goes in P, as supplied.
+- With no group, or no data for it, each tool's own cutting data are used, and the trace says
+  which.
+
+### ISO 14649 names
+
+Each operation carries its ISO 14649 names (`iso14649`), from STEP Tools' published AP238 lists.
+This is a field on each operation, not a restructured plan: renaming the plan's own structure would
+have rewritten the page and the camlib adapter for no change in what they do, while the names are
+what an AP238 export needs.
+
+| Operation kind | Feature | Operation | Exact |
+|---|---|---|---|
+| facing, flats | `Planar_face` | `plane_finish_milling` | yes |
+| roughing | `General_removal_volume` | `bottom_and_side_rough_milling` | yes |
+| holes | `Round_hole` + bottom condition | `drilling` (drill) / `bottom_and_side_finish_milling` (bored by helix) | drilled only |
+| counterbore | `Counterbore_hole` | `bottom_and_side_finish_milling` | no: the feature includes the bore |
+| thread | `Thread` | none in ISO 14649-11 | no |
+| slot | `Slot` | `bottom_and_side_finish_milling` | yes |
+| notch | `Rectangular_open_pocket` / `_closed_` | `bottom_and_side_finish_milling` | yes |
+| v_channel | `Slot` (`Vee_profile`) | `bottom_and_side_finish_milling` | no |
+| wall_finish | `General_outside_profile` | `side_finish_milling` | yes |
+| edge_chamfer | `Edge_round` | none in ISO 14649-11 | no |
 
 ## ISO standards from public sources only
 
-There is no access to the standards themselves, so every reference table is built from public
-sources. The rulebase must never copy a standard's text; it holds values only. Each table
-records where its values came from and how far they can be trusted:
+There is no access to the standards themselves. The rulebase holds values, never a standard's text.
+- **Formulas first:** prefer formulas that follow from a standard's published definitions.
+- **Otherwise two sources:** use two independent public sources that agree. Where they disagree,
+  take the safer value.
+- **Tested:** every table has a test against spot values from its sources.
 
-```json
-"source": {
-  "standard": "ISO 261",
-  "obtained_from": ["<URL of the public table>", "<a second, independent URL>"],
-  "agreement": "both sources agree on every row",
-  "checked_against_standard": false
-}
-```
-
-The rules for building tables:
-- **Prefer formulas** that follow from a standard's published definitions over transcribed
-  tables. The ISO 68-1 basic profile gives the minor diameter, and the ISO 286 standard
-  tolerance factor gives the IT grades. A formula is checked against several published rows in
-  a test.
-- **Otherwise use two independent public sources** that agree, such as tool makers' catalogues
-  and engineering references. Where they disagree, the table records both and the rule takes the
-  safer value, for example the smaller tap drill.
-- **Every table has a test** comparing it with spot values from its sources.
-- **Mark it.** `checked_against_standard: false` shows in the trace, and the page can say so.
-
-What public sources can realistically support:
-
-| Standard | Public availability | Plan |
-|---|---|---|
-| ISO 261/262 metric thread pitches | Widely published | Table, two sources |
-| ISO 68-1 / 724 basic profile, minor diameter | Formulas widely published | Formula |
-| ISO 2306 tap drills | Common practice D − P is widely published; the standard's own sizes less so | Table from catalogues, D − P as a check |
-| ISO 273 clearance holes | Widely published (fine, medium, coarse) | Table |
-| ISO 286 IT grades and hole deviations | IT formula and common fits (H7, H8 …) widely published | Formula for IT, table for common fits only |
-| ISO 2768 general tolerances (f, m, c, v) | Widely published | Table |
-| ISO 513 groups P M K N S H | Widely published by tool makers | Table, plus family mapping |
-| ISO 13399 property symbols | Published by tool makers for their catalogues | Names only, for the tool library |
-| ISO 14649 / AP238 entity names | Papers, NIST and STEP Tools material; EXPRESS schemas may be public | Names; "check" rows above until a schema is found |
-| ISO 15065 countersinks | Less widely published | Later, if a source is found |
-
-Cutting data (speeds and feeds by material group) is not standardised. It stays shop policy in
-`resources.json`, with the demo's placeholder numbers marked as placeholders.
-
-## CAPP's internal stages
-
-Each stage is a pure function, testable alone:
-
-1. **Interpret requirements.** Read specify-core's PMI and answers, then resolve threads, fits
-   and finishes into concrete targets from reference data. For example, `M6` becomes major 6,
-   pitch 1, a minor diameter and a tap drill. An `H7` hole becomes a tolerance band, which in
-   turn needs reaming or boring. The material resolves to an ISO 513 group.
-2. **Setup planning.** Choose orientations, stock and work origin. This is today's `SETUPS` and
-   `Frame`.
-3. **Process selection.** For each feature, list the alternative operation sequences and keep
-   those whose conditions hold. Then pick by preference, and record the rest as considered.
-4. **Resource selection.** Choose tools and cutting data.
-5. **Feasibility.** Drop what can't run and everything that depends on it. This is today's
-   `settle`, and wall finishes needing roughing are an example. It also applies `exclusions`.
-6. **Sequencing.** Order workingsteps under precedence rules:
-   - Facing comes first.
-   - Roughing comes before finishing.
-   - Drilling comes before threading.
-   - Threads come last in a setup.
-   - Then group by tool.
-7. **Emit** the process plan and its trace.
-
-## Where today's code goes
-
-| Today | Moves to |
+| Standard | Status |
 |---|---|
-| `plan.rs` setups, frames, stock | `capp`, stage 2 |
-| `plan.rs` `COARSE_PITCH`, `thread_size`, `full_thread` | reference table plus a named formula rule |
-| `plan.rs` `threads()` reading Specify's answers | `capp` stage 1, behind the fact names |
-| `plan.rs` `hole_geometry`, `slot_operation`, `notch_operation`, `v_channel_operation`, `wall_operations`, `edge_operations` | `capp` stage 3 rules, with their geometry as predicates |
-| `plan.rs` mesh geometry (`room_beside`, `occupied_above`, `clear_below`, `surface_error`, slicing) | `capp` predicates module |
-| `job.rs` `Library` (`drill`, `pocket_mill`, `v_bit`, `thread_mill`, …) | `capp` stage 4 rules |
-| `job.rs` `settle`, `wall_refusal`, `v_channel_refusal` | `capp` stage 5 |
-| `job.rs` manifest building, `cutting`, `assembly`, depths | camlib adapter, which stays in the `step2cam` crate (phase 3) |
-| `lib.rs` retry loop and `remove_operation` | `exclusions.json` round trip |
-| `post.rs` | unchanged, in the `step2cam` crate (phase 3) |
-| `demo/tools.json` | `resources.json`, its tools in ISO 13399 property names; its placeholder numbers marked as shop policy |
+| ISO 261 coarse pitches | Done: table, two sources |
+| ISO 513 groups | Done: groups from Seco and Mitsubishi Materials; placing by name is a stand-in |
+| ISO 14649 / AP238 names | Done: STEP Tools' published lists |
+| ISO 68-1 / 724 minor diameter | Planned: formula |
+| ISO 2306 tap drills | Planned: table from catalogues, D − P as a check |
+| ISO 286 fits | Planned: specify-core already computes fit limits |
+| ISO 2768 general tolerances | Planned: recorded; nothing uses them yet |
+| ISO 13399 tool property symbols | Planned: names mapped to the library's fields |
+| ISO 15065 countersinks | Later, if a source is found |
 
-The `step2cam` crate keeps the WASM entry point (`process`) and calls `capp`, then the camlib
-adapter, then the post-processor.
+Cutting data are not standardised: they are shop policy, in the resources.
 
 ## Steps
 
-Each step keeps the existing G-code goldens and the parity tests identical, unless the step says
-it changes output.
+Done:
+1. The `capp` crate and schemas for the tool library and the plan.
+2. Planning, settling and tool choice moved into `capp`; `job.rs` is the camlib adapter; refusals
+   are exclusions.
+3. The decision trace, with every rule inventoried.
+4. The thread tables as reference data.
+5. ISO 14649 names on each operation.
+6. Tool selection, operation order and feature handling as JSON rules.
+7. (part) The material, its ISO 513 group, and cutting data by group.
 
-1. **Workspace and schemas.** Add an empty `capp` crate as a member of `rust/`'s workspace. Write the
-   JSON Schemas for `resources.json` (from `tools.json` as it is) and the current plan output,
-   and validate them in tests. Record the analysis-schema need in `docs/upstream-needs.md`. No
-   behaviour change.
-2. **Move planning into `capp`.** Move `plan.rs`, tool selection and `settle` out of `job.rs`, and
-   the geometry into `capp`, unchanged. `job.rs` becomes the camlib adapter, reading resolved
-   tools from the plan. Then replace the retry loop with `exclusions`.
-3. **Trace scaffolding.** Give every existing hard-coded rule an id and metadata (an inventory),
-   and have each one emit a decision record. `skipped` and `warnings` become decisions. The
-   output gains a trace, and the G-code stays identical.
-4. **Reference data out of code.** Move `COARSE_PITCH`, the full-thread rule and the tolerance
-   constants into `rulebase/reference/`, with their public sources and tests.
-5. **ISO 14649 plan vocabulary.** Plan format v2 with ISO names for its structure. The page reads
-   v2.
-6. **Rules as data.** Move process alternatives, tool ranking and precedence into
-   `rulebase/rules/`, with a small evaluator. The rules that remain functions keep their ids.
-7. **New knowledge** (changes output):
-   - Material from Specify with the override, mapped to ISO 513 groups.
-   - ISO 286 fits from the PMI, so that reamed or bored holes are chosen.
-   - ISO 2768 defaults.
-   - An ISO 13399 tool library.
-   - Surface finish from the PMI selecting finishing passes.
-8. **Optional:**
-   - AP238 (STEP-NC) export.
-   - A second execution engine.
-   - The page showing decision chains.
+Steps 1–6 left the G-code unchanged. Each was compared with `main`: 8 fixtures and a tapped plate,
+with up to 5 tool libraries, one with a twin of every tool to test tie-breaks. Step 7 changes it
+only when a material is given and a tool states cutting data for its group.
 
-Steps 1–4 restructure without changing the G-code and could land as separate PRs. Step 5
-changes the plan format. Steps 6–7 are where the rulebase starts to grow.
+Planned:
+- **Machines.** The resources describe one machine: a three-axis LinuxCNC mill, by its limits for
+  the post-processor. CAPP assumes it throughout: six square-on setups, each a re-clamp, and
+  turned features skipped. The resources should list machines and their capabilities:
+  - kind: mill, lathe, mill-turn;
+  - axes: 3-axis, 3+2 with an indexer or trunnion, 4th-axis rotary, 5-axis;
+  - travels, so a part that won't fit is refused;
+  - tool changer: manual or automatic, and its number of pockets;
+  - spindle: speed, power, coolant;
+  - workholding.
+
+  CAPP would then:
+  - choose a machine for each setup;
+  - merge the setups an indexer can reach into one clamping;
+  - send turned features to a lathe, if there is one;
+  - refuse what no machine can make.
+
+  Each of these would be a traced decision.
+- **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a
+  reaming operation. This needs a reamer tool type.
+- **Tapping** as an alternative to thread milling; camlib has a tapping operation.
+- **The ISO 13399 tool library:** map the library's field names to ISO 13399 symbols, keeping the
+  current names.
+- **Surface finish and ISO 2768**, once a rule uses them.
+- **Optional:** an AP238 (STEP-NC) export; a second execution engine.
