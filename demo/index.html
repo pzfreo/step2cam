@@ -35,15 +35,15 @@
   <details id="checks" class="checks" hidden><summary id="checks-summary"></summary><div id="checks-detail"></div></details>
 
   <main class="panes">
-    <section class="pane" aria-label="Recognised features">
-      <div class="pane-title"><h2>Recognised features</h2><span>specify-core, in three-cad-viewer</span></div>
+    <section class="pane" data-pane="features" aria-label="Recognised features">
+      <div class="pane-title"><h2>Recognised features</h2><span>specify-core, in three-cad-viewer</span><button type="button" class="pane-size" data-pane="features" aria-pressed="false">Expand</button></div>
       <div class="pane-body">
         <div class="view"><div id="cad"></div></div>
         <div id="features" class="side features"></div>
       </div>
     </section>
-    <section class="pane" aria-label="Toolpaths">
-      <div class="pane-title"><h2>Toolpaths and G-code</h2><span>camlib, drawn from the G-code file</span></div>
+    <section class="pane" data-pane="toolpaths" aria-label="Toolpaths">
+      <div class="pane-title"><h2>Toolpaths and G-code</h2><span>camlib, drawn from the G-code file</span><button type="button" class="pane-size" data-pane="toolpaths" aria-pressed="false">Expand</button></div>
       <div class="pane-body">
         <div class="view" id="gcode-view">
           <div class="view-tools" role="group" aria-label="What the toolpath view shows">

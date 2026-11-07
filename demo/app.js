@@ -1248,13 +1248,36 @@ function setFocusQuiet(key) {
   applyFocus(false);
 }
 
-new ResizeObserver(() => {
+// Expand: one view takes the whole width, and Restore (or Escape) brings both back.
+function expandPane(name) {
+  const panes = document.querySelector(".panes");
+  if (name) panes.dataset.only = name; else delete panes.dataset.only;
+  for (const b of document.querySelectorAll(".pane-size")) {
+    const on = b.dataset.pane === name;
+    b.setAttribute("aria-pressed", String(on));
+    b.textContent = on ? "Restore" : "Expand";
+  }
+}
+for (const b of document.querySelectorAll(".pane-size")) {
+  b.addEventListener("click", () => expandPane(document.querySelector(".panes").dataset.only === b.dataset.pane ? null : b.dataset.pane));
+}
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.querySelector(".panes").dataset.only) expandPane(null);
+});
+
+// Either view can change size on its own now, so both are watched. A hidden one is left alone.
+const resized = new ResizeObserver(() => {
   if (!viewer?.ready) return;
   const box = $("cad").parentElement.getBoundingClientRect();
-  viewer.resizeCadView(Math.floor(box.width), 0, Math.floor(box.height), true);
-  fitCadMarker(box.width);
-  resizeRight();
-}).observe($("gcode-view"));
+  if (box.width > 0 && box.height > 0) {
+    viewer.resizeCadView(Math.floor(box.width), 0, Math.floor(box.height), true);
+    fitCadMarker(box.width);
+  }
+  const view = $("gcode-view").getBoundingClientRect();
+  if (view.width > 0 && view.height > 0) resizeRight();
+});
+resized.observe($("gcode-view"));
+resized.observe($("cad").parentElement);
 
 initRight();
 initCadLinks();
