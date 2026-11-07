@@ -243,8 +243,10 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as. It is compared by hand when an
   intended change moves it.
-- `rust/tests/checker.rs`: tampers with written blocks and expects camlib's intent checker to
-  refuse the program.
+- `rust/tests/checker.rs`: changes written blocks (preamble, plane, motion, control and end) and
+  expects no program to be given out.
+- `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
+  output with the frozen fixtures.
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.

@@ -109,6 +109,9 @@ pub fn posted(plan: &Value, library: &Value) -> (Vec<Value>, Vec<Value>, Vec<Str
     let mut notes = log;
     let (mut operations, mut tools) = (vec![], vec![]);
     if let Some(job) = job {
+        // camlib reads it: a wrong field name or value fails here.
+        let manifest: camlib::stream::StreamManifest = serde_json::from_value(job.manifest.clone()).unwrap_or_else(|e| panic!("camlib refuses the job: {e}"));
+        camlib::stream::StreamProducer::new(manifest).unwrap_or_else(|e| panic!("camlib refuses the job: {e}"));
         operations.clone_from(list(&job.manifest["operations"]));
         tools.clone_from(list(&job.manifest["tools"]));
         notes.extend(job.notes.iter().cloned());

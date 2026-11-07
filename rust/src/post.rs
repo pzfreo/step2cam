@@ -3,8 +3,10 @@
 //! camlib plans and simulates each motion against the stock, with its stock-contact checks. Every
 //! block written is then read back from its text, and camlib's intent checker compares what it says
 //! with the source, event by event: motions with camlib's decoder, the other blocks with
-//! `decode_control` here. An arc that cannot be written exactly, or that the machine does not
-//! accept, becomes line segments within the chord tolerance.
+//! `decode_control` here. The fixed preamble and end are compared word for word, and the plane an
+//! arc is decoded in is read from the line written. A block that reads differently from the plan is
+//! a fault in this post, so it stops the whole program: see [`Stop`]. An arc that cannot be written
+//! exactly, or that the machine does not accept, becomes line segments within the chord tolerance.
 use camlib::{
     motion::{Capabilities, Coolant, Curve, Event, Motion, MoveKind, Plane, Program as Header, SpindleDirection, Vec3, WorkFrame},
     operation::OperationPlan,
@@ -25,6 +27,9 @@ const ARC_SAMPLES: u32 = 16;
 /// How many lowered segments of an arc are checked at a time: camlib's most.
 const LOWERED_BATCH: usize = 64;
 const RADIUS_TOLERANCE: RadiusTolerance = RadiusTolerance { absolute_mm: 0.00127, relative: 0.001 };
+/// Metric, absolute, incremental arc centres, XY, feed per minute, fixed spindle speed, no cutter
+/// compensation, no length offset, no cycle, no G92 offset, exact path, spindle and coolant off.
+const PREAMBLE: [&str; 13] = ["G21", "G90", "G91.1", "G17", "G94", "G97", "G40", "G49", "G80", "G92.1", "G61.1", "M5", "M9"];
 
 fn default_tolerance() -> f64 {
     0.01
@@ -120,6 +125,42 @@ pub struct Program {
     pub uncertain: u64,
 }
 
+/// Why writing an operation stopped.
+enum Stop {
+    /// camlib or the machine will not do this operation: the rest of the part can still be cut.
+    Refused(String),
+    /// What was written does not read back as the plan. That is a fault in this post, and nothing
+    /// it wrote can be trusted, so no program is given out.
+    Written(String),
+}
+
+impl From<String> for Stop {
+    fn from(message: String) -> Self {
+        Self::Refused(message)
+    }
+}
+
+impl From<&str> for Stop {
+    fn from(message: &str) -> Self {
+        Self::Refused(message.into())
+    }
+}
+
+/// A number as this post writes it: digits, a point and a sign, not `1e3` or `inf`.
+fn plain_number(text: &str) -> bool {
+    let digits = text.strip_prefix('-').unwrap_or(text);
+    digits.chars().any(|c| c.is_ascii_digit()) && digits.chars().all(|c| c.is_ascii_digit() || c == '.') && digits.parse::<f64>().is_ok()
+}
+
+/// A motion block has one motion word and coordinates, centres and a feed: nothing else. camlib's
+/// decoder returns no move for any block it does not model, such as `G28`, or `M5`.
+fn check_motion_words(text: &str) -> Result<(), String> {
+    let mut words = text.split_whitespace();
+    let code_ok = words.next().is_some_and(|code| ["G0", "G1", "G2", "G3"].contains(&code));
+    let rest_ok = words.all(|word| word.starts_with(['X', 'Y', 'Z', 'I', 'J', 'K', 'F']) && plain_number(&word[1..]));
+    if code_ok && rest_ok { Ok(()) } else { Err(format!("unreadable motion block {text:?}")) }
+}
+
 /// What a tool change's blocks mean on this machine: tool id and length register by number, and
 /// where the tool tip is afterwards. From the job, not from the event being checked.
 type ToolTable = HashMap<u32, (String, u32, Vec3)>;
@@ -131,14 +172,17 @@ fn decode_control(block: &[String], tools: &ToolTable) -> Result<Vec<Event>, Str
     let mut changed = false;
     for line in block {
         let words: Vec<&str> = line.split_whitespace().collect();
-        let value = |word: &str, letter: char| -> Result<f64, String> { word.strip_prefix(letter).and_then(|v| v.parse().ok()).ok_or_else(|| format!("unreadable block {line:?}")) };
+        let unreadable = || format!("unreadable block {line:?}");
+        let value = |word: &str, letter: char| -> Result<f64, String> { word.strip_prefix(letter).filter(|v| plain_number(v)).and_then(|v| v.parse().ok()).ok_or_else(unreadable) };
+        // Tool and register numbers are whole: `T3.9` is not T3.
+        let whole = |word: &str, letter: char| -> Result<u32, String> { word.strip_prefix(letter).filter(|v| v.chars().all(|c| c.is_ascii_digit())).and_then(|v| v.parse().ok()).ok_or_else(unreadable) };
         match words.as_slice() {
-            [t] if t.starts_with('T') => selected = Some(value(t, 'T')? as u32),
+            [t] if t.starts_with('T') => selected = Some(whole(t, 'T')?),
             ["M6"] => changed = selected.is_some(),
             ["G43", h] if h.starts_with('H') && changed => {
                 let number = selected.take().ok_or("a length offset with no tool selected")?;
                 changed = false;
-                let register = value(h, 'H')? as u32;
+                let register = whole(h, 'H')?;
                 let (tool, expected, position_after_mm) = tools.get(&number).ok_or_else(|| format!("tool T{number} is not in the job"))?;
                 if register != *expected {
                     return Err(format!("T{number} uses length register H{register}, the job says H{expected}"));
@@ -156,7 +200,8 @@ fn decode_control(block: &[String], tools: &ToolTable) -> Result<Vec<Event>, Str
                 }
                 out.push(Event::Coolant { mode: if *m == "M8" { Coolant::Flood } else { Coolant::Mist } });
             }
-            [g] if g.starts_with("G5") => out.push(Event::WorkOffset { number: (value(g, 'G')? - 53.) as u8 }),
+            // Only these: `G59.1` is a coordinate system of its own on LinuxCNC.
+            [g] if ["G54", "G55", "G56", "G57", "G58", "G59"].contains(g) => out.push(Event::WorkOffset { number: g[1..].parse::<u8>().map_err(|e| e.to_string())? - 53 }),
             _ => return Err(format!("unreadable block {line:?}")),
         }
     }
@@ -206,9 +251,10 @@ impl<'a> Post<'a> {
             radius_tolerance_mm: RADIUS_TOLERANCE.absolute_mm,
             radius_relative_tolerance: RADIUS_TOLERANCE.relative,
         })?;
-        let lines = ["G21", "G90", "G91.1", "G17", "G94", "G97", "G40", "G49", "G80", "G92.1", "G61.1", "M5", "M9"]
-            .map(String::from)
-            .to_vec();
+        let lines: Vec<String> = PREAMBLE.iter().map(|line| tamper.map_or((*line).to_string(), |tamper| tamper(line))).collect();
+        if let Some(line) = lines.iter().zip(PREAMBLE).find(|(line, expected)| line != expected) {
+            return Err(format!("the preamble says {:?} where it must say {:?}", line.0, line.1));
+        }
         let header = Header {
             version: 1,
             id: manifest.run.id.clone(),
@@ -237,6 +283,11 @@ impl<'a> Post<'a> {
         };
         let (checker, _) = IntentChecker::begin(&header, settings, &lines)?;
         Ok(Self { machine, decoder, lines, position, plane: Plane::Xy, spindle_on: false, coolant: Coolant::Off, checker, tools, cancel: AtomicBool::new(false), tamper })
+    }
+
+    /// A line as written, after any tampering.
+    fn written_line(&self, line: &str) -> String {
+        self.tamper.map_or_else(|| line.to_string(), |tamper| tamper(line))
     }
 
     /// Lines written since `mark`, as they stand after any tampering.
@@ -270,7 +321,28 @@ impl<'a> Post<'a> {
         format_words(addresses, values, 1., self.machine.decimals)
     }
 
-    fn event(&mut self, event: &Event) -> Result<(), String> {
+    /// Whether the machine can do this at all. Not being able to is not a fault in the post.
+    fn allowed(&self, event: &Event) -> Result<(), String> {
+        match event {
+            Event::Motion { motion } if motion.feed_mm_min.is_some_and(|feed| feed > self.machine.max_feed_mm_min) => {
+                Err(format!("feed {} is above the machine's limit", motion.feed_mm_min.unwrap_or(0.)))
+            }
+            Event::ToolChange { number, .. } if self.machine.max_tool_number.is_some_and(|m| *number > m) => Err(format!("tool number {number} is above the machine's limit")),
+            Event::ToolChange { length_register, .. } if self.machine.max_length_register.is_some_and(|m| *length_register > m) => {
+                Err(format!("length register {length_register} is above the machine's limit"))
+            }
+            Event::Spindle { rpm, .. } if *rpm > self.machine.max_spindle_rpm => Err(format!("spindle speed {rpm} is above the machine's limit")),
+            _ => Ok(()),
+        }
+    }
+
+    /// Writes an event and reads it back.
+    fn event(&mut self, event: &Event) -> Result<(), Stop> {
+        self.allowed(event).map_err(Stop::Refused)?;
+        self.write_event(event).map_err(Stop::Written)
+    }
+
+    fn write_event(&mut self, event: &Event) -> Result<(), String> {
         if let Event::Motion { motion } = event {
             return self.motion(motion);
         }
@@ -278,21 +350,12 @@ impl<'a> Post<'a> {
         match event {
             Event::Motion { .. } => unreachable!(),
             Event::ToolChange { number, length_register, position_after_mm, .. } => {
-                if self.machine.max_tool_number.is_some_and(|m| *number > m) {
-                    return Err(format!("tool number {number} is above the machine's limit"));
-                }
-                if self.machine.max_length_register.is_some_and(|m| *length_register > m) {
-                    return Err(format!("length register {length_register} is above the machine's limit"));
-                }
                 self.lines.push(format!("T{number}"));
                 self.lines.push("M6".into());
                 self.lines.push(format!("G43 H{length_register}"));
                 self.position = *position_after_mm;
             }
             Event::Spindle { rpm, direction } => {
-                if *rpm > self.machine.max_spindle_rpm {
-                    return Err(format!("spindle speed {rpm} is above the machine's limit"));
-                }
                 if *rpm == 0. {
                     self.lines.push("M5".into());
                 } else {
@@ -330,9 +393,6 @@ impl<'a> Post<'a> {
     }
 
     fn motion(&mut self, motion: &Motion) -> Result<(), String> {
-        if motion.feed_mm_min.is_some_and(|feed| feed > self.machine.max_feed_mm_min) {
-            return Err(format!("feed {} is above the machine's limit", motion.feed_mm_min.unwrap_or(0.)));
-        }
         match &motion.curve {
             Curve::Line { start, end } => self.line(motion, *start, *end),
             Curve::Arc { plane, sweep_rad, .. } | Curve::Helix { plane, sweep_rad, .. } => {
@@ -358,7 +418,8 @@ impl<'a> Post<'a> {
     /// Writes one motion block, reads it back and returns the words' decoded curve.
     fn write(&mut self, code: &str, addresses: &str, values: &[f64], plane: Option<Plane>) -> Result<Option<Decoded>, String> {
         let text = format!("{code} {}", self.words(addresses, values)?.join(" "));
-        let text = self.tamper.map_or(text.clone(), |tamper| tamper(&text));
+        let text = self.written_line(&text);
+        check_motion_words(&text)?;
         let decoded = self.decoder.decode(&text, self.position, Some(1.), plane)?;
         self.lines.push(text);
         let Some(decoded) = decoded else { return Ok(None) };
@@ -417,8 +478,15 @@ impl<'a> Post<'a> {
         let [(range, piece)] = pieces.as_slice() else { return Err("a whole arc planned as more than one piece".into()) };
         let (range, piece) = (*range, piece.clone());
         let mark = self.lines.len();
-        self.lines.push(name.into());
-        self.plane = plane;
+        // The arc is decoded in the plane the written line selects.
+        let plane_line = self.written_line(name);
+        self.plane = match plane_line.as_str() {
+            "G17" => Plane::Xy,
+            "G18" => Plane::Xz,
+            "G19" => Plane::Yz,
+            other => return Err(format!("unreadable plane block {other:?}")),
+        };
+        self.lines.push(plane_line);
         let code = if sweep > 0. { "G3" } else { "G2" };
         let (mut addresses, mut values) = (String::new(), vec![]);
         for (i, letter) in ['X', 'Y', 'Z'].into_iter().enumerate() {
@@ -435,7 +503,7 @@ impl<'a> Post<'a> {
             addresses.push('F');
             values.push(feed);
         }
-        let written = self.write(code, &addresses, &values, Some(plane))?.ok_or("an arc block decoded to no move")?;
+        let written = self.write(code, &addresses, &values, Some(self.plane))?.ok_or("an arc block decoded to no move")?;
         let curve = &written.curve;
         // Rounding moves a small arc's centre and sweep further than its path, so compare paths.
         let tolerance = self.machine.tolerance_mm;
@@ -477,16 +545,14 @@ impl<'a> Post<'a> {
     }
 
     fn finish(mut self) -> Result<String, String> {
-        let mark = self.lines.len();
-        if self.spindle_on {
-            self.lines.push("M5".into());
+        let spindle = self.spindle_on.then_some("M5");
+        let coolant = (self.coolant != Coolant::Off).then_some("M9");
+        let expected: Vec<&str> = spindle.into_iter().chain(coolant).chain(["G49", "M2"]).collect();
+        let last: Vec<String> = expected.iter().map(|line| self.written_line(line)).collect();
+        if let Some(line) = last.iter().zip(&expected).find(|(line, expected)| line != *expected) {
+            return Err(format!("the end of the program says {:?} where it must say {:?}", line.0, line.1));
         }
-        if self.coolant != Coolant::Off {
-            self.lines.push("M9".into());
-        }
-        self.lines.push("G49".into());
-        self.lines.push("M2".into());
-        let last = self.lines[mark..].to_vec();
+        self.lines.extend_from_slice(&last);
         self.checker.finish(&last, &self.cancel)?;
         Ok(self.lines.join("\n") + "\n")
     }
@@ -537,8 +603,14 @@ fn tool_table(manifest: &StreamManifest, raw: &serde_json::Value) -> Result<Tool
     Ok(table)
 }
 
+/// A program that does not read back as its plan: not tied to an operation, so nothing is retried.
+fn written(message: String) -> Failure {
+    Failure::from(format!("the written program does not match the plan, so none is given out: {message}"))
+}
+
 /// Plans, simulates, checks and posts one job. A definite stock-contact violation refuses the
-/// program; motions the check could not clear are counted.
+/// operation, and a block that does not read back as planned the whole program; motions the check
+/// could not clear are counted.
 pub fn post(manifest_json: &str, machine: Machine) -> Result<Program, Failure> {
     post_tampered(manifest_json, machine, None)
 }
@@ -553,7 +625,7 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
     let cancel = AtomicBool::new(false);
     let raw: serde_json::Value = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let tools = tool_table(&manifest, &raw)?;
-    let mut post = Post::new(machine, &manifest, tools, tamper)?;
+    let mut post = Post::new(machine, &manifest, tools, tamper).map_err(written)?;
     let mut operations = vec![];
     let mut uncertain = 0;
     let mut held: Option<Vec<Event>> = None;
@@ -563,7 +635,7 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
     let mut active: Option<&str> = None;
 
     for operation in &manifest.operations {
-        let mut one = || -> Result<(), String> {
+        let mut one = || -> Result<(), Stop> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
                 active = Some(operation.tool());
@@ -617,14 +689,14 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
                 if let Some(raw) = check {
                     match binding.decode(&raw, producer.completed(), Some(&motion))?.check.motion_status() {
                         Some(Status::Violation) => {
-                            return Err(format!("camlib's stock-contact check found a violation in {} at motion {}", operation.id(), motion.id));
+                            return Err(Stop::Refused(format!("camlib's stock-contact check found a violation in {} at motion {}", operation.id(), motion.id)));
                         }
                         Some(Status::Uncertain) => uncertain += 1,
                         _ => {}
                     }
                 }
                 position = motion.curve.end();
-                post.motion(&motion)?;
+                post.event(&Event::Motion { motion })?;
                 for event in plan.take_events() {
                     post.event(&event)?;
                 }
@@ -641,11 +713,17 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
             }
             Ok(())
         };
-        one().map_err(|message| Failure { operation: Some(operation.id().to_string()), message })?;
+        one().map_err(|stop| match stop {
+            Stop::Refused(message) => Failure { operation: Some(operation.id().to_string()), message },
+            Stop::Written(message) => written(message),
+        })?;
     }
     for event in held.iter().flatten() {
-        post.event(event).map_err(Failure::from)?;
+        post.event(event).map_err(|stop| match stop {
+            Stop::Refused(message) => Failure::from(message),
+            Stop::Written(message) => written(message),
+        })?;
     }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
-    Ok(Program { motions: producer.completed(), nc: post.finish()?, operations, uncertain })
+    Ok(Program { motions: producer.completed(), nc: post.finish().map_err(written)?, operations, uncertain })
 }
