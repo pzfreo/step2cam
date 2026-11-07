@@ -212,7 +212,23 @@ A hole no tool fits is reported, not guessed.
 camlib plans, simulates and checks every move against the stock. An operation with a definite
 violation is left out and reported; motions the check could not clear are counted in the log, and
 **are still written**. Every block written is decoded again and compared with the plan by camlib's
-intent checker, and a mismatch stops the program being given out. And:
+intent checker, and a mismatch stops the program being given out.
+
+The stock in the setup that holds the part's mesh is compared with that mesh, after its last cut
+before thread milling. A program that definitely cuts into the part is refused, and so is one whose
+comparison ran out of budget. The log says how much is undecided and how much stock at least remains
+(that figure counts the web, and anything a later setup cuts). That check has limits:
+
+- it sees the part from above, as heights on the stock grid, so it cannot decide cells beside a wall,
+  and it cannot see a mistake under an overhang;
+- what it can miss depends on the part, and the log gives the figures: an error in height under the
+  mesh's surface error, flat faces too; sideways, under about a grid cell; and a misplaced cut
+  narrower than about four cells;
+- threads are not compared, because they go beyond the bore the mesh shows. They are milled last;
+- only that setup is compared: others, such as side holes, are not (the log says so);
+- the stock it reads is the planned one. The intent checker is what ties the written blocks to that plan.
+
+And:
 
 - neither tool knows your work offsets, clamps or tool lengths;
 - camlib's checks here protect the stock, not the finished part (no fixtures or protected
@@ -243,6 +259,8 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as. It is compared by hand when an
   intended change moves it.
+- `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong
+  toolpaths that must be refused.
 - `rust/tests/checker.rs`: changes written blocks (preamble, plane, motion, control and end) and
   expects no program to be given out.
 - `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its

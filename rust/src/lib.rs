@@ -9,6 +9,21 @@ pub mod post;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
+/// What camlib's comparison of the finished stock with the part found, for the log.
+fn material_note(report: Option<&camlib::material::Report>, manifest: &Value) -> String {
+    let Some(report) = report else {
+        return "the finished stock is not compared with the part in this setup: it holds no mesh of the part that is fine enough".into();
+    };
+    // The mesh's error widens every cell, flat faces too, and only a cell the tool wholly covers
+    // counts as cut: errors smaller than these pass, and they differ from part to part.
+    let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
+    let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
+    format!(
+        "finished stock against the part: no definite gouge. It cannot see an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting the web and anything a later setup cuts",
+        4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
+    )
+}
+
 fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), post::Failure> {
     let (jobs, notes) = job::jobs(plan, library)?;
     log.extend(notes);
@@ -21,7 +36,9 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
         if program.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, program.uncertain));
         }
-        programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions}));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(program.material.as_ref(), &job.manifest)));
+        let material = program.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge}));
+        programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions, "material": material}));
     }
     Ok(())
 }
@@ -32,7 +49,12 @@ fn remove_operation(plan: &mut Value, id: &str) -> Option<Value> {
     let (setup_id, number) = (parts.next()?, parts.next()?.parse::<usize>().ok()?);
     let setup = plan["setups"].as_array_mut()?.iter_mut().find(|s| s["id"] == setup_id)?;
     let ops = setup["operations"].as_array_mut()?;
-    (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))
+    let removed = (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))?;
+    // Refused or not, the finished stock is still compared with the part this holds.
+    if removed["kind"] == "roughing" {
+        setup["part_surface"] = removed.clone();
+    }
+    Some(removed)
 }
 
 /// Everything the page draws, from specify-core's analysis and mesh and a tool library. An
@@ -75,6 +97,9 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
     }
     // The page has the mesh already; the plan's copy of it is not needed.
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
+        if let Some(s) = setup.as_object_mut() {
+            s.remove("part_surface");
+        }
         for op in setup["operations"].as_array_mut().into_iter().flatten() {
             if let Some(o) = op.as_object_mut() {
                 o.remove("positions");

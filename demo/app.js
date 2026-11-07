@@ -888,7 +888,7 @@ function show(data) {
   const notes = data.notice ? [data.notice] : [];
   if (data.post_error) notes.push(`Posting failed: ${data.post_error}`);
   notes.push(...data.plan.warnings);
-  notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
+  notes.push(...data.log.filter((l) => /^note: .*(no (drill|end mill)|finished stock)/.test(l)).map((l) => l.slice(6)));
   showBanner(notes.join("\n"));
   showPart(model);
   showToolpaths(model);
