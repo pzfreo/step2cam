@@ -41,6 +41,17 @@ G-code as `<part>-<setup>.nc`, with comments at its top saying what the file doe
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
+**Plan** opens the process plan for review:
+- **The part:** its material and ISO 513 group.
+- **Each setup:** its operations in the order they will be cut.
+- **Each operation:** its tool, cutting data, ISO 14649 names and estimated time.
+- **Why:** under each operation, the chain of decisions behind it, each citing the rule it was
+  made by, with the tools turned down and the rule's rationale and sources.
+- **Problems:** what was refused, what was not cut and the warnings, each with its rule.
+
+Hovering an operation lights it in both views, and clicking pins it. **Save plan** downloads the
+plan as JSON, trace included.
+
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's
 engine) makes the toolpaths. It uses `demo/tools.json`: **placeholder tools and cutting data, not
