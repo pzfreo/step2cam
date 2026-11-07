@@ -8,6 +8,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { Display, Viewer } from "three-cad-viewer";
+import { createStock } from "./stock.js";
 
 const $ = (id) => document.getElementById(id);
 const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
@@ -25,6 +26,7 @@ let time = 0;            // playhead, in estimated machining seconds
 let playing = false;
 let showRapids = false;  // moves through the air in the toolpath view
 let showCurrent = true;  // while playing, the operation being cut stands out
+let showStock = true;    // the block, cut away as the program plays
 let paintedOp = null;    // the operation the toolpath view was last painted for
 let hoveredLine = null;  // the G-code line under the pointer
 
@@ -181,7 +183,7 @@ const PLANES = { 17: [0, 1, 2], 18: [2, 0, 1], 19: [1, 2, 0] };
 function parseProgram(data, operations) {
   const toolByNumber = new Map(data.tools.map((t) => [t.number, t]));
   const rapidRate = data.machine?.rapid_mm_min || 5000;
-  const lines = [], segments = [], positions = [];
+  const lines = [], segments = [], positions = [], local = [];
   let machining = 0;
 
   for (const program of data.programs) {
@@ -225,6 +227,7 @@ function parseProgram(data, operations) {
           machining += seconds;
           segments.push({ line: line.n, op: line.op, feature: line.feature, rapid: line.rapid, tool, setup, seconds, machining });
           positions.push(...toModel(setup, from), ...toModel(setup, to));
+          local.push(...from, ...to);
           from = to;
         }
         line.seconds = length / rate * 60;
@@ -233,7 +236,7 @@ function parseProgram(data, operations) {
       pos = target;
     }
   }
-  return { lines, segments, positions: new Float32Array(positions), machining };
+  return { lines, segments, positions: new Float32Array(positions), local: new Float32Array(local), machining };
 }
 
 function nearestFeature(op, point) {
@@ -531,7 +534,9 @@ function initRight() {
 }
 
 function drawRight() {
-  if (right.renderer) right.renderer.render(right.scene, right.camera);
+  if (!right.renderer) return;
+  right.block?.aim(right.camera);
+  right.renderer.render(right.scene, right.camera);
 }
 
 function resizeRight() {
@@ -572,6 +577,18 @@ function copyCameraToCad() {
 function showToolpaths(m) {
   for (const key of ["future", "done", "focus", "ghost", "tool", "edges", "stock"]) {
     if (right[key]) { right.scene.remove(right[key]); right[key] = null; }
+  }
+  if (right.block) {
+    right.scene.remove(right.block.mesh);
+    right.block.dispose();
+    right.block = null;
+  }
+  try {
+    right.block = createStock(m, toModel);
+    right.block.mesh.visible = showStock;
+    right.scene.add(right.block.mesh);
+  } catch (error) {
+    console.error("no stock view:", error);
   }
   const mesh = m.data.mesh;
   const body = new THREE.BufferGeometry();
@@ -643,6 +660,8 @@ function paintToolpaths() {
       else { a *= 0.2; b *= 0.25; }
     }
     if (s.rapid && !showRapids) { a = 0; b = 0; }
+    // With the block drawn, what has been cut is shown by the block; its paths would only hide it.
+    if (showStock && right.block && s.op !== current && !matches) b = 0;
     for (let v = 0; v < 2; v++) {
       future.set([c.r, c.g, c.b, a], 8 * i + 4 * v);
       done.set([c.r, c.g, c.b, b], 8 * i + 4 * v);
@@ -1014,6 +1033,9 @@ function drawPlayhead() {
   const before = i ? model.segments[i - 1].end : 0;
   const f = s.end > before ? Math.max(0, Math.min(1, (time - before) / (s.end - before))) : 1;
   right.done.geometry.setDrawRange(0, 2 * i + 2);
+  if (showStock) right.block?.update(time > 0 ? i : 0);
+  // With the block drawn, paths already cut are shown by the block, not by their lines.
+  right.future.geometry.setDrawRange(showStock && right.block && time > 0 ? 2 * i : 0, Infinity);
   const p = model.positions;
   const at = 6 * i;
   const tip = [0, 1, 2].map((k) => p[at + k] + (p[at + 3 + k] - p[at + k]) * f);
@@ -1202,7 +1224,12 @@ $("code").addEventListener("pointerleave", () => {
   drawExplain();
   setFocusQuiet(null);
 });
-for (const [id, set] of [["show-rapids", (on) => { showRapids = on; }], ["show-current", (on) => { showCurrent = on; }]]) {
+const stockOn = (on) => {
+  showStock = on;
+  if (right.block) right.block.mesh.visible = on;
+  if (on && model) drawPlayhead();
+};
+for (const [id, set] of [["show-rapids", (on) => { showRapids = on; }], ["show-current", (on) => { showCurrent = on; }], ["show-stock", stockOn]]) {
   $(id).addEventListener("click", () => {
     const on = $(id).getAttribute("aria-pressed") !== "true";
     $(id).setAttribute("aria-pressed", String(on));

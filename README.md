@@ -39,6 +39,11 @@ for a real machine.** An operation camlib refuses, or that no tool fits, is left
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 
+The toolpath view draws the block of stock being cut away as the program plays (`demo/stock.js`):
+a height field per setup, lowered under each cutting move's tool shape, and drawn as what lies
+under all of them. It is for looking at, not a check: it cannot show an undercut, and it draws a
+thread mill as a flat disc. camlib's comparison of the stock with the part is the check.
+
 ```bash
 demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
 ```
