@@ -3,46 +3,12 @@ on:
   push:
   pull_request:
 jobs:
-  test:
-    # The plan, the tool choices against a stand-in, and the operations built from camlib's
-    # real classes (its Python sources, no engine needed).
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ['3.12', '3.13']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-      - run: python -m pip install .
-      - run: git clone --depth 1 https://github.com/stevecad/camlib "$RUNNER_TEMP/camlib"
-      - run: python -m unittest discover -s tests -v
-        env:
-          CAMLIB_PYTHON: ${{ runner.temp }}/camlib/python
-      - run: step2cam step tests/fixtures/plate.step -o plan.json
-
-  post:
-    # A whole plan posted to G-code by camlib, built from source (needs Rust, which the
-    # runner has).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install . git+https://github.com/stevecad/camlib
-      - run: python -m unittest discover -s tests -k PostToGcode -v
-      - run: |
-          step2cam step tests/fixtures/plate.step -o plan.json
-          step2cam post plan.json --tools examples/tools.example.json -o out --accept uncertain
-          head -40 out/part-top.nc
-
   rust:
-    # The Rust path against what the Python one wrote (tests/fixtures/rust-golden).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: rust/fetch-camlib.sh
       - run: cargo test --release
         working-directory: rust
+      - name: The frozen fixtures are what specify-core writes
+        run: tests/specify-link.sh

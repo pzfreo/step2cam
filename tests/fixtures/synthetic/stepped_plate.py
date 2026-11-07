@@ -6,8 +6,8 @@ and rounds), at about 1/8 of its size and with its own dimensions. Not derived f
     then, for each NAME: specify-core analyse -o NAME.analysis.json NAME.step
                           specify-core mesh -o NAME.mesh.json NAME.step
 
-The second has the plate's top edge chamfered. With its rounded corners and boss, camlib's roughing
-currently refuses that.
+The second has the plate's top edge chamfered: with its rounded corners and boss, that shape is
+stevecad/camlib#70.
 """
 from pathlib import Path
 

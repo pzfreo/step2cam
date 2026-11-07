@@ -1,5 +1,5 @@
-//! The Rust path against the Python one: tests/fixtures/rust-golden holds what Python's
-//! step2cam.plan and step2cam.post wrote for the same input.
+//! Plans, jobs and G-code against tests/fixtures/rust-golden: a frozen baseline, written by the
+//! Python version this project started as.
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 

@@ -25,7 +25,7 @@ fn it_is_roughed_drilled_and_slotted_from_the_top() {
     assert!(out["post_error"].is_null(), "{}", out["post_error"]);
     let top = operations(&out, "top");
     let kinds: Vec<&str> = top.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert!(kinds.contains(&"roughing"), "{kinds:?} {}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "holes", "holes", "holes", "slot"], "{}", out["plan"]["warnings"]);
     assert_eq!(kinds.iter().filter(|k| **k == "holes").count(), 3, "{kinds:?} {}", out["plan"]["warnings"]);
     // The round-ended slot gets its own cut, which ends at the plate's bottom; the square one does not.
     let slots: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "slot").collect();
@@ -57,17 +57,13 @@ fn a_raised_boss_outline_is_not_followed_down_through_the_plate() {
     assert!(out["plan"]["skipped"].to_string().contains("r0.8 edge round"));
 }
 
-/// camlib refuses to rough a plate with rounded corners, a chamfered top edge and a boss together.
-/// If this starts failing because roughing runs, that has changed: this test and the note in the
-/// README can go.
+/// camlib once refused this shape: rounded corners, a chamfered top edge and a boss together
+/// (stevecad/camlib#70).
 #[test]
-fn a_chamfered_plate_with_a_boss_loses_roughing_says_why_and_keeps_the_rest() {
+fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["post_error"].is_null(), "{}", out["post_error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "holes", "holes", "holes", "slot"]);
-    assert!(out["plan"]["warnings"].to_string().contains("roughing left out"));
-    assert!(out["plan"]["covered_by_roughing"].as_array().unwrap().is_empty());
-    assert!(out["plan"]["skipped"].to_string().contains("roughing was refused"));
+    assert_eq!(kinds, ["facing", "roughing", "holes", "holes", "holes", "slot"], "{}", out["plan"]["warnings"]);
     assert!(out["plan"]["skipped"].to_string().contains("chamfer: no operation cuts it"));
 }

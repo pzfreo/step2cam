@@ -1,61 +1,29 @@
 # step2cam: STEP features to camlib toolpaths
 
 `step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
-STEP part (holes, counterbores, the part's shape) into toolpaths and G-code with
-[camlib](https://github.com/stevecad/camlib), the CAM engine.
+STEP part (holes, slots, counterbores, the part's shape) into toolpaths and G-code with
+[camlib](https://github.com/stevecad/camlib), the CAM engine. It is written in Rust and runs in the
+browser as WebAssembly, or natively.
 
-It calls two Python libraries in turn: specify-core (feature recognition by
-[pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib. Between them is a plain
-JSON plan you can read, keep or edit.
+Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
+is a plain JSON plan.
 
 ```
-part.step ─▶ specify_core.api.analyse / mesh ─▶ step2cam.plan ─▶ plan.json ─▶ step2cam.post ─▶ part-top.nc
-             (quiddity: features)               (what to cut)                 (camlib: how)    part-left.nc …
+part.step ─▶ specify-core: analysis, mesh ─▶ plan::plan ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
+             (quiddity: features)            (what to cut) (which tool) (camlib: how)  one per setup
 ```
-
-## Install
-
-Python 3.12 or later.
-
-```bash
-python -m pip install git+https://github.com/pzfreo/step2cam   # step2cam + specify-core (PyPI)
-python -m pip install git+https://github.com/stevecad/camlib   # camlib, for `post`
-```
-
-- **specify-core** comes from PyPI as a prebuilt wheel (no Rust needed). 0.1.12 or later.
-- **camlib is not on PyPI.** The `camlib` package on PyPI is an unrelated web library;
-  `pip install camlib` gets that one, and `step2cam post` will say so. Install camlib from
-  GitHub as above. That compiles its Rust engine, so it needs a Rust toolchain
-  ([rustup](https://rustup.rs)); camlib can also build a Linux wheel in Docker
-  (`packaging/build-manylinux-wheel.sh` in its repo). On macOS the build stops at linking with
-  undefined `_Py` symbols; set
-  `RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"` for the install.
-
-Planning needs only specify-core, so you can plan on one machine and post on another.
 
 ## Use
 
-From Python:
-
-```python
-import json
-import step2cam
-
-plan = step2cam.plan_step("part.step")            # specify-core analyses and meshes the part
-tools = json.load(open("my-tools.json"))
-step2cam.post(plan, tools, "out/", stem="part")   # camlib: out/part-top.nc, ...
-```
-
-From the command line:
+The easiest way is the demo below. Without a browser, `rust/examples/process.rs` takes
+specify-core's output and a tool library, and prints the plan, the G-code and the log as JSON:
 
 ```bash
-step2cam step part.step -o part.plan.json                      # STEP -> plan
-step2cam post part.plan.json --tools my-tools.json -o out/     # plan -> G-code, per setup
+rust/fetch-camlib.sh    # camlib at the pinned commit
+specify-core analyse -o analysis.json part.step
+specify-core mesh -o mesh.json part.step
+cargo run --release --manifest-path rust/Cargo.toml --example process -- analysis.json mesh.json examples/tools.example.json
 ```
-
-`step2cam step --part N` picks one part of an assembly; `--no-mesh` skips roughing.
-`step2cam plan analysis.json --mesh mesh.json` plans from JSON that `specify-core analyse` and
-`specify-core mesh` wrote.
 
 ## Demo
 
@@ -75,47 +43,29 @@ not lost beside roughing.
 demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
 ```
 
-`rust/` gives the same plans and G-code as `step2cam.py` (`rust/tests/parity.rs`), with these
-differences in checking. Every motion block is read back with camlib's decoder and compared with
-the planned path, and camlib's stock-contact checks run, but camlib's whole-program intent checker
-does not: its decoding of non-motion blocks is in camlib's Python. Only LinuxCNC output in mm is
-wired up. `rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit WebAssembly.
-
-`rust/` also goes further than `step2cam.py` in three ways:
-
-- **Slots:** a closed slot with round ends gets a `slot` operation of its own, a camlib `Pocket`
-  of its outline cut to size with the largest end mill that fits, after roughing and whichever
-  setup reaches it. Other slots are left to roughing.
-- **Mesh error:** it is measured on cones and tori as well as cylinders, so a part is no longer
-  refused roughing on the 0.1%-of-diagonal bound alone. Other curved faces still count at that bound.
-- **Top edge rounds:** where the whole top edge of the outside wall, or of a hole or slot cut to
-  size, has one convex radius, the outside wall is finished to size (only if it runs straight down
-  to the roughing floor) and a 45° chamfer is cut that meets the round at its middle, so it never
-  cuts into the part. It is a chamfer, not the round, and needs a `chamfer_mill` tool (`angle` 90,
-  `tip_diameter`) in the library: the demo has one. Bottom edges are not cut.
-- **Saying what is not cut:** convex edge rounds and chamfers are reported as not cut, and nothing
-  is reported as covered by roughing when roughing does not run. Features of an operation camlib
-  refuses say why.
+Every block written is read back and checked by camlib's whole-program intent checker, against
+the plan's motions, tools, spindle, coolant and work offsets, and camlib's stock-contact checks
+run. A program that fails is not given out. Only LinuxCNC output in mm is wired up.
 
 ## The plan (`specify-cam-plan`, version 1)
 
-The plan says **what** to cut, independent of tools and machine. Read it before posting.
+The plan says **what** to cut, independent of tools and machine.
 
-- **Stock**: the part's box plus `--margin` (2 mm) around the sides, `--top-stock` (1 mm) above
-  and `--bottom-stock` (0) below.
+- **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
+  and `bottom_stock` (0) below (`plan::Options`).
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
-  - the **stock**, in the `--rough-from` setup (the first; default `top`);
+  - the **stock**, in the `rough_from` setup (the first; default `top`);
   - the **part's own box**, in every later setup. By then roughing has cut away the stock
     around the part, so zero on the part, after removing the web roughing leaves (below).
 
   Each setup records its `zero` (`stock` or `part`), its `rotation` and `origin_model` (the
-  model point at X0 Y0 Z0), and `post` prints them.
+  model point at X0 Y0 Z0).
 - **Operations** in each setup, in setup coordinates:
-  - `facing` down to the part's top (the `--rough-from` setup only);
-  - `roughing` of the whole part from the mesh (the `--rough-from` setup only, needs the mesh).
-    It stops `--skin` (0.5 mm) above the part's bottom, so it leaves a web that thick all round
+  - `facing` down to the part's top (the `rough_from` setup only);
+  - `roughing` of the whole part from the mesh (the `rough_from` setup only, needs the mesh).
+    It stops `skin` (0.5 mm) above the part's bottom, so it leaves a web that thick all round
     the part (`web_mm`), which no operation removes. It also clears the side margin, which is
     where vise jaws on the stock would be: hold the stock from below (a fixture plate, screws or
     double-sided tape) or leave more margin;
@@ -125,7 +75,11 @@ The plan says **what** to cut, independent of tools and machine. Read it before 
     the part altogether;
   - `counterbore`: the enlargements at hole mouths (spotfaces, counterbores, stepped mouths),
     widest and outermost first;
-  - `thread`: internal threads, from Specify's answers (see [Threads](#threads)).
+  - `thread`: internal threads, from Specify's answers (see [Threads](#threads));
+  - `slot`: a closed slot with round ends, cut to size with a camlib `Pocket` of its outline and
+    the largest end mill that fits, after roughing, from whichever setup reaches it. Other slots
+    are left to roughing;
+  - `wall_finish` and `edge_chamfer`: see [Top edge rounds](#top-edge-rounds).
 - **Checks against the mesh** (only when the mesh is given):
   - a hole is cut only from a side where no part material is above its opening;
   - a plain through hole may be cut from its far end instead, unless quiddity reports that
@@ -134,13 +88,23 @@ The plan says **what** to cut, independent of tools and machine. Read it before 
 
   Without a mesh none of this is checked, and the plan's `warnings` say so.
 - **`skipped`**: every feature that is not planned, with the reason: oblique or unreachable
-  holes, countersinks, turned features (lathe work), and features roughing cannot reach (a
-  flat face of the feature points away from the roughing setup), or every feature when there
-  is no mesh. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
-  their flat faces, and they are left with the roughing allowance (there is no finishing pass).
+  holes, countersinks, chamfers, edge rounds not chamfered, turned features (lathe work), and
+  features roughing cannot reach (a flat face of the feature points away from the roughing setup),
+  or every feature when there is no mesh or roughing does not run. Features of an operation camlib
+  refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
+  their flat faces, and they are left with the roughing allowance (there is no general finishing
+  pass).
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
+
+## Top edge rounds
+
+Where the whole top edge of the outside wall, or of a hole or slot cut to size, has one convex
+radius, the outside wall is finished to size (only if it runs straight down to the roughing floor,
+so a raised boss's outline is not followed through the plate below it) and a 45° chamfer is cut
+that meets the round at its middle, so it never cuts into the part. It is a chamfer, not the round,
+and needs a `chamfer_mill` tool in the library: the demo has one. Bottom edges are not cut.
 
 ## Threads
 
@@ -155,10 +119,10 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
   Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm.
 - **How:** milled with a single-profile thread mill to the thread's major diameter, after the
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
-  otherwise the thread is left out and the post says why. Check the fit with a plug gauge or
+  otherwise the thread is left out and the log says why. Check the fit with a plug gauge or
   a screw before taking the part off the machine.
 - **Neck clearance:** a small thread mill's neck passes close to the drilled wall (0.1 mm for
-  the example tool in an M5 hole). camlib proves it clear on its stock grid, so `post` makes
+  the example tool in an M5 hole). camlib proves it clear on its stock grid, so the job makes
   that grid fine enough for the narrowest neck in the setup, and says so. If that would need
   more than 16 million cells for the part, the thread is left out: use a thread mill with a
   narrower neck.
@@ -170,7 +134,7 @@ a thread mill takes a light cut, and does not snap off in the hole if something 
 
 ## The tool library
 
-`post` reads a JSON tool library: see [`examples/tools.example.json`](examples/tools.example.json).
+The tool library is JSON: see [`examples/tools.example.json`](examples/tools.example.json).
 **Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
 on purpose.
 
@@ -180,16 +144,17 @@ on purpose.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks
-  it, and the post states the same position, so the program and the plan agree. `post`
-  prints the position for each setup. By default it is over X0 Y0, at the clearance height
+  it, and the post starts from the same position, so the program and the plan agree. By default it is over X0 Y0, at the clearance height
   plus the longest gauge length, so every tool's tip is above the clearance height.
-- `tools`: every tool needs `id`, `type` (`end_mill`, `drill` or `thread_mill`), `number`,
+- `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `thread_mill` or `chamfer_mill`), `number`,
   `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
   `feed_mm_min`, `spindle_rpm` and `coolant`. Also, by type:
   - **End mills:** `flute_length`, `plunge_mm_min`, `stepdown_mm` and `stepover_mm`.
   - **Drills:** `flute_length` and `point_angle`.
   - **Thread mills:** single-profile. `diameter` is the tooth's, so they also need
     `tooth_height`, `neck_diameter` (narrower than the tooth), `neck_length` and
+    `plunge_mm_min`.
+  - **Chamfer mills:** `flute_length`, `angle` (90 is the only one used), `tip_diameter` and
     `plunge_mm_min`.
 
   There are no defaults for these: camlib checks the holder against the stock, so a guessed
@@ -221,13 +186,16 @@ How each operation gets a tool:
 | `holes` with no such drill | `Bore` (helical) | the largest end mill that fits |
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
 | `thread` | `ThreadMilling` (internal, helical, climb) | the largest thread mill whose pitch range takes the pitch, whose tooth fits the drilled hole, whose neck clears the thread crests and which reaches the thread's bottom |
+| `slot` | `Pocket` | the largest end mill that fits |
+| `wall_finish` | `Contour`, only if the edge chamfer has a tool | the largest end mill (or `roughing_tool`) |
+| `edge_chamfer` | `Chamfer` | a 90° chamfer mill wide enough |
 
-How deep holes are cut (the post prints a note for each case):
+How deep holes are cut (the log has a note for each case):
 
 - **Through, exiting the part:** full diameter `breakthrough_mm` past the exit. The drill's
   point goes further, usually below the stock bottom: support the part clear of the holes
   (spoilboard, parallels). A `Bore` stops at the stock bottom (camlib bores no lower), so with
-  no `--bottom-stock` it leaves a skin or burr at the exit.
+  no `bottom_stock` it leaves a skin or burr at the exit.
 - **Through, with part material beyond the exit** (a cross hole into a cavity): no deeper
   than that material less 0.2 mm. If the drill's point does not fit, the drill stops short of
   full diameter at the exit, and the note says so.
@@ -241,58 +209,51 @@ A hole no tool fits is reported, not guessed.
 
 ## Safety
 
-camlib plans, simulates, checks every move against the stock and posts with its own checks.
-`post` refuses a program with violations or uncertain results unless you `--accept` them. But:
+camlib plans, simulates and checks every move against the stock. An operation with a definite
+violation is left out and reported; motions the check could not clear are counted in the log, and
+**are still written**. Every block written is decoded again and compared with the plan by camlib's
+intent checker, and a mismatch stops the program being given out. And:
 
 - neither tool knows your work offsets, clamps or tool lengths;
 - camlib's checks here protect the stock, not the finished part (no fixtures or protected
   bodies are declared);
 - the roughing mesh is specify-core's triangulation, not an exact surface. Its error
-  (`surface_error_mm`) is measured: none on flat faces, the exact chord error on cylinders,
-  and specify-core's bound (0.1% of the part's diagonal) on any other curved face. The
+  (`surface_error_mm`) is measured: none on flat faces, the chord error on cylinders, cones and
+  tori, and specify-core's bound (0.1% of the part's diagonal) on any other curved face. The
   roughing allowance is kept at least twice that. camlib refuses a mesh with more than
   0.1 mm of error, so a large part with such faces is not roughed (the plan says why).
 
 **Simulate the G-code in your own tools, dry-run above the part, and single-block the first
 run.**
 
-## Known limit: roughing a chamfered plate with a boss
-
-camlib refuses to rough a part with rounded upright corners, a chamfered top edge and a raised boss
-together ("constructed region failed topology validation"); take any one away and it roughs. Why is
-not yet known. The operation is left out and reported, and the rest of the part is still cut.
-`tests/fixtures/synthetic/stepped-plate-chamfered.step` reproduces it, and
-`roughing-refused.manifest.json` beside it is a smaller camlib job that does.
-
 ## Not done (yet)
 
 Finishing passes (walls and floors are left with the roughing allowance), removing the web,
-countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end of through holes, tapping, left-hand,
-inch and external threads, contouring with tabs, fixtures
-and avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe
-work.
+countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end
+of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
+avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests
+rust/fetch-camlib.sh
+cargo test --release --manifest-path rust/Cargo.toml
 ```
 
-Three levels, each used when it can be:
+- `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
+  baseline written by the Python version this project started as. It is compared by hand when an
+  intended change moves it.
+- `rust/tests/checker.rs`: changes written blocks (preamble, plane, motion, control and end) and
+  expects no program to be given out.
+- `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
+  output with the frozen fixtures.
+- `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
+- `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
+  reported as not cut.
 
-- **Always (standard library):** the plan, and the tool choices against a stand-in for camlib
-  that records what the bridge asks for.
-- **With camlib's Python sources** (`CAMLIB_PYTHON=<camlib checkout>/python`, no engine
-  needed): the same tool-choice cases built from camlib's real classes, so a wrong argument
-  name fails.
-- **With camlib installed:** a whole plan posted to G-code.
-
-`rust/` has its own tests, `cargo test --release` after `rust/fetch-camlib.sh`: its plans, jobs
-and G-code against what Python wrote (`tests/fixtures/rust-golden`).
-
-CI runs all of these. The fixtures in `tests/fixtures` are specify-core's test part `plate.step`,
-and specify-core's output for it and for `spindle.step`. With specify-core installed,
-`plan_step` is checked against them.
+The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
+for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the
+synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build123d.
 
 ## License
 

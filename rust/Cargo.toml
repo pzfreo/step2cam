@@ -10,7 +10,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Fetched by fetch-camlib.sh: camlib is not published, and needs camlib-wasm32.patch for now.
+# Fetched by fetch-camlib.sh: camlib is not published.
 camlib = { path = "../vendor/camlib" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }

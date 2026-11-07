@@ -132,9 +132,9 @@ impl<'a> Library<'a> {
             if !(lowest <= pitch && pitch <= highest) {
                 why.push(format!("{}: pitch {} outside its range", id(t), show(pitch)));
             } else if diameter >= start - 0.05 {
-                why.push(format!("{}: ⌀{} does not fit the ⌀{} hole", id(t), show(diameter), show(start)));
+                why.push(format!("{}: ⌀{} does not fit the ⌀{} hole", id(t), t["diameter"], show(start)));
             } else if neck / 2. >= room - 0.01 {
-                why.push(format!("{}: its ⌀{} neck would rub the thread crests", id(t), show(neck)));
+                why.push(format!("{}: its ⌀{} neck would rub the thread crests", id(t), t["neck_diameter"]));
             } else if reach <= below + 0.01 {
                 why.push(format!("{}: reaches {} mm, the thread ends {} mm below the stock top", id(t), show(reach), show(r(below))));
             } else if best.is_none_or(|b| diameter > b["diameter"].as_f64().unwrap_or(0.)) {

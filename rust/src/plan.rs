@@ -69,7 +69,7 @@ fn unit(v: V3) -> Result<V3, String> {
     }
     Ok([v[0] / n, v[1] / n, v[2] / n])
 }
-/// Rounded for the plan, with no negative zero: the nearest 4-decimal value, as Python's round.
+/// Rounded for the plan, with no negative zero: the nearest 4-decimal value.
 pub(crate) fn r(x: f64) -> f64 {
     format!("{x:.4}").parse::<f64>().unwrap_or(x) + 0.0
 }
