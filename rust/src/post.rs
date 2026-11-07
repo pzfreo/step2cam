@@ -613,6 +613,25 @@ fn gouge_message(report: &camlib::material::Report) -> String {
     format!("the finished stock cuts into the part: camlib's material check found {} cells below it{at}", report.gouge.definite_cells)
 }
 
+/// The stock against the part, if the job asks for it at this point. A definite gouge refuses the
+/// whole program, and so does a comparison that ran out of budget: it has not looked everywhere.
+fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool) -> Result<Option<camlib::material::Report>, Failure> {
+    if producer.start_material_verification(after)?.is_none() {
+        return Ok(None);
+    }
+    let bytes = producer.finish_material_verification(cancel)?;
+    let Check::Material { report, .. } = binding.decode(&bytes, producer.completed(), None)?.check else {
+        return Err(Failure::from("camlib's material check gave no report".to_string()));
+    };
+    if report.gouge.definite_cells > 0 {
+        return Err(Failure::from(gouge_message(&report)));
+    }
+    if !report.complete {
+        return Err(Failure::from(format!("camlib's comparison of the stock with the part ran out of budget with {} cells unexamined, so no program is given out", report.stats.unexamined_cells)));
+    }
+    Ok(Some(*report))
+}
+
 /// A program that does not read back as its plan: not tied to an operation, so nothing is retried.
 fn written(message: String) -> Failure {
     Failure::from(format!("the written program does not match the plan, so none is given out: {message}"))
@@ -643,6 +662,7 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
     let mut active_tool: Option<(String, u32, u32)> = None;
     let mut position = manifest.initial_position_mm;
     let mut active: Option<&str> = None;
+    let mut material = None;
 
     for operation in &manifest.operations {
         let mut one = || -> Result<(), Stop> {
@@ -727,6 +747,9 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
             Stop::Refused(message) => Failure { operation: Some(operation.id().to_string()), message },
             Stop::Written(message) => written(message),
         })?;
+        if material.is_none() {
+            material = compare(&mut producer, &binding, Some(operation.id()), &cancel)?;
+        }
     }
     for event in held.iter().flatten() {
         post.event(event).map_err(|stop| match stop {
@@ -734,21 +757,9 @@ pub fn post_tampered(manifest_json: &str, machine: Machine, tamper: Option<&dyn 
             Stop::Written(message) => written(message),
         })?;
     }
-    let material = match producer.start_material_verification(None)? {
-        None => None,
-        Some(_) => {
-            let bytes = producer.finish_material_verification(&cancel)?;
-            match binding.decode(&bytes, producer.completed(), None)?.check {
-                Check::Material { report, .. } => {
-                    if report.gouge.definite_cells > 0 {
-                        return Err(Failure::from(gouge_message(&report)));
-                    }
-                    Some(*report)
-                }
-                _ => return Err(Failure::from("camlib's material check gave no report".to_string())),
-            }
-        }
-    };
+    if material.is_none() {
+        material = compare(&mut producer, &binding, None, &cancel)?;
+    }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     Ok(Program { motions: producer.completed(), nc: post.finish().map_err(written)?, operations, uncertain, material })
 }

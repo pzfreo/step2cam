@@ -19,6 +19,13 @@ const NO_AREA: f64 = 1e-10;
 /// then one spring pass at full depth.
 const RADIAL_PASSES: u64 = 2;
 const SPRING_PASSES: u64 = 1;
+/// How much work camlib may spend comparing the stock with the part, its most. A check that runs out refuses
+/// the program. camlib's default runs out on the fine grid a thread mill needs.
+const COMPARISON_BUDGET: u64 = 1_000_000_000;
+const COMPARISON_NODES: u64 = 10_000_000;
+/// camlib's most: a gouge should get a location even among the cells of material left.
+const COMPARISON_FINDINGS: usize = 4096;
+
 /// camlib proves a thread mill's neck clear of the hole wall beside the groove from its stock
 /// grid: a cell up to its diagonal away can still count as wall. The grid is made fine enough for
 /// the neck's clearance, with this much in hand...
@@ -636,12 +643,20 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         };
         let first = operations[0]["tool"].as_str().unwrap_or("");
         let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
-        // The whole part is known only where it is roughed: the final stock is compared with it.
-        let material = match setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")) {
+        // The whole part is known only where roughing is planned, whether or not camlib accepted it.
+        // A thread cuts past the bore the mesh shows, so the stock is compared just before threads.
+        let part = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")).or_else(|| setup.get("part_surface"));
+        let first_thread = operations.iter().position(|o| o["kind"] == "thread_mill");
+        let material = match part.filter(|_| first_thread != Some(0)) {
             Some(rough) => {
                 let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
-                let base = z.fold(f64::INFINITY, f64::min);
-                json!([{"after_operation": null, "target": {
+                // The stock can go below the part: everything above the base is what is compared.
+                let base = z.fold(bound(lo, 2)?, f64::min);
+                let after = first_thread.map(|i| operations[i - 1]["id"].clone());
+                if first_thread.is_some() {
+                    notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
+                }
+                json!([{"after_operation": after, "options": {"max_tile_nodes": COMPARISON_NODES, "max_boundary_tests": COMPARISON_BUDGET, "max_findings": COMPARISON_FINDINGS}, "target": {
                     "version": 1, "units": "mm", "id": format!("step2cam-{setup_id}-part"), "revision": "1",
                     "surface": surface(rough)?, "base_z_mm": base,
                     // surface_error_mm bounds the mesh's distance from the part both ways, so the

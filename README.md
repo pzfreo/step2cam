@@ -214,14 +214,18 @@ violation is left out and reported; motions the check could not clear are counte
 **are still written**. Every block written is decoded again and compared with the plan by camlib's
 intent checker, and a mismatch stops the program being given out.
 
-The stock left by the last move of the roughing setup is compared with the part's mesh. A program
-that definitely cuts into the part is refused; the log says how much is undecided and how much is
-at least left on the part. That check has limits:
+The stock in the setup that holds the part's mesh is compared with that mesh, after its last cut
+before thread milling. A program that definitely cuts into the part is refused, and so is one whose
+comparison ran out of budget. The log says how much is undecided and how much stock at least remains
+(that figure counts the web, and anything a later setup cuts). That check has limits:
 
 - it sees the part from above, as heights on the stock grid, so it cannot decide cells beside a wall,
   and it cannot see a mistake under an overhang;
-- it covers the roughing setup only: a setup with no roughing, such as side holes, is not compared
-  (the log says so);
+- what it can miss depends on the part, and the log gives the figures: an error in height under the
+  mesh's surface error, flat faces too; sideways, under about a grid cell; and a misplaced cut
+  narrower than about four cells;
+- threads are not compared, because they go beyond the bore the mesh shows. They are milled last;
+- only that setup is compared: others, such as side holes, are not (the log says so);
 - the stock it reads is the planned one. The intent checker is what ties the written blocks to that plan.
 
 And:
