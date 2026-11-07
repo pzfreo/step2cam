@@ -24,3 +24,21 @@ than by a schema check.
 
 **Met when** specify-core ships the analysis schema with its releases, and step2cam's tests
 validate every fixture's analysis against it.
+
+## S2. The material's family with its name
+
+**Missing.** Specify's material answer (`part.material`) is the material's name, such as
+`Aluminium 6082-T6`. specify-core knows its family (`Aluminium`, `Stainless steel`, `Steel`,
+`Brass and copper`, `Titanium and others`, `Tool steel`, `Plastics`, in `src/materials.rs`), but
+the analysis does not carry it.
+
+**Used by.** CAPP's choice of cutting data, which goes by the material's ISO 513 group
+(`requirement.material.group`).
+
+**Stand-in.** The name is matched against words (`stainless`, `aluminium`, `brass`, `steel` …) in
+`rust/capp/rulebase/reference/iso513-groups.json`, first match wins. A name it cannot place uses
+the tools' own cutting data, and the trace says so. Tool steel is placed in P, as supplied;
+hardened it is H, which neither the name nor the family says.
+
+**Met when** the analysis gives the family (or the ISO 513 group) of the material answered, and
+CAPP maps families instead of matching words.

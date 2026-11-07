@@ -3,8 +3,9 @@
 Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
 step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) and
 step 4 (the thread tables as reference data), step 5 (ISO 14649 names) and step 6 (tool
-selection, operation order and feature handling as JSON rules) are done; step 7 onwards is
-planned.
+selection, operation order and feature handling as JSON rules) are done. Of step 7, the material
+(from Specify, overridable, placed in an ISO 513 group) and cutting data by group are done; the
+rest of step 7 and step 8 are planned.
 
 Step 5 was done as names on each operation (`iso14649`: feature, operation, hole bottom
 condition, exact or closest), not as a restructured plan format v2. Renaming the plan's own

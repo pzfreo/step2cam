@@ -141,6 +141,12 @@ The plan says **what** to cut, independent of tools and machine.
   decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
   warning is a decision too. A decision a later one replaced says `superseded_by`.
+- **`material`**: the material Specify was told (`part.material`), the resources' override
+  (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `capp::finish`
+  has run. A tool may state its cutting data for a group (`cutting_data: {"N": {"feed_mm_min": …,
+  "spindle_rpm": …}}`); each operation's **`technology`** is the cutting data it uses, and says
+  whether they are the tool's own or its data for the group. The group is found from words in the
+  material's name until specify-core gives the material's family (`docs/upstream-needs.md`, S2).
 - **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
   the feature it machines and the operation, from
   `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published

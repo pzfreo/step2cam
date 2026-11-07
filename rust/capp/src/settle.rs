@@ -156,6 +156,7 @@ pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
 pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
     let library = Library::new(library_data)?;
     let mut trace = Trace::take(plan);
+    let group = material(plan, library_data, &mut trace);
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let view = setup.clone();
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
@@ -235,11 +236,69 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
             if let Some(names) = crate::reference::iso14649(op, tool_type) {
                 op["iso14649"] = names;
             }
+            let mut why = vec![decided];
+            if let Some(name) = tool.as_str() {
+                let spec = library.data["tools"].as_array().and_then(|t| t.iter().find(|x| x["id"] == name)).ok_or("a chosen tool is not in the library")?;
+                let (technology, source) = technology(spec, group.as_deref());
+                let says = match &group {
+                    Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),
+                    Some(g) => format!("{name}'s own cutting data: it has none for ISO 513 group {g}"),
+                    None => format!("{name}'s own cutting data: the material is in no ISO 513 group"),
+                };
+                why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));
+                op["technology"] = technology;
+            }
             op["tool"] = tool;
             op["tool_note"] = note;
-            because(op, [decided]);
+            because(op, why);
         }
     }
     trace.store(plan);
     Ok(())
+}
+
+/// The cutting data a tool's operations use: its own, with what it states for the material's ISO
+/// 513 group (`cutting_data`) in their place. And where they came from: `tool`, or
+/// `cutting_data.<group>`.
+fn technology(tool: &Value, group: Option<&str>) -> (Value, String) {
+    const KEYS: [&str; 5] = ["feed_mm_min", "spindle_rpm", "plunge_mm_min", "stepdown_mm", "stepover_mm"];
+    let mut out = serde_json::Map::new();
+    for key in KEYS {
+        if let Some(v) = tool.get(key) {
+            out.insert(key.into(), v.clone());
+        }
+    }
+    let by_group = group.and_then(|g| tool["cutting_data"].get(g).filter(|d| d.is_object()).map(|d| (g, d)));
+    let source = match by_group {
+        Some((g, data)) => {
+            for key in KEYS {
+                if let Some(v) = data.get(key) {
+                    out.insert(key.into(), v.clone());
+                }
+            }
+            format!("cutting_data.{g}")
+        }
+        None => "tool".into(),
+    };
+    out.insert("source".into(), json!(source));
+    (Value::Object(out), source)
+}
+
+/// The material the part is cut from: Specify's answer, unless the resources override it, and its
+/// ISO 513 group. Writes `material` into the plan and returns the group.
+fn material(plan: &mut Value, library: &Value, trace: &mut Trace) -> Option<String> {
+    let specified = plan["material"]["specified"].as_str().map(String::from);
+    let over = library["overrides"]["material"].as_str().filter(|m| !m.is_empty()).map(String::from);
+    let used = over.clone().or(specified.clone());
+    let placed = used.as_deref().and_then(crate::reference::iso513_group);
+    let from = if over.is_some() { "the resources' override" } else { "Specify (part.material)" };
+    let (outcome, says) = match (&used, &placed) {
+        (None, _) => ("none", "no material is given: the tools' own cutting data are used".to_string()),
+        (Some(m), None) => ("none", format!("{m}, from {from}, is in no ISO 513 group this can place: the tools' own cutting data are used")),
+        (Some(m), Some((g, word))) => ("chosen", format!("{m}, from {from}, is ISO 513 group {g} (by the word \"{word}\")")),
+    };
+    let group = placed.map(|(g, _)| g);
+    trace.decide("requirement.material.group", "part", outcome, &says, json!({"chosen": group}));
+    plan["material"] = json!({"specified": specified, "override": over, "used": used, "iso513": group});
+    group
 }

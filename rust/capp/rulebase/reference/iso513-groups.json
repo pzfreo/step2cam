@@ -1,0 +1,103 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "iso513.groups",
+ "title": "ISO 513 workpiece material groups, and how a material named in Specify is placed in one",
+ "source": {
+  "standard": "ISO 513",
+  "obtained_from": [
+   "https://secotools.com/article/120339",
+   "https://www.mmc-carbide.com/permanent/courses/78/classification.html"
+  ],
+  "agreement": "both give the six groups and what each holds (read 2026-11-07)",
+  "checked_against_standard": false
+ },
+ "groups": {
+  "P": "steel and cast steel, other than austenitic stainless steel",
+  "M": "stainless steel",
+  "K": "cast iron",
+  "N": "non-ferrous metals, such as aluminium and copper alloys, and non-metallic materials",
+  "S": "heat-resistant superalloys and titanium",
+  "H": "hardened steel and chilled cast iron"
+ },
+ "placing": {
+  "_comment": "A stand-in: specify-core's answer is the material's name (part.material), not its family, so the name is matched against these words, first match wins, ignoring case. Tool steel is placed in P as supplied (annealed); hardened it is H, which a name does not say. A printed or unnamed material has no group.",
+  "by_words": [
+   [
+    [
+     "stainless"
+    ],
+    "M"
+   ],
+   [
+    [
+     "titanium",
+     "inconel",
+     "nickel alloy",
+     "hastelloy",
+     "superalloy"
+    ],
+    "S"
+   ],
+   [
+    [
+     "cast iron"
+    ],
+    "K"
+   ],
+   [
+    [
+     "hardened"
+    ],
+    "H"
+   ],
+   [
+    [
+     "aluminium",
+     "aluminum"
+    ],
+    "N"
+   ],
+   [
+    [
+     "brass",
+     "copper",
+     "bronze"
+    ],
+    "N"
+   ],
+   [
+    [
+     "plastic",
+     "acetal",
+     "pom",
+     "delrin",
+     "nylon",
+     "polyamide",
+     "peek",
+     "abs",
+     "polycarbonate",
+     "acrylic",
+     "pmma",
+     "ptfe",
+     "hdpe",
+     "uhmw",
+     "polypropylene"
+    ],
+    "N"
+   ],
+   [
+    [
+     "steel"
+    ],
+    "P"
+   ]
+  ],
+  "never": [
+   "3d printing",
+   "printed",
+   "any",
+   "none"
+  ]
+ }
+}

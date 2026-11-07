@@ -83,6 +83,18 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     }))
 }
 
+/// The tool as this operation cuts with it: its own fields, with the cutting data capp chose for
+/// the operation (`technology`: feed, speed, plunge, stepdown, stepover) in their place.
+fn cutting_data(tool: &Value, op: &Value) -> Value {
+    let mut out = tool.clone();
+    for (key, value) in op["technology"].as_object().into_iter().flatten() {
+        if key != "source" {
+            out[key.as_str()] = value.clone();
+        }
+    }
+    out
+}
+
 /// The cutting data every operation carries.
 fn cutting(op: &mut Value, spec: &Value, plunge: bool) -> Result<(), String> {
     let number = spec["number"].clone();
@@ -319,6 +331,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                 "facing" | "roughing" => {
                     let s = tool_or_skip!(tool, notes);
                     spec = s;
+                    let s_cut = cutting_data(s, op);
+                    let s = &s_cut;
                     let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
                     if kind == "facing" {
                         let mut out = json!({
@@ -350,6 +364,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     let s = tool_or_skip!(tool, notes);
                     let rough = rough.ok_or("flats with no roughing to follow")?;
                     spec = s;
+                    let s_cut = cutting_data(s, op);
+                    let s = &s_cut;
                     let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
                     let mut out = json!({
                         "kind": "flat", "id": op_id, "tool": id(s), "surface": surface(rough)?,
@@ -365,6 +381,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     if chosen["type"] == "drill" {
                         let drill = chosen;
                         spec = drill;
+                        let drill_cut = cutting_data(drill, op);
+                        let drill = &drill_cut;
                         let (depth, reference, allow) = drill_depth(op, drill, breakthrough, stock_bottom, &op_id, &mut notes)?;
                         let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
                         full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
@@ -380,6 +398,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     } else {
                         let mill = chosen;
                         spec = mill;
+                        let mill_cut = cutting_data(mill, op);
+                        let mill = &mill_cut;
                         let floor = bore_floor(op, breakthrough, stock_bottom, &op_id, &mut notes)?;
                         full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, floor)));
                         bore(&op_id, mill, &op["centers"], d, floor, clearance, retract)?
@@ -389,6 +409,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     let d = num(op, "diameter")?;
                     let mill = tool_or_skip!(tool, notes);
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     bore(&op_id, mill, &op["centers"], d, num(op, "floor_z")?, clearance, retract)?
                 }
                 "thread" => {
@@ -416,6 +438,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     }
                     needs_cell = Some(needs_cell.map_or(cell, |c: f64| c.min(cell)));
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     let mut out = json!({
                         "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
                         "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": true, "climb": true,
@@ -432,6 +456,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     let width = num(op, "width")?;
                     let mill = tool_or_skip!(tool, notes);
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     let mut floor = num(op, "floor_z")?;
                     if op["bottom"] == "through" {
                         let exit = floor;
@@ -459,6 +485,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                 "notch" => {
                     let mill = tool_or_skip!(tool, notes);
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     let mut floor = num(op, "floor_z")?;
                     if op["bottom"] == "through" {
                         floor = stock_bottom.max(floor - breakthrough);
@@ -478,6 +506,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                 "v_channel" => {
                     let bit = tool_or_skip!(tool, notes);
                     spec = bit;
+                    let bit_cut = cutting_data(bit, op);
+                    let bit = &bit_cut;
                     let (half, depth) = ((num(bit, "angle")? / 2.).to_radians().tan(), num(op, "depth")?);
                     let left = num(op, "width")? / 2. - half * depth;
                     if left > 0.005 {
@@ -496,6 +526,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                 "wall_finish" => {
                     let mill = tool_or_skip!(tool, notes);
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     let mut out = json!({
                         "kind": "contour", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
                         "boundaries": "outer", "floor_z_mm": num(op, "floor_z")?, "stepdown_mm": num(mill, "stepdown_mm")?,
@@ -510,6 +542,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     let width = num(op, "width")?;
                     let mill = tool_or_skip!(tool, notes);
                     spec = mill;
+                    let mill_cut = cutting_data(mill, op);
+                    let mill = &mill_cut;
                     let mut out = json!({
                         "kind": "chamfer", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &op["holes"]),
                         "boundaries": op["boundaries"], "top_z_mm": num(op, "top_z")?, "width_mm": width,

@@ -16,6 +16,8 @@ fn untraced(plan: &Value) -> Value {
     let mut plan = plan.clone();
     if let Some(o) = plan.as_object_mut() {
         o.remove("decisions");
+        // Also newer than the baseline: the material Specify was told.
+        o.remove("material");
     }
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         for op in setup["operations"].as_array_mut().into_iter().flatten() {

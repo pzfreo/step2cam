@@ -1651,6 +1651,8 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         "version": 1,
         "units": "mm",
         "source": analysis.get("binding"),
+        // The material as Specify was told it (part.material); capp::finish places it in a group.
+        "material": {"specified": analysis["resume"]["answers"]["part.material"].as_str()},
         "part": {"min": rp(part_lo), "max": rp(part_hi)},
         "setups": setups,
         "covered_by_roughing": covered,

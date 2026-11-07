@@ -68,6 +68,20 @@
    ]
   },
   {
+   "id": "requirement.material.group",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "The part's material is Specify's answer (part.material), unless the resources override it (overrides.material). It is placed in an ISO 513 group by the words of its name, a stand-in until specify-core gives the material's family.",
+   "code": "settle.rs material; reference.rs iso513_group",
+   "sources": [
+    {
+     "kind": "standard",
+     "ref": "ISO 513",
+     "via": "reference/iso513-groups.json"
+    }
+   ]
+  },
+  {
    "id": "setup.stock.part_box_with_margins",
    "version": 1,
    "stage": "setup",
@@ -652,6 +666,25 @@
    ],
    "data": [
     "rules/tools.json#thread_mill"
+   ]
+  },
+  {
+   "id": "tool.cutting_data.by_group",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "An operation uses its tool's cutting data (feed, speed, plunge, stepdown, stepover), with what the tool states for the material's ISO 513 group in their place.",
+   "code": "settle.rs technology",
+   "sources": [
+    {
+     "kind": "standard",
+     "ref": "ISO 513",
+     "note": "cutting data are given by workpiece material group",
+     "via": "reference/iso513-groups.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "the values themselves are the shop's, in resources.json"
+    }
    ]
   },
   {

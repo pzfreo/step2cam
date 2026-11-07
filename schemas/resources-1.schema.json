@@ -63,6 +63,16 @@
    },
    "minItems": 2,
    "maxItems": 2
+  },
+  "overrides": {
+   "type": "object",
+   "properties": {
+    "material": {
+     "type": "string",
+     "description": "The material the part is cut from, in place of Specify's part.material."
+    }
+   },
+   "additionalProperties": false
   }
  },
  "patternProperties": {
@@ -259,6 +269,46 @@
       "stepover_mm": {
        "type": "number",
        "exclusiveMinimum": 0
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "feed_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "plunge_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepdown_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepover_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       },
+       "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
       }
      },
      "patternProperties": {
@@ -355,6 +405,46 @@
       "peck_mm": {
        "type": "number",
        "exclusiveMinimum": 0
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "feed_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "plunge_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepdown_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepover_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       },
+       "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
       }
      },
      "patternProperties": {
@@ -472,6 +562,46 @@
       "spring_passes": {
        "type": "integer",
        "minimum": 0
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "feed_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "plunge_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepdown_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepover_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       },
+       "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
       }
      },
      "patternProperties": {
@@ -578,6 +708,46 @@
       "stepdown_mm": {
        "type": "number",
        "exclusiveMinimum": 0
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "feed_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "plunge_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepdown_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepover_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       },
+       "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
       }
      },
      "patternProperties": {

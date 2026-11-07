@@ -81,6 +81,47 @@
    "items": {
     "$ref": "#/$defs/decision"
    }
+  },
+  "material": {
+   "type": "object",
+   "properties": {
+    "specified": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "Specify's answer, part.material."
+    },
+    "override": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "The resources' overrides.material, once capp::finish has run."
+    },
+    "used": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "iso513": {
+     "enum": [
+      "P",
+      "M",
+      "K",
+      "N",
+      "S",
+      "H",
+      null
+     ],
+     "description": "The ISO 513 group it falls in, from capp/rulebase/reference/iso513-groups.json."
+    }
+   },
+   "required": [
+    "specified"
+   ],
+   "additionalProperties": false
   }
  },
  "additionalProperties": false,
@@ -245,6 +286,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -343,6 +413,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -419,6 +518,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -532,6 +660,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -630,6 +787,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -746,6 +932,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -861,6 +1076,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -981,6 +1225,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1110,6 +1383,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1209,6 +1511,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1325,6 +1656,35 @@
        },
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false

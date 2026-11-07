@@ -5,10 +5,11 @@ use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The tables, as shipped with the crate.
-pub const TABLES: [(&str, &str); 3] = [
+pub const TABLES: [(&str, &str); 4] = [
     ("iso261-coarse-pitch.json", include_str!("../rulebase/reference/iso261-coarse-pitch.json")),
     ("full-thread.json", include_str!("../rulebase/reference/full-thread.json")),
     ("iso14649-names.json", include_str!("../rulebase/reference/iso14649-names.json")),
+    ("iso513-groups.json", include_str!("../rulebase/reference/iso513-groups.json")),
 ];
 
 fn table(name: &str) -> Value {
@@ -66,4 +67,23 @@ pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
         out["note"] = note.clone();
     }
     Some(out)
+}
+
+/// The ISO 513 group a material named in Specify falls in, and the words that placed it: the
+/// first entry of `iso513-groups.json`'s `by_words` with a word in the name, ignoring case. None
+/// for a name it cannot place, or one it never places (a printed material).
+pub fn iso513_group(material: &str) -> Option<(String, String)> {
+    static TABLE: OnceLock<Value> = OnceLock::new();
+    let table = TABLE.get_or_init(|| table("iso513-groups.json"));
+    let name = material.to_lowercase();
+    let never = table["placing"]["never"].as_array()?;
+    if never.iter().filter_map(Value::as_str).any(|w| name.contains(w)) {
+        return None;
+    }
+    for entry in table["placing"]["by_words"].as_array()? {
+        if let Some(word) = entry[0].as_array()?.iter().filter_map(Value::as_str).find(|w| name.contains(*w)) {
+            return Some((entry[1].as_str()?.to_string(), word.to_string()));
+        }
+    }
+    None
 }
