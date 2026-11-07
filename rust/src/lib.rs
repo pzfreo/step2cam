@@ -1,8 +1,8 @@
 //! step2cam: a STEP part's recognised features -> camlib toolpaths and G-code, with no Python and
 //! no server, so that it can run in a browser.
 //!
-//! specify-core's analysis and mesh -> [`capp`] (plan, settle, tools) -> [`job::jobs`] (the camlib
-//! adapter) -> [`post::post`]. An operation camlib refuses goes back to capp as an exclusion.
+//! specify-core's analysis and mesh -> [`fettle_planner`] (Fettle: plan, settle, tools) -> [`job::jobs`] (the camlib
+//! adapter) -> [`post::post`]. An operation camlib refuses goes back to Fettle as an exclusion.
 pub mod job;
 pub mod post;
 
@@ -53,26 +53,26 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
 /// operation camlib refuses is left out with a warning, so the rest of the part can still be
 /// seen; a part that plans but cannot post at all still comes back, with `post_error`.
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
-    let planned = capp::plan::plan(analysis, Some(mesh), &capp::plan::Options::default())?;
+    let planned = fettle_planner::plan::plan(analysis, Some(mesh), &fettle_planner::plan::Options::default())?;
     let machine: post::Machine = serde_json::from_value(library.get("machine").cloned().unwrap_or(Value::Null)).map_err(|e| format!("tool library machine: {e}"))?;
     let (mut programs, mut log, mut post_error) = (vec![], vec![], None);
-    // What camlib refused, in order: capp plans again without each.
+    // What camlib refused, in order: Fettle plans again without each.
     let mut exclusions: Vec<Value> = vec![];
     let mut plan;
     loop {
         programs.clear();
         log.clear();
         plan = planned.clone();
-        if let Err(message) = capp::finish(&mut plan, library, &exclusions) {
+        if let Err(message) = fettle_planner::finish(&mut plan, library, &exclusions) {
             post_error = Some(message);
             break;
         }
         let Err(failure) = post_all(&plan, library, &machine, &mut programs, &mut log) else {
             break;
         };
-        // An operation capp can take out is excluded and the plan finished again; anything else
+        // An operation Fettle can take out is excluded and the plan finished again; anything else
         // stops: nothing is given out, not even a setup that posted before this one stopped.
-        let excludable = failure.operation.as_deref().is_some_and(|id| capp::exclude(&mut plan.clone(), id, "").is_some());
+        let excludable = failure.operation.as_deref().is_some_and(|id| fettle_planner::exclude(&mut plan.clone(), id, "").is_some());
         let (true, Some(operation)) = (excludable, failure.operation) else {
             post_error = Some(failure.message);
             programs.clear();

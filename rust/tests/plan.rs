@@ -4,7 +4,7 @@ mod common;
 use common::*;
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use capp::plan::{Options, plan};
+use fettle_planner::plan::{Options, plan};
 
 fn plate() -> Value {
     fixture("plate.analysis.json")

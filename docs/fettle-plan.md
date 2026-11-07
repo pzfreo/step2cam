@@ -1,9 +1,11 @@
-# step2cam in three phases: Specify, CAPP, execution
+# Fettle: step2cam's planner, and the three phases around it
 
 This document describes the design as built (steps 1–6 and the first part of step 7) and the work
 still planned. The proposal it started from is in the history of this file.
 
 Decided (7 November 2026):
+- The planner is called **Fettle** (crate `fettle-planner`): British workshop English for getting a
+  part into shape. It is step2cam's computer-aided process planning (CAPP).
 - CAPP reads specify-core's output as it is. It has no feature schema of its own.
 - CAPP is a crate in this repository.
 - Rules are JSON for now.
@@ -28,7 +30,7 @@ A search in November 2026 found no open-source project that encodes this knowled
 
 ```
 STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► G-code
-        (specify-core)                    rust/capp                  step2cam: camlib adapter,
+        (specify-core)                    Fettle                     step2cam: camlib adapter,
                                           + resources.json           post (LinuxCNC), checks
 ```
 
@@ -38,16 +40,16 @@ writes them. The material is Specify's `part.material` answer. The PMI (`haeccei
 schema specify-core publishes) holds threads, fits, tolerances and surface textures; CAPP reads
 threads from the answers today and does not yet read fits or finishes.
 
-**2. CAPP** (`rust/capp`, a crate in this workspace). Pure functions, JSON in and JSON out, no I/O and
+**2. CAPP: Fettle** (the `fettle-planner` crate, `rust/fettle-planner`, in this workspace). Pure functions, JSON in and JSON out, no I/O and
 no camlib:
-- `capp::plan::plan(analysis, mesh, options)` decides what to cut in which setup.
-- `capp::finish(plan, resources, exclusions)` takes out what these resources cannot cut, and
+- `fettle_planner::plan::plan(analysis, mesh, options)` decides what to cut in which setup.
+- `fettle_planner::finish(plan, resources, exclusions)` takes out what these resources cannot cut, and
   what an execution engine refused; places the material in its ISO 513 group; and names each
   operation's tool, cutting data and ISO 14649 names.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes camlib's manifest; the post-processor (`post.rs`);
-and the browser entry point (`process`). An operation camlib refuses goes back to `capp::finish`
+and the browser entry point (`process`). An operation camlib refuses goes back to `fettle_planner::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 
@@ -67,7 +69,7 @@ The plan carries `format` and `version`; the tool libraries may, and the shipped
 
 ## The rulebase
 
-All JSON, in `rust/capp/rulebase/`, embedded in the crate so the WASM build needs no file access:
+All JSON, in `rust/fettle-planner/rulebase/`, embedded in the crate so the WASM build needs no file access:
 
 ```
 rulebase/
@@ -100,7 +102,7 @@ they stay as named constants beside the code that uses them.
 ### Rules as data
 
 Tool selection, the operation order and the handling of each feature family are data. The tool
-selectors use a small expression language (`rust/capp/src/rules.rs`): numbers, names (the
+selectors use a small expression language (`rust/fettle-planner/src/rules.rs`): numbers, names (the
 selector's inputs, its `let` values, `tool.<field>`, the library's `drill_tolerance_mm`, step2cam's
 `tip_clearance_mm`), `+ - * /`, comparisons, `&&` (which does not look past a false left side) and
 parentheses. It evaluates left to right with the usual precedence, so it does the same
@@ -192,8 +194,8 @@ Cutting data are not standardised: they are shop policy, in the resources.
 ## Steps
 
 Done:
-1. The `capp` crate and schemas for the tool library and the plan.
-2. Planning, settling and tool choice moved into `capp`; `job.rs` is the camlib adapter; refusals
+1. The planner crate (then `capp`, now `fettle-planner`) and schemas for the tool library and the plan.
+2. Planning, settling and tool choice moved into the planner crate; `job.rs` is the camlib adapter; refusals
    are exclusions.
 3. The decision trace, with every rule inventoried.
 4. The thread tables as reference data.

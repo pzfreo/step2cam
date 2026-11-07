@@ -1,5 +1,5 @@
 {
- "format": "capp-rules",
+ "format": "fettle-rules",
  "version": 1,
  "_comment": "What becomes of a feature, by its specify-core family: the first case whose families (all, when absent) and conditions hold. Conditions and actions name code: the geometry is computed, not data. An action is one of hole (placed in a setup and cut), by_slot (cut by its slot's, notch's or V-channel's operation), members (its member holes are planned one by one), covered (left to roughing), or skip with the rule and the reason's template.",
  "conditions": {

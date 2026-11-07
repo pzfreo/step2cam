@@ -14,7 +14,7 @@ JSON Schema. The PMI has one (`haecceity.pmi-1.json`, under
 it. It needs to cover the fields a consumer reads: `binding`, `faces`, `features` (each family's
 `record`), `dimensioning`, `existing`, `part` and `resume.answers`.
 
-**Used by.** step2cam's planning (`rust/capp/src/plan.rs`), which reads specify-core's features as they are and has no feature schema
+**Used by.** step2cam's planning (`rust/fettle-planner/src/plan.rs`), which reads specify-core's features as they are and has no feature schema
 of its own.
 
 **Stand-in.** step2cam checks the fields it reads as it reads them, and refuses with a message
@@ -39,7 +39,7 @@ families, in `src/materials.rs`), but the analysis does not carry it.
 (`requirement.material.group`).
 
 **Stand-in.** The name's whole words are matched against `stainless`, `aluminium`, `brass`, `steel`
-… in `rust/capp/rulebase/reference/iso513-groups.json`, first match wins; a printing process in the
+… in `rust/fettle-planner/rulebase/reference/iso513-groups.json`, first match wins; a printing process in the
 name (`(FDM)`, `(DMLS)` …) gives no group. A name it cannot place uses
 the tools' own cutting data, and the trace says so. Tool steel is placed in P, as supplied;
 hardened it is H, which neither the name nor the family says.

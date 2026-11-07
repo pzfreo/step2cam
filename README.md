@@ -1,23 +1,28 @@
-# step2cam: STEP features to camlib toolpaths
+# step2cam: recognise a part, plan how to make it, and say why
 
-`step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
-STEP part (holes, slots, counterbores, the part's shape) into toolpaths and G-code with
-[camlib](https://github.com/stevecad/camlib), the CAM engine. It is written in Rust and runs in the
-browser as WebAssembly, or natively.
+`step2cam` takes a STEP part from what it is to how to make it:
+1. **Recognise:** [Specify](https://github.com/pzfreo/specify-core), built on
+   [quiddity](https://github.com/pzfreo/quiddity), finds the part's features: holes, slots,
+   counterbores, notches, steps and the part's shape.
+2. **Plan:** **Fettle**, the planner here (the `fettle-planner` crate), decides how to make it:
+   setups, operations, tools, cutting data and order. Every choice cites a written rule, kept as
+   data with its rationale and sources, so the plan can be inspected and argued with.
+3. **Make:** [camlib](https://github.com/stevecad/camlib), the CAM engine, turns the plan into
+   toolpaths and G-code, and checks the finished stock against the part.
 
-Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
-is a plain JSON plan.
+It is written in Rust and runs in the browser as WebAssembly, or natively. Between the steps
+are plain JSON documents.
 
 ```
-part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
+part.step ─▶ specify-core: analysis, mesh ─▶ Fettle: plan, finish ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
              (quiddity: features)            (what to cut, with   (camlib's    (camlib: how)  one per setup
                                               which tool)          manifest)
 ```
 
-The planning is the `capp` crate (`rust/capp`): `capp::plan::plan` decides what to cut in which
-setup, and `capp::finish` takes out what the tool library cannot cut and names each operation's
+The planning is **Fettle**, the `fettle-planner` crate (`rust/fettle-planner`): `fettle_planner::plan::plan` decides what to cut in which
+setup, and `fettle_planner::finish` takes out what the tool library cannot cut and names each operation's
 tool. `step2cam` is the camlib adapter (`job.rs`), the post-processor (`post.rs`) and the browser
-entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
+entry point. An operation camlib refuses goes back to `fettle_planner::finish` as an exclusion, and the plan
 is finished again without it.
 
 ## Use
@@ -90,7 +95,7 @@ run. A program that fails is not given out. Only LinuxCNC output in mm is wired 
 The plan says **what** to cut, independent of tools and machine.
 
 - **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`capp::plan::Options`).
+  and `bottom_stock` (0) below (`fettle_planner::plan::Options`).
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
@@ -153,10 +158,10 @@ The plan says **what** to cut, independent of tools and machine.
   refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
   their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
   allowance.
-- **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
+- **`tool`** and **`tool_note`** on each operation, once `fettle_planner::finish` has run: the id of the tool
   that cuts it, or why none can (`tool_note`).
 - **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
-  made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
+  made by, as `id@version` from `rust/fettle-planner/rulebase/rules.json`, which lists each rule's stage,
   rationale, sources and where the code applies it. Where a rule's logic is itself data, it says
   so (`data`): tool selection (`rulebase/rules/tools.json`: which tools qualify, why the others
   are turned down, which one is preferred), the order of operations (`rules/sequence.json`) and
@@ -166,15 +171,15 @@ The plan says **what** to cut, independent of tools and machine.
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
   warning is a decision too. A decision a later one replaced says `superseded_by`.
 - **`material`**: the material Specify was told (`part.material`), the resources' override
-  (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `capp::finish`
+  (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `fettle_planner::finish`
   has run. A tool may state its cutting data for a group (`cutting_data: {"N": {"feed_mm_min": …,
   "spindle_rpm": …}}`); each operation's **`technology`** is the cutting data it uses, and says
   whether they are the tool's own or its data for the group. The group is found from the whole
   words of the material's name (a printed material, or a name nothing matches, has none) until
   specify-core gives the material's family (`docs/upstream-needs.md`, S2).
-- **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
+- **`iso14649`** on each operation, once `fettle_planner::finish` has run: its names in ISO 14649 (STEP-NC),
   the feature it machines and the operation, from
-  `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
+  `rust/fettle-planner/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
   AP238 lists, not checked against ISO 14649 itself. Where the names are only the closest
   (thread milling, edge chamfers, V-channels, counterbores, holes bored by helix) they say so
   (`exact: false`).
@@ -196,7 +201,7 @@ by [Specify](https://github.com/pzfreo/specify-core), `"hole.function:<hole>": "
 The answer can be on one hole or on a hole pattern, which threads every hole in the pattern.
 
 - **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`. The
-  coarse pitches are the table `rust/capp/rulebase/reference/iso261-coarse-pitch.json`, from two
+  coarse pitches are the table `rust/fettle-planner/rulebase/reference/iso261-coarse-pitch.json`, from two
   public sources that agree, not checked against ISO 261 itself.
   Right-hand only.
 - **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
@@ -337,7 +342,7 @@ Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for fla
 roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, counterbores at the far end
 of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
 avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work, more than
-one machine (`docs/capp-plan.md`, Planned), fits (reaming).
+one machine (`docs/fettle-plan.md`, Planned), fits (reaming).
 
 ## Tests
 
@@ -362,7 +367,7 @@ cargo test --release --workspace --manifest-path rust/Cargo.toml
 - `rust/tests/schemas.rs`: the tool libraries and every fixture's plan against the JSON Schemas in
   `schemas/` (`resources-1`, `plan-1`).
 
-The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
+Fettle's design, and what is planned for it, is in `docs/fettle-plan.md`.
 What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output

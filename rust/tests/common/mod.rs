@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
-use capp::plan::Options;
+use fettle_planner::plan::Options;
 
 pub type Bounds = ([f64; 3], [f64; 3]);
 pub const BOX: Bounds = ([-20., -20., -10.], [20., 20., 0.]);
@@ -125,6 +125,6 @@ pub fn any_note(notes: &[String], text: &str) -> bool {
 /// The plan as it is executed: settled, and each operation's tool named.
 pub fn finished(plan: &Value, library: &Value) -> Value {
     let mut plan = plan.clone();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }

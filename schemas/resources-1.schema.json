@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs), job.rs and post.rs read it. Every number in the shipped files is a placeholder.",
+ "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as Fettle (fettle-planner: resources.rs, settle.rs), job.rs and post.rs read it. Every number in the shipped files is a placeholder.",
  "type": "object",
  "required": [
   "machine",

@@ -4,9 +4,9 @@
 mod common;
 use common::*;
 use serde_json::{Value, json};
-use capp::resources::Library;
+use fettle_planner::resources::Library;
 use step2cam::job::jobs;
-use capp::plan::{Options, plan};
+use fettle_planner::plan::{Options, plan};
 
 fn tip(diameter: f64) -> f64 {
     diameter / 2. / 59f64.to_radians().tan()

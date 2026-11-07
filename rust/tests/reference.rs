@@ -1,14 +1,14 @@
-//! The reference tables in `capp/rulebase/reference/`: each says where its values came from and
+//! The reference tables in `fettle-planner/rulebase/reference/`: each says where its values came from and
 //! that they have not been checked against the standard itself, and agrees with spot values read
 //! from its sources.
-use capp::reference::{TABLES, coarse_pitch, full_thread};
+use fettle_planner::reference::{TABLES, coarse_pitch, full_thread};
 use serde_json::Value;
 
 #[test]
 fn every_table_says_where_it_came_from() {
     for (name, text) in TABLES {
         let table: Value = serde_json::from_str(text).unwrap();
-        assert_eq!(table["format"], "capp-reference", "{name}");
+        assert_eq!(table["format"], "fettle-reference", "{name}");
         let source = &table["source"];
         assert!(source["obtained_from"].as_array().is_some_and(|s| !s.is_empty()), "{name}: no sources");
         assert_eq!(source["checked_against_standard"], false, "{name}: only public sources are used");
@@ -17,7 +17,7 @@ fn every_table_says_where_it_came_from() {
 
 #[test]
 fn a_rule_that_cites_a_table_cites_one_that_exists() {
-    let rules: Value = serde_json::from_str(capp::trace::RULES).unwrap();
+    let rules: Value = serde_json::from_str(fettle_planner::trace::RULES).unwrap();
     for rule in rules["rules"].as_array().unwrap() {
         for source in rule["sources"].as_array().unwrap() {
             if let Some(via) = source["via"].as_str() {
@@ -80,8 +80,8 @@ fn the_iso14649_names_are_published_names() {
 #[test]
 fn a_finished_plan_names_each_operation_in_iso14649() {
     let fixture = |p: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(p)).unwrap()).unwrap() };
-    let mut plan = capp::plan::plan(&fixture("tests/fixtures/plate.analysis.json"), Some(&fixture("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
-    capp::finish(&mut plan, &fixture("examples/tools.example.json"), &[]).unwrap();
+    let mut plan = fettle_planner::plan::plan(&fixture("tests/fixtures/plate.analysis.json"), Some(&fixture("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    fettle_planner::finish(&mut plan, &fixture("examples/tools.example.json"), &[]).unwrap();
     for op in plan["setups"][0]["operations"].as_array().unwrap() {
         assert!(op["iso14649"]["feature"].is_string(), "{}", op["kind"]);
     }

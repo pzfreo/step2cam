@@ -1,6 +1,6 @@
-//! The rules kept as data (`capp/rulebase/rules/`) and their evaluator.
-use capp::resources::Library;
-use capp::rules::{eval, rank};
+//! The rules kept as data (`fettle-planner/rulebase/rules/`) and their evaluator.
+use fettle_planner::resources::Library;
+use fettle_planner::rules::{eval, rank};
 use serde_json::{Value, json};
 
 fn none(name: &str) -> Result<f64, String> {

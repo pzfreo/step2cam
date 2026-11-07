@@ -1,5 +1,5 @@
 {
- "format": "capp-reference",
+ "format": "fettle-reference",
  "version": 1,
  "id": "iso14649.names",
  "title": "ISO 14649 (STEP-NC) names for each kind of operation a plan holds: the feature it machines and the operation",

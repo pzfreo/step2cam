@@ -1,0 +1,10 @@
+[package]
+name = "fettle-planner"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Fettle, step2cam's computer-aided process planning: specify-core's features and a shop's resources in, a traced process plan out"
+publish = false
+
+[dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }

@@ -6,7 +6,7 @@ use step2cam::post::{Machine, post};
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
     let mut plan = plan.clone();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }
 
@@ -102,7 +102,7 @@ fn with_roughing_refused_no_wall_or_flat_is_cut() {
 #[test]
 fn a_flat_where_roughing_did_not_reach_is_refused() {
     let (analysis, mesh) = part("stepped-plate");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
     for op in manifest["operations"].as_array_mut().unwrap() {
@@ -120,7 +120,7 @@ fn a_flat_on_a_roughed_part_stays_within_its_limit_and_enters_from_the_retract_h
     let out = process("stepped-plate");
     assert!(out["programs"][0]["operations"].to_string().contains("flats"));
     let (analysis, mesh) = part("stepped-plate");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let flat = jobs[0].manifest["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "flat").unwrap().clone();
     assert!(flat["retract_z_mm"].is_number() && flat["feed_z_mm"].is_number(), "{flat}");
@@ -131,12 +131,12 @@ fn a_flat_on_a_roughed_part_stays_within_its_limit_and_enters_from_the_retract_h
 fn a_chamfer_goes_with_its_wall() {
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
-    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let mut plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let ops = plan["setups"][0]["operations"].as_array_mut().unwrap();
     let needed = ops.iter().find(|o| o["kind"] == "edge_chamfer" && !o["needs_wall"].is_null()).expect("an outside chamfer")["needs_wall"].clone();
     let wall = ops.iter_mut().find(|o| o["wall"] == needed).unwrap();
     wall["room"] = json!(1.0);
-    capp::settle(&mut plan, &tools()).unwrap();
+    fettle_planner::settle(&mut plan, &tools()).unwrap();
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
     assert!(!ops.iter().any(|o| o["wall"] == needed), "the wall stayed");
     for chamfer in ops.iter().filter(|o| o["kind"] == "edge_chamfer") {
@@ -150,7 +150,7 @@ fn a_chamfer_goes_with_its_wall() {
 #[test]
 fn the_wall_finish_climbs() {
     let (analysis, mesh) = part("walls/round-boss");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let contours: Vec<&Value> = jobs[0].manifest["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "contour").collect();
     assert!(!contours.is_empty());
@@ -183,7 +183,7 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
 
 fn job_of_stepped() -> Value {
     let (analysis, mesh) = part("stepped-plate");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     jobs[0].manifest.clone()
 }
@@ -220,7 +220,7 @@ fn a_notch_the_mesh_disagrees_with_is_not_cut() {
             feature["record"]["w_center"] = 9.0.into();
         }
     }
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     let notches = plan["setups"][0]["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "notch").count();
     assert_eq!(notches, 1, "only the square slot");
 }

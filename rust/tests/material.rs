@@ -7,7 +7,7 @@ use step2cam::post::{Machine, post};
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
     let mut plan = plan.clone();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }
 
@@ -28,7 +28,7 @@ fn left_on_part(out: &Value) -> f64 {
 }
 /// A part's first job with the last of its operations of this kind changed, posted.
 fn post_with(part: &str, kind: &str, change: &dyn Fn(&mut Value)) -> Result<step2cam::post::Program, step2cam::post::Failure> {
-    let plan = capp::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
     change(manifest["operations"].as_array_mut().unwrap().iter_mut().rev().find(|o| o["kind"] == kind).unwrap());
@@ -126,7 +126,7 @@ fn threaded(plate: &str) -> Value {
     analysis
 }
 fn threaded_job() -> (Value, Machine) {
-    let plan = capp::plan::plan(&threaded("plate"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&threaded("plate"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     (jobs[0].manifest.clone(), serde_json::from_value(tools()["machine"].clone()).unwrap())
 }
@@ -158,7 +158,7 @@ fn a_misplaced_hole_is_found_on_a_threaded_part_wherever_it_is() {
 
 #[test]
 fn a_comparison_that_runs_out_of_budget_gives_no_program() {
-    let plan = capp::plan::plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
     manifest["verification"]["material"][0]["options"]["max_boundary_tests"] = 1000.into();
@@ -186,9 +186,9 @@ fn the_stock_is_still_compared_when_roughing_is_refused() {
 
 #[test]
 fn stock_below_the_part_is_no_gouge() {
-    let options = capp::plan::Options { bottom_stock: 2., ..Default::default() };
+    let options = fettle_planner::plan::Options { bottom_stock: 2., ..Default::default() };
     for part in ["plate", "mounting-plate"] {
-        let plan = capp::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &options).unwrap();
+        let plan = fettle_planner::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &options).unwrap();
         let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
         let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
         post(&jobs[0].manifest.to_string(), machine).map_err(|f| format!("{part}: {}", f.message)).unwrap();

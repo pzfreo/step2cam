@@ -1,5 +1,5 @@
 {
- "format": "capp-rules",
+ "format": "fettle-rules",
  "version": 1,
  "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
  "rules": [

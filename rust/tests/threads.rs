@@ -9,7 +9,7 @@ fn plate(answers: Value) -> Value {
     analysis
 }
 fn plan_of(analysis: &Value) -> Value {
-    capp::plan::plan(analysis, None, &Default::default()).unwrap()
+    fettle_planner::plan::plan(analysis, None, &Default::default()).unwrap()
 }
 fn threads(plan: &Value) -> Vec<Value> {
     plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "thread").cloned()).collect()
@@ -75,7 +75,7 @@ fn a_blind_thread_is_as_deep_as_asked_or_specify_cores_default() {
     a["features"][0]["faces"] = json!([1]);
     a["features"][1]["faces"] = json!([2]);
     let a = tapped(json!({"hole.function:holes:0": "tapped:M5", "hole.function:holes:1": "tapped:M5@5.5"}), a);
-    let plan = capp::plan::plan(&a, None, &top_stock(0.)).unwrap();
+    let plan = fettle_planner::plan::plan(&a, None, &top_stock(0.)).unwrap();
     let mut ends: Vec<[f64; 2]> = threads(&plan).iter().map(|o| [number(&o["top_z"]), number(&o["bottom_z"])]).collect();
     ends.sort_by(|a, b| a[1].total_cmp(&b[1]));
     // Default: depth less three pitches, down to 0.5 mm: 10 - 2.4 = 7.6 -> 7.5.
@@ -87,7 +87,7 @@ fn a_thread_deeper_than_its_hole_is_a_warning() {
     let mut a = holes_only(&[down(0., 0., 4.2, 6., "flat")]);
     a["features"][0]["faces"] = json!([1]);
     let a = tapped(json!({"hole.function:holes:0": "tapped:M5@8"}), a);
-    let plan = capp::plan::plan(&a, None, &top_stock(0.)).unwrap();
+    let plan = fettle_planner::plan::plan(&a, None, &top_stock(0.)).unwrap();
     assert!(threads(&plan).is_empty());
     assert!(plan["warnings"].to_string().contains("deeper than the hole"), "{}", plan["warnings"]);
 }
@@ -180,7 +180,7 @@ fn a_thread_no_mill_fits_says_why() {
 fn a_thread_in_a_small_hole(library: &Value) -> (Vec<Value>, Vec<String>) {
     let mut a = holes_only(&[down(0., 0., 2.5, 10., "through")]);
     a["features"][0]["faces"] = json!([1]);
-    let plan = capp::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M3"}), a), None, &top_stock(0.)).unwrap();
+    let plan = fettle_planner::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M3"}), a), None, &top_stock(0.)).unwrap();
     let (ops, _, notes) = posted(&plan, library);
     (ops, notes)
 }
@@ -229,7 +229,7 @@ fn a_thread_whose_neck_needs_too_fine_a_grid_is_not_cut() {
     let big = ([-1000., -1000., -10.], [1000., 1000., 0.]);
     let mut a = synthetic(&[down(0., 0., 4.2, 10., "through")], big, &[], &[]);
     a["features"][0]["faces"] = json!([1]);
-    let plan = capp::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M5"}), a), None, &top_stock(0.)).unwrap();
+    let plan = fettle_planner::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M5"}), a), None, &top_stock(0.)).unwrap();
     let (ops, _, notes) = posted(&plan, &example_tools());
     assert!(ops.iter().all(|o| o["kind"] != "thread_mill"), "{ops:?}");
     assert!(any_note(&notes, "too fine for this part"), "{notes:?}");
@@ -248,7 +248,7 @@ fn a_thread_below_the_drills_full_diameter_is_not_cut() {
     // length short; a thread asked all the way down cannot be milled there.
     let mut a = holes_only(&[down(0., 0., 4.2, 8., "flat")]);
     a["features"][0]["faces"] = json!([1]);
-    let plan = capp::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M5@8"}), a), None, &top_stock(0.)).unwrap();
+    let plan = fettle_planner::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M5@8"}), a), None, &top_stock(0.)).unwrap();
     let (ops, _, notes) = posted(&plan, &example_tools());
     assert!(ops.iter().all(|o| o["kind"] != "thread_mill"), "{ops:?}");
     assert!(any_note(&notes, "below where the hole reaches full diameter"), "{notes:?}");
@@ -260,11 +260,11 @@ fn a_thread_mill_needs_its_tooth_and_neck() {
     let mut library = fixture("../../examples/tools.example.json");
     let tm = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "tm3").unwrap();
     tm.as_object_mut().unwrap().remove("neck_diameter");
-    let Err(error) = capp::finish(&mut plan.clone(), &library, &[]) else { panic!("accepted") };
+    let Err(error) = fettle_planner::finish(&mut plan.clone(), &library, &[]) else { panic!("accepted") };
     assert!(error.contains("missing neck_diameter"), "{error}");
     // A neck as wide as the tooth is no neck.
     let mut library = fixture("../../examples/tools.example.json");
     let tm = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "tm3").unwrap();
     tm["neck_diameter"] = tm["diameter"].clone();
-    assert!(capp::finish(&mut plan.clone(), &library, &[]).is_err());
+    assert!(fettle_planner::finish(&mut plan.clone(), &library, &[]).is_err());
 }

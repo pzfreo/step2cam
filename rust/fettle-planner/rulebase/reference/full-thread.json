@@ -1,5 +1,5 @@
 {
- "format": "capp-reference",
+ "format": "fettle-reference",
  "version": 1,
  "id": "thread.full_depth.blind",
  "title": "Minimum full thread in a blind tapped hole, when none is asked for",

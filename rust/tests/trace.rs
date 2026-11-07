@@ -1,4 +1,4 @@
-//! The decision trace: every rule the code applies is in `capp/rulebase/rules.json` and every rule
+//! The decision trace: every rule the code applies is in `fettle-planner/rulebase/rules.json` and every rule
 //! there is applied; every warning, skipped feature and operation goes back to decisions that
 //! exist; and the same inputs give the same plan.
 use serde_json::Value;
@@ -12,7 +12,7 @@ fn read(path: &str) -> Value {
     serde_json::from_str(&fs::read_to_string(repo(path)).unwrap()).unwrap()
 }
 fn rules() -> Value {
-    serde_json::from_str(capp::trace::RULES).unwrap()
+    serde_json::from_str(fettle_planner::trace::RULES).unwrap()
 }
 
 const STAGES: [&str; 7] = ["requirement", "setup", "process", "sequence", "feasibility", "tool", "execution"];
@@ -20,7 +20,7 @@ const STAGES: [&str; 7] = ["requirement", "setup", "process", "sequence", "feasi
 #[test]
 fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
     let mut used = BTreeSet::new();
-    for entry in fs::read_dir(repo("rust/capp/src")).unwrap() {
+    for entry in fs::read_dir(repo("rust/fettle-planner/src")).unwrap() {
         let text = fs::read_to_string(entry.unwrap().path()).unwrap();
         // Every string literal that is a dotted name in a stage's namespace.
         for piece in text.split('"').skip(1).step_by(2) {
@@ -32,7 +32,7 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
         }
     }
     // Rules whose logic is data: the process cases name the rule they skip by.
-    let process: Value = serde_json::from_str(capp::rules::PROCESS).unwrap();
+    let process: Value = serde_json::from_str(fettle_planner::rules::PROCESS).unwrap();
     for case in process["cases"].as_array().unwrap() {
         if let Some(rule) = case["then"]["skip"].as_str() {
             used.insert(rule.to_string());
@@ -43,7 +43,7 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
     let unused: Vec<_> = listed.difference(&used).collect();
     assert!(unlisted.is_empty(), "applied in the code but not in rules.json: {unlisted:?}");
     assert!(unused.is_empty(), "in rules.json but applied nowhere: {unused:?}");
-    let selectors: Value = serde_json::from_str(capp::rules::TOOLS).unwrap();
+    let selectors: Value = serde_json::from_str(fettle_planner::rules::TOOLS).unwrap();
     for rule in rules()["rules"].as_array().unwrap() {
         assert!(rule["rationale"].as_str().is_some_and(|r| !r.is_empty()), "{rule}");
         assert!(rule["sources"].as_array().is_some_and(|s| !s.is_empty()), "{rule}");
@@ -107,8 +107,8 @@ fn every_warning_skip_and_operation_goes_back_to_its_rules() {
 #[test]
 fn a_hole_says_which_setup_and_which_tool() {
     let analysis = read("tests/fixtures/plate.analysis.json");
-    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
-    capp::finish(&mut plan, &read("examples/tools.example.json"), &[]).unwrap();
+    let mut plan = fettle_planner::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    fettle_planner::finish(&mut plan, &read("examples/tools.example.json"), &[]).unwrap();
     let decisions: HashMap<&str, &Value> = plan["decisions"].as_array().unwrap().iter().map(|d| (d["id"].as_str().unwrap(), d)).collect();
     let holes = plan["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes" && o["tool"] == "drill4.2").unwrap();
     let rules: Vec<&str> = holes["because"].as_array().unwrap().iter().map(|id| decisions[id.as_str().unwrap()]["rule"].as_str().unwrap()).collect();
@@ -124,8 +124,8 @@ fn the_same_inputs_give_the_same_plan() {
         let analysis = read(&format!("tests/fixtures/{part}.analysis.json"));
         let mesh = read(&format!("tests/fixtures/{part}.mesh.json"));
         let once = || {
-            let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-            capp::finish(&mut plan, &library, &[]).unwrap();
+            let mut plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+            fettle_planner::finish(&mut plan, &library, &[]).unwrap();
             plan.to_string()
         };
         assert_eq!(once(), once(), "{part}");
@@ -138,13 +138,13 @@ fn the_same_inputs_give_the_same_plan() {
 #[test]
 fn a_failed_finish_keeps_the_trace() {
     let analysis = read("tests/fixtures/plate.analysis.json");
-    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    let mut plan = fettle_planner::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
     let before = plan["decisions"].as_array().unwrap().len();
     let (skipped, warnings) = (plan["skipped"].clone(), plan["warnings"].clone());
     assert!(before > 0);
     let mut library = read("examples/tools.example.json");
     library["roughing_tool"] = serde_json::json!("nope");
-    assert!(capp::finish(&mut plan, &library, &[]).is_err());
+    assert!(fettle_planner::finish(&mut plan, &library, &[]).is_err());
     assert!(plan["decisions"].as_array().unwrap().len() >= before, "decisions kept");
     assert_eq!(plan["skipped"], skipped);
     assert_eq!(plan["warnings"], warnings);
@@ -155,10 +155,10 @@ fn a_failed_finish_keeps_the_trace() {
 #[test]
 fn a_refusal_supersedes_only_its_operations_own_decisions() {
     let analysis = read("tests/fixtures/plate.analysis.json");
-    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    let mut plan = fettle_planner::plan::plan(&analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
     let library = read("examples/tools.example.json");
     let refusals = [serde_json::json!({"operation": "top-3-holes", "message": "first"}), serde_json::json!({"operation": "top-3-holes", "message": "second"})];
-    capp::finish(&mut plan, &library, &refusals).unwrap();
+    fettle_planner::finish(&mut plan, &library, &refusals).unwrap();
     let decisions = plan["decisions"].as_array().unwrap();
     let refused: Vec<&Value> = decisions.iter().filter(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed").collect();
     assert_eq!(refused.len(), 2);

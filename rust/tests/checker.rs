@@ -7,7 +7,7 @@ use step2cam::post::{Machine, post, post_tampered};
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
     let mut plan = plan.clone();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }
 
@@ -28,7 +28,7 @@ fn refused(tamper: &dyn Fn(&str) -> String) -> String {
 /// The stepped plate's first job: unlike the plate, it has moves shorter than the tolerance.
 fn stepped_job() -> (String, Machine) {
     let library = fixture("demo/tools.json");
-    let plan = capp::plan::plan(&fixture("tests/fixtures/synthetic/stepped-plate.analysis.json"), Some(&fixture("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&fixture("tests/fixtures/synthetic/stepped-plate.analysis.json"), Some(&fixture("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &library), &library).unwrap();
     (jobs[0].manifest.to_string(), serde_json::from_value(library["machine"].clone()).unwrap())
 }

@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:plan:1",
  "title": "step2cam plan, version 1",
- "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After fettle_planner::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
  "type": "object",
  "required": [
   "format",
@@ -97,7 +97,7 @@
       "string",
       "null"
      ],
-     "description": "The resources' overrides.material, once capp::finish has run."
+     "description": "The resources' overrides.material, once fettle_planner::finish has run."
     },
     "used": {
      "type": [
@@ -115,7 +115,7 @@
       "H",
       null
      ],
-     "description": "The ISO 513 group it falls in, from capp/rulebase/reference/iso513-groups.json."
+     "description": "The ISO 513 group it falls in, from fettle-planner/rulebase/reference/iso513-groups.json."
     }
    },
    "required": [
@@ -135,7 +135,7 @@
     }
    },
    "additionalProperties": false,
-   "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
+   "description": "Which rules and reference data the plan was made with: a hash over Fettle's rulebase files."
   }
  },
  "additionalProperties": false,
@@ -228,7 +228,7 @@
      }
     },
     "part_surface": {
-     "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
+     "description": "Set by fettle_planner::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
     }
    },
    "additionalProperties": false
@@ -254,7 +254,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -299,7 +299,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -328,7 +328,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -381,7 +381,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -426,7 +426,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -455,7 +455,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -486,7 +486,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -531,7 +531,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -560,7 +560,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -628,7 +628,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -673,7 +673,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -702,7 +702,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -755,7 +755,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -800,7 +800,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -829,7 +829,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -900,7 +900,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -945,7 +945,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -974,7 +974,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1044,7 +1044,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -1089,7 +1089,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -1118,7 +1118,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1193,7 +1193,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -1238,7 +1238,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -1267,7 +1267,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1351,7 +1351,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -1396,7 +1396,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -1425,7 +1425,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1479,7 +1479,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -1524,7 +1524,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -1553,7 +1553,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false
@@ -1624,7 +1624,7 @@
         "string",
         "null"
        ],
-       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+       "description": "The id of the tool that cuts it, from fettle_planner::finish; null if none can."
       },
       "tool_note": {
        "type": [
@@ -1669,7 +1669,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+       "description": "The ISO 14649 (STEP-NC) names for it, from fettle-planner/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
       "technology": {
        "type": "object",
@@ -1698,7 +1698,7 @@
         }
        },
        "additionalProperties": false,
-       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+       "description": "The cutting data the operation uses, once fettle_planner::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
      "additionalProperties": false

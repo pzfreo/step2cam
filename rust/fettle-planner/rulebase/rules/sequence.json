@@ -1,5 +1,5 @@
 {
- "format": "capp-rules",
+ "format": "fettle-rules",
  "version": 1,
  "id": "sequence.fixed_order",
  "_comment": "The order of operations in a setup, by kind. Operations of kinds in the same group keep the order they were planned in.",

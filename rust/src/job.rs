@@ -1,8 +1,8 @@
-//! The camlib adapter: a plan whose operations name their tools (`capp::finish`) + the tool
+//! The camlib adapter: a plan whose operations name their tools (`fettle_planner::finish`) + the tool
 //! library -> camlib jobs, how each tool cuts and how deep. A job is camlib's manifest, plain
 //! JSON, one per setup.
-use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{TIP_CLEARANCE, id, num};
+use fettle_planner::plan::{PLAN_FORMAT, r, show};
+use fettle_planner::resources::{TIP_CLEARANCE, id, num};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -83,7 +83,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     }))
 }
 
-/// The tool as this operation cuts with it: its own fields, with the cutting data capp chose for
+/// The tool as this operation cuts with it: its own fields, with the cutting data Fettle chose for
 /// the operation (`technology`: feed, speed, plunge, stepdown, stepover) in their place.
 fn cutting_data(tool: &Value, op: &Value) -> Value {
     let mut out = tool.clone();
@@ -264,8 +264,8 @@ pub struct Job {
     pub notes: Vec<String>,
 }
 
-/// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
-/// The operation kinds a plan holds, each of which `capp::resolve` gives a tool or a note.
+/// One camlib job for each setup of a plan whose operations name their tools (`fettle_planner::resolve`).
+/// The operation kinds a plan holds, each of which `fettle_planner::resolve` gives a tool or a note.
 const KNOWN: [&str; 11] = ["facing", "roughing", "flats", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
 
 /// The operation's tool, or else its note in the log and on to the next operation.
@@ -319,9 +319,9 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             let kind = op["kind"].as_str().unwrap_or("");
             let op_id = format!("{setup_id}-{}-{kind}", n + 1);
             if KNOWN.contains(&kind) && op.get("tool").is_none() {
-                return Err(format!("{op_id} names no tool: resolve the plan's tools with capp::finish first"));
+                return Err(format!("{op_id} names no tool: resolve the plan's tools with fettle_planner::finish first"));
             }
-            // The tool capp chose, or why there is none (said at the point the operation is cut).
+            // The tool Fettle chose, or why there is none (said at the point the operation is cut).
             let tool = match op["tool"].as_str() {
                 Some(name) => Ok(*tools.iter().find(|t| id(t) == name).ok_or_else(|| format!("{op_id}: no tool {name:?} in the library"))?),
                 None => Err(op["tool_note"].as_str().map(|n| format!("{op_id}: {n}"))),

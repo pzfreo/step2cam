@@ -1,4 +1,4 @@
-//! The decision trace: every choice capp makes, and the rule it made it by.
+//! The decision trace: every choice Fettle makes, and the rule it made it by.
 //!
 //! The rules are listed in `rulebase/rules.json`, each with an id, a version, its stage, its
 //! sources and where in the code it is applied. A decision cites one as `id@version`. A plan

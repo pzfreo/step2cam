@@ -17,7 +17,7 @@ wasm-pack build rust --release --target web --no-typescript --no-pack --out-dir 
 cp demo/index.html demo/app.js demo/stock.js demo/worker.js demo/style.css site/
 cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
 cp demo/tools.json site/tools.json
-cp rust/capp/rulebase/rules.json site/rules.json
+cp rust/fettle-planner/rulebase/rules.json site/rules.json
 
 archive="specify-core-wasm-$SPECIFY_VERSION.tgz"
 work=$(mktemp -d)

@@ -6,7 +6,7 @@ use std::{fs, path::PathBuf};
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
     let mut plan = plan.clone();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }
 
@@ -72,14 +72,14 @@ fn same(a: &Value, b: &Value, path: &str) -> Result<(), String> {
 fn the_plate_plans_as_in_python() {
     let analysis = json("tests/fixtures/plate.analysis.json");
     let mesh = json("tests/fixtures/plate.mesh.json");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate.plan.json"), "plan").unwrap();
 }
 
 #[test]
 fn the_spindle_plans_without_a_mesh_as_in_python() {
     let analysis = json("tests/fixtures/spindle.analysis.json");
-    let plan = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, None, &Default::default()).unwrap();
     same(&untraced(&plan), &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
 }
 
@@ -121,7 +121,7 @@ fn tapped_plate() -> Value {
 
 #[test]
 fn a_tapped_hole_plans_as_in_python() {
-    let plan = capp::plan::plan(&tapped_plate(), Some(&json("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&tapped_plate(), Some(&json("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
     same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate-thread.plan.json"), "plan").unwrap();
 }
 

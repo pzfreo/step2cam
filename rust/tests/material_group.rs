@@ -1,6 +1,6 @@
 //! The part's material: Specify's answer or the resources' override, its ISO 513 group, and the
 //! cutting data a tool states for that group.
-use capp::reference::iso513_group;
+use fettle_planner::reference::iso513_group;
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 
@@ -54,8 +54,8 @@ fn library() -> Value {
 }
 
 fn finished(analysis: &Value, library: &Value) -> Value {
-    let mut plan = capp::plan::plan(analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
-    capp::finish(&mut plan, library, &[]).unwrap();
+    let mut plan = fettle_planner::plan::plan(analysis, Some(&read("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    fettle_planner::finish(&mut plan, library, &[]).unwrap();
     plan
 }
 

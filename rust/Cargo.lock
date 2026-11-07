@@ -99,13 +99,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capp"
-version = "0.1.0"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
 name = "cavalier_contours"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -200,6 +193,13 @@ dependencies = [
  "bit-set",
  "regex-automata",
  "regex-syntax",
+]
+
+[[package]]
+name = "fettle-planner"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
@@ -677,7 +677,7 @@ name = "step2cam"
 version = "0.1.0"
 dependencies = [
  "camlib",
- "capp",
+ "fettle-planner",
  "jsonschema",
  "serde",
  "serde_json",

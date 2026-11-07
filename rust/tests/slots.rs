@@ -84,7 +84,7 @@ fn nothing_is_covered_by_roughing_that_does_not_run() {
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
     let faces = analysis["faces"].as_array_mut().unwrap();
     faces.iter_mut().find(|x| x["kind"] == "torus").unwrap()["kind"] = serde_json::json!("bspline");
-    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let plan = fettle_planner::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     assert!(plan["covered_by_roughing"].as_array().unwrap().is_empty());
     assert!(plan["skipped"].to_string().contains("roughing is not planned"));
 }
@@ -93,7 +93,7 @@ fn nothing_is_covered_by_roughing_that_does_not_run() {
 fn a_wall_in_line_with_a_slot_is_not_material_under_it() {
     // A vertical triangle whose plane runs through the slot's centre line, far from the slot.
     let wall = [[10.0, 200.0, 0.0], [10.0, 300.0, 0.0], [10.0, 300.0, 5.0]];
-    assert!(!capp::plan::disk_meets_for_test((10.0, 0.0), 4.0, &wall));
+    assert!(!fettle_planner::plan::disk_meets_for_test((10.0, 0.0), 4.0, &wall));
 }
 
 #[test]
