@@ -1,5 +1,33 @@
 # step2cam: STEP features to camlib toolpaths
 
+## Read this first: what step2cam is, and what it is not
+
+**step2cam is an experiment in explainable process planning, not CAM you can trust to run on a
+machine.** For simple prismatic (2.5D) parts it drafts a plan (setups, operations, tools, order)
+and shows the rule behind every choice. Mechanical engineers and machinists will rightly point out
+that real process planning is a much harder problem, and step2cam does not model most of what
+makes it hard:
+
+- **Workholding and datums:** how the part is located and clamped, which faces are reference
+  faces, how a second setup picks up the first. It assumes a part in a vise.
+- **Tolerances and GD&T,** which in practice decide the order of operations and what goes in one
+  setup. It ignores them.
+- **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
+  rigidity. Its rules are simple, and "the largest tool that fits" is often not what a machinist
+  would choose.
+- **Real cutting data:** every feed, speed and tool in the demo is a placeholder.
+- **Real parts:** interacting features, drafts and freeform shapes break its recognition and
+  planning. The samples are friendly.
+
+camlib's check proves the toolpaths do not cut into the model; it does not show that the part
+will be good: finish, accuracy, burrs, whether it survives being cut. Commercial planners with
+decades of rules still produce a first draft that a machinist edits.
+
+**Use it** to see how recognition and planning could fit together, to read a plan's reasoning,
+and to argue with specific rules: every decision names the rule it was made by, so "rule X is
+wrong here, because…" is the most useful feedback. **Do not cut anything from its output without
+someone who knows machining checking it first.**
+
 `step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
 STEP part (holes, slots, counterbores, the part's shape) into toolpaths and G-code with
 [camlib](https://github.com/stevecad/camlib), the CAM engine. It is written in Rust and runs in the
