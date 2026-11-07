@@ -893,7 +893,7 @@ async function buildPlan(m) {
   const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
   const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
   showPlanList();
-  host.insertAdjacentHTML("beforeend", `<p class="plan-fact plan-lead">What the planner decided, in the order it will be cut, and why. Every choice names the written rule it was made by. Open an operation to see its decisions; <b>Full view</b> shows the tools it considered and the rules themselves.</p>`);
+  host.insertAdjacentHTML("beforeend", `<p class="plan-fact plan-lead"><b>A draft to check, not a plan to run.</b> What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Open an operation to see its decisions; <b>Full view</b> shows the tools it considered and the rules themselves.</p>`);
 
   head("Part");
   const material = plan.material || {};

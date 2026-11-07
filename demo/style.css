@@ -214,3 +214,4 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
   .panes { flex: none; height: 78vh; gap: 6px; }
   .pane-rail { padding: 6px 0; }
 }
+.start .scope { max-width: 640px; margin: 0 auto 18px; padding: 10px 14px; border: 1px solid var(--warn); border-radius: 8px; background: #2c2412; color: #ffd98a; font-size: 14px; text-align: left; }
