@@ -46,3 +46,47 @@ fn the_full_thread_is_specify_cores_default() {
     assert_eq!(full_thread(12., 1.0), 9.0);
     assert_eq!(full_thread(2., 1.0), 1.0); // at least one pitch
 }
+
+/// Every name the mapping uses is in the published lists it was read from, and every kind of
+/// operation a plan holds has names.
+#[test]
+fn the_iso14649_names_are_published_names() {
+    let (_, text) = TABLES.iter().find(|(n, _)| *n == "iso14649-names.json").unwrap();
+    let table: Value = serde_json::from_str(text).unwrap();
+    let listed = |key: &str| -> Vec<String> { table["names_in_source"][key].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect() };
+    let (features, operations) = (listed("features"), listed("operations"));
+    let names = |v: &Value| -> Vec<String> {
+        match v {
+            Value::String(s) => vec![s.clone()],
+            Value::Object(o) => o.values().filter_map(Value::as_str).map(String::from).collect(),
+            _ => vec![],
+        }
+    };
+    let kinds = table["kinds"].as_object().unwrap();
+    for kind in ["facing", "roughing", "flats", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"] {
+        let entry = kinds.get(kind).unwrap_or_else(|| panic!("no names for {kind}"));
+        for f in names(&entry["feature"]).into_iter().chain(names(&entry["feature_by_open"])).chain(names(&entry["bottom_condition"])) {
+            assert!(features.contains(&f), "{kind}: {f} is not a published feature name");
+        }
+        for o in names(&entry["operation"]).into_iter().chain(names(&entry["operation_by_tool"])) {
+            assert!(operations.contains(&o), "{kind}: {o} is not a published operation name");
+        }
+        if entry["exact"] == false {
+            assert!(entry["note"].is_string(), "{kind}: an inexact mapping says why");
+        }
+    }
+}
+
+#[test]
+fn a_finished_plan_names_each_operation_in_iso14649() {
+    let fixture = |p: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(p)).unwrap()).unwrap() };
+    let mut plan = capp::plan::plan(&fixture("tests/fixtures/plate.analysis.json"), Some(&fixture("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
+    capp::finish(&mut plan, &fixture("examples/tools.example.json"), &[]).unwrap();
+    for op in plan["setups"][0]["operations"].as_array().unwrap() {
+        assert!(op["iso14649"]["feature"].is_string(), "{}", op["kind"]);
+    }
+    let holes: Vec<&Value> = plan["setups"][0]["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "holes").collect();
+    assert!(holes.iter().any(|h| h["iso14649"]["operation"] == "drilling"));
+    assert!(holes.iter().any(|h| h["iso14649"]["operation"] == "bottom_and_side_finish_milling"), "the bored hole");
+    assert!(holes.iter().all(|h| h["iso14649"]["feature"] == "Round_hole" && h["iso14649"]["bottom_condition"].is_string()));
+}

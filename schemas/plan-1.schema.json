@@ -215,6 +215,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -283,6 +313,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -329,6 +389,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -412,6 +502,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -480,6 +600,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -566,6 +716,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -651,6 +831,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -741,6 +951,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -840,6 +1080,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -909,6 +1179,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false
@@ -995,6 +1295,36 @@
         "pattern": "^d-[0-9]+$"
        },
        "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       }
      },
      "additionalProperties": false

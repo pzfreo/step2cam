@@ -231,6 +231,10 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
                     (Value::Null, json!(note), decided)
                 }
             };
+            let tool_type = tool.as_str().and_then(|t| library.data["tools"].as_array()?.iter().find(|x| x["id"] == t)?["type"].as_str());
+            if let Some(names) = crate::reference::iso14649(op, tool_type) {
+                op["iso14649"] = names;
+            }
             op["tool"] = tool;
             op["tool_note"] = note;
             because(op, [decided]);

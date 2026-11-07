@@ -2,7 +2,17 @@
 
 Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
 step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) and
-step 4 (the thread tables as reference data) are done; the rest is planned.
+step 4 (the thread tables as reference data) and step 5 (ISO 14649 names) are done; the rest is
+planned.
+
+Step 5 was done as names on each operation (`iso14649`: feature, operation, hole bottom
+condition, exact or closest), not as a restructured plan format v2. Renaming the plan's own
+structure would have meant rewriting the page and the camlib adapter with no change in what
+they do, while the names alone are what an AP238 export needs. The names were checked against
+STEP Tools' published AP238 lists, which settled the rows marked "check" below: a notch is a
+`Rectangular_open_pocket` (or `_closed_`), roughing a `General_removal_volume`, a V-channel a
+`Slot` with a `Vee_profile`; ISO 14649-11 has no milling operation for thread milling or
+chamfering, so those say `exact: false`.
 
 Step 4 moved only data that comes from a standard or recognised practice. The numeric tolerances
 in the code (`LEVEL_EPS`, `AXIS_TOLERANCE`, camlib's surface-error limit, the comparison budgets)

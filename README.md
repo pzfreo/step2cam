@@ -137,6 +137,11 @@ The plan says **what** to cut, independent of tools and machine.
   decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
   warning is a decision too. A decision a later one replaced says `superseded_by`.
+- **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
+  the feature it machines and the operation, from
+  `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
+  AP238 lists, not checked against ISO 14649 itself; thread milling, edge chamfers and V-channels
+  have no exact ISO 14649-11 operation and say so (`exact: false`).
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).

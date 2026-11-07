@@ -1,0 +1,139 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "iso14649.names",
+ "title": "ISO 14649 (STEP-NC) names for each kind of operation a plan holds: the feature it machines and the operation",
+ "source": {
+  "standard": "ISO 14649-10 (features), ISO 14649-11 (milling operations), as harmonised in ISO 10303-238 (AP238)",
+  "obtained_from": [
+   "https://steptools.com/stds/smrl/data/modules/machining_features/sys/modindex.htm",
+   "https://steptools.com/stds/stepnc/tech_resources/stepnc_arm_html/t_machining_operation.html",
+   "https://steptools.com/stds/stepnc/tech_resources/stepnc_arm_html/t_milling_machining_operation.html"
+  ],
+  "agreement": "every name used below is in these published lists (read 2026-11-07); the lists are below as read",
+  "checked_against_standard": false
+ },
+ "names_in_source": {
+  "features": [
+   "Angle_taper",
+   "Blind_bottom_condition",
+   "Boss",
+   "Chamfer",
+   "Closed_slot",
+   "Conical_hole_bottom",
+   "Counterbore_hole",
+   "Countersunk_hole",
+   "Edge_round",
+   "Flat_hole_bottom",
+   "Flat_slot_end_type",
+   "General_outside_profile",
+   "General_pocket",
+   "General_removal_volume",
+   "Hole",
+   "Open_slot",
+   "Planar_face",
+   "Pocket",
+   "Radiused_slot_end_type",
+   "Rectangular_closed_pocket",
+   "Rectangular_open_pocket",
+   "Round_hole",
+   "Rounded_u_profile",
+   "Slot",
+   "Square_u_profile",
+   "Step",
+   "Thread",
+   "Through_bottom_condition",
+   "Vee_profile"
+  ],
+  "operations": [
+   "back_boring",
+   "boring",
+   "bottom_and_side_finish_milling",
+   "bottom_and_side_rough_milling",
+   "center_drilling",
+   "counter_sinking",
+   "drilling",
+   "multistep_drilling",
+   "plane_finish_milling",
+   "plane_rough_milling",
+   "reaming",
+   "side_finish_milling",
+   "side_rough_milling",
+   "tapping",
+   "thread_drilling"
+  ]
+ },
+ "kinds": {
+  "facing": {
+   "feature": "Planar_face",
+   "operation": "plane_finish_milling",
+   "exact": true
+  },
+  "roughing": {
+   "feature": "General_removal_volume",
+   "operation": "bottom_and_side_rough_milling",
+   "exact": true
+  },
+  "flats": {
+   "feature": "Planar_face",
+   "operation": "plane_finish_milling",
+   "exact": true
+  },
+  "holes": {
+   "feature": "Round_hole",
+   "operation_by_tool": {
+    "drill": "drilling",
+    "end_mill": "bottom_and_side_finish_milling"
+   },
+   "bottom_condition": {
+    "through": "Through_bottom_condition",
+    "flat": "Flat_hole_bottom",
+    "drill_point": "Conical_hole_bottom"
+   },
+   "exact": true,
+   "note": "drilled with a drill, or bored by helix with an end mill"
+  },
+  "counterbore": {
+   "feature": "Counterbore_hole",
+   "operation": "bottom_and_side_finish_milling",
+   "exact": true
+  },
+  "thread": {
+   "feature": "Thread",
+   "operation": null,
+   "exact": false,
+   "note": "ISO 14649-11 lists no thread-milling operation: threading is a turning operation and thread_drilling a combined drill-and-thread tool"
+  },
+  "slot": {
+   "feature": "Slot",
+   "operation": "bottom_and_side_finish_milling",
+   "exact": true,
+   "note": "a Closed_slot with Radiused_slot_end_type ends"
+  },
+  "notch": {
+   "feature_by_open": {
+    "true": "Rectangular_open_pocket",
+    "false": "Rectangular_closed_pocket"
+   },
+   "operation": "bottom_and_side_finish_milling",
+   "exact": true
+  },
+  "v_channel": {
+   "feature": "Slot",
+   "operation": "bottom_and_side_finish_milling",
+   "exact": false,
+   "note": "a Slot whose swept shape is a Vee_profile, cut by one V-bit pass along it, for which ISO 14649-11 has no operation of its own"
+  },
+  "wall_finish": {
+   "feature": "General_outside_profile",
+   "operation": "side_finish_milling",
+   "exact": true
+  },
+  "edge_chamfer": {
+   "feature": "Edge_round",
+   "operation": null,
+   "exact": false,
+   "note": "the model's rounds are cut as 45° chamfers by a chamfer mill; ISO 14649-11 lists no chamfering operation for milling"
+  }
+ }
+}

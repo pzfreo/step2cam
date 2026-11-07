@@ -5,9 +5,10 @@ use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The tables, as shipped with the crate.
-pub const TABLES: [(&str, &str); 2] = [
+pub const TABLES: [(&str, &str); 3] = [
     ("iso261-coarse-pitch.json", include_str!("../rulebase/reference/iso261-coarse-pitch.json")),
     ("full-thread.json", include_str!("../rulebase/reference/full-thread.json")),
+    ("iso14649-names.json", include_str!("../rulebase/reference/iso14649-names.json")),
 ];
 
 fn table(name: &str) -> Value {
@@ -40,4 +41,29 @@ pub fn full_thread(depth: f64, pitch: f64) -> f64 {
     });
     let down = ((depth - less * pitch) / step).floor() * step;
     if down > least * pitch { down } else { least * pitch }
+}
+
+/// The ISO 14649 names for an operation once its tool is known: the feature it machines, the
+/// operation, a hole's bottom condition, and whether the names fit it exactly
+/// (`iso14649-names.json`). None for a kind the table does not have.
+pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
+    static NAMES: OnceLock<Value> = OnceLock::new();
+    let names = NAMES.get_or_init(|| table("iso14649-names.json"));
+    let entry = names["kinds"].get(op["kind"].as_str()?)?;
+    let feature = match entry.get("feature_by_open") {
+        Some(by) => by[if op["open"] == true { "true" } else { "false" }].clone(),
+        None => entry["feature"].clone(),
+    };
+    let operation = match entry.get("operation_by_tool") {
+        Some(by) => tool_type.and_then(|t| by.get(t)).cloned().unwrap_or(Value::Null),
+        None => entry["operation"].clone(),
+    };
+    let mut out = serde_json::json!({"feature": feature, "operation": operation, "exact": entry["exact"]});
+    if let Some(bottom) = entry.get("bottom_condition").and_then(|b| b.get(op["bottom"].as_str()?)) {
+        out["bottom_condition"] = bottom.clone();
+    }
+    if let Some(note) = entry.get("note") {
+        out["note"] = note.clone();
+    }
+    Some(out)
 }
