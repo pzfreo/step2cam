@@ -31,6 +31,8 @@ cargo run --release --manifest-path rust/Cargo.toml --example process -- analysi
 the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line
 and the others follow; press Play and the feature being cut lights up. Save writes each setup's
 G-code as `<part>-<setup>.nc`, with comments at its top saying what the file does not.
+Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
+part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's
