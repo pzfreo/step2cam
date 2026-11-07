@@ -293,6 +293,28 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
     Ok((chosen, why))
 }
 
+/// Every tool of the selector's type with what became of it: chosen, turned down (and why), or
+/// qualified but passed over for the one preferred. For the decision trace.
+pub fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<Vec<Value>, String> {
+    let rule = tools_rule(selector)?;
+    let (chosen, why) = select(selector, tools, inputs, params)?;
+    let chosen_id = chosen.and_then(|t| t["id"].as_str()).unwrap_or("");
+    let prefer = if rule["prefer"]["largest"].is_string() { "the largest" } else { "the first in the library" };
+    let mut out = vec![];
+    for tool in tools.iter().filter(|t| t["type"] == rule["tool_type"]) {
+        let id = tool["id"].as_str().unwrap_or("");
+        if id == chosen_id {
+            continue;
+        }
+        let rejected = match why.iter().find(|(who, _)| who == id) {
+            Some((_, text)) => text.strip_prefix(&format!("{id}: ")).unwrap_or(text).to_string(),
+            None => format!("qualifies, but {chosen_id} is preferred ({prefer})"),
+        };
+        out.push(serde_json::json!({"candidate": id, "rejected": rejected}));
+    }
+    Ok(out)
+}
+
 fn tools_rule(selector: &str) -> Result<&'static Value, String> {
     tools()["selectors"].as_array().into_iter().flatten().find(|s| s["id"] == selector).ok_or_else(|| format!("no tool selector {selector} in rulebase/rules/tools.json"))
 }

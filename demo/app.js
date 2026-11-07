@@ -836,7 +836,7 @@ function decisionItem(d, rules) {
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
   const rejected = (d.considered || []).filter((c) => c.rejected);
-  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
+  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
     + `<span class="rule">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)} · ${escapeHtml(d.id)}</span>`
     + (rejected.length ? `<ul>${rejected.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "");
   if (rule) {
@@ -892,6 +892,8 @@ async function buildPlan(m) {
   const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
   const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
   const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
+  showPlanList();
+  host.insertAdjacentHTML("beforeend", `<p class="plan-fact plan-lead">What the planner decided, in the order it will be cut, and why. Every choice names the written rule it was made by. Open an operation to see its decisions; <b>Full view</b> shows the tools it considered and the rules themselves.</p>`);
 
   head("Part");
   const material = plan.material || {};
@@ -910,17 +912,30 @@ async function buildPlan(m) {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const card = document.createElement("section");
       card.className = `plan-op${o && o.time ? "" : " unused"}`;
-      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)}${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
       card.append(headBtn);
       const iso = op.iso14649;
-      card.append(facts([
+      const open = document.createElement("details");
+      open.className = "why";
+      open.innerHTML = `<summary>Why</summary>`;
+      headBtn.addEventListener("click", () => { open.open = pinKey === key; });
+      card.append(open);
+      open.append(facts([
         ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
         ["Cutting data", describeTechnology(op.technology)],
         ["Features", op.features?.length ? escapeHtml(op.features.join(", ")) : null],
         ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.bottom_condition ? `, ${escapeHtml(iso.bottom_condition)}` : ""}${iso.exact ? "" : ' <span class="tag">closest</span>'}` : null],
         ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
       ]));
-      if (op.because?.length) card.append(whyList(op.because, decisions, rules));
+      if (op.because?.length) {
+        const list = document.createElement("ol");
+        for (const d of folded(op.because.map((id) => decisions.get(id)).filter(Boolean))) list.append(decisionItem(d, rules));
+        open.append(list);
+      }
+      const full = document.createElement("button");
+      full.type = "button"; full.className = "full-view"; full.textContent = "Full view: tools considered and the rules";
+      full.addEventListener("click", () => showDetail(m, setup, op, n, key));
+      open.append(full);
       host.append(card);
     });
   }
@@ -964,10 +979,92 @@ async function buildPlan(m) {
   applyFocus(false);
 }
 
-function openPlan(open) {
-  $("plan").hidden = !open;
-  $("plan-open").setAttribute("aria-expanded", String(open));
-  if (open) $("plan-close").focus();
+function showPlanList() {
+  $("plan-detail").hidden = true;
+  $("plan-body").hidden = false;
+}
+
+// Decisions that say the same by the same rule (one per hole, say), folded into one with a count.
+function folded(ds) {
+  const out = [];
+  for (const d of ds) {
+    const same = out.find((x) => x.rule === d.rule && x.says === d.says && !x.superseded_by && !d.superseded_by);
+    if (same) same.times = (same.times || 1) + 1; else out.push({ ...d });
+  }
+  return out;
+}
+
+// The fuller view of one operation: each decision behind it, the tools it weighed, and the rules.
+async function showDetail(m, setup, op, n, key) {
+  const host = $("plan-detail"), rules = await loadRules();
+  const plan = m.data.plan, o = m.operations.get(key);
+  const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
+  const uses = new Map();
+  for (const d of plan.decisions || []) uses.set(d.rule, (uses.get(d.rule) || 0) + 1);
+  host.replaceChildren();
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "detail-back"; back.textContent = "Back to the plan";
+  back.addEventListener("click", () => { showPlanList(); $("plan-body").querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus(); });
+  host.append(back);
+  host.insertAdjacentHTML("beforeend", `<h2 class="detail-title"><span class="swatch" style="background:${o?.color || UNPLANNED}"></span>${escapeHtml(o?.name || op.kind)}</h2><p class="plan-fact" style="color:var(--muted)">${escapeHtml(setup.id)} setup · step ${n + 1} of ${setup.operations.length}</p>`);
+  const iso = op.iso14649;
+  host.append(facts([
+    ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
+    ["Cutting data", describeTechnology(op.technology)],
+    ["Features", op.features?.length ? escapeHtml(op.features.join(", ")) : null],
+    ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.exact ? "" : ' <span class="tag">closest</span>'}${iso.note ? `<br><span style="color:var(--muted)">${escapeHtml(iso.note)}</span>` : ""}` : null],
+    ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
+  ]));
+  const found = folded((op.because || []).map((id) => decisions.get(id)).filter(Boolean));
+  host.insertAdjacentHTML("beforeend", `<h3>Why</h3>`);
+  const list = document.createElement("ol");
+  list.className = "detail-decisions";
+  found.forEach((d, i) => {
+    const li = document.createElement("li");
+    const considered = d.considered || [];
+    const chosen = typeof d.chosen === "string" ? d.chosen : null;
+    li.innerHTML = `<span class="n">${i + 1}</span><div><div${d.superseded_by ? ' style="text-decoration:line-through;color:var(--muted)"' : ""}>${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}</div><div class="rule-id" style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)}</div>`
+      + (considered.length && d.stage === "tools" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Tools considered</span>${chosen ? `<span class="who chosen">${escapeHtml(chosen)}</span><span>chosen</span>` : ""}${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
+      + (considered.length && d.stage === "setup" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Setups turned down</span>${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
+      + `</div>`;
+    list.append(li);
+  });
+  host.append(list);
+  const cited = [...new Set(found.map((d) => d.rule))];
+  host.insertAdjacentHTML("beforeend", `<h3>The rules</h3>`);
+  for (const id of cited) {
+    const rule = rules.get(id);
+    const card = document.createElement("section");
+    card.className = "rule-card";
+    card.innerHTML = `<div><b>${escapeHtml(rule ? STAGES[rule.stage] || rule.stage : "Rule")}</b> <span class="rule-id">${escapeHtml(id)}</span></div>`
+      + (rule ? `<p>${escapeHtml(rule.rationale)}</p><dl><dt>Source</dt><dd>${rule.sources.map((x) => escapeHtml(describeSource(x))).join("; ")}</dd>${rule.data ? `<dt>Kept as data</dt><dd>${rule.data.map(escapeHtml).join(", ")}</dd>` : ""}<dt>Applied in</dt><dd>${escapeHtml(rule.code)}</dd><dt>In this plan</dt><dd>${uses.get(id)} ${uses.get(id) === 1 ? "decision" : "decisions"}</dd></dl>` : "");
+    host.append(card);
+  }
+  $("plan-body").hidden = true;
+  host.hidden = false;
+  host.scrollTop = 0;
+  back.focus();
+}
+
+// The three steps above the panes, in numbers for this part.
+async function showStory(m) {
+  const rules = await loadRules();
+  if (model !== m) return;
+  const data = m.data, plan = data.plan;
+  const count = (n, one, many = `${one}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
+  const families = new Map();
+  for (const f of m.features.values()) families.set(f.family, (families.get(f.family) || 0) + 1);
+  const named = [["holes", "hole"], ["slots", "slot"], ["pockets", "notch", "notches"], ["v_channels", "V-channel"], ["fillets", "edge round"]]
+    .filter(([fam]) => families.get(fam)).map(([fam, one, many]) => count(families.get(fam), one, many));
+  $("story-features").textContent = `Reads the solid's ${count(data.analysis.binding.face_count, "face")} and finds ${count(m.features.size, "feature")}${named.length ? `: ${named.join(", ")}` : ""}.`;
+  const ops = plan.setups.flatMap((s) => s.operations);
+  const tools = new Set(ops.map((o) => o.tool).filter(Boolean));
+  const decisions = plan.decisions || [];
+  $("story-plan").textContent = `Decides how to make it: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
+  const checked = data.programs.filter((p) => p.material);
+  const check = data.post_error ? "Posting failed." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
+  $("story-toolpaths").textContent = data.post_error ? "Posting failed: see the message above." : `Turns the plan into toolpaths and ${count(m.lines.length, "line")} of G-code, ${check}`;
+  $("story").hidden = false;
 }
 
 function savePlan() {
@@ -1330,7 +1427,7 @@ function show(data) {
   buildTimeline(model);
   buildSaveButtons(model);
   buildPlan(model);
-  $("plan-open").disabled = false;
+  showStory(model);
   $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
@@ -1427,22 +1524,40 @@ function setFocusQuiet(key) {
   applyFocus(false);
 }
 
-// Expand: one view takes the whole width, and Restore (or Escape) brings both back.
-function expandPane(name) {
+// Three panes in the order the work happens: recognise, plan, make. Expand (or a rail, or a story
+// step) opens one pane and shrinks the others to rails; on a narrow screen one is always open.
+const PANES = ["features", "plan", "toolpaths"];
+const NARROW = 1300;
+let expanded = null;
+function layoutPanes() {
   const panes = document.querySelector(".panes");
-  if (name) panes.dataset.only = name; else delete panes.dataset.only;
-  for (const b of document.querySelectorAll(".pane-size")) {
-    const on = b.dataset.pane === name;
+  const single = window.innerWidth < NARROW;
+  const open = expanded || (single ? "features" : null);
+  panes.classList.toggle("single", single);
+  panes.style.gridTemplateColumns = open ? PANES.map((p) => (p === open ? "minmax(0, 1fr)" : "44px")).join(" ") : "";
+  for (const pane of document.querySelectorAll(".pane")) pane.classList.toggle("shrunk", Boolean(open) && pane.dataset.pane !== open);
+  for (const b of document.querySelectorAll(".pane-size[data-pane]")) {
+    const on = b.dataset.pane === expanded;
     b.setAttribute("aria-pressed", String(on));
     b.textContent = on ? "Restore" : "Expand";
   }
+  for (const b of document.querySelectorAll(".story-step")) b.setAttribute("aria-pressed", String(b.dataset.pane === open));
 }
-for (const b of document.querySelectorAll(".pane-size")) {
-  b.addEventListener("click", () => expandPane(document.querySelector(".panes").dataset.only === b.dataset.pane ? null : b.dataset.pane));
+function expandPane(name) {
+  expanded = name;
+  layoutPanes();
 }
+for (const b of document.querySelectorAll(".pane-size[data-pane]")) {
+  b.addEventListener("click", () => expandPane(expanded === b.dataset.pane ? null : b.dataset.pane));
+}
+for (const b of document.querySelectorAll(".pane-rail, .story-step")) {
+  b.addEventListener("click", () => expandPane(b.classList.contains("story-step") && expanded === b.dataset.pane && window.innerWidth >= NARROW ? null : b.dataset.pane));
+}
+window.addEventListener("resize", layoutPanes);
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && document.querySelector(".panes").dataset.only) expandPane(null);
+  if (event.key === "Escape" && expanded && window.innerWidth >= NARROW) expandPane(null);
 });
+layoutPanes();
 
 // Either view can change size on its own now, so both are watched. A hidden one is left alone.
 const resized = new ResizeObserver(() => {
@@ -1457,13 +1572,10 @@ const resized = new ResizeObserver(() => {
 });
 resized.observe($("gcode-view"));
 resized.observe($("cad").parentElement);
+// The G-code list draws only the rows in view, so it redraws when its box changes (a pane opening).
+new ResizeObserver(() => drawCode()).observe($("code"));
 
-$("plan-open").addEventListener("click", () => openPlan($("plan").hidden));
-$("plan-close").addEventListener("click", () => openPlan(false));
 $("plan-save").addEventListener("click", savePlan);
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !$("plan").hidden) openPlan(false);
-});
 
 initRight();
 initCadLinks();

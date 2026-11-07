@@ -187,18 +187,32 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             // turned down, and why.
             let mut considered: Vec<Value> = vec![];
             let (chosen, rule): (Result<&Value, Option<String>>, &str) = match kind.as_str() {
-                "facing" | "roughing" => (library.clearing(&kind)?.ok_or_else(|| Some(format!("no end mill to {} with", if kind == "facing" { "face" } else { "rough" }))), "tool.clearing"),
+                "facing" | "roughing" => {
+                    if library.data.get(format!("{kind}_tool")).and_then(Value::as_str).is_none_or(str::is_empty) {
+                        considered = library.considered("largest_end_mill", &[]);
+                    }
+                    (library.clearing(&kind)?.ok_or_else(|| Some(format!("no end mill to {} with", if kind == "facing" { "face" } else { "rough" }))), "tool.clearing")
+                }
                 "flats" => match (has_rough, library.clearing("roughing")?) {
                     (true, Some(s)) => (Ok(s), "tool.flats.follow_roughing"),
                     _ => (Err(Some("left out: it follows roughing, with the same end mill".into())), "tool.flats.follow_roughing"),
                 },
                 "holes" => {
                     let d = num(op, "diameter")?;
-                    let tool = library.drill(d).or_else(|| library.bore_mill(d)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
+                    let drilled = library.drill(d);
+                    considered = library.considered("drill", &[("diameter", d)]);
+                    if drilled.is_none() {
+                        // Bored: the end mills decided it, so they come first.
+                        let drills = std::mem::take(&mut considered);
+                        considered = library.considered("bore_mill", &[("diameter", d)]);
+                        considered.extend(drills);
+                    }
+                    let tool = drilled.or_else(|| library.bore_mill(d)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
                     (tool, "tool.hole.drill_or_bore")
                 }
                 "counterbore" => {
                     let d = num(op, "diameter")?;
+                    considered = library.considered("bore_mill", &[("diameter", d)]);
                     (library.bore_mill(d).ok_or_else(|| Some(format!("no end mill small enough for the ⌀{} counterbore", show(d)))), "tool.counterbore.bore_mill")
                 }
                 "thread" => {
@@ -216,17 +230,23 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 }
                 "slot" => {
                     let width = num(op, "width")?;
+                    considered = library.considered("bore_mill", &[("diameter", width)]);
                     (library.bore_mill(width).ok_or_else(|| Some(format!("no end mill small enough for the {} mm slot ({})", show(width), features()))), "tool.slot.bore_mill")
                 }
                 "notch" => {
                     let width = num(op, "width")?;
-                    let tool = library.pocket_mill(width, num(op, "top_z")? - num(op, "floor_z")?)
+                    let depth = num(op, "top_z")? - num(op, "floor_z")?;
+                    considered = library.considered("pocket_mill", &[("width", width), ("depth", depth)]);
+                    let tool = library.pocket_mill(width, depth)
                         .ok_or_else(|| Some(format!("no end mill both narrower than the {} mm width and long enough ({})", show(width), features())));
                     (tool, "tool.notch.pocket_mill")
                 }
                 "v_channel" => match v_channel_refusal(&view, op, &library)? {
                     Some((rule, why)) => (Err(Some(why)), rule),
-                    None => (library.v_bit(num(op, "angle")?).ok_or(None), "tool.v_channel.v_bit"),
+                    None => {
+                        considered = library.considered("v_bit", &[("angle", num(op, "angle")?)]);
+                        (library.v_bit(num(op, "angle")?).ok_or(None), "tool.v_channel.v_bit")
+                    }
                 },
                 "wall_finish" => match wall_refusal(&view, op, &library)? {
                     Some((rule, why)) => (Err(Some(why)), rule),
@@ -234,6 +254,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 },
                 "edge_chamfer" => {
                     let (width, radius) = (num(op, "width")?, num(op, "radius")?);
+                    considered = library.considered("chamfer_mill", &[("width", width)]);
                     (library.chamfer_mill(width).ok_or_else(|| Some(format!("no 90° chamfer mill wide enough for the r{} edges, so they stay sharp", show(radius)))), "tool.edge_chamfer.chamfer_mill")
                 }
                 _ => continue,

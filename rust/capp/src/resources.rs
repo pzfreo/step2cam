@@ -102,6 +102,11 @@ impl<'a> Library<'a> {
     pub fn chamfer_mill(&self, width: f64) -> Option<&'a Value> {
         self.pick("chamfer_mill", &[("width", width)])
     }
+    /// What a selector made of every tool of its type, for the trace (`rules::considered`).
+    pub fn considered(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Value> {
+        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)]);
+        crate::rules::considered(selector, &self.tools, &inputs.iter().copied().collect(), &params).unwrap_or_else(|e| panic!("{e}"))
+    }
     /// The thread mill for this thread operation, and why the others were turned down.
     pub fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
         let inputs = [
