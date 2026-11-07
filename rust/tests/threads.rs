@@ -230,7 +230,10 @@ fn a_thread_whose_neck_needs_too_fine_a_grid_is_not_cut() {
     let mut a = synthetic(&[down(0., 0., 4.2, 10., "through")], big, &[], &[]);
     a["features"][0]["faces"] = json!([1]);
     let plan = capp::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M5"}), a), None, &top_stock(0.)).unwrap();
-    let (ops, _, notes) = posted(&plan, &example_tools());
+    // Without a machine described: a real mill's travels would refuse a 2 m part first.
+    let mut no_machine = example_tools();
+    no_machine.as_object_mut().unwrap().remove("machines");
+    let (ops, _, notes) = posted(&plan, &no_machine);
     assert!(ops.iter().all(|o| o["kind"] != "thread_mill"), "{ops:?}");
     assert!(any_note(&notes, "too fine for this part"), "{notes:?}");
 }

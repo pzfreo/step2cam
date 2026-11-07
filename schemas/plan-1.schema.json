@@ -229,6 +229,10 @@
     },
     "part_surface": {
      "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
+    },
+    "machine": {
+     "type": "string",
+     "description": "The machine it is cut on, once capp::finish has run."
     }
    },
    "additionalProperties": false
@@ -325,6 +329,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -452,6 +460,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -557,6 +569,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -699,6 +715,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -826,6 +846,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -971,6 +995,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1115,6 +1143,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1264,6 +1296,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1422,6 +1458,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1550,6 +1590,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1695,6 +1739,10 @@
         "source": {
          "type": "string",
          "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
         }
        },
        "additionalProperties": false,
@@ -1728,7 +1776,8 @@
       "sequence",
       "feasibility",
       "tools",
-      "execution"
+      "execution",
+      "machine"
      ]
     },
     "rule": {

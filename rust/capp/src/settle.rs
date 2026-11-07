@@ -21,7 +21,14 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
         settle(plan, library)?;
     }
-    resolve(plan, library)
+    let mut trace = Trace::take(plan);
+    crate::machines::place(plan, library, &mut trace);
+    trace.store(plan);
+    resolve(plan, library)?;
+    let mut trace = Trace::take(plan);
+    crate::machines::check_changer(plan, library, &mut trace);
+    trace.store(plan);
+    Ok(())
 }
 
 /// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
@@ -173,6 +180,9 @@ pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
 
 fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
     let library = Library::new(library_data)?;
+    for (tool, why) in &library.too_big {
+        trace.decide("machine.spindle.tool_size", id(tool), "removed", why, Value::Null);
+    }
     let group = material(plan, library_data, trace);
     let plan_material = plan["material"]["used"].as_str().map(String::from);
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
@@ -279,7 +289,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             let mut why = vec![decided];
             if let Some(name) = tool.as_str() {
                 let spec = library.data["tools"].as_array().and_then(|t| t.iter().find(|x| x["id"] == name)).ok_or("a chosen tool is not in the library")?;
-                let (technology, source) = technology(spec, group.as_deref());
+                let (mut technology, source) = technology(spec, group.as_deref());
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),
                     Some(g) => format!("{name}'s own cutting data: it has none for ISO 513 group {g}"),
@@ -287,6 +297,9 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     None => format!("{name}'s own cutting data: the material is in no ISO 513 group"),
                 };
                 why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));
+                if let Some(capped) = crate::machines::cap_speed(&mut technology, library_data) {
+                    why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
+                }
                 op["technology"] = technology;
             }
             op["tool"] = tool;

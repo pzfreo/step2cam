@@ -23,6 +23,39 @@
   "mist": false,
   "tool_change_position_mode": "table"
  },
+ "machines": [
+  {
+   "id": "carvera",
+   "name": "the Makera Carvera",
+   "kind": "mill",
+   "_comment": "Makera Carvera, from its published specifications (makera.com, and resellers' copies of its spec sheet, read 2026-11-07): 360 x 240 x 140 mm of travel, a 200 W spindle to 15,000 rpm, a 1/8\" collet as standard (1/4\", 6, 4 and 3 mm optional), an automatic tool changer holding 6 tools. With the 1/4\" collet fitted it holds shanks up to 6.35 mm. Its controller is not LinuxCNC: the G-code here is still posted for LinuxCNC (machine, above). The tools and cutting data in this file are placeholders, not Makera's.",
+   "axes": {
+    "linear": [
+     "x",
+     "y",
+     "z"
+    ],
+    "travel_mm": {
+     "x": 360,
+     "y": 240,
+     "z": 140
+    }
+   },
+   "spindle": {
+    "max_rpm": 15000,
+    "power_kw": 0.2,
+    "taper": "1/4\" collet",
+    "max_tool_diameter_mm": 6.35
+   },
+   "tool_changer": {
+    "kind": "automatic",
+    "pockets": 6
+   },
+   "coolant": [
+    "air"
+   ]
+  }
+ ],
  "clearance_mm": 10,
  "retract_mm": 2,
  "breakthrough_mm": 1,

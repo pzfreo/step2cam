@@ -11,7 +11,10 @@ fn fixture(path: &str) -> Value {
 fn process() -> Value {
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
-    step2cam::process(&analysis, &mesh, &fixture("demo/tools.json")).unwrap()
+    // The demo's tools on no particular machine: this is about planning, not the Carvera.
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    step2cam::process(&analysis, &mesh, &tools).unwrap()
 }
 fn word(line: &str, letter: char) -> Option<f64> {
     line.split(' ').find_map(|w| w.strip_prefix(letter)?.parse().ok())

@@ -793,6 +793,97 @@
      "kind": "step2cam"
     }
    ]
+  },
+  {
+   "id": "machine.for_setup",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "Each setup is cut on the resources' mill, the first machine of kind mill. With no machine described, its travels, tool holding and tool changer are not checked.",
+   "code": "machines.rs place",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.travel",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "A setup whose stock is larger than the mill's travel in x, y or z is not cut, and its features say why.",
+   "code": "machines.rs place",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.workholding",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "Stock wider at its narrowest than the vise opens is flagged: it must be held another way.",
+   "code": "machines.rs place",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.spindle.tool_size",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "A tool whose shank is wider than the spindle holds (max_tool_diameter_mm) is never chosen.",
+   "code": "resources.rs Library::new",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.spindle.max_rpm",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "Cutting data faster than the spindle's top speed are run at that speed, the feeds scaled by the same ratio so each tooth takes the same chip.",
+   "code": "machines.rs cap_speed",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.tool_changer.pockets",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "A setup that needs more tools than the changer holds is flagged: tools must be swapped part-way.",
+   "code": "machines.rs check_changer",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "machine.tool_changer.manual",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "On a manual tool changer every tool change is by hand: the setup's tool count is said.",
+   "code": "machines.rs check_changer",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
   }
  ]
 }

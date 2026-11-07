@@ -3,6 +3,7 @@
 //!
 //! [`plan::plan`] decides what to cut in which setup; [`settle::finish`] takes out what these
 //! resources cannot cut, and what an execution engine refused, and names each operation's tool.
+pub mod machines;
 pub mod plan;
 pub mod reference;
 pub mod resources;
