@@ -1,10 +1,11 @@
-//! step2cam: a STEP part's recognised features -> camlib toolpaths and G-code, with no Python and
-//! no server, so that it can run in a browser.
+//! step2cam: a STEP part's recognised features -> a plan, and the camlib job that carries it out,
+//! simulated by camlib, with no Python and no server, so that it can run in a browser. step2cam
+//! writes no G-code: camlib's own posts do, from the same job.
 //!
 //! specify-core's analysis and mesh -> [`capp`] (plan, settle, tools) -> [`job::jobs`] (the camlib
-//! adapter) -> [`post::post`]. An operation camlib refuses goes back to capp as an exclusion.
+//! adapter) -> [`simulate::simulate`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
-pub mod post;
+pub mod simulate;
 
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -24,38 +25,37 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value) ->
     )
 }
 
-fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), post::Failure> {
+fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), simulate::Failure> {
     let (jobs, notes) = job::jobs(plan, library)?;
     log.extend(notes);
     for job in jobs {
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let program = post::post(&job.manifest.to_string(), machine.clone()).map_err(|f| post::Failure {
+        let run = simulate::simulate(&job.manifest.to_string()).map_err(|f| simulate::Failure {
             message: format!("setup {}: {}", job.setup, f.message),
             ..f
         })?;
-        if program.uncertain > 0 {
-            log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, program.uncertain));
+        if run.uncertain > 0 {
+            log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }
-        log.push(format!("note: setup {}: {}", job.setup, material_note(program.material.as_ref(), &job.manifest)));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_ref(), &job.manifest)));
         // What the check cannot see, as the note says it, for the page to word.
         let check = &job.manifest["verification"]["material"][0];
         let limits = json!({
             "height_mm": check["target"]["surface"]["surface_error_mm"], "sideways_mm": job.manifest["stock"]["cell_size_mm"],
             "before_threads": !check["after_operation"].is_null(),
         });
-        let material = program.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits}));
-        programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions, "material": material}));
+        let material = run.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits}));
+        programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material}));
     }
     Ok(())
 }
 
 /// Everything the page draws, from specify-core's analysis and mesh and a tool library. An
 /// operation camlib refuses is left out with a warning, so the rest of the part can still be
-/// seen; a part that plans but cannot post at all still comes back, with `post_error`.
+/// seen; a part that plans but cannot be simulated at all still comes back, with `error`.
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let planned = capp::plan::plan(analysis, Some(mesh), &capp::plan::Options::default())?;
-    let machine: post::Machine = serde_json::from_value(library.get("machine").cloned().unwrap_or(Value::Null)).map_err(|e| format!("tool library machine: {e}"))?;
-    let (mut programs, mut log, mut post_error) = (vec![], vec![], None);
+    let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut exclusions: Vec<Value> = vec![];
     let mut plan;
@@ -64,17 +64,17 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
         log.clear();
         plan = planned.clone();
         if let Err(message) = capp::finish(&mut plan, library, &exclusions) {
-            post_error = Some(message);
+            error = Some(message);
             break;
         }
-        let Err(failure) = post_all(&plan, library, &machine, &mut programs, &mut log) else {
+        let Err(failure) = simulate_all(&plan, library, &mut programs, &mut log) else {
             break;
         };
         // An operation capp can take out is excluded and the plan finished again; anything else
-        // stops: nothing is given out, not even a setup that posted before this one stopped.
+        // stops: nothing is given out, not even a setup that ran before this one stopped.
         let excludable = failure.operation.as_deref().is_some_and(|id| capp::exclude(&mut plan.clone(), id, "").is_some());
         let (true, Some(operation)) = (excludable, failure.operation) else {
-            post_error = Some(failure.message);
+            error = Some(failure.message);
             programs.clear();
             break;
         };
@@ -92,7 +92,7 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
             }
         }
     }
-    Ok(json!({"plan": plan, "programs": programs, "log": log, "post_error": post_error}))
+    Ok(json!({"plan": plan, "programs": programs, "log": log, "error": error}))
 }
 
 /// For the browser: JSON strings in, a JSON string out.

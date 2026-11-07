@@ -27,9 +27,10 @@ A search in November 2026 found no open-source project that encodes this knowled
 ## The three phases
 
 ```
-STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► G-code
+STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► toolpaths, checks
         (specify-core)                    rust/capp                  step2cam: camlib adapter,
-                                          + resources.json           post (LinuxCNC), checks
+                                          + resources.json           camlib's simulation and checks
+                                                                     (G-code: camlib's posts, not step2cam)
 ```
 
 **1. Specify** (specify-core, unchanged). STEP in; the analysis and the mesh out, in specify-core's
@@ -46,8 +47,9 @@ no camlib:
   operation's tool, cutting data and ISO 14649 names.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
-operation's tool and cutting data and writes camlib's manifest; the post-processor (`post.rs`);
-and the browser entry point (`process`). An operation camlib refuses goes back to `capp::finish`
+operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
+with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
+camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 
@@ -206,8 +208,8 @@ with up to 5 tool libraries, one with a twin of every tool to test tie-breaks. S
 only when a material is given and a tool states cutting data for its group.
 
 Planned:
-- **Machines.** The resources describe one machine: a three-axis LinuxCNC mill, by its limits for
-  the post-processor. CAPP assumes it throughout: six square-on setups, each a re-clamp, and
+- **Machines.** The resources describe no machine: they used to describe a three-axis LinuxCNC
+  mill, by its limits for the post-processor, which step2cam no longer has. CAPP assumes it throughout: six square-on setups, each a re-clamp, and
   turned features skipped. The resources should list machines and their capabilities:
   - kind: mill, lathe, mill-turn;
   - axes: 3-axis, 3+2 with an indexer or trunnion, 4th-axis rotary, 5-axis;

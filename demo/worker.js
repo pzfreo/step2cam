@@ -25,7 +25,7 @@ self.onmessage = async ({ data: { id, name, bytes } }) => {
     const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), toolsText));
     self.postMessage({
       id,
-      data: { name, notice, analysis, mesh, tools: tools.tools, machine: tools.machine, ...out },
+      data: { name, notice, analysis, mesh, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
     });
   } catch (error) {
     self.postMessage({ id, error: String(error?.message ?? error) });
