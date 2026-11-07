@@ -27,6 +27,7 @@
       <button type="button" data-view="top">Top</button>
       <button type="button" data-view="front">Front</button>
     </div>
+    <div class="views"><button type="button" id="plan-open" aria-expanded="false" aria-controls="plan" disabled>Plan</button></div>
     <div id="save" class="views" role="group" aria-label="Save the G-code"></div>
     <div class="views" role="group" aria-label="Sample parts">
       <button type="button" data-sample="plate.step">Simple plate</button>
@@ -85,6 +86,16 @@
   </footer>
 
   <p class="about">Runs in your browser: your file is not uploaded. A demo with placeholder tools and cutting data, not for a real machine. <a href="https://github.com/pzfreo/step2cam">step2cam</a> uses <a href="https://github.com/pzfreo/specify-core">specify-core</a>, <a href="https://github.com/stevecad/camlib">camlib</a> (<a href="licenses/camlib-LICENSE.txt">MIT</a>), <a href="https://github.com/bernhard-42/three-cad-viewer">three-cad-viewer</a> and <a href="https://threejs.org">three.js</a>.</p>
+
+  <aside id="plan" class="plan" hidden aria-label="Process plan">
+    <div class="plan-head">
+      <h2>Process plan</h2>
+      <button type="button" id="plan-save">Save plan</button>
+      <button type="button" id="plan-close" aria-label="Close the plan">Close</button>
+    </div>
+    <p class="plan-intro">What the planner decided, in the order it will be cut, and why: each choice names the rule it was made by. Hover an operation to see it in both views; click to pin it.</p>
+    <div id="plan-body" class="plan-body"></div>
+  </aside>
 
   <div id="busy" class="busy" hidden><div>Analysing and posting, in your browser…</div></div>
 </div>
