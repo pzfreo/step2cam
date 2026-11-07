@@ -70,14 +70,14 @@ fn unit(v: V3) -> Result<V3, String> {
     Ok([v[0] / n, v[1] / n, v[2] / n])
 }
 /// Rounded for the plan, with no negative zero: the nearest 4-decimal value.
-pub(crate) fn r(x: f64) -> f64 {
+pub fn r(x: f64) -> f64 {
     format!("{x:.4}").parse::<f64>().unwrap_or(x) + 0.0
 }
 fn rp(p: V3) -> Value {
     json!([r(p[0]), r(p[1]), r(p[2])])
 }
 /// A number as messages show it.
-pub(crate) fn show(x: f64) -> String {
+pub fn show(x: f64) -> String {
     format!("{x:?}")
 }
 fn show3(p: V3) -> String {

@@ -1,0 +1,212 @@
+//! After planning: what can run with these resources, what an execution engine refused, and which
+//! tool cuts each operation.
+//!
+//! [`finish`] takes a plan from [`crate::plan::plan`], the resources and the exclusions an
+//! execution engine has reported, and leaves the plan ready to execute: every operation names its
+//! tool (`tool`), or says why it has none (`tool_note`, null when nothing needs saying).
+use crate::plan::{r, show};
+use crate::resources::{Library, id, num};
+use serde_json::{Value, json};
+
+/// The plan as it must be executed: settled, then for each exclusion in turn that operation
+/// taken out and the plan settled again, then every operation's tool resolved. An exclusion names
+/// an operation as the execution engine named it (`top-2-roughing`, numbered in the plan as it
+/// stood when that engine saw it) and says why it refused it.
+pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
+    settle(plan, library)?;
+    for exclusion in exclusions {
+        let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
+        exclude(plan, operation, exclusion["message"].as_str().unwrap_or(""))
+            .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
+        settle(plan, library)?;
+    }
+    resolve(plan, library)
+}
+
+/// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
+/// plan, and says what that leaves uncut. None if there is no such operation.
+pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value> {
+    let mut parts = operation.splitn(3, '-');
+    let (setup_id, number) = (parts.next()?, parts.next()?.parse::<usize>().ok()?);
+    let setup = plan["setups"].as_array_mut()?.iter_mut().find(|s| s["id"] == setup_id)?;
+    let ops = setup["operations"].as_array_mut()?;
+    let removed = (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))?;
+    // Refused or not, the finished stock is still compared with the part this holds.
+    if removed["kind"] == "roughing" {
+        setup["part_surface"] = removed.clone();
+    }
+    // Nothing is covered by roughing that does not run.
+    if operation.ends_with("-roughing") {
+        let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
+        if let Some(skipped) = plan["skipped"].as_array_mut() {
+            skipped.extend(covered.into_iter().map(|id| json!({"feature": id, "reason": "no operation of its own, and roughing was refused"})));
+        }
+    }
+    let brief: String = message.chars().take(160).collect();
+    // Its features say why they were not cut.
+    if let Some(skipped) = plan["skipped"].as_array_mut() {
+        for feature in removed["features"].as_array().into_iter().flatten() {
+            skipped.push(json!({"feature": feature, "reason": format!("left out: {brief}")}));
+        }
+    }
+    if let Some(warnings) = plan["warnings"].as_array_mut() {
+        warnings.push(json!(format!("{operation} left out: {brief}")));
+    }
+    Some(removed)
+}
+
+/// Why this outside wall cannot be finished, if it cannot. A contour knows only its outline: it has
+/// to follow a roughing that cleared the stock beside the wall, with room for the cutter and for
+/// the allowance roughing leaves on whatever stands opposite.
+fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<String>, String> {
+    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+    let Some(rough) = rough else {
+        return Ok(Some("no roughing has cleared the stock beside the wall, so it is not finished".into()));
+    };
+    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+        return Ok(Some("the flat this wall stands on is not cut, so it is not finished".into()));
+    }
+    let Some(mill) = library.clearing("roughing")? else {
+        return Ok(Some("no end mill to finish the wall with".into()));
+    };
+    let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
+    let needed = num(mill, "diameter")? + 2. * radial;
+    Ok(op["room"].as_f64().filter(|room| *room < needed).map(|room| format!("{} mm beside the wall is too narrow for {} (it needs {}), so it keeps its roughing allowance", show(room), id(mill), show(r(needed)))))
+}
+
+/// Why this V-channel cannot be cut, if it cannot.
+fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<String>, String> {
+    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+        return Ok(Some("the flat it is cut in has not been cut, so it is not cut".into()));
+    }
+    let Some(bit) = library.v_bit(num(op, "angle")?) else {
+        return Ok(Some(format!("no sharp V-bit of {}° or less", show(num(op, "angle")?))));
+    };
+    if bit.get("stepdown_mm").and_then(Value::as_f64).is_none() {
+        return Ok(Some(format!("{} has no stepdown_mm", id(bit))));
+    }
+    let clear = num(bit, "diameter")? / 2. - num(op, "width")? / 2.;
+    Ok(op["room"].as_f64().filter(|room| *room < clear).map(|room| format!("{} mm beside it is too narrow for {}", show(room), id(bit))))
+}
+
+/// Takes out of the plan what can no longer be cut: walls and flats with nothing to follow, and an
+/// outside chamfer whose wall is not at size, whose rounds go back to not being cut.
+pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
+    let library = Library::new(library_data)?;
+    let (mut warnings, mut skipped) = (vec![], vec![]);
+    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
+        let setup_id = setup["id"].as_str().unwrap_or("").to_string();
+        let view = setup.clone();
+        let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
+        let mut refused = vec![];
+        for op in ops.iter().filter(|o| o["kind"] == "wall_finish") {
+            if let Some(why) = wall_refusal(&view, op, &library)? {
+                warnings.push(json!(format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?))));
+                refused.push(op["wall"].clone());
+            }
+        }
+        let mut no_channel = vec![];
+        for (n, op) in ops.iter().enumerate().filter(|(_, o)| o["kind"] == "v_channel") {
+            if let Some(why) = v_channel_refusal(&view, op, &library)? {
+                warnings.push(json!(format!("setup {setup_id}: V-channel left out: {why}")));
+                skipped.extend(op["features"].as_array().into_iter().flatten().map(|id| json!({"feature": id, "reason": format!("V-channel left out: {why}")})));
+                no_channel.push(n);
+            }
+        }
+        for n in no_channel.into_iter().rev() {
+            ops.remove(n);
+        }
+        let rough = ops.iter().any(|o| o["kind"] == "roughing");
+        ops.retain(|o| !(o["kind"] == "wall_finish" && refused.contains(&o["wall"])) && (rough || o["kind"] != "flats"));
+        let walls: Vec<Value> = ops.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["wall"].clone()).collect();
+        ops.retain_mut(|op| {
+            if op["kind"] != "edge_chamfer" || op["needs_wall"].is_null() || walls.contains(&op["needs_wall"]) {
+                return true;
+            }
+            let radius = op["radius"].as_f64().unwrap_or(0.);
+            let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
+            skipped.extend(lost.iter().map(|id| json!({"feature": id, "reason": format!("r{} edge round: its wall keeps its roughing allowance, so it is not chamfered", show(radius))})));
+            if op["boundaries"] != "all" {
+                return false;
+            }
+            op["boundaries"] = json!("holes");
+            op["needs_wall"] = Value::Null;
+            if let Some(features) = op["features"].as_array_mut() {
+                features.retain(|f| !lost.contains(f));
+            }
+            true
+        });
+    }
+    if let Some(list) = plan["warnings"].as_array_mut() {
+        list.extend(warnings);
+    }
+    if let Some(list) = plan["skipped"].as_array_mut() {
+        list.extend(skipped);
+    }
+    Ok(())
+}
+
+/// Names the tool that cuts each operation (`tool`), or says why none can (`tool_note`; null when
+/// nothing needs saying). An operation kind this does not know is left without either.
+pub fn resolve(plan: &mut Value, library_data: &Value) -> Result<(), String> {
+    let library = Library::new(library_data)?;
+    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
+        let view = setup.clone();
+        let top = view["stock"]["max"][2].as_f64().ok_or("bad stock")?;
+        let has_rough = view["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "roughing"));
+        for op in setup["operations"].as_array_mut().ok_or("setup has no operations")? {
+            let features = || op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", ");
+            let chosen: Result<&Value, Option<String>> = match op["kind"].as_str().unwrap_or("") {
+                kind @ ("facing" | "roughing") => library.clearing(kind)?.ok_or_else(|| Some(format!("no end mill to {} with", if kind == "facing" { "face" } else { "rough" }))),
+                "flats" => match (has_rough, library.clearing("roughing")?) {
+                    (true, Some(s)) => Ok(s),
+                    _ => Err(Some("left out: it follows roughing, with the same end mill".into())),
+                },
+                "holes" => {
+                    let d = num(op, "diameter")?;
+                    library.drill(d).or_else(|| library.bore_mill(d)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())))
+                }
+                "counterbore" => {
+                    let d = num(op, "diameter")?;
+                    library.bore_mill(d).ok_or_else(|| Some(format!("no end mill small enough for the ⌀{} counterbore", show(d))))
+                }
+                "thread" => {
+                    let (mill, why) = library.thread_mill(op, top)?;
+                    mill.ok_or_else(|| {
+                        let reasons = if why.is_empty() { String::new() } else { format!(" ({})", why.join("; ")) };
+                        Some(format!("{} ({}): no thread mill can cut it{reasons}", op["spec"].as_str().unwrap_or(""), features()))
+                    })
+                }
+                "slot" => {
+                    let width = num(op, "width")?;
+                    library.bore_mill(width).ok_or_else(|| Some(format!("no end mill small enough for the {} mm slot ({})", show(width), features())))
+                }
+                "notch" => {
+                    let width = num(op, "width")?;
+                    library.pocket_mill(width, num(op, "top_z")? - num(op, "floor_z")?)
+                        .ok_or_else(|| Some(format!("no end mill both narrower than the {} mm width and long enough ({})", show(width), features())))
+                }
+                "v_channel" => match v_channel_refusal(&view, op, &library)? {
+                    Some(why) => Err(Some(why)),
+                    None => library.v_bit(num(op, "angle")?).ok_or(None),
+                },
+                "wall_finish" => match wall_refusal(&view, op, &library)? {
+                    Some(why) => Err(Some(why)),
+                    None => library.clearing("roughing")?.ok_or(None),
+                },
+                "edge_chamfer" => {
+                    let (width, radius) = (num(op, "width")?, num(op, "radius")?);
+                    library.chamfer_mill(width).ok_or_else(|| Some(format!("no 90° chamfer mill wide enough for the r{} edges, so they stay sharp", show(radius))))
+                }
+                _ => continue,
+            };
+            let (tool, note) = match chosen {
+                Ok(tool) => (json!(id(tool)), Value::Null),
+                Err(note) => (Value::Null, json!(note)),
+            };
+            op["tool"] = tool;
+            op["tool_note"] = note;
+        }
+    }
+    Ok(())
+}

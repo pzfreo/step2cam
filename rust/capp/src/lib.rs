@@ -1,5 +1,10 @@
-//! Computer-aided process planning (CAPP): specify-core's analysis, PMI and mesh, with a shop's
-//! resources, in; a process plan, with the decisions and rules behind it, out. JSON in, JSON out,
-//! no I/O. See `docs/capp-plan.md`.
+//! Computer-aided process planning (CAPP): specify-core's analysis and mesh, with a shop's
+//! resources, in; a process plan out. JSON in, JSON out, no I/O. See `docs/capp-plan.md`.
 //!
-//! Empty for now: planning moves here from `step2cam` in the next step of that plan.
+//! [`plan::plan`] decides what to cut in which setup; [`settle::finish`] takes out what these
+//! resources cannot cut, and what an execution engine refused, and names each operation's tool.
+pub mod plan;
+pub mod resources;
+pub mod settle;
+
+pub use settle::{exclude, finish, resolve, settle};

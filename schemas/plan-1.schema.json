@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:plan:1",
  "title": "step2cam plan, version 1",
- "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model.",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying).",
  "type": "object",
  "required": [
   "format",
@@ -183,6 +183,20 @@
       },
       "floor_z": {
        "type": "number"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -229,6 +243,20 @@
         "type": "integer",
         "minimum": 0
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -253,6 +281,20 @@
        "items": {
         "type": "number"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -314,6 +356,20 @@
         "number",
         "null"
        ]
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -360,6 +416,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -424,6 +494,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -487,6 +571,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -555,6 +653,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -632,6 +744,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -679,6 +805,20 @@
         "number",
         "null"
        ]
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false
@@ -743,6 +883,20 @@
        "items": {
         "type": "string"
        }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
       }
      },
      "additionalProperties": false

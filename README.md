@@ -9,9 +9,16 @@ Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quid
 is a plain JSON plan.
 
 ```
-part.step ─▶ specify-core: analysis, mesh ─▶ plan::plan ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
-             (quiddity: features)            (what to cut) (which tool) (camlib: how)  one per setup
+part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
+             (quiddity: features)            (what to cut, with   (camlib's    (camlib: how)  one per setup
+                                              which tool)          manifest)
 ```
+
+The planning is the `capp` crate (`rust/capp`): `capp::plan::plan` decides what to cut in which
+setup, and `capp::finish` takes out what the tool library cannot cut and names each operation's
+tool. `step2cam` is the camlib adapter (`job.rs`), the post-processor (`post.rs`) and the browser
+entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
+is finished again without it.
 
 ## Use
 
@@ -59,7 +66,7 @@ run. A program that fails is not given out. Only LinuxCNC output in mm is wired 
 The plan says **what** to cut, independent of tools and machine.
 
 - **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`plan::Options`).
+  and `bottom_stock` (0) below (`capp::plan::Options`).
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
@@ -122,6 +129,8 @@ The plan says **what** to cut, independent of tools and machine.
   refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
   their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
   allowance.
+- **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
+  that cuts it, or why none can (`tool_note`).
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
@@ -302,8 +311,8 @@ cargo test --release --workspace --manifest-path rust/Cargo.toml
 - `rust/tests/schemas.rs`: the tool libraries and every fixture's plan against the JSON Schemas in
   `schemas/` (`resources-1`, `plan-1`).
 
-The planning is being split out into its own crate, `rust/capp`, as `docs/capp-plan.md` sets
-out. What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
+The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
+What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
 for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the

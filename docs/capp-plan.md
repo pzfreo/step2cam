@@ -1,6 +1,7 @@
 # step2cam in three phases: Specify, CAPP, execution
 
-Status: plan only. Nothing here is built yet.
+Status: step 1 (schemas) and step 2 (planning, tool choice and exclusions in the `capp` crate)
+are done; the rest is planned.
 
 Decided (7 November 2026):
 - CAPP reads specify-core's output as it is. It has no feature schema of its own.

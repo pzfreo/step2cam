@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # Fetched by fetch-camlib.sh: camlib is not published.
 camlib = { path = "../vendor/camlib" }
+capp = { path = "capp" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 wasm-bindgen = "0.2"

@@ -677,6 +677,7 @@ name = "step2cam"
 version = "0.1.0"
 dependencies = [
  "camlib",
+ "capp",
  "jsonschema",
  "serde",
  "serde_json",

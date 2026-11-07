@@ -1,9 +1,9 @@
 //! step2cam: a STEP part's recognised features -> camlib toolpaths and G-code, with no Python and
 //! no server, so that it can run in a browser.
 //!
-//! specify-core's analysis and mesh -> [`plan::plan`] -> [`job::jobs`] -> [`post::post`].
+//! specify-core's analysis and mesh -> [`capp`] (plan, settle, tools) -> [`job::jobs`] (the camlib
+//! adapter) -> [`post::post`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
-pub mod plan;
 pub mod post;
 
 use serde_json::{Value, json};
@@ -49,61 +49,36 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
     Ok(())
 }
 
-/// Takes an operation named as job::jobs names them (`top-2-roughing`) out of the plan.
-fn remove_operation(plan: &mut Value, id: &str) -> Option<Value> {
-    let mut parts = id.splitn(3, '-');
-    let (setup_id, number) = (parts.next()?, parts.next()?.parse::<usize>().ok()?);
-    let setup = plan["setups"].as_array_mut()?.iter_mut().find(|s| s["id"] == setup_id)?;
-    let ops = setup["operations"].as_array_mut()?;
-    let removed = (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))?;
-    // Refused or not, the finished stock is still compared with the part this holds.
-    if removed["kind"] == "roughing" {
-        setup["part_surface"] = removed.clone();
-    }
-    Some(removed)
-}
-
 /// Everything the page draws, from specify-core's analysis and mesh and a tool library. An
 /// operation camlib refuses is left out with a warning, so the rest of the part can still be
 /// seen; a part that plans but cannot post at all still comes back, with `post_error`.
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
-    let mut plan = plan::plan(analysis, Some(mesh), &plan::Options::default())?;
+    let planned = capp::plan::plan(analysis, Some(mesh), &capp::plan::Options::default())?;
     let machine: post::Machine = serde_json::from_value(library.get("machine").cloned().unwrap_or(Value::Null)).map_err(|e| format!("tool library machine: {e}"))?;
     let (mut programs, mut log, mut post_error) = (vec![], vec![], None);
+    // What camlib refused, in order: capp plans again without each.
+    let mut exclusions: Vec<Value> = vec![];
+    let mut plan;
     loop {
         programs.clear();
         log.clear();
-        if let Err(message) = job::settle(&mut plan, library) {
+        plan = planned.clone();
+        if let Err(message) = capp::finish(&mut plan, library, &exclusions) {
             post_error = Some(message);
             break;
         }
         let Err(failure) = post_all(&plan, library, &machine, &mut programs, &mut log) else {
             break;
         };
-        let removed = failure.operation.as_deref().and_then(|id| remove_operation(&mut plan, id));
-        let (Some(operation), Some(removed)) = (failure.operation, removed) else {
-            // Nothing is given out: not even a setup that posted before this one stopped.
+        // An operation capp can take out is excluded and the plan finished again; anything else
+        // stops: nothing is given out, not even a setup that posted before this one stopped.
+        let excludable = failure.operation.as_deref().is_some_and(|id| capp::exclude(&mut plan.clone(), id, "").is_some());
+        let (true, Some(operation)) = (excludable, failure.operation) else {
             post_error = Some(failure.message);
             programs.clear();
             break;
         };
-        // Nothing is covered by roughing that does not run.
-        if operation.ends_with("-roughing") {
-            let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
-            if let Some(skipped) = plan["skipped"].as_array_mut() {
-                skipped.extend(covered.into_iter().map(|id| json!({"feature": id, "reason": "no operation of its own, and roughing was refused"})));
-            }
-        }
-        let brief: String = failure.message.chars().take(160).collect();
-        // Its features say why they were not cut.
-        if let Some(skipped) = plan["skipped"].as_array_mut() {
-            for feature in removed["features"].as_array().into_iter().flatten() {
-                skipped.push(json!({"feature": feature, "reason": format!("left out: {brief}")}));
-            }
-        }
-        if let Some(warnings) = plan["warnings"].as_array_mut() {
-            warnings.push(json!(format!("{operation} left out: {brief}")));
-        }
+        exclusions.push(json!({"operation": operation, "message": failure.message}));
     }
     // The page has the mesh already; the plan's copy of it is not needed.
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
