@@ -12,6 +12,9 @@ import { Display, Viewer } from "three-cad-viewer";
 const $ = (id) => document.getElementById(id);
 const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
 const PALETTE = ["#2dd4bf", "#5aa9ff", "#ffb020", "#f472b6", "#a78bfa", "#a3e635", "#fb7185", "#38bdf8"];
+const ROUGHED = "#7fb7a8", NOT_CUT = "#ff7a4d";
+// specify-core's descriptions of the part as a whole, not features a person would point at.
+const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
 const PLAYBACK_SECONDS = 45;
 const ROW_HEIGHT = 20;
 
@@ -20,6 +23,10 @@ let focusKey = null;     // what is hovered: a feature id or an operation id
 let pinKey = null;       // what was clicked
 let time = 0;            // playhead, in estimated machining seconds
 let playing = false;
+let showRapids = false;  // moves through the air in the toolpath view
+let showCurrent = true;  // while playing, the operation being cut stands out
+let paintedOp = null;    // the operation the toolpath view was last painted for
+let hoveredLine = null;  // the G-code line under the pointer
 
 // ------------------------------------------------------------------------------------------
 // The data: operations, features and the parsed G-code
@@ -28,7 +35,7 @@ let playing = false;
 function buildModel(data) {
   const operations = new Map(), features = new Map();
   for (const f of data.analysis.features) {
-    if (f.family !== "hole_patterns") features.set(f.id, { ...f, operations: [], color: UNPLANNED });
+    if (!NOT_FEATURES.has(f.family)) features.set(f.id, { ...f, operations: [], color: UNPLANNED, name: featureName(f) });
   }
   let next = 0;
   for (const setup of data.plan.setups) {
@@ -48,6 +55,7 @@ function buildModel(data) {
   for (const f of features.values()) f.skipped = skipped.get(f.id);
   const covered = new Set(data.plan.covered_by_roughing);
   for (const f of features.values()) f.covered = covered.has(f.id);
+  describeRoughed(features, data);
 
   const path = parseProgram(data, operations);
   const m = { data, operations, features, ...path };
@@ -55,7 +63,76 @@ function buildModel(data) {
     if (line.op && line.seconds) operations.get(line.op).time += line.seconds;
   }
   compressTimeline(m);
+  buildRows(m);
   return m;
+}
+
+const trim = (x) => String(Math.round(Number(x) * 10) / 10);
+
+function featureName(f) {
+  const r = f.record || {};
+  switch (f.family) {
+    case "holes": return `⌀${trim(r.diameter)} hole`;
+    case "slots": return `Slot, ${trim(r.width)} wide`;
+    case "pockets": return r.open_sign ? `Notch, ${trim(r.width)} wide × ${trim(r.depth)} deep` : `Pocket, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
+    case "v_channels": return `V-channel, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
+    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${trim(r.across_flats)} across flats` : `${r.side_count}-sided boss`;
+    case "fillets": return r.side === "convex" ? `r${trim(r.radius)} edge round` : `r${trim(r.radius)} fillet`;
+    default: return f.family.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  }
+}
+
+// The plan's `covered_by_roughing` knows the feature's faces, not the tool: a Ø12 mill does not
+// get into an 8 mm notch. What is too narrow says so, and stands out on the part.
+function describeRoughed(features, data) {
+  const mills = data.tools.filter((t) => t.type === "end_mill").map((t) => t.diameter);
+  const mill = mills.length ? Math.max(...mills) : null;
+  const roughs = data.plan.setups.some((s) => s.operations.some((o) => o.kind === "roughing"));
+  const wallOnFlat = data.plan.setups.some((s) => s.operations.some((o) => o.kind === "wall_finish" && o.on_flat));
+  for (const f of features.values()) {
+    if (f.operations.length) continue;
+    const width = f.record?.width;
+    if (roughs && f.covered && mill && width && width < mill) {
+      f.notCut = true;
+      f.color = NOT_CUT;
+      f.note = `narrower than the ⌀${trim(mill)} mill, so not cut to size`;
+    } else if (f.covered) {
+      f.color = ROUGHED;
+      f.note = f.family === "polygonal_bosses" && wallOnFlat ? "roughed, then its walls finished"
+        : f.family === "fillets" ? "roughed, finished only where a wall or flat pass reaches it"
+        : "roughed, keeps the roughing allowance";
+    } else {
+      f.note = f.skipped || "not planned";
+    }
+  }
+}
+
+// What the G-code list shows: its lines, with a heading where each part of the program starts.
+function buildRows(m) {
+  const rows = [];
+  const toolOf = new Map();
+  for (const s of m.segments) if (s.op && s.tool && !toolOf.has(s.op)) toolOf.set(s.op, s.tool);
+  let program = null, op = null;
+  for (const line of m.lines) {
+    if (line.program !== program) {
+      program = line.program; op = null;
+      const many = m.data.programs.length > 1;
+      rows.push({ head: many ? `Program for the ${program} setup: machine setup` : "Machine setup", part: true, line: line.n });
+    }
+    // The tool change that starts an operation belongs to it; the setup lines before it do not.
+    const starts = /^T\d/.test(line.text) || line.rapid != null;
+    if (line.op && line.op !== op && starts) {
+      op = line.op;
+      const o = m.operations.get(op), t = toolOf.get(op);
+      rows.push({ head: `${o.name}${t ? ` · T${t.number} ${t.id}, ⌀${trim(t.diameter)}` : ""}`, line: line.n, key: op });
+    } else if (!line.op && op && line.first > line.last && /^(M5|M9|G49|M2)$/.test(line.text)) {
+      op = null;
+      rows.push({ head: "End of program", part: true, line: line.n });
+    }
+    line.row = rows.length;
+    rows.push({ line: line.n });
+  }
+  m.rows = rows;
 }
 
 // Roughing can be 90% of the machining time, which would make the holes flash past. On the
@@ -544,6 +621,10 @@ function showToolpaths(m) {
 function paintToolpaths() {
   if (!model?.futureColors) return;
   const key = activeFocus(), c = new THREE.Color(), rapid = new THREE.Color(RAPID);
+  // While playing, the operation being cut stands out from what is around it.
+  const index = currentSegment();
+  const current = showCurrent && !key && (playing || time > 0) && index >= 0 ? model.segments[index].op : null;
+  paintedOp = current;
   const future = model.futureColors.array, done = model.doneColors.array;
   const focused = [];
   let focusColor = null;
@@ -555,6 +636,11 @@ function paintToolpaths() {
     const wholePart = op && !op.features?.length;
     let a = s.rapid ? 0.28 : wholePart ? 0.13 : 0.9, b = s.rapid ? 0.45 : wholePart ? 0.3 : 0.9;
     if (key && !matches) { a *= 0.25; b *= 0.2; }
+    if (current) {
+      if (s.op === current) { a = s.rapid ? a : 0.75; b = s.rapid ? b : 0.95; }
+      else { a *= 0.2; b *= 0.25; }
+    }
+    if (s.rapid && !showRapids) { a = 0; b = 0; }
     for (let v = 0; v < 2; v++) {
       future.set([c.r, c.g, c.b, a], 8 * i + 4 * v);
       done.set([c.r, c.g, c.b, b], 8 * i + 4 * v);
@@ -616,23 +702,64 @@ function buildFeatureList(m) {
     if (count > 1) {
       const chips = document.createElement("div");
       chips.className = "chips";
-      for (const fid of op.features) chips.append(button("chip", escapeHtml(fid.split(":").pop()), fid));
+      op.features.forEach((fid, i) => {
+        const chip = button("chip", String(i + 1), fid);
+        chip.setAttribute("aria-label", `${op.name}, number ${i + 1}`);
+        chips.append(chip);
+      });
       host.append(chips);
     } else {
       host.lastChild.dataset.keyAlso = op.features[0];
     }
   }
+  // Recognised, with no operation of their own: like ones together, what was not cut first.
+  const others = [...m.features.values()].filter((f) => !f.operations.length);
+  const rounds = (f) => f.family === "fillets" || f.family === "chamfers" || f.family === "blends";
+  const groupOf = (list) => {
+    const groups = new Map();
+    for (const f of list) {
+      const key = `${f.name}|${f.note}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    }
+    return [...groups.values()];
+  };
+  const row = (members) => {
+    const f = members[0], name = members.length > 1 ? `${f.name} × ${members.length}` : f.name;
+    const html = `<span class="swatch" style="background:${f.color}"></span><span><span class="name">${escapeHtml(name)}</span><span class="detail">${escapeHtml(f.note)}</span></span>`;
+    if (members.length === 1) {
+      host.append(button(`feature-row${f.notCut ? " not-cut" : ""}`, html, f.id));
+      return;
+    }
+    const title = document.createElement("div");
+    title.className = `feature-row group${f.notCut ? " not-cut" : ""}`;
+    title.innerHTML = html;
+    host.append(title);
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    members.forEach((member, i) => chips.append(button("chip", String(i + 1), member.id)));
+    host.append(chips);
+  };
+  const section = (text, list) => {
+    if (!list.length) return;
+    head(text);
+    groupOf(list).forEach(row);
+  };
+  section("Recognised, not cut to size", others.filter((f) => f.notCut));
+  section("Recognised, left to roughing", others.filter((f) => !f.notCut && f.covered && !rounds(f)));
+  section("Recognised, not cut", others.filter((f) => !f.notCut && !f.covered && !rounds(f)));
+
   const whole = ops.filter((o) => !o.features?.length);
   if (whole.length) head("Whole part");
   for (const op of whole) {
     host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${describeTime(op.time)}</span></span>`, op.id));
   }
-  const others = [...m.features.values()].filter((f) => !f.operations.length);
-  if (others.length) head("Not cut by a feature operation");
-  for (const f of others) {
-    const note = f.covered ? "roughed, not finished" : f.skipped || "not planned";
-    host.append(button("feature-row", `<span class="swatch" style="background:${f.color}"></span><span><span class="name">${escapeHtml(f.id)}</span><span class="detail">${escapeHtml(note)}</span></span>`, f.id));
-  }
+  section("Edges", others.filter(rounds));
+}
+
+function shortName(op) {
+  const names = { facing: "Facing", roughing: "Roughing", flats: "Flats", wall_finish: "Walls", edge_chamfer: "Chamfer", slot: "Slot", thread: op.spec, counterbore: "C'bore" };
+  return names[op.kind] || `⌀${op.diameter}`;
 }
 
 function buildTimeline(m) {
@@ -645,7 +772,7 @@ function buildTimeline(m) {
     el.type = "button"; el.className = "segment"; el.style.flex = `${op.span} 1 0`;
     el.setAttribute("aria-label", `Go to ${op.name}`);
     el.title = `${op.name}: ${describeTime(op.time)} est.`;
-    el.innerHTML = `<span class="fill" style="background:${op.color};width:0"></span><span class="label">${op.span / m.total > 0.1 ? escapeHtml(op.name) : ""}</span>`;
+    el.innerHTML = `<span class="fill" style="background:${op.color};width:0"></span><span class="label">${op.span / m.total > 0.04 ? escapeHtml(shortName(op)) : ""}</span>`;
     const at = start;
     el.dataset.key = op.id; el.dataset.start = start; el.dataset.span = op.span;
     el.addEventListener("pointerenter", () => setFocus(op.id));
@@ -698,18 +825,66 @@ function drawCode() {
   rows.style.top = `${first * ROW_HEIGHT}px`;
   const key = activeFocus(), now = currentLine();
   const out = [];
-  for (let i = first; i < Math.min(model.lines.length, first + count); i++) {
-    const line = model.lines[i];
+  for (let i = first; i < Math.min(model.rows.length, first + count); i++) {
+    const row = model.rows[i];
+    if (row.head) {
+      out.push(`<div class="code-head${row.part ? " part" : ""}" data-line="${row.line}" title="${escapeHtml(row.head)}">${escapeHtml(row.head)}</div>`);
+      continue;
+    }
+    const line = model.lines[row.line];
     const lit = key && (line.feature === key || line.op === key);
-    const cls = i === now ? "now" : lit ? "focus" : key ? "other" : "";
-    out.push(`<div class="code-row ${cls}" data-line="${i}"><span class="n">${i + 1}</span><span>${escapeHtml(line.text)}</span></div>`);
+    const cls = row.line === now ? "now" : lit ? "focus" : key ? "other" : "";
+    out.push(`<div class="code-row ${cls}" data-line="${row.line}"><span class="n">${row.line + 1}</span><span>${coloured(line.text)}</span></div>`);
   }
   rows.innerHTML = out.join("");
 }
 
+function coloured(text) {
+  return escapeHtml(text).replace(/\b([A-Z])(-?[\d.]+)/g, (word, letter) => {
+    const kind = letter === "G" ? "w-g" : letter === "M" ? "w-m" : letter === "F" || letter === "S" ? "w-f" : letter === "T" || letter === "H" ? "w-t" : "w-c";
+    return `<span class="${kind}">${word}</span>`;
+  });
+}
+
+const MODES = {
+  G21: "Units are millimetres", G90: "Coordinates are absolute", "G91.1": "Arc centres are relative to the arc's start",
+  G17: "Arcs are in the XY plane", G18: "Arcs are in the XZ plane", G19: "Arcs are in the YZ plane", G94: "Feed is in mm per minute",
+  G97: "Spindle speed is in rpm", G40: "Cutter radius compensation off", G49: "Tool length offset off", G80: "Canned cycles off",
+  "G92.1": "G92 offsets cleared", "G61.1": "Exact stop at each move", M5: "Spindle off", M9: "Coolant off", M8: "Flood coolant on",
+  M7: "Mist coolant on", M6: "Change to the selected tool", M2: "End of program",
+};
+
+// One G-code line in words, for the panel under the list.
+function explain(line, tools) {
+  const words = Object.fromEntries([...line.text.matchAll(/([A-Z])(-?[\d.]+)/g)].map((w) => [w[1], w[2]]));
+  const code = line.text.split(" ")[0];
+  const to = ["X", "Y", "Z"].filter((a) => words[a] != null).map((a) => `${a}${words[a]}`).join(" ");
+  const feed = words.F ? ` at ${words.F} mm/min` : "";
+  if (code === "G0") return `Rapid move through the air to ${to}`;
+  if (code === "G1") return `Cut in a straight line to ${to}${feed}`;
+  if (code === "G2" || code === "G3") {
+    return `Cut a ${code === "G2" ? "clockwise" : "counter-clockwise"} ${words.Z != null ? "helix" : "arc"} to ${to}${feed}`;
+  }
+  if (code === "M3" || code === "M4") return `Spindle on ${code === "M3" ? "clockwise" : "counter-clockwise"} at ${words.S} rpm`;
+  if (code === "G43") return `Apply the length offset in register ${words.H}`;
+  if (/^G5[4-9]$/.test(code)) return `Use work offset ${code}`;
+  if (/^T\d+$/.test(code)) {
+    const t = tools.find((x) => x.number === Number(words.T));
+    return `Select tool ${words.T}${t ? `: ${t.id}, ⌀${trim(t.diameter)}` : ""}`;
+  }
+  return MODES[code] || "";
+}
+
+function drawExplain() {
+  const host = $("code-explain");
+  const n = hoveredLine ?? currentLine();
+  const line = model?.lines[n];
+  host.innerHTML = line ? `<code>${n + 1}: ${coloured(line.text)}</code><span>${escapeHtml(explain(line, model.data.tools))}</span>` : "";
+}
+
 function scrollCodeTo(line) {
   const host = $("code");
-  const y = line * ROW_HEIGHT;
+  const y = (model.lines[line]?.row ?? 0) * ROW_HEIGHT;
   if (y < host.scrollTop + ROW_HEIGHT || y > host.scrollTop + host.clientHeight - 2 * ROW_HEIGHT) {
     host.scrollTop = Math.max(0, y - host.clientHeight / 3);
   }
@@ -770,6 +945,7 @@ function applyFocus(scroll) {
     if (target >= 0) scrollCodeTo(target);
   }
   drawCode();
+  drawExplain();
   drawStatus();
 }
 
@@ -813,7 +989,8 @@ function drawStatus() {
 
 function describeFeature(f) {
   const r = f.record || {};
-  return `${f.id}${r.diameter ? ` ⌀${r.diameter}` : ""}${r.depth ? ` × ${r.depth}` : ""}`;
+  if (f.family !== "holes") return f.name;
+  return `⌀${trim(r.diameter)} hole${r.depth ? `, ${trim(r.depth)} deep` : ""}`;
 }
 
 function seek(t) {
@@ -843,9 +1020,12 @@ function drawPlayhead() {
   const radius = (s.tool?.diameter || 3) / 2;
   right.tool.scale.set(radius, radius, s.tool?.stickout || 30);
   right.tool.visible = time > 0 && time < model.total;
+  const current = showCurrent && !activeFocus() && (playing || time > 0) ? s.op : null;
+  if (current !== paintedOp) paintToolpaths();
   drawRight();
   scrollCodeTo(s.line);
   drawCode();
+  drawExplain();
   highlightCad();
   drawStatus();
 }
@@ -880,6 +1060,54 @@ function showBanner(text) {
   $("banner").textContent = text || "";
 }
 
+// The check's result in words: the headline, and what it cannot see behind a toggle.
+function showChecks(data) {
+  const host = $("checks");
+  const programs = data.post_error ? [] : data.programs;
+  host.hidden = !programs.length;
+  host.open = false;
+  if (!programs.length) return;
+  const setupName = (id) => `${id[0].toUpperCase()}${id.slice(1)} setup`;
+  const checked = programs.filter((p) => p.material), unchecked = programs.filter((p) => !p.material);
+  const headline = [];
+  if (checked.length) headline.push(`<span class="ok">✓ ${checked.map((p) => setupName(p.setup)).join(", ")}: compared with the part, no gouge found.</span>`);
+  if (unchecked.length) headline.push(`<span class="unchecked">${unchecked.map((p) => setupName(p.setup)).join(", ")}: not compared with the part.</span>`);
+  $("checks-summary").innerHTML = headline.join(" ");
+  const number = (x) => Math.round(x).toLocaleString("en-GB");
+  const items = [];
+  for (const p of checked) {
+    const { limits, gouge, residual } = p.material;
+    const where = checked.length > 1 ? `${setupName(p.setup)}: ` : "";
+    const say = (text) => items.push(where ? where + text : text[0].toUpperCase() + text.slice(1));
+    const cell = limits.sideways_mm;
+    say(`too small for the check to see: errors under about ${limits.height_mm.toFixed(2)} mm in height or ${cell.toFixed(2)} mm sideways, and misplaced cuts narrower than about ${(4 * cell).toFixed(1)} mm.`);
+    say(`it can't tell for ${number(gouge.volume_mm3[1])} mm³ beside walls and curved faces, because it sees the part from above.`);
+    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes the web left around the part, and anything a later setup cuts.`);
+    if (limits.before_threads) say(`threads are not compared, because they go beyond the bore the model shows.`);
+  }
+  if (unchecked.length) items.push("Not compared: only the setup with roughing holds the part's model in its position, so side holes and the like rely on the other checks.");
+  $("checks-detail").innerHTML = `<ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
+}
+
+// Warnings a person can act on, with repeats folded together.
+function warningLines(m) {
+  const lines = [], narrow = new Map();
+  for (const w of m.data.plan.warnings) {
+    const wall = w.match(/outside wall above .* too narrow for (\S+)/);
+    if (wall) narrow.set(wall[1], (narrow.get(wall[1]) || 0) + 1);
+    else if (!lines.includes(w)) lines.push(w);
+  }
+  for (const [tool, count] of narrow) {
+    lines.push(`${count} outside ${count === 1 ? "wall was" : "walls were"} not finished: there is no room beside ${count === 1 ? "it" : "them"} for ${tool}.`);
+  }
+  const notCut = [...m.features.values()].filter((f) => f.notCut);
+  if (notCut.length) {
+    const names = [...new Set(notCut.map((f) => f.name.split(",")[0].toLowerCase()))].join(", ");
+    lines.unshift(`Not cut to size: ${notCut.length} recognised ${notCut.length === 1 ? "feature" : "features"} (${names}) too narrow for the largest end mill. No smaller tool is planned for them.`);
+  }
+  return lines;
+}
+
 function show(data) {
   setPlaying(false);
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
@@ -888,15 +1116,16 @@ function show(data) {
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} lines of G-code`;
   const notes = data.notice ? [data.notice] : [];
   if (data.post_error) notes.push(`Posting failed: ${data.post_error}`);
-  notes.push(...data.plan.warnings);
-  notes.push(...data.log.filter((l) => /^note: .*(no (drill|end mill)|finished stock)/.test(l)).map((l) => l.slice(6)));
+  notes.push(...warningLines(model));
+  notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
   showBanner(notes.join("\n"));
+  showChecks(data);
   showPart(model);
   showToolpaths(model);
   buildFeatureList(model);
   buildTimeline(model);
   buildSaveButtons(model);
-  $("code-spacer").style.height = `${model.lines.length * ROW_HEIGHT}px`;
+  $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
   resizeRight();
@@ -958,9 +1187,23 @@ $("code").addEventListener("click", (event) => {
 $("code").addEventListener("pointermove", (event) => {
   const row = event.target.closest("[data-line]");
   const line = row && model.lines[Number(row.dataset.line)];
+  hoveredLine = line ? line.n : null;
+  drawExplain();
   setFocusQuiet(line ? line.feature || line.op : null);
 });
-$("code").addEventListener("pointerleave", () => setFocusQuiet(null));
+$("code").addEventListener("pointerleave", () => {
+  hoveredLine = null;
+  drawExplain();
+  setFocusQuiet(null);
+});
+for (const [id, set] of [["show-rapids", (on) => { showRapids = on; }], ["show-current", (on) => { showCurrent = on; }]]) {
+  $(id).addEventListener("click", () => {
+    const on = $(id).getAttribute("aria-pressed") !== "true";
+    $(id).setAttribute("aria-pressed", String(on));
+    set(on);
+    paintToolpaths();
+  });
+}
 for (const b of document.querySelectorAll("[data-view]")) {
   b.addEventListener("click", () => viewer?.presetCamera(b.dataset.view, fitZoom(model)));
 }

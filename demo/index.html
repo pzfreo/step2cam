@@ -32,6 +32,7 @@
   </header>
 
   <div id="banner" class="banner" hidden></div>
+  <details id="checks" class="checks" hidden><summary id="checks-summary"></summary><div id="checks-detail"></div></details>
 
   <main class="panes">
     <section class="pane" aria-label="Recognised features">
@@ -42,10 +43,18 @@
       </div>
     </section>
     <section class="pane" aria-label="Toolpaths">
-      <div class="pane-title"><h2>Toolpaths and G-code</h2><span>camlib, drawn from the posted file</span></div>
+      <div class="pane-title"><h2>Toolpaths and G-code</h2><span>camlib, drawn from the G-code file</span></div>
       <div class="pane-body">
-        <div class="view" id="gcode-view"></div>
-        <div id="code" class="side code" tabindex="0" aria-label="G-code"><div id="code-spacer"><div id="code-rows"></div></div></div>
+        <div class="view" id="gcode-view">
+          <div class="view-tools" role="group" aria-label="What the toolpath view shows">
+            <button type="button" id="show-current" aria-pressed="true" title="While playing, draw the operation being cut strongly and the rest faintly">Current operation</button>
+            <button type="button" id="show-rapids" aria-pressed="false" title="Draw the moves through the air">Rapid moves</button>
+          </div>
+        </div>
+        <div class="side code-panel">
+          <div id="code" class="code" tabindex="0" aria-label="G-code"><div id="code-spacer"><div id="code-rows"></div></div></div>
+          <div id="code-explain" class="code-explain" aria-live="off"></div>
+        </div>
       </div>
     </section>
   </main>
