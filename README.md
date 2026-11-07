@@ -19,7 +19,7 @@ The easiest way is the demo below. Without a browser, `rust/examples/process.rs`
 specify-core's output and a tool library, and prints the plan, the G-code and the log as JSON:
 
 ```bash
-rust/fetch-camlib.sh    # camlib at the pinned commit, with rust/camlib-wasm32.patch
+rust/fetch-camlib.sh    # camlib at the pinned commit
 specify-core analyse -o analysis.json part.step
 specify-core mesh -o mesh.json part.step
 cargo run --release --manifest-path rust/Cargo.toml --example process -- analysis.json mesh.json examples/tools.example.json
@@ -43,10 +43,9 @@ not lost beside roughing.
 demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
 ```
 
-Every motion block written is read back with camlib's decoder and compared with the planned path,
-and camlib's stock-contact checks run. camlib's whole-program intent checker does not run: its
-decoding of non-motion blocks is in camlib's Python. Only LinuxCNC output in mm is wired up.
-`rust/camlib-wasm32.patch` is what camlib needs to compile for 32-bit WebAssembly.
+Every block written is read back and checked by camlib's whole-program intent checker, against
+the plan's motions, tools, spindle, coolant and work offsets, and camlib's stock-contact checks
+run. A program that fails is not given out. Only LinuxCNC output in mm is wired up.
 
 ## The plan (`specify-cam-plan`, version 1)
 
@@ -212,7 +211,8 @@ A hole no tool fits is reported, not guessed.
 
 camlib plans, simulates and checks every move against the stock. An operation with a definite
 violation is left out and reported; motions the check could not clear are counted in the log, and
-**are still written**. camlib's whole-program intent checker does not run here. And:
+**are still written**. Every block written is decoded again and compared with the plan by camlib's
+intent checker, and a mismatch stops the program being given out. And:
 
 - neither tool knows your work offsets, clamps or tool lengths;
 - camlib's checks here protect the stock, not the finished part (no fixtures or protected
@@ -225,14 +225,6 @@ violation is left out and reported; motions the check could not clear are counte
 
 **Simulate the G-code in your own tools, dry-run above the part, and single-block the first
 run.**
-
-## Known limit: roughing a chamfered plate with a boss
-
-camlib refuses to rough a part with rounded upright corners, a chamfered top edge and a raised boss
-together ("constructed region failed topology validation"); take any one away and it roughs. Why is
-not yet known. The operation is left out and reported, and the rest of the part is still cut.
-`tests/fixtures/synthetic/stepped-plate-chamfered.step` reproduces it, and
-`roughing-refused.manifest.json` beside it is a smaller camlib job that does.
 
 ## Not done (yet)
 
@@ -251,6 +243,9 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as. It is compared by hand when an
   intended change moves it.
+- `rust/tests/checker.rs`: tampers with written blocks and expects camlib's intent checker to
+  refuse the program.
+- `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.
 

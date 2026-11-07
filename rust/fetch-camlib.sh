@@ -1,8 +1,7 @@
 #!/bin/sh
-# camlib at the pinned commit, with the patch that lets it compile for wasm32. It goes when
-# camlib has the change.
+# camlib at the pinned commit: it is not published.
 set -eu
-COMMIT=d05c0df8d74d6b766e1460da4c70010005e676f8
+COMMIT=76f7783ed01b67983d024c9dfdb27d997625800f
 cd "$(dirname "$0")/.."
 if [ "$(git -C vendor/camlib rev-parse HEAD 2>/dev/null)" = "$COMMIT" ]; then
     exit 0
@@ -12,4 +11,3 @@ mkdir -p vendor
 git init -q vendor/camlib
 git -C vendor/camlib fetch -q --depth 1 https://github.com/stevecad/camlib "$COMMIT"
 git -C vendor/camlib checkout -q FETCH_HEAD
-git -C vendor/camlib apply "$PWD/rust/camlib-wasm32.patch"
