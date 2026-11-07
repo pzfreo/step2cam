@@ -30,7 +30,7 @@ const LOWERED_BATCH: usize = 64;
 const DEPTH_TOLERANCE: f64 = 0.01;
 const RADIUS_TOLERANCE: RadiusTolerance = RadiusTolerance { absolute_mm: 0.00127, relative: 0.001 };
 /// Metric, absolute, incremental arc centres, XY, feed per minute, fixed spindle speed, no cutter
-/// compensation, no length offset, no cycle, no G92 offset, exact path, spindle and coolant off.
+/// compensation, no length offset, no cycle, no G92 offset, exact stop, spindle and coolant off.
 const PREAMBLE: [&str; 13] = ["G21", "G90", "G91.1", "G17", "G94", "G97", "G40", "G49", "G80", "G92.1", "G61.1", "M5", "M9"];
 
 fn default_tolerance() -> f64 {
@@ -482,15 +482,18 @@ impl<'a> Post<'a> {
         let [(range, piece)] = pieces.as_slice() else { return Err("a whole arc planned as more than one piece".into()) };
         let (range, piece) = (*range, piece.clone());
         let mark = self.lines.len();
-        // The arc is decoded in the plane the written line selects.
-        let plane_line = self.written_line(name);
-        self.plane = match plane_line.as_str() {
-            "G17" => Plane::Xy,
-            "G18" => Plane::Xz,
-            "G19" => Plane::Yz,
-            other => return Err(format!("unreadable plane block {other:?}")),
-        };
-        self.lines.push(plane_line);
+        // The plane is modal, so it is written when it changes, and the arc is decoded in the plane
+        // that written line selects.
+        if self.plane != plane {
+            let plane_line = self.written_line(name);
+            self.plane = match plane_line.as_str() {
+                "G17" => Plane::Xy,
+                "G18" => Plane::Xz,
+                "G19" => Plane::Yz,
+                other => return Err(format!("unreadable plane block {other:?}")),
+            };
+            self.lines.push(plane_line);
+        }
         let code = if sweep > 0. { "G3" } else { "G2" };
         let (mut addresses, mut values) = (String::new(), vec![]);
         for (i, letter) in ['X', 'Y', 'Z'].into_iter().enumerate() {

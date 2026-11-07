@@ -37,7 +37,13 @@ fn post_all(plan: &Value, library: &Value, machine: &post::Machine, programs: &m
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, program.uncertain));
         }
         log.push(format!("note: setup {}: {}", job.setup, material_note(program.material.as_ref(), &job.manifest)));
-        let material = program.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge}));
+        // What the check cannot see, as the note says it, for the page to word.
+        let check = &job.manifest["verification"]["material"][0];
+        let limits = json!({
+            "height_mm": check["target"]["surface"]["surface_error_mm"], "sideways_mm": job.manifest["stock"]["cell_size_mm"],
+            "before_threads": !check["after_operation"].is_null(),
+        });
+        let material = program.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits}));
         programs.push(json!({"setup": job.setup, "nc": program.nc, "operations": program.operations, "motions": program.motions, "material": material}));
     }
     Ok(())

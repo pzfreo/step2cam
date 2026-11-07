@@ -113,25 +113,26 @@ fn every_word_of_the_preamble_is_read_back() {
     assert!(message.contains("preamble"), "{message}");
 }
 
-/// The first G17 is the preamble's; the rest select an arc's plane.
-fn plane_lines_become(wrong: &'static str) -> impl Fn(&str) -> String {
-    let seen = Cell::new(0);
-    move |l: &str| {
-        if l == "G17" {
-            seen.set(seen.get() + 1);
-            if seen.get() > 1 {
-                return wrong.into();
-            }
+/// The plane is modal, so only a change of plane is written: the preamble's G17 is what an XY arc
+/// relies on, and every_word_of_the_preamble_is_read_back holds it. Nothing else may select one.
+#[test]
+fn an_arc_after_a_plane_written_into_the_program_is_refused() {
+    let seen = Cell::new(false);
+    refused(&|l: &str| {
+        if !seen.get() && (l.starts_with("G2 ") || l.starts_with("G3 ")) {
+            seen.set(true);
+            return format!("G18 {l}");
         }
         l.into()
-    }
+    });
 }
 
 #[test]
-fn an_arc_is_read_in_the_plane_written() {
-    for wrong in ["G18", "G19", "", "(G17)"] {
-        refused(&plane_lines_become(wrong));
-    }
+fn the_plane_is_written_only_when_it_changes() {
+    let (manifest, machine) = job();
+    let nc = post(&manifest, machine).map_err(|f| f.message).unwrap().nc;
+    assert!(nc.contains("\nG2 ") || nc.contains("\nG3 "), "this job has arcs");
+    assert_eq!(nc.lines().filter(|l| *l == "G17").count(), 1, "only the preamble's");
 }
 
 #[test]
