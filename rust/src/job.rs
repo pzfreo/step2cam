@@ -118,6 +118,17 @@ impl<'a> Library<'a> {
     fn bore_mill(&self, diameter: f64) -> Option<&'a Value> {
         self.end_mills().into_iter().rfind(|t| t["diameter"].as_f64().unwrap_or(f64::MAX) < diameter - 0.05)
     }
+    /// The largest end mill that fits a width and reaches a depth.
+    fn pocket_mill(&self, width: f64, depth: f64) -> Option<&'a Value> {
+        self.end_mills().into_iter().rfind(|t| t["diameter"].as_f64().unwrap_or(f64::MAX) < width - 0.05 && t["flute_length"].as_f64().unwrap_or(0.) >= depth)
+    }
+    /// The widest sharp V-bit that is no wider than a channel: a wider one would cut its walls. A
+    /// flat tip could not reach the root.
+    fn v_bit(&self, angle: f64) -> Option<&'a Value> {
+        self.tools.iter().copied()
+            .filter(|t| t["type"] == "chamfer_mill" && t["tip_diameter"].as_f64() == Some(0.) && t["angle"].as_f64().is_some_and(|a| a <= angle + 0.01))
+            .max_by(|a, b| a["angle"].as_f64().unwrap_or(0.).total_cmp(&b["angle"].as_f64().unwrap_or(0.)))
+    }
     /// A 90° chamfer mill wide enough for the width, with the tip clear of the edge.
     fn chamfer_mill(&self, width: f64) -> Option<&'a Value> {
         self.tools.iter().copied().find(|t| {
@@ -399,6 +410,21 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<S
     Ok(op["room"].as_f64().filter(|room| *room < needed).map(|room| format!("{} mm beside the wall is too narrow for {} (it needs {}), so it keeps its roughing allowance", show(room), id(mill), show(r(needed)))))
 }
 
+/// Why this V-channel cannot be cut, if it cannot.
+fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<String>, String> {
+    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+        return Ok(Some("the flat it is cut in has not been cut, so it is not cut".into()));
+    }
+    let Some(bit) = library.v_bit(num(op, "angle")?) else {
+        return Ok(Some(format!("no sharp V-bit of {}° or less", show(num(op, "angle")?))));
+    };
+    if bit.get("stepdown_mm").and_then(Value::as_f64).is_none() {
+        return Ok(Some(format!("{} has no stepdown_mm", id(bit))));
+    }
+    let clear = num(bit, "diameter")? / 2. - num(op, "width")? / 2.;
+    Ok(op["room"].as_f64().filter(|room| *room < clear).map(|room| format!("{} mm beside it is too narrow for {}", show(room), id(bit))))
+}
+
 /// Takes out of the plan what can no longer be cut: walls and flats with nothing to follow, and an
 /// outside chamfer whose wall is not at size, whose rounds go back to not being cut.
 pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
@@ -414,6 +440,17 @@ pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
                 warnings.push(json!(format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?))));
                 refused.push(op["wall"].clone());
             }
+        }
+        let mut no_channel = vec![];
+        for (n, op) in ops.iter().enumerate().filter(|(_, o)| o["kind"] == "v_channel") {
+            if let Some(why) = v_channel_refusal(&view, op, &library)? {
+                warnings.push(json!(format!("setup {setup_id}: V-channel left out: {why}")));
+                skipped.extend(op["features"].as_array().into_iter().flatten().map(|id| json!({"feature": id, "reason": format!("V-channel left out: {why}")})));
+                no_channel.push(n);
+            }
+        }
+        for n in no_channel.into_iter().rev() {
+            ops.remove(n);
         }
         let rough = ops.iter().any(|o| o["kind"] == "roughing");
         ops.retain(|o| !(o["kind"] == "wall_finish" && refused.contains(&o["wall"])) && (rough || o["kind"] != "flats"));
@@ -636,6 +673,51 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         "retract_z_mm": retract, "feed_z_mm": retract,
                     });
                     cutting(&mut out, mill, true)?;
+                    out
+                }
+                "notch" => {
+                    let width = num(op, "width")?;
+                    let Some(mill) = library.pocket_mill(width, num(op, "top_z")? - num(op, "floor_z")?) else {
+                        notes.push(format!("{op_id}: no end mill both narrower than the {} mm width and long enough ({})", show(width), features_of(op).join(", ")));
+                        continue;
+                    };
+                    spec = mill;
+                    let mut floor = num(op, "floor_z")?;
+                    if op["bottom"] == "through" {
+                        floor = stock_bottom.max(floor - library.breakthrough);
+                    }
+                    notes.push(format!("{op_id}: its inside corners stay r{}, the radius of {}", show(num(mill, "diameter")? / 2.), id(mill)));
+                    let mut out = json!({
+                        "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
+                        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
+                        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
+                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+                        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+                        "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, mill, true)?;
+                    out
+                }
+                "v_channel" => {
+                    if let Some(why) = v_channel_refusal(setup, op, &library)? {
+                        notes.push(format!("{op_id}: {why}"));
+                        continue;
+                    }
+                    let Some(bit) = library.v_bit(num(op, "angle")?) else { continue };
+                    spec = bit;
+                    let (half, depth) = ((num(bit, "angle")? / 2.).to_radians().tan(), num(op, "depth")?);
+                    let left = num(op, "width")? / 2. - half * depth;
+                    if left > 0.005 {
+                        notes.push(format!("{op_id}: {} is a {}° bit in a {}° channel: its walls keep up to {} mm at the top", id(bit), show(num(bit, "angle")?), show(num(op, "angle")?), show(r(left))));
+                    }
+                    let a = point2(&op["a"])?;
+                    let mut out = json!({
+                        "kind": "trace", "id": op_id, "tool": id(bit),
+                        "paths": [{"start_mm": a, "segments": [{"kind": "line", "end_mm": point2(&op["b"])?}]}],
+                        "top_z_mm": num(op, "top_z")?, "depth_z_mm": num(op, "root_z")?, "stepdown_mm": num(bit, "stepdown_mm")?,
+                        "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
+                    });
+                    cutting(&mut out, bit, true)?;
                     out
                 }
                 "wall_finish" => {

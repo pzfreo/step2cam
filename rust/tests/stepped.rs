@@ -25,16 +25,18 @@ fn it_is_roughed_drilled_and_slotted_from_the_top() {
     assert!(out["post_error"].is_null(), "{}", out["post_error"]);
     let top = operations(&out, "top");
     let kinds: Vec<&str> = top.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert_eq!(kinds.iter().filter(|k| **k == "holes").count(), 3, "{kinds:?} {}", out["plan"]["warnings"]);
-    // The round-ended slot gets its own cut, which ends at the plate's bottom; the square one does not.
+    // The round-ended slot gets its own cut, which ends at the plate's bottom.
     let slots: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "slot").collect();
     assert_eq!(slots.len(), 1);
     assert_eq!(slots[0]["width"], 5.0);
     assert_eq!(slots[0]["bottom"], "through");
     let analysis = fixture("tests/fixtures/synthetic/stepped-plate.analysis.json");
     let square = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == "slots" && f["record"]["end_radius"].is_null()).unwrap();
-    assert!(out["plan"]["covered_by_roughing"].to_string().contains(square["id"].as_str().unwrap()));
+    let id = square["id"].as_str().unwrap();
+    assert!(top.iter().any(|o| o["kind"] == "notch" && o["features"].to_string().contains(id)), "the square one is a pocket, to size");
+    assert!(!out["plan"]["covered_by_roughing"].to_string().contains(id));
 }
 
 #[test]
@@ -73,6 +75,6 @@ fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["post_error"].is_null(), "{}", out["post_error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert!(out["plan"]["skipped"].to_string().contains("chamfer: no operation cuts it"));
 }

@@ -156,6 +156,8 @@ function operationName(op, setup, plan) {
   if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
   if (op.kind === "thread") return `${op.spec} thread` + where;
   if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
+  if (op.kind === "notch") return `${trim(op.width)} × ${trim(op.length)} ${op.open ? "notch" : "slot"}` + where;
+  if (op.kind === "v_channel") return `V-channel, ${trim(op.width)} wide` + where;
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
   if (op.kind === "edge_chamfer") return `${op.width} chamfer on r${op.radius} edges` + where;
@@ -235,7 +237,7 @@ function parseProgram(data, operations) {
 }
 
 function nearestFeature(op, point) {
-  if (op?.kind === "slot") return op.features[0];
+  if (op?.kind === "slot" || op?.kind === "notch" || op?.kind === "v_channel") return op.features[0];
   if (op?.kind === "edge_chamfer") return null;
   if (!op?.centers) return null;
   let best = null, bestD = Infinity;
@@ -695,9 +697,10 @@ function buildFeatureList(m) {
   const holes = ops.filter((o) => o.features?.length);
   if (holes.length) head("Features");
   for (const op of holes) {
-    const slot = op.kind === "slot", edges = op.kind === "edge_chamfer";
+    const slot = op.kind === "slot" || op.kind === "notch" || op.kind === "v_channel", edges = op.kind === "edge_chamfer";
     const count = slot || edges ? 1 : op.features.length;
-    const what = slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
+    const tool = [...m.segments].find((s) => s.op === op.id)?.tool;
+    const what = op.kind === "notch" ? `to size, corners r${tool ? trim(tool.diameter / 2) : "?"}` : op.kind === "v_channel" ? `${tool ? `${tool.angle}° ${tool.id}` : "V-bit"}, to the root` : slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
     host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
     if (count > 1) {
       const chips = document.createElement("div");
@@ -758,7 +761,7 @@ function buildFeatureList(m) {
 }
 
 function shortName(op) {
-  const names = { facing: "Facing", roughing: "Roughing", flats: "Flats", wall_finish: "Walls", edge_chamfer: "Chamfer", slot: "Slot", thread: op.spec, counterbore: "C'bore" };
+  const names = { facing: "Facing", roughing: "Roughing", flats: "Flats", wall_finish: "Walls", edge_chamfer: "Chamfer", slot: "Slot", notch: op.open ? "Notch" : "Slot", v_channel: "V", thread: op.spec, counterbore: "C'bore" };
   return names[op.kind] || `⌀${op.diameter}`;
 }
 
@@ -1095,7 +1098,10 @@ function warningLines(m) {
   for (const w of m.data.plan.warnings) {
     const wall = w.match(/outside wall above .* too narrow for (\S+)/);
     if (wall) narrow.set(wall[1], (narrow.get(wall[1]) || 0) + 1);
-    else if (!lines.includes(w)) lines.push(w);
+    else {
+      const text = w.replace(/no source-admitted entry\/route for component 0; choose a smaller radius or another entry strategy/, "camlib found no way for that tool to enter it");
+      if (!lines.includes(text)) lines.push(text);
+    }
   }
   for (const [tool, count] of narrow) {
     lines.push(`${count} outside ${count === 1 ? "wall was" : "walls were"} not finished: there is no room beside ${count === 1 ? "it" : "them"} for ${tool}.`);
