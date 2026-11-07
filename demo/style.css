@@ -33,7 +33,17 @@ h1 { margin: 0; font: 500 18px var(--mono); letter-spacing: .02em; }
 .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .pane-title { flex: none; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .pane-title h2 { margin: 0; font-size: 14px; font-weight: 600; }
-.pane-title span { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-title span { flex: 1 1 auto; text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-title { align-items: center; }
+.pane-size { flex: none; min-height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); }
+.pane-size:hover { background: var(--active); color: var(--text); }
+.pane-size[aria-pressed="true"] { border-color: var(--accent); color: #a8d0ff; }
+/* One view takes the whole width; the other comes back with Restore. Narrow screens stack the
+   views instead, and have no buttons. */
+@media (min-width: 1001px) {
+  .panes[data-only] { grid-template-columns: minmax(0, 1fr); }
+  .panes[data-only="features"] > .pane[data-pane="toolpaths"], .panes[data-only="toolpaths"] > .pane[data-pane="features"] { display: none; }
+}
 .pane-body { flex: 1 1 0; min-height: 0; display: flex; }
 .view { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; background: var(--view); overflow: hidden; }
 .view canvas { display: block; }
@@ -113,7 +123,8 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
   .view { grid-row: 1; height: min(48vw, 55vh); position: sticky; top: 0; z-index: 20; border: 1px solid var(--line); border-radius: 6px; }
   .side { grid-row: 2; width: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
   .code-panel { height: 340px; width: auto; }
-  .view-tools { flex-direction: column; align-items: flex-start; }
+  .view-tools { top: 4px; left: 4px; right: 4px; flex-wrap: wrap; gap: 3px; }
+  .view-tools button { min-height: 24px; padding: 0 6px; font-size: 11px; }
   footer { position: sticky; bottom: 0; z-index: 30; gap: 8px; }
   .scrub { flex: 1 1 200px; }
   .status { flex-basis: 100%; }
