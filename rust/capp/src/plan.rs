@@ -24,8 +24,6 @@ const SETUPS: [(&str, V3, Rows); 6] = [
 ];
 /// An axis counts as along a setup direction within this (cosine); oblique holes are skipped.
 const AXIS_TOLERANCE: f64 = 1e-6;
-/// Families made on a lathe.
-const TURNED: [&str; 3] = ["turned_bodies", "turned_steps", "face_grooves"];
 /// Mesh points this close to a level count as on it (mm).
 const LEVEL_EPS: f64 = 0.01;
 /// camlib refuses a roughing mesh whose stated error is larger than this (mm).
@@ -1440,8 +1438,17 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     for feature in all_features {
         let family = feature["family"].as_str().unwrap_or("");
         let id = feature["id"].as_str().unwrap_or("");
-        if family == "holes" {
-            match hole_geometry(feature, &cx, asked.get(id))? {
+        // What becomes of it: the first case in rulebase/rules/process.json that holds.
+        let case = crate::rules::case_for(family, &mut |condition| match condition {
+            "cut_by_slot" => Ok(in_slot.iter().any(|x| x == id)),
+            "convex" => Ok(feature["record"]["side"] == "convex"),
+            "not_upright" => Ok(!upright(feature, &faces, rows_of(rough_from))?),
+            "no_mesh" => Ok(triangles.is_none()),
+            "reachable" => reachable(feature, &faces, rows_of(rough_from)),
+            other => Err(format!("rulebase/rules/process.json: unknown condition {other}")),
+        })?;
+        match &case["then"] {
+            Value::String(action) if action == "hole" => match hole_geometry(feature, &cx, asked.get(id))? {
                 Ok((name, hole, w, blocked)) => {
                     let considered: Vec<Value> = blocked.iter().map(|b| json!({"candidate": b, "rejected": "part material above its opening"})).collect();
                     let says = format!("cut from the {name} setup");
@@ -1457,24 +1464,22 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                         trace.skip("process.hole.thread_lost", id, format!("its {} thread: the hole is not cut", thread.spec));
                     }
                 }
+            },
+            // Cut by its slot's operation, or its member holes are planned one by one.
+            Value::String(action) if action == "by_slot" || action == "members" => {}
+            Value::String(action) if action == "covered" => {
+                trace.decide("process.covered_by_roughing", id, "covered", &format!("{family}: no operation of its own; roughing reaches it"), Value::Null);
+                covered.push(json!(id));
             }
-        } else if in_slot.iter().any(|x| x == id) {
-            // Cut by its slot's operation.
-        } else if family == "fillets" && feature["record"]["side"] == "convex" && !upright(feature, &faces, rows_of(rough_from))? {
-            trace.skip("process.edge_round.not_reached", id, format!("r{} edge round: not reached from the roughing setup with its wall at size, so it stays sharp (break it by hand)", show(f(&feature["record"], "radius")?)));
-        } else if ["chamfers", "oriented_chamfers"].contains(&family) {
-            trace.skip("process.chamfer.not_cut", id, "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)".into());
-        } else if family == "hole_patterns" {
-            // Its member holes are planned one by one.
-        } else if TURNED.contains(&family) {
-            trace.skip("process.turned", id, "turned feature: make it on a lathe".into());
-        } else if triangles.is_none() {
-            trace.skip("process.no_mesh", id, format!("{family}: no operation of its own; give the mesh to rough it"));
-        } else if reachable(feature, &faces, rows_of(rough_from))? {
-            trace.decide("process.covered_by_roughing", id, "covered", &format!("{family}: no operation of its own; roughing reaches it"), Value::Null);
-            covered.push(json!(id));
-        } else {
-            trace.skip("process.faces_away", id, format!("{family}: faces away from the {rough_from} setup, where roughing runs; not planned"));
+            Value::Object(skip) => {
+                let rule = skip["skip"].as_str().ok_or("rulebase/rules/process.json: a skip names no rule")?;
+                let mut reason = skip["reason"].as_str().unwrap_or("").replace("{family}", family).replace("{rough_from}", rough_from);
+                if reason.contains("{radius}") {
+                    reason = reason.replace("{radius}", &show(f(&feature["record"], "radius")?));
+                }
+                trace.skip(rule, id, reason);
+            }
+            other => return Err(format!("rulebase/rules/process.json: unknown action {other}")),
         }
     }
 
@@ -1584,6 +1589,13 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 trace.skip("process.countersink.not_cut", &h.feature, "countersink: not planned (chamfer it by hand)".into());
             }
         }
+        // In the order rulebase/rules/sequence.json gives; the same rank keeps the planned order.
+        let mut ranked = Vec::with_capacity(ops.len());
+        for op in ops {
+            ranked.push((crate::rules::rank(op["kind"].as_str().unwrap_or(""))?, op));
+        }
+        ranked.sort_by_key(|(rank, _)| *rank);
+        let mut ops: Vec<Value> = ranked.into_iter().map(|(_, op)| op).collect();
         // Why each operation is here: its setup, the order, the rule that made it, and for holes
         // the decision that put them in this setup.
         let stock = json!({"min": rp(frame.stock.0), "max": rp(frame.stock.1)});

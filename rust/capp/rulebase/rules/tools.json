@@ -1,0 +1,155 @@
+{
+ "format": "capp-rules",
+ "version": 1,
+ "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, with `else_reject` saying why where it is given. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values and the tool's fields (`tool.diameter`).",
+ "selectors": [
+  {
+   "id": "largest_end_mill",
+   "tool_type": "end_mill",
+   "description": "The largest end mill.",
+   "inputs": [],
+   "keep": [],
+   "prefer": {
+    "largest": "tool.diameter",
+    "ties": "last"
+   }
+  },
+  {
+   "id": "drill",
+   "tool_type": "drill",
+   "description": "The drill closest to the diameter and never larger, at most drill_tolerance_mm under it.",
+   "inputs": [
+    "diameter"
+   ],
+   "keep": [
+    {
+     "if": "diameter - tool.diameter >= -1e-9 && diameter - tool.diameter <= drill_tolerance_mm"
+    }
+   ],
+   "prefer": {
+    "largest": "tool.diameter",
+    "ties": "first"
+   }
+  },
+  {
+   "id": "bore_mill",
+   "tool_type": "end_mill",
+   "description": "The largest end mill that fits inside the diameter with room to helix.",
+   "inputs": [
+    "diameter"
+   ],
+   "keep": [
+    {
+     "if": "tool.diameter < diameter - 0.05"
+    }
+   ],
+   "prefer": {
+    "largest": "tool.diameter",
+    "ties": "last"
+   }
+  },
+  {
+   "id": "pocket_mill",
+   "tool_type": "end_mill",
+   "description": "The largest end mill narrower than the width whose flutes reach the depth.",
+   "inputs": [
+    "width",
+    "depth"
+   ],
+   "keep": [
+    {
+     "if": "tool.diameter < width - 0.05 && tool.flute_length >= depth"
+    }
+   ],
+   "prefer": {
+    "largest": "tool.diameter",
+    "ties": "last"
+   }
+  },
+  {
+   "id": "v_bit",
+   "tool_type": "chamfer_mill",
+   "description": "The widest sharp V-bit no wider than the channel's angle: a wider one would cut its walls, a flat tip could not reach the root.",
+   "inputs": [
+    "angle"
+   ],
+   "keep": [
+    {
+     "if": "tool.tip_diameter == 0 && tool.angle <= angle + 0.01"
+    }
+   ],
+   "prefer": {
+    "largest": "tool.angle",
+    "ties": "last"
+   }
+  },
+  {
+   "id": "chamfer_mill",
+   "tool_type": "chamfer_mill",
+   "description": "The first 90° chamfer mill wide enough for the width with its tip clear of the edge.",
+   "inputs": [
+    "width"
+   ],
+   "keep": [
+    {
+     "if": "tool.angle == 90 && tool.diameter / 2 >= tool.tip_diameter / 2 + tip_clearance_mm + width"
+    }
+   ],
+   "prefer": {
+    "first": true
+   }
+  },
+  {
+   "id": "thread_mill",
+   "tool_type": "thread_mill",
+   "description": "The largest thread mill whose pitch range takes the pitch, that fits the drilled hole, whose neck clears the crests and that reaches the thread's bottom.",
+   "inputs": [
+    "major",
+    "start_diameter",
+    "pitch",
+    "stock_top",
+    "bottom_z"
+   ],
+   "keep": [
+    {
+     "if": "tool.min_pitch_mm <= pitch && pitch <= tool.max_pitch_mm",
+     "else_reject": "{tool.id}: pitch {pitch} outside its range"
+    },
+    {
+     "if": "tool.diameter < start_diameter - 0.05",
+     "else_reject": "{tool.id}: ⌀{tool.diameter:raw} does not fit the ⌀{start_diameter} hole"
+    },
+    {
+     "if": "tool.neck_diameter / 2 < room - 0.01",
+     "else_reject": "{tool.id}: its ⌀{tool.neck_diameter:raw} neck would rub the thread crests"
+    },
+    {
+     "if": "reach > below + 0.01",
+     "else_reject": "{tool.id}: reaches {reach} mm, the thread ends {below:r} mm below the stock top"
+    }
+   ],
+   "prefer": {
+    "largest": "tool.diameter",
+    "ties": "first"
+   },
+   "let": [
+    [
+     "room",
+     "start_diameter / 2 - (major / 2 - tool.diameter / 2)"
+    ],
+    [
+     "reach",
+     "tool.tooth_height + tool.neck_length"
+    ],
+    [
+     "below",
+     "stock_top - bottom_z"
+    ]
+   ],
+   "defaults": {
+    "tool.min_pitch_mm": 0,
+    "tool.max_pitch_mm": "inf"
+   }
+  }
+ ]
+}

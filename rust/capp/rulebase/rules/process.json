@@ -1,0 +1,87 @@
+{
+ "format": "capp-rules",
+ "version": 1,
+ "_comment": "What becomes of a feature, by its specify-core family: the first case whose families (all, when absent) and conditions hold. Conditions and actions name code: the geometry is computed, not data. An action is one of hole (placed in a setup and cut), by_slot (cut by its slot's, notch's or V-channel's operation), members (its member holes are planned one by one), covered (left to roughing), or skip with the rule and the reason's template.",
+ "conditions": {
+  "cut_by_slot": "a slot, notch or V-channel operation was planned that includes it",
+  "convex": "an edge round on the outside of the part",
+  "not_upright": "not reached from the roughing setup with its wall at size",
+  "no_mesh": "no mesh was given",
+  "reachable": "its flat faces face the roughing setup"
+ },
+ "cases": [
+  {
+   "families": [
+    "holes"
+   ],
+   "then": "hole"
+  },
+  {
+   "when": [
+    "cut_by_slot"
+   ],
+   "then": "by_slot"
+  },
+  {
+   "families": [
+    "fillets"
+   ],
+   "when": [
+    "convex",
+    "not_upright"
+   ],
+   "then": {
+    "skip": "process.edge_round.not_reached",
+    "reason": "r{radius} edge round: not reached from the roughing setup with its wall at size, so it stays sharp (break it by hand)"
+   }
+  },
+  {
+   "families": [
+    "chamfers",
+    "oriented_chamfers"
+   ],
+   "then": {
+    "skip": "process.chamfer.not_cut",
+    "reason": "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)"
+   }
+  },
+  {
+   "families": [
+    "hole_patterns"
+   ],
+   "then": "members"
+  },
+  {
+   "families": [
+    "turned_bodies",
+    "turned_steps",
+    "face_grooves"
+   ],
+   "then": {
+    "skip": "process.turned",
+    "reason": "turned feature: make it on a lathe"
+   }
+  },
+  {
+   "when": [
+    "no_mesh"
+   ],
+   "then": {
+    "skip": "process.no_mesh",
+    "reason": "{family}: no operation of its own; give the mesh to rough it"
+   }
+  },
+  {
+   "when": [
+    "reachable"
+   ],
+   "then": "covered"
+  },
+  {
+   "then": {
+    "skip": "process.faces_away",
+    "reason": "{family}: faces away from the {rough_from} setup, where roughing runs; not planned"
+   }
+  }
+ ]
+}

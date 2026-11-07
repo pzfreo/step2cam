@@ -2,7 +2,8 @@
 
 Status: step 1 (schemas), step 2 (planning, tool choice and exclusions in the `capp` crate) and
 step 3 (the decision trace, with the rules inventoried in `rust/capp/rulebase/rules.json`) and
-step 4 (the thread tables as reference data) and step 5 (ISO 14649 names) are done; the rest is
+step 4 (the thread tables as reference data), step 5 (ISO 14649 names) and step 6 (tool
+selection, operation order and feature handling as JSON rules) are done; step 7 onwards is
 planned.
 
 Step 5 was done as names on each operation (`iso14649`: feature, operation, hole bottom

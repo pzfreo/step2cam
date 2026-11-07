@@ -6,6 +6,7 @@
 pub mod plan;
 pub mod reference;
 pub mod resources;
+pub mod rules;
 pub mod settle;
 pub mod trace;
 

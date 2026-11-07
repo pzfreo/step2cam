@@ -133,7 +133,11 @@ The plan says **what** to cut, independent of tools and machine.
   that cuts it, or why none can (`tool_note`).
 - **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
   made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
-  rationale, sources and where the code applies it. Each operation's `because` names the
+  rationale, sources and where the code applies it. Where a rule's logic is itself data, it says
+  so (`data`): tool selection (`rulebase/rules/tools.json`: which tools qualify, why the others
+  are turned down, which one is preferred), the order of operations (`rules/sequence.json`) and
+  what becomes of each feature family (`rules/process.json`). The geometry the rules ask about
+  (reachability, room beside a wall and the like) stays code. Each operation's `because` names the
   decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
   warning is a decision too. A decision a later one replaced says `superseded_by`.

@@ -24,10 +24,18 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
         let text = fs::read_to_string(entry.unwrap().path()).unwrap();
         // Every string literal that is a dotted name in a stage's namespace.
         for piece in text.split('"').skip(1).step_by(2) {
-            let ok = piece.split('.').count() >= 2 && piece.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c == '.');
+            let parts: Vec<&str> = piece.split('.').collect();
+            let ok = parts.len() >= 2 && parts.iter().all(|p| !p.is_empty()) && parts.last() != Some(&"json") && piece.chars().all(|c| c.is_ascii_lowercase() || c == '_' || c == '.');
             if ok && STAGES.contains(&piece.split('.').next().unwrap()) {
                 used.insert(piece.to_string());
             }
+        }
+    }
+    // Rules whose logic is data: the process cases name the rule they skip by.
+    let process: Value = serde_json::from_str(capp::rules::PROCESS).unwrap();
+    for case in process["cases"].as_array().unwrap() {
+        if let Some(rule) = case["then"]["skip"].as_str() {
+            used.insert(rule.to_string());
         }
     }
     let listed: BTreeSet<String> = rules()["rules"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap().to_string()).collect();
@@ -35,9 +43,17 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
     let unused: Vec<_> = listed.difference(&used).collect();
     assert!(unlisted.is_empty(), "applied in the code but not in rules.json: {unlisted:?}");
     assert!(unused.is_empty(), "in rules.json but applied nowhere: {unused:?}");
+    let selectors: Value = serde_json::from_str(capp::rules::TOOLS).unwrap();
     for rule in rules()["rules"].as_array().unwrap() {
         assert!(rule["rationale"].as_str().is_some_and(|r| !r.is_empty()), "{rule}");
         assert!(rule["sources"].as_array().is_some_and(|s| !s.is_empty()), "{rule}");
+        for data in rule["data"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+            let (file, selector) = data.split_once('#').unwrap_or((data, ""));
+            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json"].contains(&file), "{}: {data}", rule["id"]);
+            if !selector.is_empty() {
+                assert!(selectors["selectors"].as_array().unwrap().iter().any(|s| s["id"] == selector), "{}: no selector {selector}", rule["id"]);
+            }
+        }
     }
 }
 
