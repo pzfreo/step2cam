@@ -936,13 +936,79 @@ fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &R
                 let from = angle(run[0].0);
                 for k in 0..arcs as usize {
                     let at = from + sweep * k as f64 / arcs;
-                    vertices.push([r(centre[0] + radius * at.cos()), r(centre[1] + radius * at.sin()), (sweep / arcs / 4.).tan()]);
+                    vertices.push([r(centre[0] + radius * at.cos()), r(centre[1] + radius * at.sin()), (sweep / arcs / 4.).tan().clamp(-1., 1.)]);
                 }
             }
             _ => return Ok(None),
         }
     }
     Ok(Some(vertices))
+}
+
+/// How far from this outline the cutter meets the part on its way down to `floor`: from the outline
+/// out to a cutter's width must be empty. None if nothing is outside it.
+///
+/// This looks at every triangle above the floor rather than at sections, which can miss what lies
+/// between them. Any material outside the outline has a face above it within these heights, and
+/// even a face that encloses the whole outline counts: a contour goes through it. A face within
+/// `own` of the outline is the wall itself (a curved wall's facets are not all its outline's chords,
+/// so that is at least the mesh's error), and one inside it is what the wall encloses.
+fn room_beside(triangles: &[Tri], outline: &[Cut], floor: f64, own: f64) -> Option<f64> {
+    const ABOVE_FLOOR: f64 = 1e-3;
+    let distance = |p: (f64, f64)| outline.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
+    let outside = |p: (f64, f64)| !contains(outline, p) && distance(p) > own;
+    let mut room: Option<f64> = None;
+    for triangle in triangles {
+        let corners = clip_above(triangle, floor + ABOVE_FLOOR);
+        if corners.len() < 3 {
+            continue;
+        }
+        let edges = || (0..corners.len()).map(|i| (corners[i], corners[(i + 1) % corners.len()]));
+        let middle = (corners.iter().map(|c| c.0).sum::<f64>() / corners.len() as f64, corners.iter().map(|c| c.1).sum::<f64>() / corners.len() as f64);
+        let turn = |a: (f64, f64), b: (f64, f64), p: (f64, f64)| (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
+        // An outline's corner well inside the face means the face spans a notch, or the outline.
+        let holds = |p: (f64, f64)| {
+            let sides: Vec<f64> = edges().map(|(a, b)| turn(a, b, p)).collect();
+            (sides.iter().all(|s| *s > 0.) || sides.iter().all(|s| *s < 0.)) && edges().all(|(a, b)| segment_distance(p, a, b) > own)
+        };
+        let spans = outline.iter().any(|c| holds(c.0));
+        let beyond = spans || outside(middle) || edges().any(|(a, b)| outside(a) || outside(((a.0 + b.0) / 2., (a.1 + b.1) / 2.)));
+        if !beyond {
+            continue;
+        }
+        let gap = if spans {
+            0.
+        } else {
+            edges().flat_map(|(a, b)| outline.iter().map(move |c| segments_apart((a, b), (c.0, c.1)))).fold(f64::MAX, f64::min)
+        };
+        room = Some(room.map_or(gap, |r: f64| r.min(gap)));
+    }
+    room
+}
+
+/// A triangle's part above a height, seen from above.
+fn clip_above(triangle: &Tri, z: f64) -> Vec<(f64, f64)> {
+    let mut out = vec![];
+    for i in 0..3 {
+        let (a, b) = (triangle[i], triangle[(i + 1) % 3]);
+        if a[2] >= z {
+            out.push((a[0], a[1]));
+        }
+        if (a[2] >= z) != (b[2] >= z) {
+            let t = (z - a[2]) / (b[2] - a[2]);
+            out.push((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t));
+        }
+    }
+    out
+}
+
+/// The distance between two segments, 0 if they cross.
+fn segments_apart(p: ((f64, f64), (f64, f64)), q: ((f64, f64), (f64, f64))) -> f64 {
+    let turn = |a: (f64, f64), b: (f64, f64), c: (f64, f64)| (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
+    if (turn(p.0, p.1, q.0) > 0.) != (turn(p.0, p.1, q.1) > 0.) && (turn(q.0, q.1, p.0) > 0.) != (turn(q.0, q.1, p.1) > 0.) {
+        return 0.;
+    }
+    [segment_distance(p.0, q.0, q.1), segment_distance(p.1, q.0, q.1), segment_distance(q.0, p.0, p.1), segment_distance(q.1, p.0, p.1)].into_iter().fold(f64::MAX, f64::min)
 }
 
 /// Whether a point is in the part's section: an odd count of the mesh's cuts along +X from it.
@@ -956,8 +1022,8 @@ fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
 /// what it stands on. An outline already finished from a lower band is not repeated, as a contour
 /// starts at the top of the stock. The outline is the band's middle, or lower where a side hole
 /// breaks that: what tapers in stays clear of the cutter, and what flares out at the foot or
-/// overhangs above leaves no room beside it.
-fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64]) -> Result<Vec<Value>, String> {
+/// overhangs above leaves no room beside it. Returns the operations and each one's outline.
+fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, warnings: &mut Vec<String>) -> Result<(Vec<Value>, Vec<Vec<Cut>>), String> {
     const ABOVE: f64 = 0.05;
     const SMALLEST: f64 = 0.5; // mm²: less is a sliver between faces, not an outline.
     let distance = |p: (f64, f64), chain: &[Cut]| chain.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
@@ -965,13 +1031,7 @@ fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Va
     let mut ops = vec![];
     for (band_at, band) in heights.windows(2).enumerate() {
         let (low, high) = (band[0], band[1]);
-        // Everything the cutter passes on its way down from the top of the stock to this floor.
-        let passed: Vec<Vec<Cut>> = heights[band_at..]
-            .windows(2)
-            .flat_map(|b| [b[0] + ABOVE, (b[0] + b[1]) / 2., b[1] - ABOVE])
-            .filter_map(|z| slice(triangles, ranges, z))
-            .flatten()
-            .collect();
+        let (mut had_wall, mut unreadable) = (false, false);
         for fraction in [0.5, 0.25, 0.125] {
             let z = low + (high - low) * fraction;
             let (Some(section), Some(cuts)) = (slice(triangles, ranges, z), cuts_at(triangles, ranges, z)) else { continue };
@@ -989,28 +1049,33 @@ fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Va
                 if !in_section((mid.0 + left.0, mid.1 + left.1), &cuts) || in_section((mid.0 - left.0, mid.1 - left.1), &cuts) {
                     continue;
                 }
-                let Some(vertices) = boundary(&outline, faces, frame, rows)? else { continue };
-                // A contour knows only its outline: the cutter needs room beside it. Its own wall
-                // is not in the way, and nor is what it encloses.
-                let room = passed
-                    .iter()
-                    .filter(|other| !contains(&outline, other[0].0) && other.iter().any(|c| distance(c.0, &outline) > 2. * ABOVE))
-                    .flat_map(|other| other.iter().map(|c| distance(c.0, &outline)))
-                    .fold(f64::MAX, f64::min);
+                let Some(vertices) = boundary(&outline, faces, frame, rows)? else {
+                    unreadable = true;
+                    continue;
+                };
+                had_wall = true;
+                // A contour knows only its outline: the cutter needs room beside it.
+                let room = room_beside(triangles, &outline, low, own);
                 finished.push(outline);
-                ops.push(json!({"kind": "wall_finish", "outer": vertices, "floor_z": r(low), "room": if room == f64::MAX { Value::Null } else { json!(r(room)) }}));
+                ops.push(json!({
+                    "kind": "wall_finish", "wall": format!("wall-{}", ops.len() + 1), "outer": vertices, "floor_z": r(low),
+                    "on_flat": band_at > 0, "room": room.map(r),
+                }));
             }
         }
+        if unreadable && !had_wall {
+            warnings.push(format!("an outside wall above Z{} is not upright planes and cylinders, so it keeps its roughing allowance", show(r(low))));
+        }
     }
-    Ok(ops)
+    Ok((ops, finished))
 }
 
 /// Chamfers the top edges that the model rounds, in the roughing setup: (operations, ids of the
 /// rounds they stand for). A 45° chamfer meeting a round at its middle never cuts into the part.
 /// A loop qualifies only if its whole top edge has the one radius and its wall ends up at size:
-/// the outside (`wall_finished` is the outside finished down to the floor) or a hole or slot's
-/// (already cut).
-fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value], wall_finished: bool) -> Result<(Vec<Value>, Vec<String>), String> {
+/// the outside (`wall` is the operation that finishes this outline) or a hole or slot's (already
+/// cut). An outside chamfer says which wall it needs, as that wall can still be left out.
+fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value], wall: &dyn Fn(&[Cut]) -> Option<String>) -> Result<(Vec<Value>, Vec<String>), String> {
     let nothing = (vec![], vec![]);
     let frame = &cx.frames[setup];
     let rows = rows_of(setup);
@@ -1076,7 +1141,8 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
     let largest = |z: f64| slice(triangles, ranges, z).and_then(|l| l.iter().map(|c| area(c).abs()).max_by(f64::total_cmp));
     let same = |z: f64| largest(z).is_some_and(|a| (a - area(&outer)).abs() <= 0.005 * area(&outer));
     let wall_low = floor + radius + 0.05;
-    let outside = wall_finished && rounded(&outer) && same(wall_low) && same((wall_low + part_top - radius) / 2.);
+    let needs_wall = wall(&outer).filter(|_| rounded(&outer) && same(wall_low) && same((wall_low + part_top - radius) / 2.));
+    let outside = needs_wall.is_some();
     if outside {
         chamfered.push(outer.clone());
     } else if inner.is_empty() {
@@ -1087,8 +1153,9 @@ fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMa
         .filter(|x| chamfered.iter().flatten().any(|c| segment_distance((x.2[0], x.2[1]), c.0, c.1) <= radius + 0.5))
         .map(|x| x.0.to_string())
         .collect();
+    let near_outer: Vec<&String> = ids.iter().filter(|id| rounds.iter().any(|x| x.0 == id.as_str() && outer.iter().any(|c| segment_distance((x.2[0], x.2[1]), c.0, c.1) <= radius + 0.5))).collect();
     let ops = vec![json!({
-        "kind": "edge_chamfer", "radius": r(radius), "width": r(radius * (2. - 2f64.sqrt())), "top_z": r(part_top),
+        "kind": "edge_chamfer", "needs_wall": needs_wall, "wall_features": if outside { json!(near_outer) } else { json!([]) }, "radius": r(radius), "width": r(radius * (2. - 2f64.sqrt())), "top_z": r(part_top),
         "outer": outline, "holes": inner, "boundaries": match (outside, inner.is_empty()) {
             (true, true) => "outer",
             (true, false) => "all",
@@ -1341,12 +1408,19 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
             let mut heights = vec![floor];
             heights.extend(ops.iter().find(|o| o["kind"] == "flats").into_iter().flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64));
             heights.push(part.1[2]);
-            let walls = match m["faces"].as_array() {
-                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights)?,
-                None => vec![],
+            let error = ops.iter().find(|o| o["kind"] == "roughing").and_then(|o| o["surface_error_mm"].as_f64()).unwrap_or(0.);
+            let own = (2. * error).max(0.01);
+            let (walls, outlines) = match m["faces"].as_array() {
+                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut warnings)?,
+                None => (vec![], vec![]),
             };
-            let wall_finished = walls.iter().any(|w| w["floor_z"].as_f64() == Some(r(floor)));
-            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, wall_finished)?;
+            // The wall that finishes this outline right down to the floor.
+            let wall_of = |outer: &[Cut]| {
+                walls.iter().zip(&outlines).find(|(w, o)| {
+                    w["floor_z"].as_f64() == Some(r(floor)) && (area(o).abs() - area(outer).abs()).abs() <= 0.005 * area(outer).abs() && o.iter().all(|c| outer.iter().any(|d| segment_distance(c.0, d.0, d.1) <= 0.1))
+                }).and_then(|(w, _)| w["wall"].as_str().map(String::from))
+            };
+            let (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, &wall_of)?;
             ops.extend(setup_slots);
             ops.extend(walls);
             ops.extend(edges);

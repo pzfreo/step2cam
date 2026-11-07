@@ -82,12 +82,18 @@ The plan says **what** to cut, independent of tools and machine.
   - `flats`, straight after roughing, where the part has upward flat faces between its top and
     the roughing floor. Those are off the roughing layers, so they can have up to a stepdown (plus
     the bottom allowance) left on them; camlib's `Flat` cuts each at its exact height, in one pass
-    with the roughing end mill, staying a tool radius from walls;
+    with the roughing end mill, staying a tool radius from walls. camlib proves that clear of the
+    part, not how much stock is in the way, so a flat that would cut deeper than that, where
+    roughing did not reach, is refused and left out with the walls that stand on it;
   - `wall_finish`: the outside of each solid outline with upright walls, to size, in each band
-    between flats, so a raised boss's wall stops at the plate it stands on. A wall with less room
-    beside it than the end mill's diameter is left with the roughing allowance (`room`), and so is
-    a sloped wall or the inside of a pocket;
-  - `edge_chamfer`: see [Top edge rounds](#top-edge-rounds).
+    between flats, so a raised boss's wall stops at the plate it stands on, climb milled. It needs
+    roughing to have run. A contour knows only its outline, so anything of the part above the floor
+    and within reach of the cutter stops it: `room` is how far away the nearest such face is, 0 for
+    an overhang or a flared foot. With less than the end mill's diameter plus twice the radial
+    allowance, the wall keeps the roughing allowance, as a sloped wall or the inside of a pocket does;
+  - `edge_chamfer`: see [Top edge rounds](#top-edge-rounds). An outside chamfer goes with its wall:
+    if that wall is left out, so is the chamfer, and its rounds are reported as not cut;
+  - `thread`: last, as nothing should cut near a finished thread.
 - **Checks against the mesh** (only when the mesh is given):
   - a hole is cut only from a side where no part material is above its opening;
   - a plain through hole may be cut from its far end instead, unless quiddity reports that
@@ -273,6 +279,7 @@ cargo test --release --manifest-path rust/Cargo.toml
   expects no program to be given out.
 - `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
   output with the frozen fixtures.
+- `rust/tests/walls.rs`: shapes an outline alone would cut wrongly, from `synthetic/walls/`.
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.
