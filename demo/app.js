@@ -670,7 +670,7 @@ function buildFeatureList(m) {
     const count = slot || edges ? 1 : op.features.length;
     const tool = [...m.segments].find((s) => s.op === op.id)?.tool;
     const what = op.kind === "notch" ? `to size, corners r${tool ? trim(tool.diameter / 2) : "?"}` : op.kind === "v_channel" ? `${tool ? `${tool.angle}° ${tool.id}` : "V-bit"}, to the root` : slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
-    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
+    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not run"}</span></span>`, op.id));
     if (count > 1) {
       const chips = document.createElement("div");
       chips.className = "chips";
@@ -851,18 +851,18 @@ async function buildPlan(m) {
   fact(`<b>Material:</b> ${material.used ? `${escapeHtml(material.used)} (from ${from})` : "not given"}${material.iso513 ? ` <span class="tag">ISO 513 group ${escapeHtml(material.iso513)}</span>` : material.used ? ' <span class="tag warn">no ISO 513 group</span>' : ""}`);
   const materialWhy = (plan.decisions || []).filter((d) => d.rule.startsWith("requirement.material.group@")).map((d) => d.id);
   if (materialWhy.length) host.append(whyList(materialWhy, decisions, rules));
-  const posted = new Set(m.data.programs.map((p) => p.setup));
+  const ran = new Set(m.data.programs.map((p) => p.setup));
   fact(`<b>${plan.setups.length} ${plan.setups.length === 1 ? "setup" : "setups"}</b>, ${[...m.operations.values()].length} operations, ${plan.skipped.length} features not cut, ${plan.warnings.length} warnings.`);
 
   for (const setup of plan.setups) {
     const lo = setup.stock.min, hi = setup.stock.max;
-    head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
+    head(`${setup.id} setup${ran.has(setup.id) ? "" : " · not run"}`);
     fact(`Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const card = document.createElement("section");
       card.className = `plan-op${o && o.time ? "" : " unused"}`;
-      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not run</span>'}</span>`, key);
       card.append(headBtn);
       const iso = op.iso14649;
       const open = document.createElement("details");
