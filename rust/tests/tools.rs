@@ -4,8 +4,9 @@
 mod common;
 use common::*;
 use serde_json::{Value, json};
-use step2cam::job::{Library, jobs};
-use step2cam::plan::{Options, plan};
+use capp::resources::Library;
+use step2cam::job::jobs;
+use capp::plan::{Options, plan};
 
 fn tip(diameter: f64) -> f64 {
     diameter / 2. / 59f64.to_radians().tan()
@@ -155,6 +156,6 @@ fn a_holder_narrower_than_the_shank_is_refused() {
 fn only_table_tool_changes_are_posted() {
     let mut data = example_tools();
     data["machine"]["tool_change_position_mode"] = json!("z_home");
-    let Err(error) = jobs(&plate_no_mesh(&Default::default()), &data) else { panic!("accepted") };
+    let Err(error) = jobs(&finished(&plate_no_mesh(&Default::default()), &data), &data) else { panic!("accepted") };
     assert!(error.contains("table"), "{error}");
 }

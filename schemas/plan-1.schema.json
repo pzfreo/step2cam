@@ -1,0 +1,1805 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:step2cam:schema:plan:1",
+ "title": "step2cam plan, version 1",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
+ "type": "object",
+ "required": [
+  "format",
+  "version",
+  "units",
+  "source",
+  "part",
+  "setups",
+  "covered_by_roughing",
+  "skipped",
+  "warnings"
+ ],
+ "properties": {
+  "format": {
+   "const": "specify-cam-plan"
+  },
+  "version": {
+   "const": 1
+  },
+  "units": {
+   "const": "mm"
+  },
+  "source": {
+   "description": "specify-core's binding: which file and part the analysis is of.",
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "part": {
+   "$ref": "#/$defs/box"
+  },
+  "setups": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/setup"
+   }
+  },
+  "covered_by_roughing": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "skipped": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "feature",
+     "reason"
+    ],
+    "properties": {
+     "feature": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "decision": {
+      "type": "string",
+      "pattern": "^d-[0-9]+$"
+     }
+    },
+    "additionalProperties": false
+   }
+  },
+  "warnings": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "decisions": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/decision"
+   }
+  },
+  "material": {
+   "type": "object",
+   "properties": {
+    "specified": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "Specify's answer, part.material."
+    },
+    "override": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "description": "The resources' overrides.material, once capp::finish has run."
+    },
+    "used": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "iso513": {
+     "enum": [
+      "P",
+      "M",
+      "K",
+      "N",
+      "S",
+      "H",
+      null
+     ],
+     "description": "The ISO 513 group it falls in, from capp/rulebase/reference/iso513-groups.json."
+    }
+   },
+   "required": [
+    "specified"
+   ],
+   "additionalProperties": false
+  },
+  "rulebase": {
+   "type": "object",
+   "required": [
+    "hash"
+   ],
+   "properties": {
+    "hash": {
+     "type": "string",
+     "pattern": "^fnv1a64:[0-9a-f]{16}$"
+    }
+   },
+   "additionalProperties": false,
+   "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
+  }
+ },
+ "additionalProperties": false,
+ "$defs": {
+  "box": {
+   "type": "object",
+   "required": [
+    "min",
+    "max"
+   ],
+   "properties": {
+    "min": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "max": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    }
+   },
+   "additionalProperties": false
+  },
+  "setup": {
+   "type": "object",
+   "required": [
+    "id",
+    "zero",
+    "rotation",
+    "origin_model",
+    "stock",
+    "operations"
+   ],
+   "properties": {
+    "id": {
+     "enum": [
+      "top",
+      "bottom",
+      "front",
+      "back",
+      "left",
+      "right"
+     ]
+    },
+    "zero": {
+     "enum": [
+      "stock",
+      "part"
+     ]
+    },
+    "rotation": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "enum": [
+        -1,
+        0,
+        1
+       ]
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "origin_model": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "stock": {
+     "$ref": "#/$defs/box"
+    },
+    "operations": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/operation"
+     }
+    },
+    "part_surface": {
+     "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
+    }
+   },
+   "additionalProperties": false
+  },
+  "operation": {
+   "oneOf": [
+    {
+     "description": "Face the stock down to the part's top.",
+     "type": "object",
+     "required": [
+      "kind",
+      "floor_z"
+     ],
+     "properties": {
+      "kind": {
+       "const": "facing"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Rough the stock down to the part's mesh (setup frame), leaving a web.",
+     "type": "object",
+     "required": [
+      "kind",
+      "top_z",
+      "floor_z",
+      "web_mm",
+      "surface_error_mm",
+      "positions",
+      "indices"
+     ],
+     "properties": {
+      "kind": {
+       "const": "roughing"
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "web_mm": {
+       "type": "number",
+       "minimum": 0
+      },
+      "surface_error_mm": {
+       "type": "number",
+       "minimum": 0
+      },
+      "positions": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "indices": {
+       "type": "array",
+       "items": {
+        "type": "integer",
+        "minimum": 0
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Finish the upward flat faces between the top and the roughing floor.",
+     "type": "object",
+     "required": [
+      "kind",
+      "floor_z",
+      "levels"
+     ],
+     "properties": {
+      "kind": {
+       "const": "flats"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "levels": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Holes of one size and depth. exit_clear_mm is present for through holes: the clear depth below the exit, null for none.",
+     "type": "object",
+     "required": [
+      "kind",
+      "diameter",
+      "top_z",
+      "bore_top_z",
+      "bottom_z",
+      "bottom",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "holes"
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "bore_top_z": {
+       "type": "number"
+      },
+      "bottom_z": {
+       "type": "number"
+      },
+      "bottom": {
+       "type": "string",
+       "description": "specify-core's bottom: through, flat, drill_point …"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "exit_clear_mm": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Counterbores and spotfaces of one size.",
+     "type": "object",
+     "required": [
+      "kind",
+      "diameter",
+      "top_z",
+      "floor_z",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "counterbore"
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Internal metric threads of one size.",
+     "type": "object",
+     "required": [
+      "kind",
+      "spec",
+      "major",
+      "pitch",
+      "start_diameter",
+      "top_z",
+      "bottom_z",
+      "through",
+      "centers",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "thread"
+      },
+      "spec": {
+       "type": "string"
+      },
+      "major": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "pitch": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "start_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "bottom_z": {
+       "type": "number"
+      },
+      "through": {
+       "type": "boolean"
+      },
+      "centers": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+       },
+       "minItems": 1
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A round-ended slot, a to b its end centres.",
+     "type": "object",
+     "required": [
+      "kind",
+      "width",
+      "length",
+      "a",
+      "b",
+      "top_z",
+      "floor_z",
+      "bottom",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "slot"
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "minimum": 0
+      },
+      "a": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "b": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "bottom": {
+       "enum": [
+        "blind",
+        "through"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A square-ended slot or notch; open when one side runs out of the part.",
+     "type": "object",
+     "required": [
+      "kind",
+      "width",
+      "length",
+      "open",
+      "outer",
+      "top_z",
+      "floor_z",
+      "wall_top",
+      "bottom",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "notch"
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "open": {
+       "type": "boolean"
+      },
+      "outer": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "x, y and the bulge of the edge to the next vertex"
+       },
+       "minItems": 2,
+       "description": "Closed outline: each vertex is x, y and the bulge of the edge to the next (a circle is two half-circle arcs)."
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "wall_top": {
+       "type": "number"
+      },
+      "bottom": {
+       "enum": [
+        "blind",
+        "through"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "A V-channel, cut along a to b with the bit's tip on root_z.",
+     "type": "object",
+     "required": [
+      "kind",
+      "angle",
+      "width",
+      "depth",
+      "length",
+      "a",
+      "b",
+      "top_z",
+      "root_z",
+      "on_flat",
+      "room",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "v_channel"
+      },
+      "angle": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "depth": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "a": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "b": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "root_z": {
+       "type": "number"
+      },
+      "on_flat": {
+       "type": "boolean"
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Finish a vertical wall's outline down to floor_z; room is the clearance beside it, null if unlimited.",
+     "type": "object",
+     "required": [
+      "kind",
+      "wall",
+      "outer",
+      "floor_z",
+      "on_flat",
+      "room"
+     ],
+     "properties": {
+      "kind": {
+       "const": "wall_finish"
+      },
+      "wall": {
+       "type": "string"
+      },
+      "outer": {
+       "type": "array",
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "x, y and the bulge of the edge to the next vertex"
+       },
+       "minItems": 2,
+       "description": "Closed outline: each vertex is x, y and the bulge of the edge to the next (a circle is two half-circle arcs)."
+      },
+      "floor_z": {
+       "type": "number"
+      },
+      "on_flat": {
+       "type": "boolean"
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "description": "Edge rounds on the top face, cut as a chamfer.",
+     "type": "object",
+     "required": [
+      "kind",
+      "needs_wall",
+      "wall_features",
+      "radius",
+      "width",
+      "top_z",
+      "outer",
+      "holes",
+      "boundaries",
+      "features"
+     ],
+     "properties": {
+      "kind": {
+       "const": "edge_chamfer"
+      },
+      "needs_wall": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "wall_features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "radius": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "width": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "top_z": {
+       "type": "number"
+      },
+      "outer": {
+       "type": "array"
+      },
+      "holes": {
+       "type": "array"
+      },
+      "boundaries": {
+       "enum": [
+        "outer",
+        "holes",
+        "all"
+       ]
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      }
+     },
+     "additionalProperties": false
+    }
+   ]
+  },
+  "decision": {
+   "type": "object",
+   "required": [
+    "id",
+    "stage",
+    "rule",
+    "subject",
+    "outcome",
+    "says"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^d-[0-9]+$"
+    },
+    "stage": {
+     "enum": [
+      "requirements",
+      "setup",
+      "process",
+      "sequence",
+      "feasibility",
+      "tools",
+      "execution"
+     ]
+    },
+    "rule": {
+     "type": "string",
+     "pattern": "^[a-z_]+(\\.[a-z_]+)+@[0-9]+$"
+    },
+    "subject": {
+     "type": "string",
+     "description": "A feature id, a setup id, setup:kind for an operation, or an operation as the execution engine names it."
+    },
+    "outcome": {
+     "enum": [
+      "chosen",
+      "none",
+      "planned",
+      "covered",
+      "skipped",
+      "warning",
+      "removed"
+     ]
+    },
+    "says": {
+     "type": "string"
+    },
+    "chosen": {
+     "description": "What was chosen: a setup or a tool id; null for none."
+    },
+    "considered": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "candidate",
+       "rejected"
+      ],
+      "properties": {
+       "candidate": {
+        "type": "string"
+       },
+       "rejected": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": false
+     }
+    },
+    "features": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "zero": {
+     "enum": [
+      "stock",
+      "part"
+     ]
+    },
+    "stock": {
+     "$ref": "#/$defs/box"
+    },
+    "message": {
+     "type": "string"
+    },
+    "superseded_by": {
+     "type": "string",
+     "pattern": "^d-[0-9]+$",
+     "description": "A later decision that replaced this one."
+    }
+   },
+   "additionalProperties": false
+  }
+ }
+}

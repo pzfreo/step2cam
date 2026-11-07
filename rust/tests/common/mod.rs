@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
-use step2cam::plan::Options;
+use capp::plan::Options;
 
 pub type Bounds = ([f64; 3], [f64; 3]);
 pub const BOX: Bounds = ([-20., -20., -10.], [20., 20., 0.]);
@@ -104,7 +104,7 @@ pub fn warnings(plan: &Value) -> Vec<&str> {
 
 /// What a plan's first setup posts to: its camlib operations and tools, and every note.
 pub fn posted(plan: &Value, library: &Value) -> (Vec<Value>, Vec<Value>, Vec<String>) {
-    let (jobs, log) = step2cam::job::jobs(plan, library).unwrap();
+    let (jobs, log) = step2cam::job::jobs(&finished(&plan, library), library).unwrap();
     let job = jobs.iter().find(|j| j.setup == plan["setups"][0]["id"].as_str().unwrap());
     let mut notes = log;
     let (mut operations, mut tools) = (vec![], vec![]);
@@ -120,4 +120,11 @@ pub fn posted(plan: &Value, library: &Value) -> (Vec<Value>, Vec<Value>, Vec<Str
 }
 pub fn any_note(notes: &[String], text: &str) -> bool {
     notes.iter().any(|n| n.contains(text))
+}
+
+/// The plan as it is executed: settled, and each operation's tool named.
+pub fn finished(plan: &Value, library: &Value) -> Value {
+    let mut plan = plan.clone();
+    capp::finish(&mut plan, library, &[]).unwrap();
+    plan
 }

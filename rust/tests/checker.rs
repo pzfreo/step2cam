@@ -4,6 +4,13 @@ use serde_json::Value;
 use std::{cell::Cell, fs, path::PathBuf};
 use step2cam::post::{Machine, post, post_tampered};
 
+/// The plan as it is executed: settled, and each operation's tool named.
+fn finished(plan: &Value, library: &Value) -> Value {
+    let mut plan = plan.clone();
+    capp::finish(&mut plan, library, &[]).unwrap();
+    plan
+}
+
 fn fixture(path: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(path);
     serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
@@ -11,7 +18,7 @@ fn fixture(path: &str) -> Value {
 fn job() -> (String, Machine) {
     let library = fixture("examples/tools.example.json");
     let plan = fixture("tests/fixtures/rust-golden/plate.plan.json");
-    let (jobs, _) = step2cam::job::jobs(&plan, &library).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&finished(&plan, &library), &library).unwrap();
     (jobs[0].manifest.to_string(), serde_json::from_value(library["machine"].clone()).unwrap())
 }
 fn refused(tamper: &dyn Fn(&str) -> String) -> String {
@@ -21,8 +28,8 @@ fn refused(tamper: &dyn Fn(&str) -> String) -> String {
 /// The stepped plate's first job: unlike the plate, it has moves shorter than the tolerance.
 fn stepped_job() -> (String, Machine) {
     let library = fixture("demo/tools.json");
-    let plan = step2cam::plan::plan(&fixture("tests/fixtures/synthetic/stepped-plate.analysis.json"), Some(&fixture("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
-    let (jobs, _) = step2cam::job::jobs(&plan, &library).unwrap();
+    let plan = capp::plan::plan(&fixture("tests/fixtures/synthetic/stepped-plate.analysis.json"), Some(&fixture("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&finished(&plan, &library), &library).unwrap();
     (jobs[0].manifest.to_string(), serde_json::from_value(library["machine"].clone()).unwrap())
 }
 fn refused_in(manifest: &str, machine: Machine, tamper: &dyn Fn(&str) -> String) -> String {

@@ -1,0 +1,134 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "iso513.groups",
+ "title": "ISO 513 workpiece material groups, and how a material named in Specify is placed in one",
+ "source": {
+  "standard": "ISO 513",
+  "obtained_from": [
+   "https://secotools.com/article/120339",
+   "https://www.mmc-carbide.com/permanent/courses/78/classification.html"
+  ],
+  "agreement": "both give the six groups and what each holds (read 2026-11-07)",
+  "checked_against_standard": false
+ },
+ "groups": {
+  "P": "steel and cast steel, other than stainless steel (ISO 513 puts some ferritic and martensitic stainless in P; this table places every stainless steel in M, as tool makers commonly do)",
+  "M": "stainless steel",
+  "K": "cast iron",
+  "N": "non-ferrous metals, such as aluminium and copper alloys, and non-metallic materials",
+  "S": "heat-resistant superalloys and titanium",
+  "H": "hardened steel and chilled cast iron"
+ },
+ "placing": {
+  "_comment": "A stand-in until specify-core gives the material's family (step2cam docs/upstream-needs.md, S2): specify-core's answer is the material's name (part.material), so its words are matched. The name is split into lower-case words; an entry matches when one of its words, or phrases of words, appears whole. A name with a word in `never` (a printing process, or no material) gets no group; otherwise the first entry that matches places it. Tool steel goes in P, as supplied; hardened it is H, which the name does not say. A name nothing matches gets no group, and the tools' own cutting data are used.",
+  "never": [
+   "fdm",
+   "sla",
+   "sls",
+   "slm",
+   "mjf",
+   "dmls",
+   "dlp",
+   "polyjet",
+   "any",
+   "none"
+  ],
+  "by_words": [
+   [
+    [
+     "stainless"
+    ],
+    "M"
+   ],
+   [
+    [
+     "titanium",
+     "inconel",
+     "hastelloy",
+     "monel",
+     "superalloy",
+     "nickel alloy"
+    ],
+    "S"
+   ],
+   [
+    [
+     "cast iron",
+     "ductile iron",
+     "grey iron",
+     "gjl",
+     "gjs"
+    ],
+    "K"
+   ],
+   [
+    [
+     "hardened"
+    ],
+    "H"
+   ],
+   [
+    [
+     "aluminium",
+     "aluminum",
+     "brass",
+     "copper",
+     "bronze",
+     "magnesium",
+     "zamak",
+     "zinc"
+    ],
+    "N"
+   ],
+   [
+    [
+     "plastic",
+     "acetal",
+     "pom",
+     "nylon",
+     "polyamide",
+     "pa6",
+     "pa66",
+     "pa11",
+     "pa12",
+     "peek",
+     "abs",
+     "polycarbonate",
+     "pc",
+     "acrylic",
+     "pmma",
+     "ptfe",
+     "rulon",
+     "hdpe",
+     "uhmw",
+     "polypropylene",
+     "pp",
+     "pvc",
+     "pet",
+     "pvdf",
+     "pei",
+     "pps",
+     "psu",
+     "ppsu",
+     "polysulfone",
+     "pbt",
+     "polyimide",
+     "vespel",
+     "garolite",
+     "g 10",
+     "fr 4",
+     "tufnol",
+     "phenolic"
+    ],
+    "N"
+   ],
+   [
+    [
+     "steel"
+    ],
+    "P"
+   ]
+  ]
+ }
+}

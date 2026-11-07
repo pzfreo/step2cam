@@ -1,0 +1,798 @@
+{
+ "format": "capp-rules",
+ "version": 1,
+ "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
+ "rules": [
+  {
+   "id": "requirement.thread.unknown_size",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "A tapped answer is threaded only for an ISO 261 coarse size this table lists, or a size with an explicit pitch (M10x1.25); an explicit pitch is taken as given, not checked against ISO 261's fine pitches.",
+   "code": "plan.rs threads, thread_size; reference.rs coarse_pitch",
+   "sources": [
+    {
+     "kind": "standard",
+     "ref": "ISO 261",
+     "via": "reference/iso261-coarse-pitch.json"
+    }
+   ]
+  },
+  {
+   "id": "requirement.thread.unreadable_depth",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "A tapped answer whose full-thread depth cannot be read is not threaded.",
+   "code": "plan.rs threads",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "requirement.thread.no_feature",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "A tapped answer for a feature the part no longer has is not threaded.",
+   "code": "plan.rs threads",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "requirement.thread.no_size",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "A thread the file marks without a size is not threaded: answer it in Specify.",
+   "code": "plan.rs threads",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "requirement.thread.too_deep",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "A blind thread deeper than its hole is not threaded. The full-thread depth is the one asked for, else specify-core's default: the drill depth less three pitches, rounded down to 0.5 mm, at least one pitch.",
+   "code": "plan.rs hole_geometry; reference.rs full_thread",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "specify-core's default minimum full thread",
+     "via": "reference/full-thread.json"
+    }
+   ]
+  },
+  {
+   "id": "requirement.material.group",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "The part's material is Specify's answer (part.material), unless the resources override it (overrides.material). It is placed in an ISO 513 group by the whole words of its name; a printed material or a name nothing matches gets no group, and the tools' own cutting data are used. A stand-in until specify-core gives the material's family.",
+   "code": "settle.rs material; reference.rs iso513_group",
+   "sources": [
+    {
+     "kind": "standard",
+     "ref": "ISO 513",
+     "note": "the six groups",
+     "via": "reference/iso513-groups.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "placing a material by the words of its name, a stand-in"
+    }
+   ]
+  },
+  {
+   "id": "setup.stock.part_box_with_margins",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "The stock is the part's box grown by the margins: top and bottom stock along the roughing direction, the margin across it. The roughing setup is zeroed on the stock, the others on the part's box.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "setup.hole.first_reachable",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "A hole is cut from the first setup, roughing's first, whose axis it lies along and from which no part material stands above its opening.",
+   "code": "plan.rs hole_geometry",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "setup.hole.blocked_above",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "A hole with part material above its opening from every setup it lies along cannot be reached by a three-axis tool.",
+   "code": "plan.rs hole_geometry, blocked_above",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "setup.hole.oblique",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "A hole whose axis is along none of the six setup directions needs a setup this bridge does not make.",
+   "code": "plan.rs hole_geometry, setup_for",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.facing",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The stock above the part's top is faced off first.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.roughing",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing clears the stock down to the part's mesh, leaving a web below the part, from the roughing setup.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.roughing.missing_faces",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing is not planned when faces did not triangulate: a mesh with holes in it would let roughing cut into the part.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.roughing.mesh_error",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing is not planned when the mesh strays from the curved faces by more than camlib accepts (0.1 mm).",
+   "code": "plan.rs plan, surface_error",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.flats",
+   "version": 1,
+   "stage": "process",
+   "rationale": "The upward flat faces between the top and the roughing floor are finished, as roughing's layers can leave up to a stepdown on them.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.holes",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Holes of one diameter, depth and ending are one operation over their centres.",
+   "code": "plan.rs hole_operations",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.counterbore",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Counterbores and spotfaces of one size are one operation, cut after the holes.",
+   "code": "plan.rs counterbore_operations",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.thread",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Internal threads of one size are thread-milled down the bore from its top: all of it for a through hole, else the full-thread depth.",
+   "code": "plan.rs thread_operations",
+   "sources": [
+    {
+     "kind": "standard",
+     "ref": "ISO 261",
+     "note": "coarse pitches",
+     "via": "reference/iso261-coarse-pitch.json"
+    },
+    {
+     "kind": "practice",
+     "note": "specify-core's default minimum full thread",
+     "via": "reference/full-thread.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "thread milling rather than tapping, through holes threaded their whole depth"
+    }
+   ]
+  },
+  {
+   "id": "process.slot",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A closed slot with round ends is cut to size as an operation of its own.",
+   "code": "plan.rs slot_operation",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.notch",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A square-ended slot or notch is cut as a pocket; an open side runs out past the part.",
+   "code": "plan.rs notch_operation",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.v_channel",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A V-channel is cut by running a sharp V-bit along it with its tip on the root.",
+   "code": "plan.rs v_channel_operation",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.wall_finish",
+   "version": 1,
+   "stage": "process",
+   "rationale": "An outside wall of upright planes and cylinders is finished down to its floor by a contour after roughing.",
+   "code": "plan.rs wall_operations",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.wall_finish.not_upright",
+   "version": 1,
+   "stage": "process",
+   "rationale": "An outside wall that is not upright planes and cylinders keeps its roughing allowance.",
+   "code": "plan.rs wall_operations",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.edge_chamfer",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Convex edge rounds on the top face are cut as 45° chamfers meeting the round at its middle.",
+   "code": "plan.rs edge_operations",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.edge_round.not_reached",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A convex edge round whose faces are not all cylinders along the roughing setup's axis (a horizontal round, not a vertical corner) is not cut by roughing or a wall and stays sharp; one on the top face may still be cut as an edge chamfer, which then replaces this decision.",
+   "code": "plan.rs plan, upright",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.chamfer.not_cut",
+   "version": 1,
+   "stage": "process",
+   "rationale": "No operation cuts a chamfer feature: the edge stays sharp.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.countersink.not_cut",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Countersinks are not planned.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.turned",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Turned features are made on a lathe.",
+   "code": "plan.rs plan, TURNED",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.hole.thread_lost",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A thread on a hole that is not cut is not cut either.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.hole.short_of_far_face",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A through hole that ends short of the part's far face may have something between (a counterbore or chamfer at the far end, a shoulder) that is not planned.",
+   "code": "plan.rs hole_geometry",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.covered_by_roughing",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A feature with no operation of its own, none of whose flat faces points away from the roughing setup, is taken as covered by roughing (a heuristic); where flats or walls do not reach it, it keeps the roughing allowance.",
+   "code": "plan.rs plan, reachable",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.faces_away",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A feature with no operation of its own that faces away from the roughing setup is not planned.",
+   "code": "plan.rs plan, reachable",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.no_mesh",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Without the mesh nothing is roughed, so a feature with no operation of its own is not cut.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/process.json"
+   ]
+  },
+  {
+   "id": "process.no_roughing",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A feature with no operation of its own is not cut when roughing is not planned.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "process.no_mesh_checks",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Without the mesh, hole approaches and what lies beyond through holes are not checked against the part.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "sequence.fixed_order",
+   "version": 1,
+   "stage": "sequence",
+   "rationale": "In each setup: facing, roughing, flats, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, then threads last, as nothing should cut near a finished thread and the stock is compared with the part just before them.",
+   "code": "plan.rs plan",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/sequence.json"
+   ]
+  },
+  {
+   "id": "feasibility.wall.needs_roughing",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A contour knows only its outline: a wall is finished only after roughing has cleared the stock beside it.",
+   "code": "settle.rs wall_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.wall.needs_flat",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A wall standing on a flat is finished only if that flat is cut.",
+   "code": "settle.rs wall_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.wall.needs_mill",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A wall is finished with roughing's end mill; with none it is not finished.",
+   "code": "settle.rs wall_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.wall.room",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "The room beside a wall must take the end mill and the roughing allowance on whatever stands opposite: the library's radial_allowance_mm (0.3 mm by default) or twice the mesh's error, whichever is more.",
+   "code": "settle.rs wall_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.v_channel.needs_flat",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A V-channel cut in a flat is cut only if that flat is cut.",
+   "code": "settle.rs v_channel_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.v_channel.needs_bit",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A V-channel needs a sharp V-bit no wider than its angle.",
+   "code": "settle.rs v_channel_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#v_bit"
+   ]
+  },
+  {
+   "id": "feasibility.v_channel.needs_stepdown",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "The V-bit must state its stepdown.",
+   "code": "settle.rs v_channel_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.v_channel.room",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "The room beside a V-channel must take the bit's half-width beyond the channel's.",
+   "code": "settle.rs v_channel_refusal",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.flats.need_roughing",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "Flats follow roughing with the same end mill: without roughing they are not cut.",
+   "code": "settle.rs settle",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.chamfer.needs_wall",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "An outside chamfer is cut only if its wall is finished to size; otherwise its rounds are not chamfered.",
+   "code": "settle.rs settle",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "tool.clearing",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Facing and roughing use the end mill the library names for them (facing_tool, roughing_tool), else the largest end mill.",
+   "code": "resources.rs Library::clearing",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#largest_end_mill"
+   ]
+  },
+  {
+   "id": "tool.flats.follow_roughing",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Flats are cut with roughing's end mill, after roughing.",
+   "code": "settle.rs resolve",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#largest_end_mill"
+   ]
+  },
+  {
+   "id": "tool.hole.drill_or_bore",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A hole is drilled with the largest drill not larger than it and at most drill_tolerance_mm under it; else bored by helix with the largest end mill that fits with room to helix.",
+   "code": "resources.rs Library::drill, bore_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#drill",
+    "rules/tools.json#bore_mill"
+   ]
+  },
+  {
+   "id": "tool.counterbore.bore_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A counterbore is bored with the largest end mill that fits it with room to helix.",
+   "code": "resources.rs Library::bore_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#bore_mill"
+   ]
+  },
+  {
+   "id": "tool.thread_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "The largest thread mill whose pitch range takes the pitch, that fits the drilled hole, whose neck clears the crests and that reaches the thread's bottom.",
+   "code": "resources.rs Library::thread_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#thread_mill"
+   ]
+  },
+  {
+   "id": "tool.cutting_data.by_group",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "An operation uses its tool's cutting data (feed, speed, plunge, stepdown, stepover), with what the tool states for the material's ISO 513 group in their place.",
+   "code": "settle.rs technology",
+   "sources": [
+    {
+     "kind": "practice",
+     "note": "tool makers give cutting data by ISO 513 workpiece group"
+    },
+    {
+     "kind": "step2cam",
+     "note": "the values themselves are the shop's, in resources.json"
+    }
+   ]
+  },
+  {
+   "id": "tool.slot.bore_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A round-ended slot is cut with the largest end mill narrower than it.",
+   "code": "resources.rs Library::bore_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#bore_mill"
+   ]
+  },
+  {
+   "id": "tool.notch.pocket_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A notch is cut with the largest end mill narrower than it whose flutes reach its depth.",
+   "code": "resources.rs Library::pocket_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#pocket_mill"
+   ]
+  },
+  {
+   "id": "tool.v_channel.v_bit",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "The widest sharp V-bit whose included angle is no more than the channel's: a wider angle would cut its walls, a flat tip could not reach the root.",
+   "code": "resources.rs Library::v_bit",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#v_bit"
+   ]
+  },
+  {
+   "id": "tool.wall.roughing_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A wall is finished with roughing's end mill.",
+   "code": "settle.rs resolve",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#largest_end_mill"
+   ]
+  },
+  {
+   "id": "tool.edge_chamfer.chamfer_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A 90° chamfer mill wide enough for the chamfer with its tip clear of the edge.",
+   "code": "resources.rs Library::chamfer_mill",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ],
+   "data": [
+    "rules/tools.json#chamfer_mill"
+   ]
+  },
+  {
+   "id": "execution.refused",
+   "version": 1,
+   "stage": "execution",
+   "rationale": "An operation the execution engine refuses is left out, its features say why, and the plan is finished again without it.",
+   "code": "settle.rs exclude",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "execution.refused.roughing",
+   "version": 1,
+   "stage": "execution",
+   "rationale": "When roughing is refused, nothing is covered by it: its features are not cut.",
+   "code": "settle.rs exclude",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  }
+ ]
+}

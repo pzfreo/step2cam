@@ -9,9 +9,16 @@ Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quid
 is a plain JSON plan.
 
 ```
-part.step ─▶ specify-core: analysis, mesh ─▶ plan::plan ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
-             (quiddity: features)            (what to cut) (which tool) (camlib: how)  one per setup
+part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
+             (quiddity: features)            (what to cut, with   (camlib's    (camlib: how)  one per setup
+                                              which tool)          manifest)
 ```
+
+The planning is the `capp` crate (`rust/capp`): `capp::plan::plan` decides what to cut in which
+setup, and `capp::finish` takes out what the tool library cannot cut and names each operation's
+tool. `step2cam` is the camlib adapter (`job.rs`), the post-processor (`post.rs`) and the browser
+entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
+is finished again without it.
 
 ## Use
 
@@ -59,7 +66,7 @@ run. A program that fails is not given out. Only LinuxCNC output in mm is wired 
 The plan says **what** to cut, independent of tools and machine.
 
 - **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`plan::Options`).
+  and `bottom_stock` (0) below (`capp::plan::Options`).
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
@@ -122,6 +129,31 @@ The plan says **what** to cut, independent of tools and machine.
   refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
   their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
   allowance.
+- **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
+  that cuts it, or why none can (`tool_note`).
+- **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
+  made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
+  rationale, sources and where the code applies it. Where a rule's logic is itself data, it says
+  so (`data`): tool selection (`rulebase/rules/tools.json`: which tools qualify, why the others
+  are turned down, which one is preferred), the order of operations (`rules/sequence.json`) and
+  what becomes of each feature family (`rules/process.json`). The geometry the rules ask about
+  (reachability, room beside a wall and the like) stays code. Each operation's `because` names the
+  decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
+  its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
+  warning is a decision too. A decision a later one replaced says `superseded_by`.
+- **`material`**: the material Specify was told (`part.material`), the resources' override
+  (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `capp::finish`
+  has run. A tool may state its cutting data for a group (`cutting_data: {"N": {"feed_mm_min": …,
+  "spindle_rpm": …}}`); each operation's **`technology`** is the cutting data it uses, and says
+  whether they are the tool's own or its data for the group. The group is found from the whole
+  words of the material's name (a printed material, or a name nothing matches, has none) until
+  specify-core gives the material's family (`docs/upstream-needs.md`, S2).
+- **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
+  the feature it machines and the operation, from
+  `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
+  AP238 lists, not checked against ISO 14649 itself. Where the names are only the closest
+  (thread milling, edge chamfers, V-channels, counterbores, holes bored by helix) they say so
+  (`exact: false`).
 - **`warnings`**: things to look at. For example, a through hole that ends short of the part's
   far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
   planned (quiddity's depths do not include shoulders).
@@ -139,11 +171,14 @@ A hole is threaded when the part says what thread it is: an answer stored in the
 by [Specify](https://github.com/pzfreo/specify-core), `"hole.function:<hole>": "tapped:M5"`.
 The answer can be on one hole or on a hole pattern, which threads every hole in the pattern.
 
-- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`.
+- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`. The
+  coarse pitches are the table `rust/capp/rulebase/reference/iso261-coarse-pitch.json`, from two
+  public sources that agree, not checked against ISO 261 itself.
   Right-hand only.
 - **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
   answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
-  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm.
+  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
+  (`rulebase/reference/full-thread.json`).
 - **How:** milled with a single-profile thread mill to the thread's major diameter, after the
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
   otherwise the thread is left out and the log says why. Check the fit with a plug gauge or
@@ -275,15 +310,16 @@ run.**
 ## Not done (yet)
 
 Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for flats and walls the
-roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, slots with square ends, counterbores at the far end
+roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, counterbores at the far end
 of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
-avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work.
+avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work, more than
+one machine (`docs/capp-plan.md`, Planned), fits (reaming).
 
 ## Tests
 
 ```bash
 rust/fetch-camlib.sh
-cargo test --release --manifest-path rust/Cargo.toml
+cargo test --release --workspace --manifest-path rust/Cargo.toml
 ```
 
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
@@ -299,6 +335,11 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.
+- `rust/tests/schemas.rs`: the tool libraries and every fixture's plan against the JSON Schemas in
+  `schemas/` (`resources-1`, `plan-1`).
+
+The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
+What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
 for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the
