@@ -1168,6 +1168,7 @@ let job = 0;
 function run(name, bytes) {
   const id = ++job;
   $("busy").hidden = false;
+  $("start").hidden = true;
   showBanner("");
   worker.postMessage({ id, name, bytes }, [bytes]);
 }
@@ -1281,4 +1282,16 @@ resized.observe($("cad").parentElement);
 
 initRight();
 initCadLinks();
-fetch("plate.step").then((r) => r.arrayBuffer()).then((bytes) => run("plate.step", bytes));
+// Nothing is loaded until the visitor opens a file or picks a sample.
+for (const b of document.querySelectorAll("[data-sample]")) {
+  b.addEventListener("click", async () => {
+    const name = b.dataset.sample;
+    try {
+      const response = await fetch(name);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      run(name, await response.arrayBuffer());
+    } catch (error) {
+      showBanner(`Could not load the sample ${name}: ${error.message}`);
+    }
+  });
+}

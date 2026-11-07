@@ -28,6 +28,10 @@
       <button type="button" data-view="front">Front</button>
     </div>
     <div id="save" class="views" role="group" aria-label="Save the G-code"></div>
+    <div class="views" role="group" aria-label="Sample parts">
+      <button type="button" data-sample="plate.step">Simple plate</button>
+      <button type="button" data-sample="stepped-plate.step">Complex plate</button>
+    </div>
     <label class="open">Open STEP file<input id="file" type="file" accept=".step,.stp,.STEP,.STP"></label>
   </header>
 
@@ -35,6 +39,17 @@
   <details id="checks" class="checks" hidden><summary id="checks-summary"></summary><div id="checks-detail"></div></details>
 
   <main class="panes">
+    <div id="start" class="start">
+      <div>
+        <p>Open a STEP file, or drop one on the page. It is processed in your browser, not uploaded.</p>
+        <p>Or try a sample part:</p>
+        <div class="views">
+          <button type="button" data-sample="plate.step">Simple plate</button>
+          <button type="button" data-sample="stepped-plate.step">Complex plate</button>
+          <label class="open" for="file">Open STEP file</label>
+        </div>
+      </div>
+    </div>
     <section class="pane" data-pane="features" aria-label="Recognised features">
       <div class="pane-title"><h2>Recognised features</h2><span>specify-core, in three-cad-viewer</span><button type="button" class="pane-size" data-pane="features" aria-pressed="false">Expand</button></div>
       <div class="pane-body">
