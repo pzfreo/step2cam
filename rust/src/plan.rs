@@ -1335,7 +1335,6 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         }
         ops.extend(hole_operations(holes));
         ops.extend(counterbore_operations(holes));
-        ops.extend(thread_operations(holes));
         if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| o["kind"] == "roughing")) {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
             let floor = (part.0[2] + options.skin).min(part.1[2]);
@@ -1355,6 +1354,9 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         } else {
             ops.extend(setup_slots);
         }
+        // Last: nothing cuts near a finished thread, and the stock can be compared with the part
+        // just before, since a thread goes beyond the bore the part's mesh shows.
+        ops.extend(thread_operations(holes));
         for h in holes {
             if h.csink {
                 skipped.push(skip(&h.feature, "countersink: not planned (chamfer it by hand)".into()));

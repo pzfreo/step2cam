@@ -1,6 +1,6 @@
 //! camlib compares the stock left by the last move with the part. A height field cannot decide cells
 //! beside a wall, so what it can say is: no definite gouge, and at least so much left.
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::post::{Machine, post};
 
@@ -112,3 +112,84 @@ fn the_log_says_what_was_found_and_what_was_not_compared() {
     assert!(log.contains("setup front: the finished stock is not compared"), "{log}");
 }
 
+
+fn threaded(plate: &str) -> Value {
+    let mut analysis = fixture(&format!("{plate}.analysis.json"));
+    analysis["resume"] = json!({"answers": {"hole.function:holes:12": "tapped:M5"}});
+    analysis
+}
+fn threaded_job() -> (Value, Machine) {
+    let plan = step2cam::plan::plan(&threaded("plate"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&plan, &tools()).unwrap();
+    (jobs[0].manifest.clone(), serde_json::from_value(tools()["machine"].clone()).unwrap())
+}
+
+/// A thread goes past the bore the mesh shows: compared after it, every correct thread is a gouge.
+/// And the fine grid it needs used to exhaust the check, which then said nothing.
+#[test]
+fn a_threaded_part_is_compared_right_through_before_its_threads() {
+    let out = step2cam::process(&threaded("plate"), &fixture("plate.mesh.json"), &tools()).unwrap();
+    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert_eq!(out["programs"][0]["material"]["complete"], true);
+    assert!(out["log"].to_string().contains("before thread milling"), "{}", out["log"]);
+    let top = out["plan"]["setups"][0]["operations"].as_array().unwrap();
+    assert_eq!(top.last().unwrap()["kind"], "thread");
+}
+
+#[test]
+fn a_misplaced_hole_is_found_on_a_threaded_part_wherever_it_is() {
+    let (manifest, machine) = threaded_job();
+    let holes = manifest["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "drilling" && o["centers_mm"].as_array().is_some_and(|c| c.len() > 1)).expect("a pattern of holes");
+    for hole in 0..manifest["operations"][holes]["centers_mm"].as_array().unwrap().len() {
+        let mut wrong = manifest.clone();
+        let x = wrong["operations"][holes]["centers_mm"][hole][0].as_f64().unwrap();
+        wrong["operations"][holes]["centers_mm"][hole][0] = (x + 3.).into();
+        let Err(failure) = post(&wrong.to_string(), machine.clone()) else { panic!("hole {hole} moved 3 mm passed") };
+        assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
+    }
+}
+
+#[test]
+fn a_comparison_that_runs_out_of_budget_gives_no_program() {
+    let plan = step2cam::plan::plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&plan, &tools()).unwrap();
+    let mut manifest = jobs[0].manifest.clone();
+    manifest["verification"]["material"][0]["options"]["max_boundary_tests"] = 1000.into();
+    let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
+    let Err(failure) = post(&manifest.to_string(), machine) else { panic!("a comparison that did not finish passed") };
+    assert!(failure.message.contains("ran out of budget"), "{}", failure.message);
+    assert!(failure.operation.is_none());
+}
+
+/// camlib refusing roughing does not make the part's mesh any less known.
+#[test]
+fn the_stock_is_still_compared_when_roughing_is_refused() {
+    let mut library = tools();
+    for tool in library["tools"].as_array_mut().unwrap() {
+        if tool["type"] == "end_mill" {
+            tool["flute_length"] = 1.into();
+            tool["stickout"] = 1.5.into();
+        }
+    }
+    let out = step2cam::process(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
+    assert!(out["plan"]["warnings"].to_string().contains("roughing left out"), "{}", out["plan"]["warnings"]);
+    assert!(out["programs"][0]["material"].is_object(), "{}", out["log"]);
+    assert!(out.to_string().find("part_surface").is_none());
+}
+
+#[test]
+fn stock_below_the_part_is_no_gouge() {
+    let options = step2cam::plan::Options { bottom_stock: 2., ..Default::default() };
+    for part in ["plate", "mounting-plate"] {
+        let plan = step2cam::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &options).unwrap();
+        let (jobs, _) = step2cam::job::jobs(&plan, &tools()).unwrap();
+        let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
+        post(&jobs[0].manifest.to_string(), machine).map_err(|f| format!("{part}: {}", f.message)).unwrap();
+    }
+}
+
+#[test]
+fn the_log_says_how_small_an_error_the_check_can_miss() {
+    let log = process("mounting-plate")["log"].to_string();
+    assert!(log.contains("cannot see an error under about 0.04 mm in height or 0.26 mm sideways"), "{log}");
+}

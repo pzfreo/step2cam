@@ -162,7 +162,6 @@ fn a_thread_asks_for_a_stock_grid_fine_enough_for_the_neck() {
     // neck passes 2.1 - 1 - 1 = 0.1 mm from the wall. camlib proves that clearance on its stock
     // grid, which must be finer than the clearance over a cell's diagonal; the job rounds that
     // down to a whole micrometre.
-    assert_eq!((0.1 / (2f64.sqrt() * 1.25) * 1000f64).floor() / 1000., 0.056);
     // Without a thread nothing is asked: the grid is the part's own, 1/400 of its longest side.
     let (jobs, notes) = jobs_note(&plan_of(&fixture("plate.analysis.json")), &example_tools());
     assert_eq!(jobs[0].manifest["stock"]["cell_size_mm"], 0.26);

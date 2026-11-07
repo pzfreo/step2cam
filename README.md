@@ -222,14 +222,18 @@ violation is left out and reported; motions the check could not clear are counte
 **are still written**. Every block written is decoded again and compared with the plan by camlib's
 intent checker, and a mismatch stops the program being given out.
 
-The stock left by the last move of the roughing setup is compared with the part's mesh. A program
-that definitely cuts into the part is refused; the log says how much is undecided and how much is
-at least left on the part. That check has limits:
+The stock in the setup that holds the part's mesh is compared with that mesh, after its last cut
+before thread milling. A program that definitely cuts into the part is refused, and so is one whose
+comparison ran out of budget. The log says how much is undecided and how much stock at least remains
+(that figure counts the web, and anything a later setup cuts). That check has limits:
 
 - it sees the part from above, as heights on the stock grid, so it cannot decide cells beside a wall,
   and it cannot see a mistake under an overhang;
-- it covers the roughing setup only: a setup with no roughing, such as side holes, is not compared
-  (the log says so);
+- what it can miss depends on the part, and the log gives the figures: an error in height under the
+  mesh's surface error, flat faces too; sideways, under about a grid cell; and a misplaced cut
+  narrower than about four cells;
+- threads are not compared, because they go beyond the bore the mesh shows. They are milled last;
+- only that setup is compared: others, such as side holes, are not (the log says so);
 - the stock it reads is the planned one. The intent checker is what ties the written blocks to that plan.
 
 And:
@@ -263,10 +267,12 @@ cargo test --release --manifest-path rust/Cargo.toml
 - `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as, since moved only by the plate's
   wall finish. It is compared by hand when an intended change moves it.
-- `rust/tests/checker.rs`: tampers with written blocks and expects camlib's intent checker to
-  refuse the program.
 - `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong
   toolpaths that must be refused.
+- `rust/tests/checker.rs`: changes written blocks (preamble, plane, motion, control and end) and
+  expects no program to be given out.
+- `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
+  output with the frozen fixtures.
 - `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
 - `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
   reported as not cut.
