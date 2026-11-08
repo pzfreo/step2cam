@@ -63,7 +63,7 @@ fn the_iso14649_names_are_published_names() {
         }
     };
     let kinds = table["kinds"].as_object().unwrap();
-    for kind in ["facing", "roughing", "flats", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"] {
+    for kind in ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"] {
         let entry = kinds.get(kind).unwrap_or_else(|| panic!("no names for {kind}"));
         for f in names(&entry["feature"]).into_iter().chain(names(&entry["feature_by_open"])).chain(names(&entry["bottom_condition"])) {
             assert!(features.contains(&f), "{kind}: {f} is not a published feature name");

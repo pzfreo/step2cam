@@ -245,7 +245,7 @@
      "else_reject": "{tool.id}: point angle must be at least {angle}° and under 180°"
     },
     {
-     "if": "csink_angle == 0 || (tool.point_angle >= csink_angle - 1 && tool.point_angle <= csink_angle + 1)",
+     "if": "(csink_angle == 0) + (tool.point_angle >= csink_angle - 1 && tool.point_angle <= csink_angle + 1) >= 1",
      "else_reject": "{tool.id}: does not match the countersink angle within 1°"
     },
     {

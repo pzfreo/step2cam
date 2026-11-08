@@ -577,7 +577,7 @@
    "spindle_rpm": 3000,
    "coolant": "flood",
    "shank_diameter": 20,
-   "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation. Reduced 6 mm shank on the 8 mm spot drill fits the demo Carvera collet."
+   "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation."
   }
  ]
 }

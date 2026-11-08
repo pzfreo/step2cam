@@ -19,8 +19,9 @@ fn plate_no_mesh(options: &Options) -> Value {
 fn synthetic_post(holes: &[Value]) -> (Vec<Value>, Vec<Value>, Vec<String>) {
     posted(&plan(&holes_only(holes), None, &top_stock(0.)).unwrap(), &example_tools())
 }
+// These drilling assertions concern the twist drills; spot cycles are checked separately.
 fn of_kind<'a>(ops: &'a [Value], kind: &str) -> Vec<&'a Value> {
-    ops.iter().filter(|o| o["kind"] == kind).collect()
+    ops.iter().filter(|o| o["kind"] == kind && (kind != "drilling" || !o["id"].as_str().unwrap().contains("-spot_drill-"))).collect()
 }
 
 #[test]
@@ -28,8 +29,10 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     let plan = plan(&plate(), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (ops, tools, notes) = posted(&plan, &example_tools());
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "drilling", "drilling", "bore", "contour"]);
-    let [facing, rough, d42, d66, bore, _wall] = &ops[..] else { unreachable!() };
+    assert_eq!(kinds, ["facing", "roughing", "drilling", "drilling", "drilling", "drilling", "bore", "contour"]);
+    let [facing, rough, spot42, spot66, d42, d66, bore, _wall] = &ops[..] else { unreachable!() };
+    assert_eq!(spot42["tool"], "spot8");
+    assert_eq!(spot66["tool"], "spot8");
     assert_eq!(facing["tool"], "em6");
     assert_eq!(number(&facing["floor_z_mm"]), -1.);
     let mesh = &rough["target"];
@@ -53,7 +56,7 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert!(any_note(&notes, "skin or burr"), "{notes:?}");
     let mut ids: Vec<&str> = tools.iter().map(|t| t["id"].as_str().unwrap()).collect();
     ids.sort_unstable();
-    assert_eq!(ids, ["drill4.2", "drill6.6", "em6"]);
+    assert_eq!(ids, ["drill4.2", "drill6.6", "em6", "spot8"]);
     for tool in &tools {
         assert!(number(&tool["gauge_length_mm"]) > number(&tool["stickout_mm"]), "{}", tool["id"]);
     }
@@ -70,8 +73,8 @@ fn stock_below_lets_a_bore_break_through() {
 #[test]
 fn blind_flat_holes_stop_at_the_bottom_with_the_tip() {
     let (ops, _, notes) = synthetic_post(&[down(0., 0., 4.2, 6., "flat")]);
-    assert_same(json!([ops[0]["depth_reference"], ops[0]["depth_z_mm"]]), json!(["tip", -6]));
-    assert_eq!(number(&ops[0]["allow_breakthrough_mm"]), 0.);
+    assert_same(json!([ops[1]["depth_reference"], ops[1]["depth_z_mm"]]), json!(["tip", -6]));
+    assert_eq!(number(&ops[1]["allow_breakthrough_mm"]), 0.);
     assert!(notes.iter().any(|n| n.contains("full diameter ends") && n.contains("short")), "{notes:?}");
 }
 
@@ -79,7 +82,7 @@ fn blind_flat_holes_stop_at_the_bottom_with_the_tip() {
 fn drill_point_holes_reach_full_diameter_at_the_models_depth() {
     // quiddity's depth stops where the cone starts.
     let (ops, _, notes) = synthetic_post(&[down(0., 0., 4.2, 6., "drill_point")]);
-    assert_same(json!([ops[0]["depth_reference"], ops[0]["depth_z_mm"]]), json!(["full_diameter", -6]));
+    assert_same(json!([ops[1]["depth_reference"], ops[1]["depth_z_mm"]]), json!(["full_diameter", -6]));
     assert!(any_note(&notes, "drill-point"), "{notes:?}");
 }
 
@@ -117,7 +120,7 @@ fn a_hole_no_tool_fits_is_a_note_not_a_guess() {
 fn a_drill_is_never_larger_than_the_hole() {
     let (ops, _, _) = synthetic_post(&[down(0., 0., 6.58, 10., "through"), down(9., 0., 6.64, 10., "through")]);
     // 6.58: bored; 6.64: the 6.6 drill.
-    assert_eq!(ops.len(), 2, "{ops:?}");
+    assert_eq!(ops.len(), 3, "{ops:?}");
     let bore = of_kind(&ops, "bore");
     let drill = of_kind(&ops, "drilling");
     assert_eq!((bore.len(), drill.len()), (1, 1), "{ops:?}");

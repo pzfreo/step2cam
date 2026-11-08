@@ -101,8 +101,8 @@ fn the_plates_job_is_python_s_job() {
     mine["verification"]["material"] = python["verification"]["material"].clone();
     // Deliberate change from Python: both plate drills are below 3D and now make
     // one plunge. Change only the expected pecks; compare every other manifest field.
-    python["operations"][2]["peck_mm"] = Value::Null;
-    python["operations"][3]["peck_mm"] = Value::Null;
+    python["operations"][4]["peck_mm"] = Value::Null;
+    python["operations"][5]["peck_mm"] = Value::Null;
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -115,10 +115,11 @@ fn the_plates_job_runs_in_camlib() {
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
     // camlib #104 simplifies the roughing layer shadows: 1,565 moves instead of 1,922.
     // The shallow drills now make one plunge: 5 and 24 moves instead of 17 and 78.
-    // Facing, roughing and the bore retain their move counts (53, 1565 and 38).
-    assert_eq!(&ends[..5], [53, 1618, 1623, 1647, 1685]);
-    assert_eq!(ends.len(), 6); // the wall finish
-    assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[5]);
+    // Two spot cycles add 5 and 24 moves, sharing one tool.
+    // Facing, roughing, twist drills and the bore retain their move counts.
+    assert_eq!(&ends[..7], [53, 1618, 1623, 1647, 1652, 1676, 1714]);
+    assert_eq!(ends.len(), 8); // two spots plus the wall finish
+    assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[7]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
     assert_eq!(out["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }
@@ -148,8 +149,8 @@ fn a_tapped_holes_job_is_python_s_job() {
     mine["verification"]["material"] = python["verification"]["material"].clone();
     // Deliberate change from Python: both plate drills are below 3D and now make
     // one plunge. Change only the expected pecks; compare every other manifest field.
-    python["operations"][2]["peck_mm"] = Value::Null;
-    python["operations"][3]["peck_mm"] = Value::Null;
+    python["operations"][4]["peck_mm"] = Value::Null;
+    python["operations"][5]["peck_mm"] = Value::Null;
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -177,7 +178,7 @@ fn each_tool_starts_at_the_declared_machine_pose() {
             changes += 1;
         }
     }
-    assert_eq!(changes, 4); // mill, two drills, mill again
+    assert_eq!(changes, 5); // mill, spot drill, two twist drills, mill again
     assert_eq!(program["material"]["complete"], true);
     assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
 }
