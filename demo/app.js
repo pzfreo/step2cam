@@ -1336,7 +1336,9 @@ function showChecks(data) {
   $("checks-summary").innerHTML = headline.join(" ");
   const compact = document.createElement("span");
   compact.className = "phone-only";
-  compact.textContent = checked.length ? "✓ no gouge" : "⚠ unchecked";
+  compact.textContent = checked.length
+    ? `✓ no gouge${unchecked.length ? ` · ${unchecked.length} unchecked` : ""}`
+    : "⚠ unchecked";
   $("checks-summary").append(compact);
   const number = (x) => Math.round(x).toLocaleString("en-GB");
   const items = [];
