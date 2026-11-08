@@ -667,8 +667,10 @@ function button(className, html, key) {
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 function buildFeatureList(m) {
-  const host = $("features");
-  host.replaceChildren();
+  // Keep the scroll panel separate from the auto-height column content.
+  const host = document.createElement("div");
+  host.className = "feature-columns";
+  $("features").replaceChildren(host);
   const head = (text) => { const d = document.createElement("div"); d.className = "side-head"; d.textContent = text; host.append(d); };
   // Keep selection and disclosure as sibling buttons: expanding never selects an operation.
   let instancesId = 0;
