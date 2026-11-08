@@ -10,7 +10,7 @@ order favours what makes the plans correct and honest before what makes them fas
 - PR #31: write no G-code; hand camlib the job and show its simulation.
 - PR #44: every fixture has a STEP file carrying GD&T.
 - PR #27 (machines, a Makera Carvera), #28 (the lathe) and #30 (Carvera research): to rebase onto
-  #31. #28 still says camlib does not turn, which is wrong: camlib has turning.
+  #31.
 
 ## Phase 1: correct and honest about reach
 
@@ -53,9 +53,13 @@ What the plan leaves out today, and why, on parts deeper or larger than the demo
 20. Engagement-based feeds, in #38. *Waits on* stevecad/camlib#23.
 21. #51 Name the tool library's fields by ISO 13399.
 
-## Phase 6: G-code in the browser
+## Phase 6: the lathe through camlib
 
-22. #52 Save G-code from the browser through camlib's Rust posts.
+22. #57 Hand lathe setups to camlib's turning (after PR #28 and #46).
+
+## Phase 7: G-code in the browser
+
+23. #52 Save G-code from the browser through camlib's Rust posts.
     *Waits on* stevecad/camlib#120.
 
 ## Alongside every phase: evidence
