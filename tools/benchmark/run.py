@@ -23,9 +23,9 @@ from fetch import RemoteZip, extract
 REPO = HERE.parent.parent
 
 
-def command(args, stdout=None):
+def command(args, stdout=None, timeout=600):
     result = subprocess.run([str(a) for a in args], stdout=stdout or subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True, timeout=600, cwd=REPO)
+                            stderr=subprocess.PIPE, text=True, timeout=timeout, cwd=REPO)
     if result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
                            f'{result.stderr.strip()[-4000:]}')
@@ -99,7 +99,8 @@ def main():
     cache.mkdir(parents=True, exist_ok=True)
     tools = args.tools.resolve()
     # Build once before workers, avoiding concurrent initial Cargo builds.
-    command(['cargo', 'build', '--release', '--manifest-path', REPO / 'rust/Cargo.toml', '--example', 'process'])
+    print("Building release process example...", file=sys.stderr)
+    command(['cargo', 'build', '--release', '--manifest-path', REPO / 'rust/Cargo.toml', '--example', 'process'], timeout=1800)
     import threading
     lock = threading.Lock()
     wall_start = time.monotonic()

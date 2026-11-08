@@ -29,7 +29,7 @@ Always use `python3 -I` for code that reads dataset files. The runner imports on
 sibling modules explicitly. It builds the release `process` example once, then runs
 `specify-core analyse`, `specify-core mesh` and `cargo run --release --example process` per part.
 Default parallelism is four parts (`--jobs N`); the tool library defaults to `demo/tools.json`
-(`--tools PATH`). Each subprocess has a ten-minute timeout. Errors are retained per part;
+(`--tools PATH`). Each per-part subprocess has a ten-minute timeout; the initial build allows thirty minutes. Errors are retained per part;
 the runner writes the report before exiting nonzero if any part failed.
 
 The default source is Zenodo's ZIP content endpoint. Only ZIP metadata and selected STEP,
