@@ -90,6 +90,6 @@ fn drill_selector_rejects_short_flutes_and_keeps_a_longer_equal_diameter() {
     assert_eq!(lib.drill(5., 25.).unwrap()["id"], "long");
     let candidates = lib.considered("drill", &[("diameter", 5.), ("depth", 25.)]);
     assert!(candidates.iter().any(|c| c["candidate"] == "short"
-        && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach 25 mm down") && s.contains("point"))), "{candidates:?}");
+        && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach 25.0 mm down") && s.contains("point"))), "{candidates:?}");
     assert!(lib.drill(5., 25.001).is_none());
 }

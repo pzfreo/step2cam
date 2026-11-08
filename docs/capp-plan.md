@@ -243,8 +243,9 @@ Missing-tool queries restate this same reach requirement, rounded upwards.
 `reference/drilling.json` records the public sources and parameters for conventional drills:
 one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from stock top,
 including requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
-the 3×D onset. The half-diameter increment is a conservative starting policy, not a universal
-manufacturer value. Full retract is used at intermediate and greater depths because the
+the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
+Tool’s published ranges. Applying it as a constant across materials is a conservative starting
+policy, not a universal manufacturer value. Full retract is used at intermediate and greater depths because the
 library has no through-tool coolant capability, required by Haas's high-speed chip-break
 guidance. A positive tool `peck_mm` caps the rule increment; zero or absent means no cap,
 and shallow holes still use one plunge. The settled operation's `technology` carries these

@@ -12,10 +12,12 @@
   "obtained_from": [
    "https://legacy-aem.haascnc.com/content/haascnc/en/service/online-operator-s-manuals/mill-operator-s-manual/mill---g-codes.html",
    "https://www.hannibalcarbide.com/technical-support/drills/",
-   "https://www.haascnc.com/content/dam/haascnc/ecommerce-assets/linedrawings/holemaking/modular_drill_heads/Tech_Doc_Drilling_With_High-Speed_Peck_sr_02-0060_to_02-0077.pdf"
+   "https://www.haascnc.com/content/dam/haascnc/ecommerce-assets/linedrawings/holemaking/modular_drill_heads/Tech_Doc_Drilling_With_High-Speed_Peck_sr_02-0060_to_02-0077.pdf",
+   "https://www.nachiamerica.com/download/332-general-catalog/",
+   "https://harveyperformance.widen.net/content/yvjjt6xv7b/pdf/SF_FBD0000_Ferrous.pdf?u=d9orjt"
   ],
   "checked_against_standard": false,
-  "agreement": "Read 2026-11-08. Haas mill manual and Hannibal Drill Basics independently agree that conventional drills should peck beyond 3 diameters. This is the agreed threshold used here; specialised coolant-fed and inserted drills have different guidance. Haas distinguishes G73 small lifts from G83 complete exit and restricts high-speed pecking to through-tool coolant.",
-  "policy": "Half-diameter constant increments are step2cam's conservative starting policy, not a universal manufacturer specification. Both intermediate and deep holes use full retract: the library cannot declare through-tool coolant. No universal 5D chip-break/full-retract boundary is asserted. A positive tool peck_mm caps the increment; zero/absent means no cap. At or below 3D a single plunge is used regardless of the cap. Depth is measured from stock top including requested breakthrough, excluding the drill point allowance."
+  "agreement": "Read 2026-11-08. Haas mill manual and Hannibal Drill Basics independently agree that conventional drills should peck beyond 3 diameters. This is the agreed threshold used here; specialised coolant-fed and inserted drills have different guidance. Haas distinguishes G73 small lifts from G83 complete exit and restricts high-speed pecking to through-tool coolant. For increments, Nachi General Catalog 2025/2026 p.116 recommends 0.5–1D pecks (0.2–0.5D for small diameters), with retraction to the entrance. Harvey Tool Flat Bottom Drill Guide recommends 0.5–1D subsequent pecks for 38–45 Rc steel. Their ranges overlap at 0.5D; neither is a universal constant-peck specification.",
+  "policy": "Half-diameter is chosen from the overlap of Nachi and Harvey ranges. Extending it to constant increments across materials and depths is step2cam's conservative starting policy, not a universal manufacturer specification. Both intermediate and deep holes use full retract: the library cannot declare through-tool coolant. No universal 5D chip-break/full-retract boundary is asserted. A positive tool peck_mm caps the increment; zero/absent means no cap. At or below 3D a single plunge is used regardless of the cap. Depth is measured from stock top including requested breakthrough, excluding the drill point allowance."
  }
 }
