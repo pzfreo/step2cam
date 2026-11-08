@@ -1410,6 +1410,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let mut slots: HashMap<&'static str, Vec<Value>> = HashMap::new();
     let mut trace = Trace::default();
     let mut covered: Vec<Value> = vec![];
+    let mut roughing_feature_depths = Map::new();
     // The decision that put each hole in its setup.
     let mut placed: HashMap<String, String> = HashMap::new();
     let asked = threads(analysis, &mut trace);
@@ -1470,6 +1471,24 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
             Value::String(action) if action == "covered" => {
                 trace.decide("process.covered_by_roughing", id, "covered", &format!("{family}: no operation of its own; roughing reaches it"), Value::Null);
                 covered.push(json!(id));
+                // Mesh face ranges use analysis face ids. Unknown or unmeshed faces fall
+                // back to the part bottom; curved faces include camlib's maximum accepted
+                // surface error so tessellation cannot overstate reach.
+                let frame = &frames[rough_from];
+                let bottom = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p))).0[2];
+                let lowest = feature["faces"].as_array().filter(|ids| !ids.is_empty()).and_then(|ids| {
+                    ids.iter().map(|face| {
+                        let index = face.as_u64()?;
+                        let range = mesh?["faces"].get(index as usize)?;
+                        let start = range[0].as_u64()? as usize;
+                        let count = range[1].as_u64()? as usize;
+                        let points = triangles.as_ref()?.get(start..start + count)?;
+                        let low = points.iter().flatten().map(|p| frame.point(*p)[2]).min_by(f64::total_cmp)?;
+                        let allowance = if faces.get(&index).is_some_and(|f| f["kind"] == "plane") { 1e-4 * 3f64.sqrt() } else { CAMLIB_MAX_SURFACE_ERROR };
+                        Some(low - allowance)
+                    }).collect::<Option<Vec<_>>>()?.into_iter().min_by(f64::total_cmp)
+                }).unwrap_or(bottom);
+                roughing_feature_depths.insert(id.into(), json!({"floor_z": lowest, "family": family}));
             }
             Value::Object(skip) => {
                 let rule = skip["skip"].as_str().ok_or("rulebase/rules/process.json: a skip names no rule")?;
@@ -1656,6 +1675,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         "part": {"min": rp(part_lo), "max": rp(part_hi)},
         "setups": setups,
         "covered_by_roughing": covered,
+        "roughing_feature_depths": roughing_feature_depths,
         "skipped": trace.skipped,
         "warnings": trace.warnings,
         "decisions": trace.decisions,

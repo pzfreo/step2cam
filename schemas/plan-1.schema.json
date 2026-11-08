@@ -168,6 +168,26 @@
     },
     "additionalProperties": false
    }
+  },
+  "roughing_feature_depths": {
+   "description": "Lowest feature Z in the rough-from setup, conservatively bounded from mesh faces (part bottom if unknown). Keeps covered_by_roughing an ID list.",
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "floor_z",
+     "family"
+    ],
+    "properties": {
+     "floor_z": {
+      "type": "number"
+     },
+     "family": {
+      "type": "string"
+     }
+    },
+    "additionalProperties": false
+   }
   }
  },
  "additionalProperties": false,
