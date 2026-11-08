@@ -109,7 +109,7 @@ fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Opt
         return Ok(Some(("feasibility.v_channel.needs_flat", "the flat it is cut in has not been cut, so it is not cut".into())));
     }
     let Some(bit) = library.v_bit(num(op, "angle")?) else {
-        return Ok(Some(("feasibility.v_channel.needs_bit", format!("no sharp V-bit of {}° or less: needs {}", show(num(op, "angle")?), library.needed("v_bit", &[("angle", num(op, "angle")?)])?))));
+        return Ok(Some(("feasibility.v_channel.needs_bit", format!("no sharp V-bit of {}° or less: needs {}", show(num(op, "angle")?), crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
     };
     if bit.get("stepdown_mm").and_then(Value::as_f64).is_none() {
         return Ok(Some(("feasibility.v_channel.needs_stepdown", format!("{} has no stepdown_mm", id(bit)))));

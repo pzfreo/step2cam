@@ -94,3 +94,20 @@ fn refused_roughing_passes_its_tool_query_to_covered_features() {
     assert_eq!(plan["tools_needed"], json!([{"description":"an end mill with flutes of at least 132 mm", "features":["pockets:0", "pockets:1"], "operations":["top-1-roughing"]} ]));
     assert_eq!(plan["skipped"][0]["reason"], "no operation of its own, and roughing was refused: needs an end mill with flutes of at least 132 mm");
 }
+
+#[test]
+fn v_channel_and_chamfer_reach_refusals_name_suitable_bits() {
+    for (op, operation, reason, expected) in [
+        (json!({"kind":"v_channel", "angle":60, "width":2, "root_z":-20.1, "features":["v:0"]}),
+         "top-1-v_channel", "invalid trace parameters: depth 20.1 below the stock top exceeds the cutting length 5",
+         "a sharp V-bit with zero tip diameter and angle at most 60.00° with flutes of at least 21 mm"),
+        (json!({"kind":"edge_chamfer", "width":0.5, "radius":1, "top_z":-2, "features":["r:0"]}),
+         "top-1-edge_chamfer", "invalid chamfer parameters: tool tip Z-3 is deeper below the stock top than the cutting length 2",
+         "a 90° chamfer mill with (diameter - tip diameter) / 2 at least 1.00 mm, with zero tip diameter and flutes of at least 4 mm"),
+    ] {
+        let mut plan = simple(json!([op]));
+        capp::finish(&mut plan, &library(), &[json!({"operation":operation, "message":reason})]).unwrap();
+        assert_eq!(plan["tools_needed"][0]["description"], expected);
+        assert!(plan["skipped"][0]["reason"].as_str().unwrap().ends_with(&format!(": needs {expected}")));
+    }
+}

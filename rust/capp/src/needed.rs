@@ -24,8 +24,11 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
         "slot" => mill("bore_mill", &[("diameter", num(op, "width")?)])?,
         "notch" => mill("pocket_mill", &[("width", num(op, "width")?), ("depth", depth)])?,
         "facing" | "roughing" | "flats" | "wall_finish" => mill("largest_end_mill", &[])?,
-        "edge_chamfer" => library.needed("chamfer_mill", &[("width", num(op, "width")?)])?,
-        "v_channel" => library.needed("v_bit", &[("angle", num(op, "angle")?)])?,
+        "edge_chamfer" => {
+            let query = library.needed("chamfer_mill", &[("width", num(op, "width")?)])?;
+            if required.is_some() { format!("{query}, with zero tip diameter and flutes of at least {} mm", reach(depth)) } else { query }
+        },
+        "v_channel" => format!("{} {long}", library.needed("v_bit", &[("angle", num(op, "angle")?)])?),
         "thread" => library.needed("thread_mill", &[("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?),
             ("pitch", num(op, "pitch")?), ("stock_top", top), ("bottom_z", bottom)])?,
         _ => return Ok(None),
@@ -40,11 +43,16 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, library: &Li
     let number = parts.next().and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
     let Some(setup) = plan["setups"].as_array().into_iter().flatten().find(|s| s["id"] == setup_id) else { return Ok(message.into()); };
     let Some(op) = number.checked_sub(1).and_then(|n| setup["operations"].get(n)) else { return Ok(message.into()); };
-    let Some((before, _)) = message.split_once(" exceeds the cutting length ") else { return Ok(message.into()); };
-    let depth = ["bore depth ", "hole depth ", "contour depth ", "pocket depth ", "slot depth ", "facing depth "]
-        .iter().find_map(|prefix| before.split_once(prefix).and_then(|(_, rest)| rest.split_whitespace().next()?.parse::<f64>().ok()));
-    let Some(depth) = depth.filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
     let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
+    let depth = message.split_once(" exceeds the cutting length ").and_then(|(before, _)| {
+        ["bore depth ", "hole depth ", "contour depth ", "pocket depth ", "slot depth ", "facing depth ", "parameters: depth "]
+            .iter().find_map(|prefix| before.split_once(prefix).and_then(|(_, rest)| rest.split_whitespace().next()?.parse::<f64>().ok()))
+    }).or_else(|| {
+        if op["kind"] != "edge_chamfer" || !message.contains("is deeper below the stock top than the cutting length ") { return None; }
+        let tip = message.split_once("tool tip Z")?.1.split_whitespace().next()?.parse::<f64>().ok()?;
+        Some(top - tip)
+    });
+    let Some(depth) = depth.filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
     Ok(match for_operation(op, top, library, Some(depth))? {
         Some(need) => format!("{message}: needs {need}"),
         None => message.into(),
