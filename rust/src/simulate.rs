@@ -66,6 +66,8 @@ pub struct Run {
     pub uncertain: u64,
     /// The stock after the last move against the part, where the job asks for it.
     pub material: Option<camlib::material::Report>,
+    /// Per-motion proof, separate from the independent stock-cell comparison.
+    pub sweep_proof: Option<camlib::material::SweepProofReport>,
 }
 
 fn round(p: [f64; 3]) -> [f64; 3] {
@@ -126,12 +128,17 @@ fn deepest_cut(stock: &camlib::stock::Stock, motion: &Motion, radius: f64) -> f6
 
 /// The stock against the part, if the job asks for it at this point. A definite gouge refuses the
 /// whole job, and so does a comparison that ran out of budget: it has not looked everywhere.
-fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool) -> Result<Option<camlib::material::Report>, Failure> {
+struct MaterialComparison {
+    report: camlib::material::Report,
+    sweep_proof: Option<camlib::material::SweepProofReport>,
+}
+
+fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool) -> Result<Option<MaterialComparison>, Failure> {
     if producer.start_material_verification(after)?.is_none() {
         return Ok(None);
     }
     let bytes = producer.finish_material_verification(cancel)?;
-    let Check::Material { report, .. } = binding.decode(&bytes, producer.completed(), None)?.check else {
+    let Check::Material { report, sweep_proof, .. } = binding.decode(&bytes, producer.completed(), None)?.check else {
         return Err(Failure::from("camlib's material check gave no report"));
     };
     if report.gouge.definite_cells > 0 {
@@ -140,7 +147,7 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
     if !report.complete {
         return Err(Failure::from(format!("camlib's comparison of the stock with the part ran out of budget with {} cells unexamined, so the job is not accepted", report.stats.unexamined_cells)));
     }
-    Ok(Some(*report))
+    Ok(Some(MaterialComparison { report: *report, sweep_proof }))
 }
 
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
@@ -217,5 +224,6 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
         material = compare(&mut producer, &binding, None, &cancel)?;
     }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
-    Ok(Run { moves, operations, uncertain, material })
+    let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
+    Ok(Run { moves, operations, uncertain, material, sweep_proof })
 }
