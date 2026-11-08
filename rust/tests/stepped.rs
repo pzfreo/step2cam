@@ -75,6 +75,12 @@ fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["error"].is_null(), "{}", out["error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
-    assert!(out["plan"]["skipped"].to_string().contains("chamfer: no operation cuts it"));
+    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish", "edge_chamfer"], "{}", out["plan"]["warnings"]);
+    let edges = operations(&out, "top").into_iter().find(|o| o["kind"] == "edge_chamfer").expect("the modelled 1 mm top chamfer");
+    assert!(edges["tool"].is_null(), "cm6's 4 mm flutes cannot satisfy camlib's stock-top reach check");
+    assert!(edges["tool_note"].as_str().unwrap().contains("flutes of at least 8.51 mm"));
+    assert_eq!(edges["width"], 1.0);
+    assert_eq!(edges["features"].as_array().unwrap().len(), 12);
+    assert!(!out["plan"]["skipped"].to_string().contains("chamfers:"));
+    assert_eq!(out["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }

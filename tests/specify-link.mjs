@@ -43,6 +43,8 @@ for (const [step, stem] of [
   ["plate-m5.step", "plate-m5"],
   ["spindle.step", "spindle"],
   ["mounting-plate.step", "mounting-plate"],
+  ["synthetic/stepped-plate-chamfer-mouths.step", "synthetic/stepped-plate-chamfer-mouths"],
+  ["synthetic/stepped-plate-large-chamfer.step", "synthetic/stepped-plate-large-chamfer"],
   ["synthetic/stepped-plate.step", "synthetic/stepped-plate"],
   ["synthetic/stepped-plate-chamfered.step", "synthetic/stepped-plate-chamfered"],
   ["synthetic/square-slots.step", "synthetic/square-slots"],
