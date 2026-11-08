@@ -37,10 +37,10 @@ fn ties_go_as_before() {
     let lib = Library::new(&data).unwrap();
     assert_eq!(lib.bore_mill(10.).unwrap()["id"], "b6");
     assert_eq!(lib.clearing("roughing").unwrap().unwrap()["id"], "b6");
-    assert_eq!(lib.drill(5.).unwrap()["id"], "d1");
-    assert_eq!(lib.drill(5.04).unwrap()["id"], "d1", "within drill_tolerance_mm (0.05)");
-    assert!(lib.drill(5.06).is_none(), "beyond it");
-    assert!(lib.drill(4.99).is_none(), "never larger");
+    assert_eq!(lib.drill(5., 5.).unwrap()["id"], "d1");
+    assert_eq!(lib.drill(5.04, 5.).unwrap()["id"], "d1", "within drill_tolerance_mm (0.05)");
+    assert!(lib.drill(5.06, 5.).is_none(), "beyond it");
+    assert!(lib.drill(4.99, 5.).is_none(), "never larger");
     assert_eq!(lib.bore_mill(6.04).unwrap()["id"], "c4", "room to helix: 0.05 mm");
 }
 
@@ -75,4 +75,21 @@ fn and_does_not_look_past_a_false_left_side() {
     assert_eq!(eval("0 && nope > 1", &none).unwrap(), 0.);
     assert!(eval("1 && nope > 1", &none).is_err());
     assert_eq!(eval("1E3", &none).unwrap(), 1000.);
+}
+
+#[test]
+fn drill_selector_rejects_short_flutes_and_keeps_a_longer_equal_diameter() {
+    let mut short = drill("short", 5.);
+    let point = capp::resources::drill_tip_length(&short).unwrap();
+    short["flute_length"] = json!(25. + point);
+    let mut long = short.clone();
+    long["id"] = json!("long");
+    long["flute_length"] = json!(25. + point + capp::resources::DRILLING_GUARD);
+    let data = library(json!([short, long]));
+    let lib = Library::new(&data).unwrap();
+    assert_eq!(lib.drill(5., 25.).unwrap()["id"], "long");
+    let candidates = lib.considered("drill", &[("diameter", 5.), ("depth", 25.)]);
+    assert!(candidates.iter().any(|c| c["candidate"] == "short"
+        && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach 25.0 mm down") && s.contains("point"))), "{candidates:?}");
+    assert!(lib.drill(5., 25.001).is_none());
 }

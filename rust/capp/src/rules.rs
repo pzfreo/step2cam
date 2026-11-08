@@ -250,6 +250,9 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
         let mut values: HashMap<String, f64> = HashMap::new();
         let lookup_in = |values: &HashMap<String, f64>, name: &str| -> Result<f64, String> {
             if let Some(field) = name.strip_prefix("tool.") {
+                if field == "point_length" {
+                    return Ok(crate::resources::drill_tip_length(tool).unwrap_or(f64::NAN));
+                }
                 // A field the tool does not give as a number cannot qualify it: NaN fails every
                 // comparison, so the tool is not chosen. A default stands in where the selector
                 // gives one.

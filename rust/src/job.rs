@@ -2,7 +2,7 @@
 //! library -> camlib jobs, how each tool cuts and how deep. A job is camlib's manifest, plain
 //! JSON, one per setup.
 use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{TIP_CLEARANCE, id, num};
+use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, drill_tip_length, id, num};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -99,7 +99,7 @@ fn cutting_data(tool: &Value, op: &Value) -> Value {
 fn cutting(op: &mut Value, spec: &Value, plunge: bool) -> Result<(), String> {
     let number = spec["number"].clone();
     op["feed_mm_min"] = json!(num(spec, "feed_mm_min")?);
-    op["tolerance_mm"] = json!(1e-5);
+    op["tolerance_mm"] = json!(DRILLING_TOLERANCE);
     op["spindle_rpm"] = json!(num(spec, "spindle_rpm")?);
     op["work_offset"] = json!(1);
     op["tool_number"] = number.clone();
@@ -109,10 +109,6 @@ fn cutting(op: &mut Value, spec: &Value, plunge: bool) -> Result<(), String> {
         op["plunge_mm_min"] = json!(num(spec, "plunge_mm_min")?);
     }
     Ok(())
-}
-
-fn drill_tip_length(spec: &Value) -> Result<f64, String> {
-    Ok(num(spec, "diameter")? / 2. / (num(spec, "point_angle")?.to_radians() / 2.).tan())
 }
 
 /// (depth_z, depth_reference, allow_breakthrough) for drilling one hole group.
@@ -380,7 +376,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
                         let mut out = json!({
                             "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
-                            "depth_reference": reference, "peck_mm": drill.get("peck_mm").filter(|p| truthy_number(p)), "peck_mode": "full_retract",
+                            "depth_reference": reference, "peck_mm": op["technology"]["peck_mm"], "peck_mode": op["technology"]["peck_mode"],
                             "retract_z_mm": retract, "chip_break_lift_mm": 1.0, "reentry_clearance_mm": 0.5,
                             "allow_breakthrough_mm": allow, "clearance_z_mm": clearance,
                             "retract_feed_mm_min": drill.get("retract_feed_mm_min").and_then(Value::as_f64).unwrap_or(num(drill, "feed_mm_min")?),
@@ -634,8 +630,4 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         jobs.push(Job { setup: setup_id.to_string(), manifest, notes });
     }
     Ok((jobs, log))
-}
-
-fn truthy_number(v: &Value) -> bool {
-    v.as_f64().is_some_and(|x| x != 0.)
 }

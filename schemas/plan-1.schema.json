@@ -385,6 +385,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -514,6 +527,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -645,6 +671,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -791,6 +830,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -922,6 +974,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1071,6 +1136,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1219,6 +1297,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1372,6 +1463,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1534,6 +1638,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1666,6 +1783,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,
@@ -1815,6 +1945,19 @@
         "capped": {
          "const": true,
          "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
         }
        },
        "additionalProperties": false,

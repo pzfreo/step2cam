@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The tables, as shipped with the crate.
-pub const TABLES: [(&str, &str); 5] = [
+pub const TABLES: [(&str, &str); 6] = [
+    ("drilling.json", include_str!("../rulebase/reference/drilling.json")),
     ("iso13399-fields.json", include_str!("../rulebase/reference/iso13399-fields.json")),
     ("iso261-coarse-pitch.json", include_str!("../rulebase/reference/iso261-coarse-pitch.json")),
     ("full-thread.json", include_str!("../rulebase/reference/full-thread.json")),
@@ -98,4 +99,31 @@ pub fn iso513_group(material: &str) -> Option<(String, String)> {
         }
     }
     None
+}
+
+fn drilling_parameters() -> &'static Value {
+    static DATA: OnceLock<Value> = OnceLock::new();
+    &DATA.get_or_init(|| table("drilling.json"))["parameters"]
+}
+
+/// Depth/D only for holes beyond the reference's deep-hole warning threshold.
+/// Use the same stock-top depth and drill diameter as the peck decision.
+pub fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
+    (depth > drilling_parameters()["deep_hole_above_d"].as_f64().unwrap() * diameter)
+        .then_some(depth / diameter)
+}
+
+/// Default drilling cycle for conventional drills. Depth includes stock above the feature
+/// and requested breakthrough; point height is a reach allowance, not the hole's depth.
+/// A positive library peck is a cap only when the rule calls for pecking; zero/absent is no cap.
+pub fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
+    let p = drilling_parameters();
+    let peck = if depth <= p["no_peck_through_d"].as_f64().unwrap() * diameter {
+        None
+    } else {
+        let increment = p["peck_d"].as_f64().unwrap() * diameter;
+        Some(tool["peck_mm"].as_f64().filter(|v| v.is_finite() && *v > 0.)
+            .map_or(increment, |cap| cap.min(increment)))
+    };
+    serde_json::json!({"peck_mm": peck, "peck_mode": p["peck_mode"]})
 }

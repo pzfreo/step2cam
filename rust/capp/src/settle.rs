@@ -339,8 +339,9 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 },
                 "holes" => {
                     let d = num(op, "diameter")?;
-                    let drilled = library.drill(d);
-                    considered = library.considered("drill", &[("diameter", d)]);
+                    let depth = library.drill_depth(op, top)?;
+                    let drilled = library.drill(d, depth);
+                    considered = library.considered("drill", &[("diameter", d), ("depth", depth)]);
                     if drilled.is_none() {
                         // Bored: the end mills decided it, so they come first.
                         let drills = std::mem::take(&mut considered);
@@ -438,6 +439,20 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));
                 if let Some(capped) = crate::machines::cap_speed(&mut technology, library_data) {
                     why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
+                }
+                if kind == "holes" && spec["type"] == "drill" {
+                    let depth = library.drill_depth(op, top)?;
+                    let diameter = num(spec, "diameter")?;
+                    let cycle = crate::reference::drilling(depth, diameter, spec);
+                    if let Some(ratio) = crate::reference::deep_drilling_ratio(depth, diameter) {
+                        why.push(trace.warn("process.hole.peck_by_depth", &subject, format!(
+                            "{subject} [{}], depth/D {ratio}: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
+                            op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))));
+                    }
+                    why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
+                        "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
+                        json!({"chosen": cycle})));
+                    technology.as_object_mut().unwrap().extend(cycle.as_object().unwrap().clone());
                 }
                 op["technology"] = technology;
             }

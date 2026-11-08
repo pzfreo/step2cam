@@ -386,7 +386,7 @@
       "peck_mm": {
        "type": "number",
        "minimum": 0,
-       "description": "Peck depth; 0 or absent for no pecking."
+       "description": "Maximum peck increment when the depth rule calls for pecking. Positive values cap the rule increment; 0 or absent means no cap. Shallow holes still use one plunge."
       },
       "cutting_data": {
        "type": "object",
