@@ -322,7 +322,7 @@ on purpose.
 
   There are no defaults for these: camlib checks the holder against the stock, so a guessed
   holder would make that check meaningless. Optional: `shank_diameter`, `length_register`
-  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills), and for
+  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills: a positive cap on the depth rule’s peck increment; zero or absent means no cap; shallow holes use one plunge), and for
   thread mills `min_pitch_mm`/`max_pitch_mm` (the pitches the tooth suits), `radial_passes`
   (default 2) and `spring_passes` (default 1).
 - Library settings, with their defaults:

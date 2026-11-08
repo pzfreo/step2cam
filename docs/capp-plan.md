@@ -230,3 +230,25 @@ Planned:
 - **Tapping** as an alternative to thread milling; camlib has a tapping operation.
 - **Surface finish and ISO 2768**, once a rule uses them.
 - **Optional:** an AP238 (STEP-NC) export; a second execution engine.
+
+### Drilling depth
+
+The drill selector requires flutes reaching from stock top to the modeled bottom, plus the
+requested nonnegative breakthrough for through holes, each candidate's conical point length
+(`diameter / (2 * tan(point_angle / 2))`) and camlib's 16 × 1e-5 mm guard with 1 nm for roundoff. Rust computes the
+virtual `tool.point_length` field; no trigonometry is added to the rule language. The point
+allowance is deliberately conservative for tip-referenced bottoms and obstructed exits.
+Missing-tool queries restate this same reach requirement, rounded upwards.
+
+`reference/drilling.json` records the public sources and parameters for conventional drills:
+one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from stock top,
+including requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
+the 3×D onset. The half-diameter increment is a conservative starting policy, not a universal
+manufacturer value. Full retract is used at intermediate and greater depths because the
+library has no through-tool coolant capability, required by Haas's high-speed chip-break
+guidance. A positive tool `peck_mm` caps the rule increment; zero or absent means no cap,
+and shallow holes still use one plunge. The settled operation's `technology` carries these
+camlib options and its trace cites `process.hole.peck_by_depth`.
+
+Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
+coolant settings cannot faithfully describe their single-lip geometry and coolant needs.

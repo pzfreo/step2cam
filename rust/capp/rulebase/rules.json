@@ -634,9 +634,9 @@
   },
   {
    "id": "tool.hole.drill_or_bore",
-   "version": 1,
+   "version": 2,
    "stage": "tools",
-   "rationale": "A hole is drilled with the largest drill not larger than it and at most drill_tolerance_mm under it; else bored by helix with the largest end mill that fits with room to helix.",
+   "rationale": "A hole is drilled with the largest drill not larger than it and at most drill_tolerance_mm under it; else bored by helix with the largest end mill that fits with room to helix. Drill flutes must also reach from the stock top through full breakthrough, plus the candidate point height and camlib numerical guard; this conservatively includes the point even for tip-referenced bottoms and does not shorten reach for exit obstructions.",
    "code": "resources.rs Library::drill, bore_mill",
    "sources": [
     {
@@ -882,6 +882,23 @@
     {
      "kind": "step2cam",
      "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "process.hole.peck_by_depth",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because through-tool coolant is not represented.",
+   "code": "reference.rs drilling; settle.rs tools",
+   "sources": [
+    {
+     "kind": "recognised practice",
+     "via": "reference/drilling.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "Conservative constant increment and full retract without a through-tool coolant capability."
     }
    ]
   }

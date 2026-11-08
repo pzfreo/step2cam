@@ -17,8 +17,8 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
         Ok(format!("{} {long}", library.needed(selector, inputs)?))
     };
     Ok(Some(match kind {
-        "holes" => format!("{} {long} (plus point length when drilling to full diameter), or {}",
-            library.needed("drill", &[("diameter", num(op, "diameter")?)])?,
+        "holes" => format!("{}, or {}",
+            library.needed("drill", &[("diameter", num(op, "diameter")?), ("depth", library.drill_depth(op, top)?.max(depth))])?,
             mill("bore_mill", &[("diameter", num(op, "diameter")?)])?),
         "counterbore" => mill("bore_mill", &[("diameter", num(op, "diameter")?)])?,
         "slot" => mill("bore_mill", &[("diameter", num(op, "width")?)])?,

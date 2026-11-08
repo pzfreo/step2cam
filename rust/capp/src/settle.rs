@@ -233,8 +233,9 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 },
                 "holes" => {
                     let d = num(op, "diameter")?;
-                    let drilled = library.drill(d);
-                    considered = library.considered("drill", &[("diameter", d)]);
+                    let depth = library.drill_depth(op, top)?;
+                    let drilled = library.drill(d, depth);
+                    considered = library.considered("drill", &[("diameter", d), ("depth", depth)]);
                     if drilled.is_none() {
                         // Bored: the end mills decided it, so they come first.
                         let drills = std::mem::take(&mut considered);
@@ -332,6 +333,13 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 why.push(trace.decide("tool.cutting_data.by_group", &subject, "chosen", &says, json!({"chosen": source})));
                 if let Some(capped) = crate::machines::cap_speed(&mut technology, library_data) {
                     why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
+                }
+                if kind == "holes" && spec["type"] == "drill" {
+                    let cycle = crate::reference::drilling(library.drill_depth(op, top)?, num(spec, "diameter")?, spec);
+                    why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
+                        "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
+                        json!({"chosen": cycle})));
+                    technology.as_object_mut().unwrap().extend(cycle.as_object().unwrap().clone());
                 }
                 op["technology"] = technology;
             }

@@ -46,7 +46,7 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert_close(number(&d66["allow_breakthrough_mm"]), 1. + tip(6.6) + 0.01);
     assert!(any_note(&notes, "below the stock bottom"), "{notes:?}");
     assert!(notes.iter().any(|n| n.contains("web") && n.contains("vise")), "{notes:?}");
-    assert_eq!(number(&d66["peck_mm"]), 4.);
+    assert!(d66["peck_mm"].is_null(), "under 3D: one plunge despite the tool cap");
     // No 8 mm drill: helical bore with the largest end mill that fits, to the stock bottom,
     // which it cannot pass: a skin is expected and said.
     assert_same(json!([bore["tool"], bore["diameter_mm"], bore["floor_z_mm"]]), json!(["em6", 8.0, -11]));
@@ -149,4 +149,64 @@ fn a_holder_narrower_than_the_shank_is_refused() {
     let mut data = example_tools();
     data["tools"][0]["holder_diameter"] = json!(3);
     assert!(Library::new(&data).is_err());
+}
+
+#[test]
+fn drilling_cycles_follow_depth_and_positive_library_caps() {
+    // Test the emitted camlib options, not just the reference table helper.
+    let mut library = example_tools();
+    for tool in library["tools"].as_array_mut().unwrap().iter_mut().filter(|t| t["type"] == "drill") {
+        tool["flute_length"] = json!(60);
+        tool["overall_length"] = json!(100);
+        tool["stickout"] = json!(70);
+    }
+    for (depth, cap, expected) in [
+        (12.6, Some(0.1), None), // exactly 3D: cap cannot force pecking
+        (16.8, None, Some(2.1)), // 4D: rule increment, no library cap
+        (25.2, Some(10.), Some(2.1)), // 6D: full retract, rule caps the tool
+        (25.2, Some(1.), Some(1.)), // smaller library increment is preserved
+        (25.2, Some(0.), Some(2.1)), // zero means no cap
+    ] {
+        let tool = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "drill4.2").unwrap();
+        match cap {
+            Some(v) => { tool["peck_mm"] = json!(v); }
+            None => { tool.as_object_mut().unwrap().remove("peck_mm"); }
+        }
+        let plan = plan(&holes_only(&[down(0., 0., 4.2, depth, "flat")]), None, &top_stock(0.)).unwrap();
+        let (ops, _, _) = posted(&plan, &library);
+        let drilling = of_kind(&ops, "drilling");
+        assert_eq!(drilling.len(), 1, "{ops:?}");
+        assert_eq!(drilling[0]["peck_mm"], json!(expected), "depth {depth}, cap {cap:?}");
+        assert_eq!(drilling[0]["peck_mode"], "full_retract");
+    }
+}
+
+#[test]
+fn hole_tool_selection_checks_stock_breakthrough_and_point_before_the_job() {
+    let plan = plan(&holes_only(&[down(0., 0., 4.2, 10., "through")]), None, &top_stock(2.)).unwrap();
+    let mut library = example_tools();
+    let tools = library["tools"].as_array_mut().unwrap();
+    let short = tools.iter_mut().find(|t| t["id"] == "drill4.2").unwrap();
+    short["flute_length"] = json!(13.); // stock 2 + hole 10 + breakthrough 1; point still missing
+    let mut long = short.clone();
+    long["id"] = json!("long4.2");
+    long["flute_length"] = json!(20.);
+    tools.push(long);
+    let settled = finished(&plan, &library);
+    let hole = settled["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes").unwrap();
+    assert_eq!(hole["tool"], "long4.2");
+    assert!(settled["decisions"].as_array().unwrap().iter().any(|d| d["considered"].as_array().is_some_and(|cs| cs.iter().any(|c| c["candidate"] == "drill4.2" && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach"))))));
+    let (ops, _, _) = posted(&plan, &library);
+    assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "long4.2");
+    library["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "long4.2");
+    let (ops, _, _) = posted(&plan, &library);
+    assert!(of_kind(&ops, "drilling").is_empty());
+    assert_eq!(of_kind(&ops, "bore").len(), 1);
+    library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "drill4.2");
+    let settled = finished(&plan, &library);
+    let hole = settled["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes").unwrap();
+    assert!(hole["tool"].is_null());
+    assert!(hole["tool_note"].as_str().unwrap().contains("with flutes of at least 13.01 mm plus point length"));
+    let (ops, _, _) = posted(&plan, &library);
+    assert!(ops.is_empty());
 }
