@@ -254,7 +254,7 @@ on purpose.
   start from the turned part: no facing or roughing from a block, and not the holes the lathe
   drilled. Turning tools are `turning_tool` (`nose_radius_mm`, `max_depth_mm`, `feed_mm_rev`)
   and `parting_tool` (`width_mm`, `max_depth_mm`, `feed_mm_rev`); the shop's allowances are in
-  `turning`. **The lathe setup is planned and explained, not posted:** camlib does not turn. The
+  `turning`. **The lathe setup is planned and explained, not posted:** camlib has turning, but step2cam does not yet hand it the lathe setup (#57). The
   demo's lathe is the **Sherline 4400 CNC**, from its published specifications: 45 mm over the
   carriage, 430 mm between centres, a 10 mm spindle bore, 2,800 rpm.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line

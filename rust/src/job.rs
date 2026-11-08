@@ -304,7 +304,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let setup_id = setup["id"].as_str().unwrap_or("");
         // camlib cuts on mills only: a lathe setup is planned and explained, not posted.
         if setup["kind"] == "lathe" {
-            log.push(format!("note: setup {setup_id}: planned for the lathe ({}); camlib does not turn, so it has no G-code", setup["machine"].as_str().unwrap_or("lathe")));
+            log.push(format!("note: setup {setup_id}: planned for the lathe ({}); step2cam does not yet hand lathe setups to camlib's turning, so it has no G-code", setup["machine"].as_str().unwrap_or("lathe")));
             continue;
         }
         let (lo, hi) = (&setup["stock"]["min"], &setup["stock"]["max"]);

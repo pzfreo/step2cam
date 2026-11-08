@@ -216,7 +216,7 @@ where a machine limits something; with the example library's generous mill, outp
    face the free end, rough and finish the profile, drill the holes on the axis from the
    tailstock, part off. The mill's setups then start from the turned part. Capacity, the bar,
    which end faces the tailstock and every tool are traced decisions. The demo's lathe is the
-   Sherline 4400 CNC. The lathe setup is planned, not posted: camlib does not turn.
+   Sherline 4400 CNC. The lathe setup is planned, not posted: camlib has turning, but step2cam does not yet hand it the lathe setup (#57).
 
 Planned:
 - **More of the lathe:** `turned_bodies` (specify-core gives no position along the axis) and

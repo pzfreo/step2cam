@@ -914,7 +914,7 @@ async function buildPlan(m) {
       head("Lathe setup · planned, not posted");
       const route = (plan.decisions || []).find((d) => d.rule.startsWith("lathe.route@") && d.outcome === "chosen");
       const orient = (plan.decisions || []).find((d) => d.rule.startsWith("lathe.orientation@"));
-      fact(`${route ? escapeHtml(route.says[0].toUpperCase() + route.says.slice(1)) + ". " : ""}${orient ? escapeHtml(orient.says[0].toUpperCase() + orient.says.slice(1)) + ". " : ""}camlib does not turn, so this setup has no toolpaths or G-code.`);
+      fact(`${route ? escapeHtml(route.says[0].toUpperCase() + route.says.slice(1)) + ". " : ""}${orient ? escapeHtml(orient.says[0].toUpperCase() + orient.says.slice(1)) + ". " : ""}step2cam does not yet hand lathe setups to camlib's turning, so this setup has no toolpaths or G-code.`);
     } else {
       const lo = setup.stock.min, hi = setup.stock.max;
       head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
@@ -1076,7 +1076,7 @@ async function showStory(m) {
   $("story-plan").textContent = `Decides how to make it: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
   const checked = data.programs.filter((p) => p.material);
   const check = data.post_error ? "Posting failed." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
-  const lathe = plan.setups.some((s) => s.kind === "lathe") ? " The lathe setup is planned only: camlib does not turn." : "";
+  const lathe = plan.setups.some((s) => s.kind === "lathe") ? " The lathe setup is planned only: step2cam does not yet hand it to camlib's turning." : "";
   $("story-toolpaths").textContent = data.post_error ? "Posting failed: see the message above." : `Turns the plan into toolpaths and ${count(m.lines.length, "line")} of G-code, ${check}${lathe}`;
   $("story").hidden = false;
 }

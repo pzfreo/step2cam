@@ -51,7 +51,7 @@ fn the_lathe_setup_is_planned_not_posted() {
     let plan = finished(&library);
     let (jobs, log) = step2cam::job::jobs(&plan, &library).unwrap();
     assert!(jobs.iter().all(|j| j.setup != "lathe"));
-    assert!(log.iter().any(|l| l.contains("camlib does not turn")), "{log:?}");
+    assert!(log.iter().any(|l| l.contains("does not yet hand lathe setups to camlib")), "{log:?}");
 }
 
 #[test]
