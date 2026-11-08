@@ -111,7 +111,7 @@ fn complete_vise_rejects_wide_or_too_shallow_stock_but_missing_jaw_data_skips() 
     let mut thin = json!({"setups":[{"id":"top","stock":{"min":[0,0,0],"max":[30,20,4]},"operations":[{"kind":"facing","floor_z":3.}]}]});
     capp::machines::place(&mut thin, &library(), &mut trace);
     assert!(list(&thin["setups"][0]["operations"]).is_empty());
-    assert!(trace.warnings.iter().any(|w| w.contains("too little stock/part above")));
+    assert!(trace.warnings.iter().any(|w| w == "setup top is not cut: grip 3.175 mm exceeds maximum grip 2.0 mm (50.0% of 4.0 mm stock height)"));
 }
 
 #[test]
@@ -141,4 +141,137 @@ fn an_outside_chamfer_tip_must_stay_above_the_jaws() {
     capp::finish(&mut plan, &library(), &[]).unwrap();
     assert!(list(&plan["setups"][0]["operations"]).is_empty());
     assert!(plan["skipped"].to_string().contains("jaw clearance cap"));
+}
+
+fn refusal(plan: &Value) -> &str {
+    warnings(plan).into_iter().find(|w| w.starts_with("setup top is not cut: ")).unwrap().strip_prefix("setup top is not cut: ").unwrap()
+}
+
+#[test]
+fn each_grip_refusal_names_the_failed_limit_and_the_effect_of_parallels() {
+    let mut tools = library();
+    let vise = &mut tools["machines"][0]["workholding"][0];
+    vise["parallels_height_mm"] = json!(10.);
+    assert_eq!(refusal(&planned("plate", &tools)), "grip 10.0 mm set by 10.0 mm parallels exceeds maximum grip 5.5 mm (50.0% of 11.0 mm stock height); use taller parallels");
+    tools["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(15.);
+    assert_eq!(refusal(&planned("mounting-plate", &tools)), "grip 5.0 mm set by 15.0 mm parallels exceeds maximum grip 4.5 mm (50.0% of 9.0 mm stock height); use taller parallels");
+    tools["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(18.);
+    assert_eq!(refusal(&planned("plate", &tools)), "grip 2.0 mm set by 18.0 mm parallels is below minimum grip 3.175 mm; use shorter parallels");
+    for (bottom, top, message) in [
+        (-140., -1., "grip 28.0 mm exceeds jaw height 20.0 mm"),
+        (-10., -6., "part top Z-6.0 does not clear jaw top Z-6.825 plus 1.0 mm side-cut clearance: must be above Z-5.825"),
+    ] {
+        let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,bottom],"max":[30,20,0]}, "operations":[{"kind":"facing","floor_z":top}]}]});
+        let mut trace = capp::trace::Trace::default();
+        capp::machines::place(&mut plan, &library(), &mut trace);
+        trace.store(&mut plan);
+        assert_eq!(refusal(&plan), message);
+        assert!(list(&plan["setups"][0]["operations"]).is_empty());
+    }
+}
+
+#[test]
+fn clamping_proposals_use_existing_resource_overrides_and_are_recorded_as_given() {
+    let mut tools = library();
+    tools["overrides"] = json!({"clamping":{"top":{"axis":"x", "grip_height_mm":3.5, "parallels_height_mm":16.5}}});
+    let validator = jsonschema::validator_for(&fixture("../../schemas/resources-1.schema.json")).unwrap();
+    assert!(validator.is_valid(&tools));
+    let plan = planned("plate", &tools);
+    let c = &plan["setups"][0]["clamping"];
+    assert_eq!(c["faces"], json!(["stock.x.min", "stock.x.max"]));
+    assert_eq!(c["grip_height_mm"], 3.5);
+    assert_eq!(c["jaw_top_z"], -7.5);
+    assert_eq!(list(&c["parallels"]).len(), 2);
+    let given = list(&plan["decisions"]).iter().find(|d| d["id"] == c["because"][0]).unwrap();
+    assert_eq!(given["outcome"], "given");
+    assert!(given["says"].as_str().unwrap().contains("given clamping override, validated"));
+    assert!(jsonschema::validator_for(&fixture("../../schemas/plan-1.schema.json")).unwrap().is_valid(&plan));
+    let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
+    assert_eq!(list(&jobs[0].manifest["verification"]["scene"]["scene"]["bodies"]).len(), 4);
+    step2cam::simulate::simulate(&jobs[0].manifest.to_string()).unwrap_or_else(|e| panic!("{}", e.message));
+
+    // Inherit the vise's parallels unless the caller explicitly disables them with null.
+    tools["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(16.5);
+    tools["overrides"]["clamping"]["top"].as_object_mut().unwrap().remove("parallels_height_mm");
+    assert_eq!(list(&planned("plate", &tools)["setups"][0]["clamping"]["parallels"]).len(), 2);
+    tools["overrides"]["clamping"]["top"]["parallels_height_mm"] = Value::Null;
+    assert!(list(&planned("plate", &tools)["setups"][0]["clamping"]["parallels"]).is_empty());
+}
+
+#[test]
+fn clamping_proposals_are_checked_rather_than_silently_replaced() {
+    for (proposal, reason) in [
+        (json!({"axis":"z","grip_height_mm":4.}), "axis must be x or y"),
+        (json!({"axis":"x","grip_height_mm":2.}), "below minimum grip 3.175 mm"),
+        (json!({"axis":"x","grip_height_mm":25.}), "exceeds jaw height 20.0 mm"),
+        (json!({"axis":"x","grip_height_mm":6.}), "exceeds maximum grip 5.5 mm"),
+        (json!({"axis":"x","grip_height_mm":4.,"parallels_height_mm":15.}), "disagrees with 5.0 mm grip set by 15.0 mm parallels"),
+        (json!({"axis":"x","grip_height_mm":4.,"parallels_height_mm":-1.}), "parallels height must be positive and finite"),
+        (json!({"axis":"x","grip_height_mm":4.,"grpi":4.}), "unknown field grpi"),
+    ] {
+        let mut tools = library();
+        tools["overrides"] = json!({"clamping":{"top":proposal}});
+        let plan = planned("plate", &tools);
+        assert!(list(&plan["setups"][0]["operations"]).is_empty());
+        assert!(refusal(&plan).contains(reason), "{}", refusal(&plan));
+    }
+    let mut tools = library();
+    tools["overrides"] = json!({"clamping":{"top":{"axis":"x","grip_height_mm":4.}}});
+    tools["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(70.);
+    assert_eq!(refusal(&planned("plate", &tools)), "stock is 104.0 mm across the gripped X axis, wider than the vise opens (70.0 mm)");
+    tools["machines"][0]["workholding"][0].as_object_mut().unwrap().remove("jaw_height_mm");
+    assert!(refusal(&planned("plate", &tools)).contains("cannot be validated without vise jaw width, height and opening"));
+    tools["overrides"] = json!({"clamping":{"typo":{"axis":"x","grip_height_mm":4.}}});
+    let mut plan = json!({"setups":[]});
+    assert_eq!(capp::finish(&mut plan, &tools, &[]).unwrap_err(), "clamping override names absent setup typo");
+}
+
+fn history_plan(operations: Value, rotation: Value, origin: Value) -> Value {
+    json!({"setups":[
+        {"id":"top","rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,0],"stock":{"min":[0,0,-20],"max":[40,30,0]},"operations":operations},
+        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":[]}]}
+    ]})
+}
+fn audit(plan: &Value) -> &Value {
+    let primary = &plan["setups"][1]["clamping"]["because"][0];
+    &list(&plan["decisions"]).iter().find(|d| d["id"] == *primary).unwrap()["chosen"]["prior_setups"]
+}
+
+#[test]
+fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
+    let front = json!([[1,0,0],[0,0,1],[0,-1,0]]);
+    let mut plan = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front.clone(), json!([0,0,-20]));
+    capp::finish(&mut plan, &library(), &[]).unwrap();
+    let check = audit(&plan);
+    assert_eq!(check["status"], "possible_overlap");
+    assert_eq!(check["overlaps"], json!([{"operation":"top-1-facing","faces":["stock.y.max"]}]));
+    assert!(check["scope"].as_str().unwrap().contains("not a stock simulation or proof of face retention"));
+    assert!(warnings(&plan).iter().any(|w| w.contains("earlier cuts may have removed material in the later grip band")));
+    assert!(list(&plan["setups"][1]["operations"]).iter().any(|o| o["kind"] == "holes"), "the conservative audit warns, rather than removing later cuts");
+
+    let mut moved = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front.clone(), json!([0,50,-20]));
+    capp::finish(&mut moved, &library(), &[]).unwrap();
+    assert_eq!(audit(&moved)["status"], "no_overlap", "origin_model must affect the comparison");
+    let mut excluded = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front, json!([0,0,-20]));
+    capp::finish(&mut excluded, &library(), &[json!({"operation":"top-1-facing","message":"test exclusion"})]).unwrap();
+    assert_eq!(audit(&excluded)["status"], "no_overlap", "refused earlier operations must not invent removed material");
+}
+
+#[test]
+fn later_grip_audit_uses_capped_depths_and_admits_missing_information() {
+    let mut plan = history_plan(json!([{"kind":"roughing","top_z":0.,"floor_z":-19.,"web_mm":0.5}]), json!([[1,0,0],[0,1,0],[0,0,1]]), json!([0,0,0]));
+    plan["setups"][1]["stock"] = plan["setups"][0]["stock"].clone();
+    capp::finish(&mut plan, &library(), &[]).unwrap();
+    assert_eq!(plan["setups"][0]["operations"][0]["floor_z"], -15.);
+    assert_eq!(audit(&plan)["status"], "no_overlap", "the later grip band ends at -16, below the earlier capped floor -15");
+    let mut tools = library();
+    tools["overrides"] = json!({"clamping":{"front":{"axis":"y","grip_height_mm":8.}}});
+    let mut deeper = plan.clone();
+    capp::finish(&mut deeper, &tools, &[]).unwrap();
+    assert_eq!(audit(&deeper)["status"], "possible_overlap", "a deeper grip overlaps earlier roughing");
+    let mut missing = plan.clone();
+    missing["setups"][0].as_object_mut().unwrap().remove("rotation");
+    capp::finish(&mut missing, &library(), &[]).unwrap();
+    assert_eq!(audit(&missing)["status"], "unchecked");
+    assert!(warnings(&missing).iter().any(|w| w.contains("could not be checked completely")));
 }

@@ -931,8 +931,8 @@
    "id": "machine.clamping",
    "version": 1,
    "stage": "machine",
-   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without parallels_height_mm, raise stock on parallels or similar so the jaws grip only the chosen height; that support is not modeled or checked, so through cuts are not checked against it. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness.",
-   "code": "workholding.rs clamp; settle.rs cap_roughing",
+   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without parallels_height_mm, raise stock on parallels or similar so the jaws grip only the chosen height; that support is not modeled or checked, so through cuts are not checked against it. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",
+   "code": "workholding.rs clamp, validate_overrides; settle.rs cap_roughing; clamping_history.rs check",
    "sources": [
     {
      "kind": "step2cam",

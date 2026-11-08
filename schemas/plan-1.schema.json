@@ -2126,14 +2126,15 @@
       "covered",
       "skipped",
       "warning",
-      "removed"
+      "removed",
+      "given"
      ]
     },
     "says": {
      "type": "string"
     },
     "chosen": {
-     "description": "What was chosen: a setup or a tool id; null for none."
+     "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
     },
     "considered": {
      "type": "array",

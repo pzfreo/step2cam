@@ -83,9 +83,40 @@ jaw height minus parallel height and must satisfy the same limits. Bar envelopes
 width (or one third of the opening for narrow stock) and span the stock length. Their
 prisms are included in verification so through cuts cannot silently enter them.
 
-Later jobs still start from fresh stock (camlib#121). Checking that earlier setups left
-the chosen faces, automatically flipping onto parallels to face to thickness, and
-validating externally supplied clamping remain follow-ups.
+A rejected grip names the failed limit: minimum grip, jaw height, maximum grip as a
+fraction of stock height, or the part top plus side-cut clearance. When parallels set a
+grip above the maximum, the trace gives that maximum in mm and calls for taller parallels;
+a grip below the minimum calls for shorter parallels.
+
+Clamping proposals use the existing resources override path. For example, with 20 mm jaws:
+
+```json
+{"overrides":{"clamping":{"top":{"axis":"x","grip_height_mm":3.5,"parallels_height_mm":16.5}}}}
+```
+
+`axis` selects the setup stock's X or Y min/max face pair, and `grip_height_mm` is required.
+If `parallels_height_mm` is omitted it inherits the vise value; explicit null disables modeled
+parallels. A specified/inherited height must agree with the given grip and jaw height.
+Proposals pass the same opening, grip and part-clearance checks as chosen clamping and are
+traced with outcome `given`. Invalid proposals are refused, never replaced by a chosen grip;
+unknown/absent setup IDs are errors. A proposal needs complete vise dimensions.
+
+Later jobs still start from fresh stock (camlib#121), but their grip bands are audited now.
+After caps, exclusions and tool resolution, each later setup's two stock-face contact bands
+(from stock bottom to jaw top, limited along the jaw width) are transformed through its
+rotation and `origin_model` into each earlier setup's frame. The audit compares them with
+conservative cutting envelopes of retained, tooled earlier operations, using their depths
+and hole/slot/pocket bounds where available. It warns of possible removed grip material and
+records the overlapping operations/faces in `chosen.prior_setups` of the given/chosen
+clamping decision, with the audit decision also linked from `clamping.because`.
+Roughing and contour envelopes include preserved part material; grouped-hole boxes include
+the space between holes. Missing frames or unsupported geometry are reported as unchecked.
+This is a conservative warning, not a stock simulation, proof of retained contact area, or
+holding-strength calculation. No operations are removed by this audit. Execution retries
+recompute it after refusals, so excluded earlier operations do not count as cuts.
+
+The automatic flip-onto-parallels and face-to-thickness pattern remains deferred pending
+camlib#121's ability to start a later job from the earlier job's stock.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,

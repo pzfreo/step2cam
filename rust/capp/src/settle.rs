@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
+    crate::workholding::validate_overrides(plan, library)?;
     let mut trace = Trace::take(plan);
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
@@ -29,6 +30,7 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     }
     resolve(plan, library)?;
     let mut trace = Trace::take(plan);
+    crate::clamping_history::check(plan, library, &mut trace);
     crate::machines::check_changer(plan, library, &mut trace);
     trace.store(plan);
     crate::needed::collect(plan);
