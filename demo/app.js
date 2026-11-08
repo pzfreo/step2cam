@@ -1792,9 +1792,6 @@ desktopPanels[1].id = "desktop-plan";
 desktopPanels[2].id = "desktop-moves";
 let desktopTab = "features";
 let panelShare = 40;
-// Plan needs room for every operation across setups; other tabs keep their existing share.
-let planPanelShare = 70;
-const currentPanelShare = () => desktopTab === "plan" ? planPanelShare : panelShare;
 // Opening a detail in a list (an operation's Why, Full view's sections) brings it into view: the
 // lists are short scrolling panels, and it would otherwise open below their visible edge.
 document.addEventListener("toggle", (event) => {
@@ -1807,19 +1804,16 @@ let panelBeforeExpand = null;
 try {
   const saved = Number(localStorage.getItem("step2cam.desktop-panel-percent"));
   if (Number.isFinite(saved) && saved >= 20 && saved <= 70) panelShare = saved;
-  const savedPlan = Number(localStorage.getItem("step2cam.plan-panel-percent"));
-  if (Number.isFinite(savedPlan) && savedPlan >= 20 && savedPlan <= 70) planPanelShare = savedPlan;
 } catch { /* Storage may be disabled. */ }
 function setPanelShare(value, remember = true) {
-  const share = Math.max(20, Math.min(70, value));
-  if (desktopTab === "plan") planPanelShare = share; else panelShare = share;
+  panelShare = Math.max(20, Math.min(70, value));
   const panes = document.querySelector(".panes");
-  panes.style.setProperty("--panel-share", `${share}fr`);
-  panes.style.setProperty("--view-share", `${100 - share}fr`);
-  $("desktop-splitter").setAttribute("aria-valuenow", String(Math.round(share)));
-  $("desktop-splitter").setAttribute("aria-valuetext", `${Math.round(share)}% lists`);
+  panes.style.setProperty("--panel-share", `${panelShare}fr`);
+  panes.style.setProperty("--view-share", `${100 - panelShare}fr`);
+  $("desktop-splitter").setAttribute("aria-valuenow", String(Math.round(panelShare)));
+  $("desktop-splitter").setAttribute("aria-valuetext", `${Math.round(panelShare)}% lists`);
   if (remember) {
-    try { localStorage.setItem(desktopTab === "plan" ? "step2cam.plan-panel-percent" : "step2cam.desktop-panel-percent", String(share)); } catch { /* Keep working without storage. */ }
+    try { localStorage.setItem("step2cam.desktop-panel-percent", String(panelShare)); } catch { /* Keep working without storage. */ }
   }
 }
 function moveDesktop(el, destination) {
@@ -1853,7 +1847,7 @@ function layoutDesktop() {
     step.setAttribute("aria-pressed", String(step.dataset.pane === desktopTab));
     step.setAttribute("aria-expanded", String(!$("desktop-story").hidden && step.dataset.pane === $("desktop-story").dataset.pane));
   }
-  setPanelShare(currentPanelShare(), false);
+  setPanelShare(panelShare, false);
 }
 for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
   tab.addEventListener("click", () => expandPane(tab.dataset.desktopTab));
@@ -1868,7 +1862,7 @@ for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
 }
 function toggleDesktopExpand() {
   if (panelBeforeExpand === null) {
-    panelBeforeExpand = currentPanelShare();
+    panelBeforeExpand = panelShare;
     setPanelShare(70, false);
   } else {
     setPanelShare(panelBeforeExpand);
@@ -1903,7 +1897,7 @@ for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) {
 splitter.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
   event.preventDefault();
-  setPanelShare(currentPanelShare() + (event.key === "ArrowUp" ? 2 : -2));
+  setPanelShare(panelShare + (event.key === "ArrowUp" ? 2 : -2));
 });
 $("desktop-menu-content").addEventListener("click", (event) => {
   if (event.target.closest("button")) $("desktop-menu").open = false;
@@ -1941,14 +1935,7 @@ function layoutPanes() {
 }
 function expandPane(name) {
   if (!phone.matches) {
-    const next = name || "features";
-    if ((desktopTab === "plan") !== (next === "plan") && panelBeforeExpand !== null) {
-      setPanelShare(panelBeforeExpand, false);
-      panelBeforeExpand = null;
-      $("desktop-expand").textContent = "Expand";
-      $("desktop-expand").setAttribute("aria-pressed", "false");
-    }
-    desktopTab = next;
+    desktopTab = name || "features";
     layoutDesktop();
     return;
   }
