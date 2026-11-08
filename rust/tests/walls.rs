@@ -175,13 +175,14 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     let of = |kind: &str| ops.iter().filter(|o| o["kind"] == kind).count();
     assert_eq!((of("notch"), of("v_channel")), (3, 1), "{ops:?}");
     let log = out["log"].to_string();
-    assert!(log.contains("corners stay r1.5, the radius of em3"), "{log}");
-    assert!(log.contains("corners stay r3.0, the radius of em6"), "{log}");
     assert!(log.contains("vb60 is a 60.0° bit in a 61.9275° channel: its walls keep up to 0.034 mm"), "{log}");
-    // These four holes exceed 5D; this is the only expected warning. The wall,
-    // notch and V-channel checks below still require the original cutting results.
+    // The deep holes retain their warning. Corner deviations now belong to the plan:
+    // r1.5 versus the recovered r1.2 slot, and r3 at each notch's two sharp corners.
     assert_eq!(out["plan"]["warnings"], json!([
-        "top:holes [holes:17, holes:22, holes:30, holes:31], depth/D 6.0606060606060606: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
+        "top:holes [holes:17, holes:22, holes:30, holes:31], depth/D 6.0606060606060606: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
+        "slots:37.40.41.44, step_levels:37, step_levels:44, fillets:38, fillets:42, fillets:39, fillets:43: its 4 inside corners are left r1.5 by em3 (the model has r1.2)",
+        "pockets:6.8, section_recesses:6.8: its 2 square inside corners are left r3.0 by em6 (the model has them sharp)",
+        "pockets:12.14, section_recesses:12.14: its 2 square inside corners are left r3.0 by em6 (the model has them sharp)"
     ]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);

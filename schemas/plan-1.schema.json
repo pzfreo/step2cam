@@ -1328,7 +1328,7 @@
      "additionalProperties": false
     },
     {
-     "description": "A square-ended slot or notch; open when one side runs out of the part.",
+     "description": "A rectangular recess with sharp or radiused corners; open when one side runs out of the part.",
      "type": "object",
      "required": [
       "kind",
@@ -1356,6 +1356,15 @@
       },
       "open": {
        "type": "boolean"
+      },
+      "corner_radius": {
+       "type": "number",
+       "minimum": 0,
+       "description": "Model inside corner radius; zero means sharp."
+      },
+      "inside_corners": {
+       "enum": [2, 4],
+       "description": "Two for an edge-open recess, four for a closed one."
       },
       "outer": {
        "type": "array",

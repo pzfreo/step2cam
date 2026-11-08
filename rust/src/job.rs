@@ -508,7 +508,6 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     if op["bottom"] == "through" {
                         floor = stock_bottom.max(floor - breakthrough);
                     }
-                    notes.push(format!("{op_id}: its inside corners stay r{}, the radius of {}", show(num(mill, "diameter")? / 2.), id(mill)));
                     let mut out = json!({
                         "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
                         "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
