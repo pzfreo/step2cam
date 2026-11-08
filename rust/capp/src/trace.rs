@@ -50,7 +50,11 @@ impl Trace {
 
     /// Puts the trace back into the plan.
     pub fn store(self, plan: &mut Value) {
-        plan["supplied_decisions"] = json!(self.supplied);
+        // Only a plan that has supplied decisions, or had the list already, carries it: storing a
+        // trace must not add an empty list to a plan that never had one.
+        if !self.supplied.is_empty() || plan.get("supplied_decisions").is_some() {
+            plan["supplied_decisions"] = json!(self.supplied);
+        }
         plan["decisions"] = json!(self.decisions);
         plan["warnings"] = json!(self.warnings);
         plan["skipped"] = json!(self.skipped);

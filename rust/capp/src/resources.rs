@@ -18,9 +18,22 @@ fn same_property(a: &Value, b: &Value) -> bool {
         || exact.parse::<u64>().is_ok_and(|n| Some(n) == integer.as_u64())
 }
 
+/// Explicit workholding choice. Availability and selection are separate; #94
+/// owns any future rule choosing between options.
+pub(crate) fn workholding_option(data: &Value) -> Result<Option<&str>, String> {
+    match data["overrides"].get("workholding_option") {
+        None => Ok(None),
+        Some(value) => match value.as_str() {
+            Some(choice @ ("none" | "vise_flip_face")) => Ok(Some(choice)),
+            _ => Err(format!("overrides.workholding_option must be \"none\" or \"vise_flip_face\", not {value}")),
+        },
+    }
+}
+
 /// Translate ISO symbols once at the library boundary. Downstream readers use current names.
 /// Equal numeric pairs (including 6 and 6.0) are accepted; a disagreement names both inputs.
 pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
+    workholding_option(data)?;
     let mut out = Cow::Borrowed(data);
     for (n, tool) in data["tools"].as_array().into_iter().flatten().enumerate() {
         for row in crate::reference::iso13399_fields()["fields"].as_array().expect("tool fields") {

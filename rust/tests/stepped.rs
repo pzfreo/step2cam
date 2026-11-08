@@ -10,7 +10,9 @@ fn fixture(path: &str) -> Value {
 fn process_part(name: &str) -> Value {
     let analysis = fixture(&format!("tests/fixtures/synthetic/{name}.analysis.json"));
     let mesh = fixture(&format!("tests/fixtures/synthetic/{name}.mesh.json"));
-    step2cam::process(&analysis, &mesh, &fixture("demo/tools.json")).unwrap()
+    let mut tools=fixture("demo/tools.json");
+    tools["overrides"]["workholding_option"]=serde_json::json!("vise_flip_face");
+    step2cam::process(&analysis, &mesh, &tools).unwrap()
 }
 fn process() -> Value {
     process_part("stepped-plate")
@@ -61,8 +63,8 @@ fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
     assert_eq!(flats.len(), 1);
     assert_eq!(flats[0]["levels"], serde_json::json!([-7.0]));
     let walls: Vec<f64> = top.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["floor_z"].as_f64().unwrap()).collect();
-    // The lower wall stops 1 mm above the jaws (stock bottom -19 + 20% grip).
-    assert_eq!(walls, [-14.2, -7.0]);
+    // The flip option grips sacrificial bottom stock, so the whole lower wall is reachable.
+    assert_eq!(walls, [-19.0, -7.0]);
     let ids: Vec<&str> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap()).collect();
     assert!(ids.iter().filter(|i| i.ends_with("wall_finish")).count() == 2 && ids.iter().any(|i| i.ends_with("flats")), "{ids:?} {}", out["log"]);
     // A top edge that stays only rounded is still said so.
