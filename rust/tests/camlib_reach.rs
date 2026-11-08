@@ -134,7 +134,9 @@ fn assert_cut(out: &Value) {
     );
 }
 #[test]
-fn wide_holder_is_judged_by_camlib() {
+fn long_stickout_wide_holder_clears() {
+    // At this pin, accepted pocket reach/stickout keeps the holder above the stock top.
+    // A holder refusal here cannot happen until the drafted camlib change lands.
     let out = run(80., 100.);
     assert_cut(&out);
     assert!(!out["plan"]["warnings"].to_string().contains("holder"));
