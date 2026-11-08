@@ -76,6 +76,10 @@ or `unaccounted` (e.g. a hole-pattern container). A feature referenced by a reta
 counts as cut, even if other operations also refer to it; cut takes precedence over covered,
 then left out. This measures the final plan's claims, not machining completeness or quality.
 Warnings and reasons retain their full text with numeric values replaced by `#`.
+The current planner can retain `covered_by_roughing` entries after a machine travel check
+removes all operations from a setup. This benchmark preserves those claims; an increased
+covered count is not evidence that roughing ran. Check the setup travel warnings. This is a
+planner limitation exposed by the new baseline, not corrected by benchmark accounting.
 
 Known limit: pockets, slots and notches cannot be matched face by face: the dataset's details
 give no face IDs. That would require labelled geometry/face correspondence in the dataset,
@@ -96,5 +100,6 @@ outside the repo, compare against the existing baseline, review all differences,
 validated report to `tools/benchmark/baseline.json` and commit it. Keep the baseline paired with
 the planner commit it measures; the tool library SHA-256 is recorded in the report. The original
 baseline reproduced `_ref/first-run-report.txt`. The current baseline includes main's Carvera
-machine and its 6.35 mm shank limit, so larger tools from that first run cannot be chosen.
+machine, its travel envelope and its 6.35 mm shank limit, so oversized setups and larger
+tools from that first run cannot be chosen.
 Fixture GD&T updates do not affect these dataset parts.
