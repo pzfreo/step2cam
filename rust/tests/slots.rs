@@ -114,8 +114,8 @@ fn nothing_is_covered_by_a_roughing_that_was_refused() {
     assert!(!covered.is_empty(), "the normal plan must cover features by roughing");
     for tool in library["tools"].as_array_mut().unwrap() {
         if tool["type"] == "end_mill" {
-            tool["flute_length"] = 1.into();
-            tool["stickout"] = 1.5.into();
+            // Reach is capped before execution; invalid cutting data force camlib's refusal.
+            tool["stepdown_mm"] = 0.into();
         }
     }
     let out = step2cam::process(&analysis, &mesh, &library).unwrap();

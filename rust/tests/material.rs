@@ -175,8 +175,9 @@ fn the_stock_is_still_compared_when_roughing_is_refused() {
     let mut library = tools();
     for tool in library["tools"].as_array_mut().unwrap() {
         if tool["type"] == "end_mill" {
-            tool["flute_length"] = 1.into();
-            tool["stickout"] = 1.5.into();
+            // Short flutes are now capped before camlib. Invalid cutting data still
+            // exercise an execution refusal and the retained comparison surface.
+            tool["stepdown_mm"] = 0.into();
         }
     }
     let out = step2cam::process(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();

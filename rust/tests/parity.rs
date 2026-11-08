@@ -19,6 +19,9 @@ fn untraced(plan: &Value) -> Value {
         // Also newer than the baseline: the material Specify was told.
         o.remove("material");
         o.remove("rulebase");
+        // Settlement's feature-depth metadata did not exist in the Python baseline.
+        assert!(o["roughing_feature_depths"].is_object());
+        o.remove("roughing_feature_depths");
     }
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         for op in setup["operations"].as_array_mut().into_iter().flatten() {
