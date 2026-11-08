@@ -369,6 +369,8 @@ one machine (`docs/capp-plan.md`, Planned), fits (reaming).
 
 ## Tests
 
+For the hand-run 100-part MachinePlan-10K benchmark, see [tools/benchmark](tools/benchmark/README.md).
+
 ```bash
 rust/fetch-camlib.sh
 cargo test --release --workspace --manifest-path rust/Cargo.toml
