@@ -171,9 +171,9 @@ fn each_grip_refusal_names_the_failed_limit_and_the_effect_of_parallels() {
 }
 
 #[test]
-fn clamping_proposals_use_existing_resource_overrides_and_are_recorded_as_given() {
+fn supplied_clamping_is_recorded_as_given() {
     let mut tools = library();
-    tools["overrides"] = json!({"clamping":{"top":{"axis":"x", "grip_height_mm":3.5, "parallels_height_mm":16.5}}});
+    tools["decisions"] = clamping("top", json!({"axis":"x", "grip_height_mm":3.5, "parallels_height_mm":16.5}));
     let validator = jsonschema::validator_for(&fixture("../../schemas/resources-1.schema.json")).unwrap();
     assert!(validator.is_valid(&tools));
     let plan = planned("plate", &tools);
@@ -184,6 +184,13 @@ fn clamping_proposals_use_existing_resource_overrides_and_are_recorded_as_given(
     assert_eq!(list(&c["parallels"]).len(), 2);
     let given = list(&plan["decisions"]).iter().find(|d| d["id"] == c["because"][0]).unwrap();
     assert_eq!(given["outcome"], "given");
+    assert_eq!(given["source"], "user");
+    assert_eq!(given["reason"], "shop clamping");
+    let mut replay = capp::plan::plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    replay["supplied_decisions"] = plan["supplied_decisions"].clone();
+    capp::finish(&mut replay, &library(), &[]).unwrap();
+    assert_eq!(replay["setups"][0]["clamping"], plan["setups"][0]["clamping"]);
+    assert_eq!(replay["supplied_decisions"][0]["accepted"], true);
     assert!(given["says"].as_str().unwrap().contains("given clamping override, validated"));
     assert!(jsonschema::validator_for(&fixture("../../schemas/plan-1.schema.json")).unwrap().is_valid(&plan));
     let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
@@ -192,9 +199,9 @@ fn clamping_proposals_use_existing_resource_overrides_and_are_recorded_as_given(
 
     // Inherit the vise's parallels unless the caller explicitly disables them with null.
     tools["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(16.5);
-    tools["overrides"]["clamping"]["top"].as_object_mut().unwrap().remove("parallels_height_mm");
+    tools["decisions"][0]["choice"].as_object_mut().unwrap().remove("parallels_height_mm");
     assert_eq!(list(&planned("plate", &tools)["setups"][0]["clamping"]["parallels"]).len(), 2);
-    tools["overrides"]["clamping"]["top"]["parallels_height_mm"] = Value::Null;
+    tools["decisions"][0]["choice"]["parallels_height_mm"] = Value::Null;
     assert!(list(&planned("plate", &tools)["setups"][0]["clamping"]["parallels"]).is_empty());
 }
 
@@ -210,20 +217,25 @@ fn clamping_proposals_are_checked_rather_than_silently_replaced() {
         (json!({"axis":"x","grip_height_mm":4.,"grpi":4.}), "unknown field grpi"),
     ] {
         let mut tools = library();
-        tools["overrides"] = json!({"clamping":{"top":proposal}});
+        tools["decisions"] = clamping("top", proposal);
         let plan = planned("plate", &tools);
-        assert!(list(&plan["setups"][0]["operations"]).is_empty());
-        assert!(refusal(&plan).contains(reason), "{}", refusal(&plan));
+        assert!(!list(&plan["setups"][0]["operations"]).is_empty());
+        for key in ["faces", "grip_height_mm", "jaw_top_z", "clearance_mm", "jaws", "parallels"] {
+            assert_eq!(plan["setups"][0]["clamping"][key], planned("plate", &library())["setups"][0]["clamping"][key]);
+        }
+        assert!(plan["supplied_decisions"][0]["refusal_reason"].as_str().unwrap().contains(reason));
+        assert!(warnings(&plan).iter().any(|w| w.contains(reason) && w.contains("rule's own choice is used")));
     }
     let mut tools = library();
-    tools["overrides"] = json!({"clamping":{"top":{"axis":"x","grip_height_mm":4.}}});
+    tools["decisions"] = clamping("top", json!({"axis":"x","grip_height_mm":4.}));
     tools["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(70.);
-    assert_eq!(refusal(&planned("plate", &tools)), "stock is 104.0 mm across the gripped X axis, wider than the vise opens (70.0 mm)");
+    assert_eq!(planned("plate", &tools)["supplied_decisions"][0]["refusal_reason"], "stock is 104.0 mm across the gripped X axis, wider than the vise opens (70.0 mm)");
     tools["machines"][0]["workholding"][0].as_object_mut().unwrap().remove("jaw_height_mm");
-    assert!(refusal(&planned("plate", &tools)).contains("cannot be validated without vise jaw width, height and opening"));
-    tools["overrides"] = json!({"clamping":{"typo":{"axis":"x","grip_height_mm":4.}}});
+    assert!(planned("plate", &tools)["supplied_decisions"][0]["refusal_reason"].as_str().unwrap().contains("cannot be validated without vise jaw width, height and opening"));
+    tools["decisions"] = clamping("typo", json!({"axis":"x","grip_height_mm":4.}));
     let mut plan = json!({"setups":[]});
-    assert_eq!(capp::finish(&mut plan, &tools, &[]).unwrap_err(), "clamping override names absent setup typo");
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    assert_eq!(plan["supplied_decisions"][0]["refusal_reason"], "subject or operation matches no decision");
 }
 
 fn history_plan(operations: Value, rotation: Value, origin: Value) -> Value {
@@ -265,7 +277,7 @@ fn later_grip_audit_uses_capped_depths_and_admits_missing_information() {
     assert_eq!(plan["setups"][0]["operations"][0]["floor_z"], -15.);
     assert_eq!(audit(&plan)["status"], "no_overlap", "the later grip band ends at -16, below the earlier capped floor -15");
     let mut tools = library();
-    tools["overrides"] = json!({"clamping":{"front":{"axis":"y","grip_height_mm":8.}}});
+    tools["decisions"] = clamping("front", json!({"axis":"y","grip_height_mm":8.}));
     let mut deeper = plan.clone();
     capp::finish(&mut deeper, &tools, &[]).unwrap();
     assert_eq!(audit(&deeper)["status"], "possible_overlap", "a deeper grip overlaps earlier roughing");
@@ -274,4 +286,16 @@ fn later_grip_audit_uses_capped_depths_and_admits_missing_information() {
     capp::finish(&mut missing, &library(), &[]).unwrap();
     assert_eq!(audit(&missing)["status"], "unchecked");
     assert!(warnings(&missing).iter().any(|w| w.contains("could not be checked completely")));
+}
+
+fn clamping(subject: &str, choice: Value) -> Value {
+    json!([{"rule":"machine.clamping", "subject":subject, "choice":choice, "source":"user", "reason":"shop clamping"}])
+}
+#[test]
+fn deprecated_clamping_still_works() {
+    let mut tools = library();
+    tools["overrides"] = json!({"clamping":{"top":{"axis":"x","grip_height_mm":3.5}}});
+    let plan = planned("plate", &tools);
+    assert_eq!(plan["supplied_decisions"][0]["accepted"], true);
+    assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 3.5);
 }
