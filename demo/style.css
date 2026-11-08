@@ -51,16 +51,17 @@ h1 { margin: 0; font: 500 18px var(--mono); letter-spacing: .02em; }
 
 .features { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 .features > * { flex: none; }
-.feature-row { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 4px 10px; text-align: left; background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
+.feature-entry { min-width: 0; }
+.feature-line { display: flex; gap: 4px; min-width: 0; }
+.feature-row { flex: 1; min-width: 0; min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 4px 8px; text-align: left; background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
 .feature-row .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-.feature-row > span:last-child { min-width: 0; }
-.feature-row .name { font-weight: 500; display: block; overflow-wrap: anywhere; }
-.feature-row .detail { font-size: 12px; color: var(--muted); display: block; }
-.feature-row.group { cursor: default; }
-.feature-row.not-cut .detail { color: #ffb08f; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.feature-row .name { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feature-count, .feature-time { flex: none; white-space: nowrap; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.feature-row.not-cut .name { color: #ffb08f; }
+.feature-toggle { flex: none; width: 36px; min-height: 40px; padding: 0; background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chip { min-width: 40px; min-height: 32px; padding: 0 6px; font: 12px var(--mono); background: #1b2129; border: 1px solid var(--line); border-radius: 6px; }
-.feature-row:hover, .chip:hover { border-color: var(--accent); }
+.feature-row:hover, .feature-toggle:hover, .chip:hover { border-color: var(--accent); }
 .is-lit { background: var(--active); border-color: var(--accent); }
 .is-pinned { border-color: #fff; }
 .side-head { margin: 8px 2px 2px; font-size: 12px; color: var(--muted); font-weight: 500; }

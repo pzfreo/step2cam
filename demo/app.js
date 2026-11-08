@@ -670,27 +670,69 @@ function buildFeatureList(m) {
   const host = $("features");
   host.replaceChildren();
   const head = (text) => { const d = document.createElement("div"); d.className = "side-head"; d.textContent = text; host.append(d); };
+  // Keep selection and disclosure as sibling buttons: expanding never selects an operation.
+  let instancesId = 0;
+  const compactRow = ({ name, color, count, time, detail, key, keyAlso, notCut, members }) => {
+    const entry = document.createElement("div");
+    entry.className = "feature-entry";
+    const line = document.createElement("div");
+    line.className = "feature-line";
+    const html = `<span class="swatch" style="background:${color}"></span><span class="name">${escapeHtml(name)}</span>`
+      + (count != null ? `<span class="feature-count">×${count}</span>` : "")
+      + (time != null ? `<span class="feature-time">${escapeHtml(time)}</span>` : "");
+    const className = `feature-row${notCut ? " not-cut" : ""}`;
+    const select = key ? button(className, html, key) : document.createElement("button");
+    if (!key) {
+      select.type = "button"; select.className = className; select.innerHTML = html;
+    }
+    if (keyAlso) select.dataset.keyAlso = keyAlso;
+    const description = [name, count != null ? `×${count}` : null, detail, time].filter(Boolean).join(", ");
+    select.title = description;
+    select.setAttribute("aria-label", description);
+    line.append(select);
+    entry.append(line);
+    if (members?.length > 1) {
+      const chips = document.createElement("div");
+      chips.className = "chips";
+      chips.id = `feature-instances-${++instancesId}`;
+      chips.hidden = true;
+      members.forEach((fid, i) => {
+        const chip = button("chip", String(i + 1), fid);
+        chip.setAttribute("aria-label", `${name}, number ${i + 1}`);
+        chips.append(chip);
+      });
+      const toggle = document.createElement("button");
+      toggle.type = "button"; toggle.className = "feature-toggle";
+      const expand = () => {
+        chips.hidden = !chips.hidden;
+        for (const control of key ? [toggle] : [toggle, select]) {
+          control.setAttribute("aria-expanded", String(!chips.hidden));
+        }
+        toggle.textContent = chips.hidden ? "▸" : "▾";
+        toggle.setAttribute("aria-label", `${chips.hidden ? "Show" : "Hide"} instances of ${name}`);
+      };
+      toggle.textContent = "▸";
+      toggle.setAttribute("aria-label", `Show instances of ${name}`);
+      for (const control of key ? [toggle] : [toggle, select]) {
+        control.setAttribute("aria-expanded", "false");
+        control.setAttribute("aria-controls", chips.id);
+        control.addEventListener("click", (event) => { event.stopPropagation(); expand(); });
+      }
+      line.append(toggle);
+      entry.append(chips);
+    }
+    host.append(entry);
+  };
   const ops = [...m.operations.values()];
   const holes = ops.filter((o) => o.features?.length);
   if (holes.length) head("Features");
   for (const op of holes) {
     const slot = op.kind === "slot" || op.kind === "notch" || op.kind === "v_channel", edges = op.kind === "edge_chamfer";
-    const count = slot || edges ? 1 : op.features.length;
+    const count = op.features.length;
     const tool = [...m.segments].find((s) => s.op === op.id)?.tool;
     const what = op.kind === "notch" ? `to size, corners r${tool ? trim(tool.diameter / 2) : "?"}` : op.kind === "v_channel" ? `${tool ? `${tool.angle}° ${tool.id}` : "V-bit"}, to the root` : slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
-    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not run"}</span></span>`, op.id));
-    if (count > 1) {
-      const chips = document.createElement("div");
-      chips.className = "chips";
-      op.features.forEach((fid, i) => {
-        const chip = button("chip", String(i + 1), fid);
-        chip.setAttribute("aria-label", `${op.name}, number ${i + 1}`);
-        chips.append(chip);
-      });
-      host.append(chips);
-    } else {
-      host.lastChild.dataset.keyAlso = op.features[0];
-    }
+    compactRow({ name: op.name, color: op.color, count, time: op.time ? describeTime(op.time) : "not run",
+      detail: what, key: op.id, keyAlso: count === 1 ? op.features[0] : null, members: op.features });
   }
   // Recognised, with no operation of their own: like ones together, what was not cut first.
   const others = [...m.features.values()].filter((f) => !f.operations.length);
@@ -705,20 +747,9 @@ function buildFeatureList(m) {
     return [...groups.values()];
   };
   const row = (members) => {
-    const f = members[0], name = members.length > 1 ? `${f.name} × ${members.length}` : f.name;
-    const html = `<span class="swatch" style="background:${f.color}"></span><span><span class="name">${escapeHtml(name)}</span><span class="detail">${escapeHtml(f.note)}</span></span>`;
-    if (members.length === 1) {
-      host.append(button(`feature-row${f.notCut ? " not-cut" : ""}`, html, f.id));
-      return;
-    }
-    const title = document.createElement("div");
-    title.className = `feature-row group${f.notCut ? " not-cut" : ""}`;
-    title.innerHTML = html;
-    host.append(title);
-    const chips = document.createElement("div");
-    chips.className = "chips";
-    members.forEach((member, i) => chips.append(button("chip", String(i + 1), member.id)));
-    host.append(chips);
+    const f = members[0];
+    compactRow({ name: f.name, color: f.color, count: members.length, detail: f.note,
+      notCut: f.notCut, key: members.length === 1 ? f.id : null, members: members.map((member) => member.id) });
   };
   const section = (text, list) => {
     if (!list.length) return;
@@ -732,7 +763,7 @@ function buildFeatureList(m) {
   const whole = ops.filter((o) => !o.features?.length);
   if (whole.length) head("Whole part");
   for (const op of whole) {
-    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${describeTime(op.time)}</span></span>`, op.id));
+    compactRow({ name: op.name, color: op.color, time: describeTime(op.time), key: op.id });
   }
   section("Edges", others.filter(rounds));
 }
