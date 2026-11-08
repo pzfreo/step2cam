@@ -36,6 +36,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     let travel = &mill["axes"]["travel_mm"];
     let jaws = mill["workholding"].as_array().into_iter().flatten().find(|w| w["kind"] == "vise").and_then(|w| w["max_jaw_opening_mm"].as_f64());
     let mut lost: Vec<(String, String)> = vec![];
+    let mut lost_roughing = None;
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         trace.decide("machine.for_setup", &setup_id, "chosen", &format!("cut on {}, a 3-axis mill", name(mill)), json!({"chosen": id}));
@@ -53,6 +54,9 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             let says = format!("the {setup_id} setup's stock does not fit {}: {}{hint}", name(mill), over.join(", "));
             trace.warn("machine.travel", &setup_id, format!("setup {setup_id} is not cut: {says}"));
             for op in setup["operations"].as_array().into_iter().flatten() {
+                if op["kind"] == "roughing" {
+                    lost_roughing = Some(says.clone());
+                }
                 for f in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     lost.push((f.to_string(), says.clone()));
                 }
@@ -69,6 +73,16 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     }
     for (feature, says) in lost {
         trace.skip("machine.travel", &feature, format!("not cut: {says}"));
+    }
+    // Nothing is covered by roughing that does not run. Wait until every setup is checked,
+    // so a roughing operation retained in another setup still counts.
+    let roughs = plan["setups"].as_array().into_iter().flatten().any(|s| s["operations"].as_array().into_iter().flatten().any(|o| o["kind"] == "roughing"));
+    if let Some(says) = lost_roughing.filter(|_| !roughs) {
+        let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
+        for id in covered.iter().filter_map(Value::as_str) {
+            let not_cut = trace.skip("machine.travel", id, format!("not cut: {says}"));
+            trace.supersede(id, "covered", &not_cut);
+        }
     }
 }
 
