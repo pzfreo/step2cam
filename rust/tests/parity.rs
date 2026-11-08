@@ -106,9 +106,13 @@ fn the_plates_job_runs_in_camlib() {
     let out = step2cam::process(&analysis, &mesh, &json("examples/tools.example.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
-    assert_eq!(&ends[..5], [53, 1975, 1992, 2070, 2108]);
+    // camlib #104 simplifies the roughing layer shadows: 1,565 moves instead of 1,922.
+    // Facing, the three hole groups and wall finishing retain their tools and move counts.
+    assert_eq!(&ends[..5], [53, 1618, 1635, 1713, 1751]);
     assert_eq!(ends.len(), 6); // the wall finish
     assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[5]);
+    assert_eq!(out["programs"][0]["material"]["complete"], true);
+    assert_eq!(out["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }
 
 /// The plate with its ⌀4.2 hole answered as tapped M5.
@@ -135,4 +139,33 @@ fn a_tapped_holes_job_is_python_s_job() {
     // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
     mine["verification"]["material"] = python["verification"]["material"].clone();
     same(&mine, &python, "manifest").unwrap();
+}
+
+/// The gauge line is fixed, while tools of different lengths start at different tip heights.
+/// Check actual simulated starts, including a return to the milling tool after drilling.
+#[test]
+fn each_tool_starts_at_the_declared_machine_pose() {
+    let mut library = json("examples/tools.example.json");
+    library["tool_change_xy_mm"] = serde_json::json!([-7., -9.]);
+    library["tool_change_gauge_z_mm"] = 130.into();
+    let out = step2cam::process(&json("tests/fixtures/plate.analysis.json"), &json("tests/fixtures/plate.mesh.json"), &library).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let program = &out["programs"][0];
+    let job = &program["job"];
+    let mut active = None;
+    let mut changes = 0;
+    for range in program["operations"].as_array().unwrap() {
+        let first = &program["moves"][range["start"].as_u64().unwrap() as usize];
+        let tool = first["tool"].as_str().unwrap();
+        if active != Some(tool) {
+            let assembly = job["tools"].as_array().unwrap().iter().find(|t| t["id"] == tool).unwrap();
+            let tip_z = 130. - assembly["gauge_length_mm"].as_f64().unwrap();
+            assert_eq!(first["points"][0], serde_json::json!([-7., -9., tip_z]));
+            active = Some(tool);
+            changes += 1;
+        }
+    }
+    assert_eq!(changes, 4); // mill, two drills, mill again
+    assert_eq!(program["material"]["complete"], true);
+    assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
 }
