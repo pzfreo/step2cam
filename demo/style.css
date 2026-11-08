@@ -300,6 +300,13 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
   .pane.shrunk, .pane-rail, .pane-title { display: none !important; }
   .pane-body:not(.plan-pane) > .side { flex: 1 1 0; width: 100%; border: 0; }
   .pane-body > .view { display: none; }
+  /* Toolpaths: no list of moves, only the current move and what it does; the cutting view takes the room. */
+  .app:has(.pane[data-pane="toolpaths"]:not(.shrunk)) #phone-view { flex: 1 1 auto; }
+  .app:has(.pane[data-pane="toolpaths"]:not(.shrunk)) .panes { flex: none; }
+  .pane[data-pane="toolpaths"] .code { display: none; }
+  .pane[data-pane="toolpaths"] .pane-body, .pane[data-pane="toolpaths"] .code-panel { flex: none; }
+  .pane[data-pane="toolpaths"] .code-explain { min-height: 0; font-size: 12px; }
+  .pane[data-pane="toolpaths"] .code-explain code { font-size: 11.5px; }
   #meta { flex: none; font-size: 12px; padding: 4px; }
   footer { gap: 4px 8px; padding: 6px; display: grid; grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr); }
   #play { min-width: 0; min-height: 38px; padding: 0 4px; font-size: 12px; }
