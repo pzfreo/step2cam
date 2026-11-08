@@ -429,6 +429,18 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             let mut why = vec![decided];
             if let Some(name) = tool.as_str() {
                 let spec = library.data["tools"].as_array().and_then(|t| t.iter().find(|x| x["id"] == name)).ok_or("a chosen tool is not in the library")?;
+                // No dog-bone relief: neither analysis nor answers can request it today.
+                if kind == "notch" {
+                    let model = op["corner_radius"].as_f64().unwrap_or(0.);
+                    let radius = num(spec, "diameter")? / 2.;
+                    if radius > model + 1e-6 {
+                        let corners = op["inside_corners"].as_u64().unwrap_or(4);
+                        let shape = if model == 0. { "square inside corners" } else { "inside corners" };
+                        let model_note = if model == 0. { "the model has them sharp".to_string() } else { format!("the model has r{}", show(model)) };
+                        let feature_names = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", ");
+                        why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, show(radius))));
+                    }
+                }
                 let (mut technology, source) = technology(spec, group.as_deref());
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),

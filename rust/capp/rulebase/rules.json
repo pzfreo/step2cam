@@ -256,9 +256,9 @@
   },
   {
    "id": "process.notch",
-   "version": 1,
+   "version": 2,
    "stage": "process",
-   "rationale": "A square-ended slot or notch is cut as a pocket; an open side runs out past the part.",
+   "rationale": "A rectangular slot, pocket or notch is cut with its model corner radii; an open side runs out past the part. Matching upright corner fillets and section recesses belong to that operation.",
    "code": "plan.rs notch_operation",
    "sources": [
     {
@@ -709,6 +709,14 @@
    "data": [
     "rules/tools.json#bore_mill"
    ]
+  },
+  {
+   "id": "process.notch.corner_radius",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A rectangular recess keeps the model outline. If the chosen cutter radius exceeds the model corner radius, report the larger inside corner radii as a plan deviation; no corner relief is requested by today's analysis or answers.",
+   "code": "settle.rs resolve_with",
+   "sources": [{ "kind": "step2cam" }]
   },
   {
    "id": "tool.notch.pocket_mill",

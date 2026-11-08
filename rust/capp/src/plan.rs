@@ -1009,8 +1009,15 @@ fn occupied_above(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: f64) -> bool 
     if lo.0 >= hi.0 || lo.1 >= hi.1 {
         return false;
     }
-    let inside = |p: (f64, f64)| p.0 > lo.0 && p.0 < hi.0 && p.1 > lo.1 && p.1 < hi.1;
     let corners = [lo, (hi.0, lo.1), hi, (lo.0, hi.1)];
+    occupied_polygon(mesh, &corners, z)
+}
+
+fn occupied_polygon(mesh: &[Tri], corners: &[(f64, f64)], z: f64) -> bool {
+    let inside = |p: (f64, f64)| (0..corners.len()).all(|i| {
+        let (a,b) = (corners[i], corners[(i+1)%corners.len()]);
+        (b.0-a.0)*(p.1-a.1) - (b.1-a.1)*(p.0-a.0) > 0.
+    });
     mesh.iter().any(|triangle| {
         let shape = clip_above(triangle, z);
         if shape.len() < 3 {
@@ -1024,16 +1031,66 @@ fn occupied_above(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: f64) -> bool 
         };
         shape.iter().copied().any(inside)
             || corners.iter().copied().any(holds)
-            || (0..shape.len()).any(|i| (0..4).any(|k| segments_apart(edge(i), (corners[k], corners[(k + 1) % 4])) == 0.))
+            || (0..shape.len()).any(|i| (0..corners.len()).any(|k| segments_apart(edge(i), (corners[k], corners[(k + 1) % corners.len()])) == 0.))
     })
 }
 
-/// A notch or square-ended slot: a box of empty space, cut as a pocket with an end mill that fits.
-/// specify-core's record says where the box is; the mesh must agree that nothing is in it, or the
-/// feature is left as it was. A notch's open side is cut past the part. Its corners stay as round
-/// as the cutter, which the job says.
+/// Counter-clockwise camlib vertices; the bulge belongs to the following arc.
+fn rounded_rectangle(lo: (f64, f64), hi: (f64, f64), radius: f64) -> Vec<Value> {
+    let (x, y, a, b, t) = (lo.0, lo.1, hi.0, hi.1, radius);
+    if t <= 0. {
+        return vec![json!([r(x), r(y), 0.]), json!([r(a), r(y), 0.]), json!([r(a), r(b), 0.]), json!([r(x), r(b), 0.])];
+    }
+    let q = (std::f64::consts::PI / 8.).tan();
+    let mut vertices: Vec<(f64, f64, f64)> = vec![];
+    for p in [(x+t,y,0.), (a-t,y,q), (a,y+t,0.), (a,b-t,q), (a-t,b,0.), (x+t,b,q), (x,b-t,0.), (x,y+t,q)] {
+        // At a semicircular end the straight tangent edge has zero length.
+        if let Some(last) = vertices.last_mut().filter(|v| (v.0-p.0).hypot(v.1-p.1) < 1e-7) {
+            last.2 = p.2;
+        } else {
+            vertices.push(p);
+        }
+    }
+    vertices.into_iter().map(|(x, y, b)| json!([r(x), r(y), b])).collect()
+}
+
+/// An inscribed convex polygon leaves the mesh's faceted curved walls outside the check.
+/// Like the wall slice checks, allow 0.05 mm at the boundary: CTC 01's r10 corners
+/// have chords about 0.03 mm inside the exact arc (including the adjacent rim mesh).
+fn occupied_rounded(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: f64, radius: f64) -> bool {
+    if radius <= 0. { return occupied_above(mesh, lo, hi, z); }
+    let mut corners = vec![];
+    for (x,y,angle) in [(hi.0-radius,lo.1+radius,-90.),(hi.0-radius,hi.1-radius,0.),(lo.0+radius,hi.1-radius,90.),(lo.0+radius,lo.1+radius,180.)] {
+        for i in 0..=32 {
+            let a = (angle + 90. * i as f64 / 32.).to_radians();
+            corners.push((x+(radius-0.05).max(0.)*a.cos(),y+(radius-0.05).max(0.)*a.sin()));
+        }
+    }
+    corners.dedup_by(|a, b| (a.0-b.0).hypot(a.1-b.1) < 1e-7);
+    if corners.first().zip(corners.last()).is_some_and(|(a, b)| (a.0-b.0).hypot(a.1-b.1) < 1e-7) {
+        corners.pop();
+    }
+    occupied_polygon(mesh, &corners, z)
+}
+
+/// A rectangular recess, optionally with rounded corners, cut with an end mill that fits.
+/// The mesh must agree that its interior is empty. An open side is cut past the part;
+/// settle records any corner radius the cutter leaves beyond the model's radius.
 fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
-    let record = &feature["record"];
+    let mut normalized = feature["record"].clone();
+    if feature["family"] == "rectangular_blind_slots" {
+        let axis = |key: &str| ["x", "y", "z"].iter().position(|a| normalized[key].as_str() == Some(a));
+        let (Some(w), Some(l), Some(d)) = (axis("width_axis"), axis("axis"), axis("depth_axis")) else { return Ok(None) };
+        if w == l || w == d || l == d { return Ok(None); }
+        let at = v3(&normalized["at"])?;
+        normalized["long_axis"] = normalized["depth_axis"].clone();
+        normalized["w_center"] = json!(at[w]);
+        normalized["lo"] = json!(at[d] - f(&normalized, "depth")? / 2.);
+        normalized["hi"] = json!(at[d] + f(&normalized, "depth")? / 2.);
+        normalized["d_lo"] = json!(at[l] - f(&normalized, "length")? / 2.);
+        normalized["d_hi"] = json!(at[l] + f(&normalized, "length")? / 2.);
+    }
+    let record = &normalized;
     let index = |key: &str| ["x", "y", "z"].iter().position(|a| record[key].as_str() == Some(a));
     let (Some(w), Some(l), Some(triangles)) = (index("width_axis"), index("long_axis"), cx.triangles) else {
         return Ok(None);
@@ -1049,7 +1106,34 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
     for name in cx.preferred {
         let rows = rows_of(name);
         let Some(tool_axis) = [l, depth_axis].into_iter().find(|a| rows[2][*a].abs() >= 0.99) else { continue };
-        let (depth, side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
+        // This family's record states the depth axis and opening direction explicitly.
+        if feature["family"] == "rectangular_blind_slots"
+            && (tool_axis != l || rows[2][l] * record["depth_sign"].as_f64().unwrap_or(1.) < 0.99) {
+            continue;
+        }
+        let (depth, mut side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
+        let mut radius = record["corner_radius"].as_f64().unwrap_or(0.).max(0.);
+        // Some slot records swap length and depth and report only the straight side-wall
+        // interval. Four matching concave quarter-rounds recover the true ends and radius.
+        if radius == 0. && feature["family"] == "slots" && open == 0. {
+            let mut corners = vec![];
+            for other in cx.all_features {
+                let rec = &other["record"];
+                if other["family"] != "fillets" || rec["side"] != "concave" || rec["axis"].as_str() != Some(["x", "y", "z"][tool_axis]) { continue; }
+                let (Some(rad), Ok(p)) = (rec["radius"].as_f64(), v3(&rec["at"])) else { continue };
+                if rad <= 0. || rad >= width / 2. || (p[tool_axis] - (depth.0 + depth.1) / 2.).abs() > LEVEL_EPS { continue; }
+                let width_at = width / 2. - rad * (1. - std::f64::consts::FRAC_1_SQRT_2);
+                let near_width = ((p[w] - w_center).abs() - width_at).abs() < 0.002;
+                let low = (p[side_axis] - (side.0 - rad * std::f64::consts::FRAC_1_SQRT_2)).abs() < 0.002;
+                let high = (p[side_axis] - (side.1 + rad * std::f64::consts::FRAC_1_SQRT_2)).abs() < 0.002;
+                if near_width && (low || high) { corners.push((rad, p[w] > w_center, high)); }
+            }
+            if corners.len() == 4 && corners.iter().all(|c| (c.0-corners[0].0).abs() < LEVEL_EPS)
+                && [false,true].into_iter().all(|w| [false,true].into_iter().all(|l| corners.iter().filter(|c| c.1==w && c.2==l).count()==1)) {
+                radius = corners[0].0;
+                side = (side.0-radius,side.1+radius);
+            }
+        }
         // A pocket opening along the tool has no side to run out of.
         let run_out = if side_axis == depth_axis { width / 2. + 1. } else { 0. };
         let side_ends = (side.0 - if open < 0. { run_out } else { 0. }, side.1 + if open > 0. { run_out } else { 0. });
@@ -1065,18 +1149,47 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
         let (lo, hi) = ((a[0].min(b[0]), a[1].min(b[1])), (a[0].max(b[0]), a[1].max(b[1])));
         let (floor, top) = (a[2].min(b[2]), a[2].max(b[2]));
         let mesh = frame.triangles(triangles);
-        if occupied_above(mesh, lo, hi, floor + 1e-3) {
+        if radius > width / 2. + LEVEL_EPS || radius > (side.1 - side.0) / 2. + LEVEL_EPS { continue; }
+        if occupied_rounded(mesh, lo, hi, floor + 1e-3, radius) {
             continue;
         }
         let part = cx.part_faces[name];
         let part_top = bounds(&mesh.iter().flatten().copied().collect::<Vec<_>>()).1[2];
         let through = floor <= part + LEVEL_EPS;
-        let (r2, corner) = (|p: (f64, f64)| json!([r(p.0), r(p.1), 0.]), (hi.0, lo.1));
+        let mut features = cx.absorbed(feature);
+        // Only upright concave corner faces inside this recess belong to it. Horizontal floor
+        // blends and neighbouring outside rounds must remain independent.
+        let mut corner_faces = feature["faces"].as_array().cloned().unwrap_or_default();
+        for other in cx.all_features {
+            let rec = &other["record"];
+            if radius <= 0. || rec["side"] != "concave" || !["fillets", "blends"].contains(&other["family"].as_str().unwrap_or("")) { continue; }
+            let axis_ok = rec["axis"].as_str() == Some(["x", "y", "z"][tool_axis])
+                || rec["path"]["direction"][tool_axis].as_f64().is_some_and(|v| v.abs() > 0.99);
+            let at = rec.get("at").unwrap_or(&rec["path"]["at"]);
+            if !axis_ok || (rec["radius"].as_f64().unwrap_or(0.) - radius).abs() > LEVEL_EPS { continue; }
+            let Ok(p) = v3(at) else { continue };
+            let p = frame.point(p);
+            if p[2] >= floor - LEVEL_EPS && p[2] <= top + LEVEL_EPS
+                && p[0] > lo.0 && p[0] < hi.0 && p[1] > lo.1 && p[1] < hi.1
+                && (p[0] - lo.0).min(hi.0 - p[0]) <= radius + LEVEL_EPS
+                && (p[1] - lo.1).min(hi.1 - p[1]) <= radius + LEVEL_EPS {
+                features.push(other["id"].as_str().unwrap_or("").to_string());
+                corner_faces.extend(other["faces"].as_array().into_iter().flatten().cloned());
+            }
+        }
+        for other in cx.all_features {
+            if other["family"] == "section_recesses" {
+                let faces = other["faces"].as_array();
+                if faces.is_some_and(|fs| !fs.is_empty() && fs.iter().all(|f| corner_faces.contains(f)) && feature["faces"].as_array().is_some_and(|own| own.iter().all(|f| fs.contains(f)))) {
+                    features.push(other["id"].as_str().unwrap_or("").to_string());
+                }
+            }
+        }
         return Ok(Some((name, json!({
             "kind": "notch", "width": r(width), "length": r(side.1 - side.0), "open": open != 0. && run_out > 0.,
-            "outer": [r2(lo), r2(corner), r2(hi), r2((lo.0, hi.1))],
+            "outer": rounded_rectangle(lo, hi, radius), "corner_radius": r(radius), "inside_corners": if open != 0. && run_out > 0. { 2 } else { 4 },
             "top_z": r(part_top), "floor_z": r(if through { part } else { floor }), "wall_top": r(top), "bottom": if through { "through" } else { "blind" },
-            "features": cx.absorbed(feature),
+            "features": features,
         }))));
     }
     Ok(None)
@@ -1425,7 +1538,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         }
     }
     // Slots that are not round-ended, notches and V-channels: what roughing's mill cannot get into.
-    for feature in all_features.iter().filter(|x| ["slots", "pockets", "v_channels"].contains(&x["family"].as_str().unwrap_or(""))) {
+    for feature in all_features.iter().filter(|x| ["slots", "pockets", "rectangular_blind_slots", "v_channels"].contains(&x["family"].as_str().unwrap_or(""))) {
         let id = feature["id"].as_str().unwrap_or("");
         if in_slot.iter().any(|x| x == id) {
             continue;

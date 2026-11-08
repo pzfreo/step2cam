@@ -269,3 +269,11 @@ as the peck decision. It is a planning warning threshold, not a universal drill 
 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
 coolant settings cannot faithfully describe their single-lip geometry and coolant needs.
+
+Rectangular slots and pockets use the `notch` operation, including edge-open blind slots.
+Their `outer` vertices retain the model's corner arcs; `corner_radius` records that radius
+(zero for sharp corners), and `inside_corners` is four for a closed recess or two for an
+edge-open recess. The largest end mill narrower than the width whose flutes reach the depth
+cuts it. If its radius exceeds the model radius, `process.notch.corner_radius` warns in the
+plan that those inside corners retain the cutter radius. No dog-bone relief is generated:
+the analysis and answers currently have no way to request it.
