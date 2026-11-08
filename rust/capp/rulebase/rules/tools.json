@@ -18,9 +18,10 @@
   {
    "id": "drill",
    "tool_type": "drill",
-   "description": "The drill closest to the diameter and never larger, at most drill_tolerance_mm under it.",
+   "description": "The closest drill never larger than the hole, whose flutes reach the requested depth plus its point and the camlib guard.",
    "inputs": [
-    "diameter"
+    "diameter",
+    "depth"
    ],
    "keep": [
     {
@@ -30,6 +31,10 @@
     {
      "if": "diameter - tool.diameter <= drill_tolerance_mm",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} is more than {drill_tolerance_mm} mm under the ⌀{diameter} hole"
+    },
+    {
+     "if": "tool.flute_length >= depth + tool.point_length + drilling_guard_mm",
+     "else_reject": "{tool.id}: its {tool.flute_length:raw} mm flutes do not reach {depth} mm down plus its {tool.point_length} mm point and the numerical guard"
     }
    ],
    "prefer": {
@@ -40,10 +45,14 @@
     [
      "minimum",
      "diameter - drill_tolerance_mm"
+    ],
+    [
+     "reach_min",
+     "depth + drilling_guard_mm"
     ]
    ],
-   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2}",
-   "needed_exact": "a drill of ⌀{diameter}"
+   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2} with flutes of at least {reach_min:up2} mm plus point length",
+   "needed_exact": "a drill of ⌀{diameter} with flutes of at least {reach_min:up2} mm plus point length"
   },
   {
    "id": "bore_mill",

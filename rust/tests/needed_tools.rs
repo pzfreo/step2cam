@@ -24,7 +24,7 @@ fn missing_hole_tools_use_library_tolerance_and_merge_identical_queries() {
         {"kind":"holes", "diameter":18.5, "bottom_z":-131.7, "features":["holes:1"]}
     ]));
     capp::finish(&mut plan, &tools, &[]).unwrap();
-    let need = "a drill of ⌀18.30–18.50 with flutes of at least 132 mm (plus point length when drilling to full diameter), or an end mill under ⌀18.45 with flutes of at least 132 mm";
+    let need = "a drill of ⌀18.30–18.50 with flutes of at least 131.71 mm plus point length, or an end mill under ⌀18.45 with flutes of at least 132 mm";
     assert_eq!(plan["tools_needed"].as_array().unwrap().len(), 1);
     assert_eq!(plan["tools_needed"][0]["description"], need);
     assert_eq!(plan["tools_needed"][0]["features"], json!(["holes:0", "holes:1"]));
@@ -72,7 +72,7 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
     }
     let group = skipped.iter().find(|s| s["feature"] == "holes:6").unwrap();
     let need = group["reason"].as_str().unwrap().rsplit_once(": needs ").unwrap().1;
-    assert_eq!(need, "a drill of ⌀6.55–6.60 with flutes of at least 12 mm (plus point length when drilling to full diameter), or an end mill under ⌀6.55 with flutes of at least 12 mm");
+    assert_eq!(need, "a drill of ⌀6.55–6.60 with flutes of at least 12.01 mm plus point length, or an end mill under ⌀6.55 with flutes of at least 12 mm");
     let entry = plan["tools_needed"].as_array().unwrap().iter().find(|n| n["description"] == need).unwrap();
     assert!(entry["features"].as_array().unwrap().len() > 1, "{entry}");
     assert_eq!(out["log"].as_array().unwrap().iter().filter(|l| l.as_str().unwrap().starts_with("tools needed: ")).count(), 1);
@@ -119,7 +119,7 @@ fn zero_drill_tolerance_requests_an_exact_size_instead_of_an_empty_rounded_range
     let mut tools = library();
     tools["drill_tolerance_mm"] = json!(0);
     let lib = capp::resources::Library::new(&tools).unwrap();
-    assert_eq!(lib.needed("drill", &[("diameter", 4.211)]).unwrap(), "a drill of ⌀4.211");
+    assert_eq!(lib.needed("drill", &[("diameter", 4.211), ("depth", 10.)]).unwrap(), "a drill of ⌀4.211 with flutes of at least 10.01 mm plus point length");
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn decimal_tool_bounds_ignore_binary_noise_without_losing_helix_clearance() {
     ] {
         tools["drill_tolerance_mm"] = json!(tolerance);
         let lib = capp::resources::Library::new(&tools).unwrap();
-        assert_eq!(lib.needed("drill", &[("diameter", 5.1)]).unwrap(), expected);
+        assert_eq!(lib.needed("drill", &[("diameter", 5.1), ("depth", 10.)]).unwrap(), format!("{expected} with flutes of at least 10.01 mm plus point length"));
     }
     let lib = capp::resources::Library::new(&tools).unwrap();
     // The bore selector reserves 0.05 mm for helix room: 8.25 - 0.05 = 8.20.

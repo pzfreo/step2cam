@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 /// Round reach upwards with a micron of clearance. This exceeds camlib's 16 × 1e-5 mm
 /// numerical guard in step2cam jobs, including when depth is an exact integer.
-fn reach(depth: f64) -> String {
+pub(crate) fn reach(depth: f64) -> String {
     format!("{:.0}", (depth + 0.001).ceil())
 }
 
@@ -17,8 +17,8 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
         Ok(format!("{} {long}", library.needed(selector, inputs)?))
     };
     Ok(Some(match kind {
-        "holes" => format!("{} {long} (plus point length when drilling to full diameter), or {}",
-            library.needed("drill", &[("diameter", num(op, "diameter")?)])?,
+        "holes" => format!("{}, or {}",
+            library.needed("drill", &[("diameter", num(op, "diameter")?), ("depth", library.drill_depth(op, top)?.max(depth))])?,
             mill("bore_mill", &[("diameter", num(op, "diameter")?)])?),
         "counterbore" => mill("bore_mill", &[("diameter", num(op, "diameter")?)])?,
         "slot" => mill("bore_mill", &[("diameter", num(op, "width")?)])?,

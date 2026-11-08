@@ -50,6 +50,15 @@ const TOOL_KEYS: [&str; 11] = [
 ];
 /// How far out along a chamfer mill's cone the chamfer's lower edge is cut (mm), so the flank cuts.
 pub const TIP_CLEARANCE: f64 = 0.5;
+/// camlib drilling's tolerance; shared with the job adapter.
+pub const DRILLING_TOLERANCE: f64 = 1e-5;
+/// Include 1 nm for roundoff when camlib subtracts its guard from the flute length.
+pub const DRILLING_GUARD: f64 = 16. * DRILLING_TOLERANCE + 1e-6;
+
+/// Point height of the conical drill shape the job passes to camlib.
+pub fn drill_tip_length(tool: &Value) -> Result<f64, String> {
+    Ok(num(tool, "diameter")? / 2. / (num(tool, "point_angle")?.to_radians() / 2.).tan())
+}
 
 pub fn num(v: &Value, key: &str) -> Result<f64, String> {
     v.get(key).and_then(Value::as_f64).ok_or_else(|| format!("missing number {key}"))
@@ -126,7 +135,7 @@ impl<'a> Library<'a> {
     /// The tool the named selector in `rulebase/rules/tools.json` prefers, and why it turned
     /// the others down where it says.
     fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
-        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)]);
+        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
     /// A selector can fail only if the shipped rules are wrong (tests/rules.rs runs them all); a
@@ -137,7 +146,7 @@ impl<'a> Library<'a> {
     }
     /// The same selector expressed as a query for a tool to load or buy.
     pub fn needed(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<String, String> {
-        crate::rules::needed(selector, inputs, &[("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)])
+        crate::rules::needed(selector, inputs, &[("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)])
     }
     pub fn clearing(&self, name: &str) -> Result<Option<&'a Value>, String> {
         if let Some(wanted) = self.data.get(format!("{name}_tool")).and_then(Value::as_str).filter(|s| !s.is_empty()) {
@@ -145,8 +154,15 @@ impl<'a> Library<'a> {
         }
         Ok(self.pick("largest_end_mill", &[]))
     }
-    pub fn drill(&self, diameter: f64) -> Option<&'a Value> {
-        self.pick("drill", &[("diameter", diameter)])
+    /// Conservative full-breakthrough depth from the stock top. The selector adds each
+    /// candidate's point even for tip-referenced holes and ignores exit obstructions that
+    /// would shorten the job: a kept drill therefore always reaches camlib's target.
+    pub fn drill_depth(&self, op: &Value, stock_top: f64) -> Result<f64, String> {
+        Ok(stock_top - num(op, "bottom_z")?
+            + if op["bottom"] == "through" { self.breakthrough.max(0.) } else { 0. })
+    }
+    pub fn drill(&self, diameter: f64, depth: f64) -> Option<&'a Value> {
+        self.pick("drill", &[("diameter", diameter), ("depth", depth)])
     }
     pub fn bore_mill(&self, diameter: f64) -> Option<&'a Value> {
         self.pick("bore_mill", &[("diameter", diameter)])
@@ -165,7 +181,7 @@ impl<'a> Library<'a> {
     }
     /// What a selector made of every tool of its type, for the trace (`rules::considered`).
     pub fn considered(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Value> {
-        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)]);
+        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::considered(selector, &self.tools, &inputs.iter().copied().collect(), &params).unwrap_or_else(|e| panic!("{e}"))
     }
     /// The thread mill for this thread operation, and why the others were turned down.

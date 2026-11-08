@@ -46,6 +46,17 @@ no camlib:
   what an execution engine refused; places the material in its ISO 513 group; and names each
   operation's tool, cutting data and ISO 14649 names.
 
+Settlement caps roughing at stock top minus `min(flute_length, stickout) - 1 mm`, before
+camlib sees it. This is the stopgap for stevecad/camlib#122; once camlib checks each layer's
+cutting depth, the flute limit can be relaxed to holder clearance. The plan keeps
+`covered_by_roughing` as feature ids and records their conservative lowest Z and family in
+`roughing_feature_depths`, in the rough-from frame. Features extending below the cap are
+skipped with a reach reason and needed-tool query, including the 1 mm margin in both the
+minimum flute length and stickout. Flats below the cap are removed; crossing wall bands are
+finished down to the cap, with a needed-tool warning for the allowance left below it. Wholly
+unreachable wall bands are removed, and dependent edge chamfers follow the missing-wall
+handling. No second roughing setup is added.
+
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
@@ -230,6 +241,36 @@ Planned:
 - **Tapping** as an alternative to thread milling; camlib has a tapping operation.
 - **Surface finish and ISO 2768**, once a rule uses them.
 - **Optional:** an AP238 (STEP-NC) export; a second execution engine.
+
+### Drilling depth
+
+The drill selector requires flutes reaching from stock top to the modeled bottom, plus the
+requested nonnegative breakthrough for through holes, each candidate's conical point length
+(`diameter / (2 * tan(point_angle / 2))`) and camlib's 16 × 1e-5 mm guard with 1 nm for roundoff. Rust computes the
+virtual `tool.point_length` field; no trigonometry is added to the rule language. The point
+allowance is deliberately conservative for tip-referenced bottoms and obstructed exits.
+Missing-tool queries restate this same reach requirement, rounded upwards.
+
+`reference/drilling.json` records the public sources and parameters for conventional drills:
+one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from stock top,
+including requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
+the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
+Tool’s published ranges. Applying it as a constant across materials is a conservative starting
+policy, not a universal manufacturer value. Full retract is used at intermediate and greater depths because the
+tool schema has no through-tool coolant declaration, required by Haas's high-speed chip-break
+guidance. A positive tool `peck_mm` caps the rule increment; zero or absent means no cap,
+and shallow holes still use one plunge. The settled operation's `technology` carries these
+camlib options and its trace cites `process.hole.peck_by_depth`. Above the reference's 5×D
+threshold, the plan also warns with the hole feature IDs and depth/D ratio that deep-hole
+drilling (pilot plus deep-hole drill) is not planned, so full-retract pecks are used. The warning
+is linked to the operation in its trace. At or below 5×D this warning is absent; the threshold
+uses the same stock-top depth (including requested breakthrough) and selected drill diameter
+as the peck decision. It is a planning warning threshold, not a universal drill capability limit.
+
+Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
+coolant settings cannot faithfully describe their single-lip geometry and coolant needs.
+
+### Chamfers
 
 Modelled equal-leg 45° top chamfers use `edge_chamfer`, with `width` as the leg and
 no `radius`. A whole outside loop needs its wall finished; hole and slot mouths

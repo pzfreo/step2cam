@@ -322,9 +322,16 @@ on purpose.
 
   There are no defaults for these: camlib checks the holder against the stock, so a guessed
   holder would make that check meaningless. Optional: `shank_diameter`, `length_register`
-  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills), and for
+  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills: a positive
+  cap on the depth rule’s peck increment; zero or absent means no cap), and for
   thread mills `min_pitch_mm`/`max_pitch_mm` (the pitches the tooth suits), `radial_passes`
   (default 2) and `spring_passes` (default 1).
+
+  Drilling through 3×D uses one plunge; deeper holes use full-retract pecks of 0.5×D,
+  capped by a positive `peck_mm`. Above 5×D, a plan warning and linked trace note name
+  the hole and its depth/D ratio: deep-hole drilling (pilot plus deep-hole drill) is not
+  planned, so full-retract pecks are used. Depth includes stock above the hole and
+  requested breakthrough, and D is the selected drill's diameter.
 - Library settings, with their defaults:
 
   | Setting | Default | Meaning |

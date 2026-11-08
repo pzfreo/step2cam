@@ -646,9 +646,9 @@
   },
   {
    "id": "tool.hole.drill_or_bore",
-   "version": 1,
+   "version": 2,
    "stage": "tools",
-   "rationale": "A hole is drilled with the largest drill not larger than it and at most drill_tolerance_mm under it; else bored by helix with the largest end mill that fits with room to helix.",
+   "rationale": "A hole is drilled with the largest drill not larger than it and at most drill_tolerance_mm under it; else bored by helix with the largest end mill that fits with room to helix. Drill flutes must also reach from the stock top through full breakthrough, plus the candidate point height and camlib numerical guard; this conservatively includes the point even for tip-referenced bottoms and does not shorten reach for exit obstructions.",
    "code": "resources.rs Library::drill, bore_mill",
    "sources": [
     {
@@ -894,6 +894,36 @@
     {
      "kind": "step2cam",
      "note": "the machine's limits are the shop's, in the resources' machines"
+    }
+   ]
+  },
+  {
+   "id": "process.hole.peck_by_depth",
+   "version": 2,
+   "stage": "tools",
+   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration. Above the reference deep-hole threshold (5D), warn and trace the hole identity and ratio: pilot plus deep-hole drilling is not planned, so full-retract pecking remains the fallback.",
+   "code": "reference.rs drilling; settle.rs tools",
+   "sources": [
+    {
+     "kind": "recognised practice",
+     "via": "reference/drilling.json"
+    },
+    {
+     "kind": "step2cam",
+     "note": "Conservative constant increment and full retract without a per-drill through-tool coolant declaration."
+    }
+   ]
+  },
+  {
+   "id": "process.roughing.reach",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Stopgap for stevecad/camlib#122: each roughing layer is checked against depth below the stock top. Cap at min(flute length, stickout) minus 1 mm, clearing numerical guards and keeping the flute end and holder face above stock. Relax the flute limit to holder clearance once camlib checks per-layer cutting depth. Features must be fully reached; needed-tool queries include this margin in both flute length and stickout. Flats below the cap and wholly unreachable wall bands are left out; crossing wall bands are finished down to the cap, warning of the allowance left below. Dependent chamfers follow missing walls and V-channels on uncleared flats are left out.",
+   "code": "settle.rs cap_roughing, wall_refusal",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "https://github.com/stevecad/camlib/issues/122"
     }
    ]
   }
