@@ -47,6 +47,7 @@ for (const [step, stem] of [
   ["synthetic/stepped-plate-large-chamfer.step", "synthetic/stepped-plate-large-chamfer"],
   ["synthetic/stepped-plate.step", "synthetic/stepped-plate"],
   ["synthetic/stepped-plate-chamfered.step", "synthetic/stepped-plate-chamfered"],
+  ["synthetic/tall-wall-pocket.step", "synthetic/tall-wall-pocket"],
   ["synthetic/square-slots.step", "synthetic/square-slots"],
   ["synthetic/walls/overhang.step", "synthetic/walls/overhang"],
   ["synthetic/walls/island.step", "synthetic/walls/island"],

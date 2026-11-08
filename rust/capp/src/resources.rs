@@ -151,6 +151,17 @@ impl<'a> Library<'a> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
+    /// Explicit last resort after the operation's fully qualifying alternatives are exhausted.
+    fn select_deferred(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
+        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
+        crate::rules::select_for_camlib(selector, &self.tools, &inputs.iter().copied().collect(), &params)
+    }
+    pub(crate) fn deferred_drill(&self, diameter: f64, depth: f64) -> Option<&'a Value> {
+        self.select_deferred("drill", &[("diameter", diameter), ("depth", depth)]).unwrap_or_else(|e| panic!("{e}")).0
+    }
+    pub(crate) fn deferred_pocket_mill(&self, width: f64, depth: f64) -> Option<&'a Value> {
+        self.select_deferred("pocket_mill", &[("width", width), ("depth", depth)]).unwrap_or_else(|e| panic!("{e}")).0
+    }
     /// A selector can fail only if the shipped rules are wrong (tests/rules.rs runs them all); a
     /// tool library cannot make it fail, as a field that is not a number just disqualifies the
     /// tool.
@@ -169,7 +180,7 @@ impl<'a> Library<'a> {
     }
     /// Conservative full-breakthrough depth from the stock top. The selector adds each
     /// candidate's point even for tip-referenced holes and ignores exit obstructions that
-    /// would shorten the job: a kept drill therefore always reaches camlib's target.
+    /// would shorten the job. If none reaches, camlib judges the preferred fitting drill.
     pub fn drill_depth(&self, op: &Value, stock_top: f64) -> Result<f64, String> {
         Ok(stock_top - num(op, "bottom_z")?
             + if op["bottom"] == "through" { self.breakthrough.max(0.) } else { 0. })
@@ -218,7 +229,7 @@ impl<'a> Library<'a> {
         };
         let mut single = Self::new(self.data)?;
         single.tools = vec![tool];
-        let (kept, why) = single.select(selector, &inputs)?;
+        let (kept, why) = single.select_deferred(selector, &inputs)?;
         let kept = kept.ok_or_else(|| why.first().map(|(_, reason)| reason.clone()).unwrap_or_else(|| format!("{name}: wrong tool type or selector keep conditions reject it")))?;
         let mut queries = vec![(selector, inputs)];
         if op["kind"] == "holes" {
@@ -228,11 +239,12 @@ impl<'a> Library<'a> {
         let mut considered = vec![];
         for (selector, inputs) in queries {
             let mut candidates = self.considered(selector, &inputs);
-            if let Some(preferred) = self.select(selector, &inputs)?.0 {
+            if let Some(preferred) = self.select(selector, &inputs)?.0
+                && id(preferred) != name {
                 candidates.push(serde_json::json!({"candidate": id(preferred), "rejected": "qualifies, but supplied choice is used"}));
             }
             for mut candidate in candidates {
-                if candidate["candidate"] == name { continue; }
+                if candidate["candidate"] == name && !why.iter().any(|(id, _)| id == name) { continue; }
                 if candidate["rejected"].as_str().is_some_and(|s| s.starts_with("qualifies, but")) {
                     candidate["rejected"] = serde_json::json!("qualifies, but supplied choice is used");
                 }

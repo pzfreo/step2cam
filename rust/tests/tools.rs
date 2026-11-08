@@ -205,13 +205,21 @@ fn hole_tool_selection_checks_stock_breakthrough_and_point_before_the_job() {
     let (ops, _, _) = posted(&plan, &library);
     assert!(of_kind(&ops, "drilling").is_empty());
     assert_eq!(of_kind(&ops, "bore").len(), 1);
+}
+
+#[test]
+fn a_short_drill_is_deferred_only_when_no_end_mill_can_bore() {
+    let plan = plan(&holes_only(&[down(0., 0., 4.2, 10., "through")]), None, &top_stock(2.)).unwrap();
+    let mut library = example_tools();
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "drill4.2");
+    library["tools"][0]["flute_length"] = json!(13.);
     let settled = finished(&plan, &library);
     let hole = settled["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes").unwrap();
-    assert!(hole["tool"].is_null());
-    assert!(hole["tool_note"].as_str().unwrap().contains("with flutes of at least 13.01 mm plus point length"));
+    assert_eq!(hole["tool"], "drill4.2");
+    assert!(hole["tool_note"].is_null());
+    assert!(settled["decisions"].as_array().unwrap().iter().any(|d| d["says"].as_str().is_some_and(|s| s.contains("reach is left to camlib"))));
     let (ops, _, _) = posted(&plan, &library);
-    assert!(ops.is_empty());
+    assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "drill4.2");
 }
 
 #[test]

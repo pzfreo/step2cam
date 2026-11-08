@@ -63,13 +63,14 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
     let validator = jsonschema::validator_for(&fixture("../../schemas/plan-1.schema.json")).unwrap();
     assert!(validator.is_valid(plan), "the process plan with nonempty tools_needed must match its schema");
     let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter()
-        .filter(|s| s["reason"].as_str().unwrap().contains("depth") && s["reason"].as_str().unwrap().contains("exceeds the cutting length")).collect();
+        .filter(|s| s["reason"].as_str().unwrap().contains("below the stock top") && s["reason"].as_str().unwrap().contains("flutes are 2.0 mm")).collect();
     assert!(skipped.len() >= 8, "{}", plan["skipped"]);
     for skip in &skipped {
         let reason = skip["reason"].as_str().unwrap();
         let (_, need) = reason.rsplit_once(": needs ").expect("reach refusal needs a tool");
-        assert!(reason.starts_with("left out: setup top: invalid "));
-        assert!(reason.contains("exceeds the cutting length 2"));
+        assert!(reason.starts_with("left out: camlib refused the holes: "), "{reason}");
+        assert!(!reason.contains("top-"), "{reason}");
+        assert!(reason.contains("flutes are 2.0 mm"));
         assert!(need.contains("with flutes of at least 1"), "{need}");
         let matches: Vec<_> = plan["tools_needed"].as_array().unwrap().iter().filter(|n| n["description"] == need).collect();
         assert_eq!(matches.len(), 1);

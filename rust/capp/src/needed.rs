@@ -50,7 +50,7 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
 
 /// Only camlib's explicit depth/flute refusal is a missing tool. In particular a stepdown
 /// refusal can be fixed with cutting data, and says nothing about the required tool's reach.
-pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, library: &Library) -> Result<String, String> {
+pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool: Option<&str>, library: &Library) -> Result<String, String> {
     let mut parts = operation.splitn(3, '-');
     let setup_id = parts.next().unwrap_or("");
     let number = parts.next().and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
@@ -66,8 +66,12 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, library: &Li
         Some(top - tip)
     });
     let Some(depth) = depth.filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
+    let tool_id = refused_tool.or(op["tool"].as_str()).unwrap_or("the tool");
+    let tool = library.data["tools"].as_array().and_then(|ts| ts.iter().find(|t| t["id"] == tool_id));
+    let noun = crate::plan::operation_noun(op["kind"].as_str().unwrap_or(""));
+    let plain = tool.and_then(|t| t["flute_length"].as_f64()).map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the stock top and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
     Ok(match for_operation(op, top, library, Some(depth))? {
-        Some(need) => format!("{message}: needs {need}"),
+        Some(need) => format!("{plain}: needs {need}"),
         None => message.into(),
     })
 }

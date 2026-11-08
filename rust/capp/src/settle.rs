@@ -24,9 +24,23 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     crate::spots::create(plan, &Library::new(library)?)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
-        let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), &Library::new(library)?)?;
+        let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), exclusion["tool"].as_str(), &Library::new(library)?)?;
         exclude(plan, operation, &message)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
+        // Preserve the engine's unedited evidence independently of the reader-facing wording.
+        let mut trace = Trace::take(plan);
+        if let Some(decision) = trace.decisions.iter_mut().rev().find(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed") {
+            decision["message"] = exclusion["message"].clone();
+            let refused = decision["id"].clone();
+            if let Some(selection) = exclusion["selection"].as_object() {
+                let mut detail = selection.clone();
+                detail.remove("id");
+                detail.insert("superseded_by".into(), refused);
+                let selection = &exclusion["selection"];
+                trace.decide(selection["rule"].as_str().unwrap().split('@').next().unwrap(), selection["subject"].as_str().unwrap(), "chosen", selection["says"].as_str().unwrap(), json!(detail));
+            }
+        }
+        trace.store(plan);
         settle(plan, library)?;
         crate::spots::prune(plan, &Library::new(library)?, false)?;
     }
@@ -419,7 +433,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                         considered = library.considered("bore_mill", &[("diameter", d)]);
                         considered.extend(drills);
                     }
-                    let tool = drilled.or_else(|| library.bore_mill(d)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
+                    let tool = drilled.or_else(|| library.bore_mill(d)).or_else(|| library.deferred_drill(d, depth)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
                     (tool, "tool.hole.drill_or_bore")
                 }
                 "counterbore" => {
@@ -449,7 +463,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     let width = num(op, "width")?;
                     let depth = num(op, "top_z")? - num(op, "floor_z")?;
                     considered = library.considered("pocket_mill", &[("width", width), ("depth", depth)]);
-                    let tool = library.pocket_mill(width, depth)
+                    let tool = library.pocket_mill(width, depth).or_else(|| library.deferred_pocket_mill(width, depth))
                         .ok_or_else(|| Some(format!("no end mill both narrower than the {} mm width and long enough ({})", show(width), features())));
                     (tool, "tool.notch.pocket_mill")
                 }
@@ -494,7 +508,8 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             }
             let (tool, note, decided) = match chosen {
                 Ok(tool) => {
-                    let says = format!("{} cuts it", id(tool));
+                    let deferred = considered.iter().any(|c| c["candidate"] == id(tool) && c["rejected"].as_str().is_some_and(|r| r.contains("flutes")));
+                    let says = if deferred { format!("{} selected; reach is left to camlib's check", id(tool)) } else { format!("{} cuts it", id(tool)) };
                     let decided = trace.decide(rule, &subject, "chosen", &says, json!({"chosen": id(tool), "considered": considered}));
                     (json!(id(tool)), Value::Null, decided)
                 }

@@ -79,6 +79,24 @@ fn rp(p: V3) -> Value {
 pub fn show(x: f64) -> String {
     format!("{x:?}")
 }
+/// A short operation noun for reader-facing reasons; identifiers belong to the trace.
+pub fn operation_noun(kind: &str) -> &'static str {
+    match kind {
+        "facing" => "facing pass",
+        "roughing" => "roughing pass",
+        "flats" => "flat finishing pass",
+        "spot_drill" => "spot drilling",
+        "holes" => "holes",
+        "counterbore" => "counterbore",
+        "slot" => "slot",
+        "notch" => "notch",
+        "v_channel" => "V-channel",
+        "wall_finish" => "wall finishing pass",
+        "edge_chamfer" => "chamfer",
+        "thread" => "thread",
+        _ => "operation",
+    }
+}
 fn show3(p: V3) -> String {
     format!("[{}, {}, {}]", show(p[0]), show(p[1]), show(p[2]))
 }

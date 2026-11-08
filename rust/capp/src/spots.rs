@@ -78,7 +78,12 @@ fn hole_drill<'a>(ops: &[Value], setup: &str, number: usize, op: &Value, top: f6
         && let Ok((tool, _)) = library.supplied_tool(op, top, &trace.supplied[n]["choice"]) {
         return Ok((tool["type"] == "drill").then_some(tool));
     }
-    Ok(library.drill(num(op, "diameter")?, library.drill_depth(op, top)?))
+    let diameter = num(op, "diameter")?;
+    let depth = library.drill_depth(op, top)?;
+    // Match hole resolution: a usable bore mill takes precedence over a short drill.
+    Ok(library.drill(diameter, depth).or_else(|| {
+        if library.bore_mill(diameter).is_some() { None } else { library.deferred_drill(diameter, depth) }
+    }))
 }
 
 fn groups(ops: &[Value], setup_id: &str, top: f64, library: &Library, trace: &Trace, spot_count: usize, include: &dyn Fn(&Value) -> bool) -> Result<Vec<Value>, String> {

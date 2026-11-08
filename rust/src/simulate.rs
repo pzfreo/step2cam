@@ -150,6 +150,36 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
     Ok(Some(MaterialComparison { report: *report, sweep_proof }))
 }
 
+/// Describe camlib's evidence; this does not decide whether any assembly part collides.
+fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool: &camlib::tool::ToolAssembly) -> Option<String> {
+    use camlib::verification::ToolPart;
+    let contacts: Vec<String> = report.findings.iter().filter(|c| c.finding.status == Status::Violation).map(|c| {
+        let f = &c.finding;
+        let part = match f.part { Some(ToolPart::Cutter) => "flutes", Some(ToolPart::Neck) => "neck", Some(ToolPart::Shank) => "shank", Some(ToolPart::Holder) => "holder", None => "tool assembly" };
+        let section = f.holder_section.map(|n| format!(" section {n}")).unwrap_or_default();
+        let point = c.contact_point_mm.or_else(|| f.witness.as_ref().map(|w| w.tip_mm));
+        let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{:.1}", p[0], p[1], p[2])).unwrap_or_default();
+        let mut text = format!("{}'s {part}{section} hits the stock{at}", tool.id);
+        // The adapter gives thread mills a non-center-cutting flat profile with a neck.
+        // Only offer the end-mill query for its unambiguous end-mill profiles.
+        let end_mill = tool.cutter.center_cutting && tool.cutter.neck.is_none() && matches!(tool.cutter.shape,
+            camlib::tool::CutterShape::Flat | camlib::tool::CutterShape::Ball | camlib::tool::CutterShape::Bull { .. });
+        if end_mill && matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank))
+            && let Some(w) = &f.witness {
+                let reach = (report.stock.max_mm[2] - w.tip_mm[2] + 1.).ceil();
+                text.push_str(&format!(": needs an end mill of ⌀{} with stickout of at least {reach:.0} mm", tool.cutter.diameter_mm));
+                if f.part == Some(ToolPart::Holder) {
+                    let holder = f.holder_section.and_then(|n| tool.holders.get(n));
+                    if let Some(h) = holder {
+                        text.push_str(&format!(", or a narrower holder than the current ⌀{} mm", 2. * h.radius_min_mm.max(h.radius_max_mm)));
+                    }
+                }
+        }
+        text
+    }).collect();
+    (!contacts.is_empty()).then(|| format!("camlib refused the {}: {}", capp::plan::operation_noun(kind), contacts.join("; ")))
+}
+
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
@@ -202,6 +232,13 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
                     let checked = binding.decode(&raw, producer.completed(), Some(&motion))?;
                     match checked.check.motion_status() {
                         Some(Status::Violation) => {
+                            // Adapter IDs retain the planner kind (notch/slot/etc.) even when
+                            // camlib runs them as pocket jobs. Only the noun enters the reason.
+                            let kind = operation.id().split('-').nth(2).unwrap_or("");
+                            if let Check::Motion { stock_contact: Some(report), .. } = &checked.check
+                                && let Some(reason) = stock_contact_reason(kind, report, tool) {
+                                return Err(reason);
+                            }
                             if let Check::Motion { report: Some(report), .. } = &checked.check {
                                 let contacts: Vec<String> = report.findings.iter().filter(|f| f.status == Status::Violation)
                                     .map(|f| format!("{} ({:?}, {:?})", f.object_id, f.kind, f.part)).collect();
@@ -234,4 +271,84 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
     Ok(Run { moves, operations, uncertain, material, sweep_proof })
+}
+
+#[cfg(test)]
+mod contact_wording_tests {
+    use super::*;
+    use camlib::{stock_contact::{ContactFinding, Report}, verification::{Finding, FindingKind, ToolPart, Witness}};
+    use serde_json::json;
+
+    fn contact_fixture() -> (camlib::tool::ToolAssembly, Report) {
+        let tool = serde_json::from_value(json!({"id":"em6", "cutter":{"id":"em6", "shape":{"kind":"flat"}, "diameter_mm":6., "cutting_length_mm":80., "overall_length_mm":100., "shank_diameter_mm":6., "flutes":2, "center_cutting":true}, "stickout_mm":90., "gauge_length_mm":120., "holders":[{"z_min_mm":90., "z_max_mm":120., "radius_min_mm":20., "radius_max_mm":20.}]})).unwrap();
+        let report = Report {
+            algorithm: "continuous_stock_contact_v1".into(),
+            stock: camlib::stock::StockSpec { version:1, units:"mm".into(), min_mm:[0.,0.,-70.], max_mm:[60.,40.,0.], cell_size_mm:1., max_cells:10000 },
+            pre_generation:0, options_sha256:String::new(), tool_sha256:String::new(), motion_sha256:String::new(), motion_id:1,
+            operation:"top-3-notch".into(), tool:"em6".into(), scope:String::new(), status:Status::Violation, fully_examined:true,
+            findings:vec![ContactFinding {
+                finding:Finding {status:Status::Violation, kind:FindingKind::StockContact, object_id:"stock".into(), part:Some(ToolPart::Holder), holder_section:Some(0), fraction_interval:[0.,1.],
+                    witness:Some(Witness {fraction:0.5, tip_mm:[1.,2.,-64.2], section_height_mm:Some(90.), margin_lower_mm:0.1}), detail:"camlib evidence".into()},
+                cell_range:[0,0,1,1], solid_lower_mm:0., possible_upper_mm:0., contact_point_mm:Some([3.,4.,-1.])
+            }], stats:Default::default(), numerical_policy:String::new()
+        };
+        (tool, report)
+    }
+
+    #[test]
+    fn relays_assembly_part_section_and_camlib_position() {
+        let (tool, mut report) = contact_fixture();
+        let text = stock_contact_reason("notch", &report, &tool).unwrap();
+        assert!(text.starts_with("camlib refused the notch: em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0: needs "), "{text}");
+        assert!(!text.contains(&report.operation), "{text}");
+        assert!(text.contains(": needs an end mill of ⌀6 with stickout of at least 66 mm, or a narrower holder than the current ⌀40 mm"), "{text}");
+        for (part, name) in [(ToolPart::Shank,"shank"), (ToolPart::Neck,"neck"), (ToolPart::Cutter,"flutes")] {
+            report.findings[0].finding.part = Some(part);
+            report.findings[0].finding.holder_section = None;
+            report.findings[0].contact_point_mm = None;
+            let text = stock_contact_reason("notch", &report, &tool).unwrap();
+            assert!(text.contains(&format!("em6's {name} hits the stock at X1.0 Y2.0 Z-64.2")), "{text}");
+            assert_eq!(text.contains(": needs "), part == ToolPart::Shank);
+        }
+        assert!(stock_contact_reason("unknown", &report, &tool).unwrap().starts_with("camlib refused the operation: "));
+        report.findings[0].finding.status = Status::Uncertain;
+        assert!(stock_contact_reason("notch", &report, &tool).is_none());
+    }
+
+    #[test]
+    fn non_end_mill_contacts_do_not_request_an_end_mill() {
+        use camlib::tool::{CutterShape, Neck};
+        let mut library: serde_json::Value = serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        library.as_object_mut().unwrap().remove("machines");
+        for (name, shape, neck, center_cutting) in [
+            ("drill6", CutterShape::Drill { point_angle_rad: 118f64.to_radians() }, None, true),
+            ("cm6", CutterShape::Chamfer { included_angle_rad: 90f64.to_radians(), tip_diameter_mm: 0. }, None, true),
+            ("tm6", CutterShape::Flat, Some(Neck { diameter_mm: 4., length_mm: 50. }), false),
+        ] {
+            for (part, label) in [(ToolPart::Shank, "shank"), (ToolPart::Holder, "holder section 0")] {
+                let (mut tool, mut report) = contact_fixture();
+                tool.id = name.into();
+                tool.cutter.id = name.into();
+                report.tool = name.into();
+                report.operation = "top-1-holes".into();
+                tool.cutter.shape = shape.clone();
+                tool.cutter.neck = neck.clone();
+                tool.cutter.center_cutting = center_cutting;
+                report.findings[0].finding.part = Some(part);
+                report.findings[0].finding.holder_section = (part == ToolPart::Holder).then_some(0);
+                let reason = stock_contact_reason("holes", &report, &tool).unwrap();
+                assert_eq!(reason, format!("camlib refused the holes: {name}'s {label} hits the stock at X3.0 Y4.0 Z-1.0"));
+                assert!(!reason.contains("end mill"), "{reason}");
+                assert!(!reason.contains(": needs "), "{reason}");
+                let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-70],"max":[60,40,0]}, "operations":[
+                    {"kind":"holes", "diameter":6., "top_z":0., "bottom_z":-64., "features":["holes:0"]}
+                ]}]});
+                capp::exclude(&mut plan, "top-1-holes", &reason).unwrap();
+                capp::finish(&mut plan, &library, &[]).unwrap();
+                assert_eq!(plan["skipped"][0]["reason"], format!("left out: {reason}"));
+                assert_eq!(plan["tools_needed"], json!([]), "{plan}");
+            }
+        }
+    }
+
 }
