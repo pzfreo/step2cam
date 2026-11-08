@@ -14,6 +14,12 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+pub const WORKHOLDING: &str = include_str!("../rulebase/rules/workholding.json");
+pub fn workholding() -> &'static Value {
+    static CELL: OnceLock<Value> = OnceLock::new();
+    parsed(WORKHOLDING, "workholding.json", &CELL)
+}
+
 pub const TOOLS: &str = include_str!("../rulebase/rules/tools.json");
 pub const SEQUENCE: &str = include_str!("../rulebase/rules/sequence.json");
 pub const PROCESS: &str = include_str!("../rulebase/rules/process.json");

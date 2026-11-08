@@ -72,6 +72,31 @@
     "material": {
      "type": "string",
      "description": "The material the part is cut from, in place of Specify's part.material."
+    },
+    "clamping": {
+     "type": "object",
+     "description": "Per-setup clamping proposals, checked against vise dimensions and grip rules. An omitted parallels_height_mm inherits the vise value; null disables modeled parallels.",
+     "additionalProperties": false,
+     "properties": {
+      "top": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "bottom": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "front": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "back": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "left": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "right": {
+       "$ref": "#/$defs/clamping_override"
+      }
+     }
     }
    },
    "additionalProperties": false
@@ -1285,9 +1310,49 @@
        "max_diameter_mm": {
         "type": "number",
         "exclusiveMinimum": 0
+       },
+       "jaw_width_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "jaw_height_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "parallels_height_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
        }
       }
      }
+    }
+   }
+  },
+  "clamping_override": {
+   "type": "object",
+   "required": [
+    "axis",
+    "grip_height_mm"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "axis": {
+     "enum": [
+      "x",
+      "y"
+     ],
+     "description": "The setup-frame axis across which the jaws close; selects that stock axis min/max faces."
+    },
+    "grip_height_mm": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "parallels_height_mm": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "exclusiveMinimum": 0
     }
    }
   }
