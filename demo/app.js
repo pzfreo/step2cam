@@ -1446,6 +1446,8 @@ function show(data) {
   buildSaveButtons(model);
   buildPlan(model);
   showStory(model);
+  $("phone-story").hidden = true;
+  for (const step of document.querySelectorAll(".story-step")) step.removeAttribute("aria-expanded");
   $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
