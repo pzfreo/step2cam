@@ -144,10 +144,34 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String,
 mod flip_tests {
     use super::*;
     #[test]
+    fn default_demo_programs_and_notes_match_ordinary_planning() {
+        let resources: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        for (a,m) in [
+            (include_str!("../../tests/fixtures/plate.analysis.json"),include_str!("../../tests/fixtures/plate.mesh.json")),
+            (include_str!("../../tests/fixtures/mounting-plate.analysis.json"),include_str!("../../tests/fixtures/mounting-plate.mesh.json")),
+            (include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json"),include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")),
+        ] {
+            let a: Value=serde_json::from_str(a).unwrap();let m: Value=serde_json::from_str(m).unwrap();
+            let ordinary=capp::plan::plan(&a,Some(&m),&Default::default()).unwrap();
+            let ordinary=process_planned(&a,&m,&resources,ordinary,vec![]).unwrap();
+            for choice in [None,Some("none")] {
+                let mut t=resources.clone();
+                if let Some(choice)=choice {t["overrides"]["workholding_option"]=json!(choice);}
+                let out=process(&a,&m,&t).unwrap();
+                assert!(out["error"].is_null(),"{}",out["error"]);
+                assert_eq!(out["programs"],ordinary["programs"]);
+                assert_eq!(out["log"],ordinary["log"]);
+                assert!(!out["plan"]["setups"].as_array().unwrap().iter().any(|s|s.get("flip_seating").is_some()));
+            }
+        }
+    }
+
+    #[test]
     fn excluded_roughing_cannot_leave_a_finished_grip_and_process_replans() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let planned=capp::flip::plan(&a,&m,&t).unwrap();
         let mut resolved=planned.clone();capp::finish(&mut resolved,&t,&[]).unwrap();
         let n=resolved["setups"][0]["operations"].as_array().unwrap().iter().position(|o|o["kind"]=="roughing").unwrap()+1;
@@ -177,7 +201,8 @@ mod flip_tests {
     fn no_top_cuts_or_missing_seating_cannot_establish_a_flip_grip() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let mut empty=capp::flip::plan(&a,&m,&t).unwrap();
         empty["setups"][0]["operations"]=json!([]);
         capp::finish(&mut empty,&t,&[]).unwrap();
@@ -199,7 +224,8 @@ mod flip_tests {
     fn refused_preparation_replans_without_the_flip_and_resets_exclusions() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let mut p=capp::flip::plan(&a,&m,&t).unwrap();
         // Distort a lower corner arc while preserving the straight grip faces: camlib must refuse it, after
         // which the bottom grip loses its preparation and triggers fallback.

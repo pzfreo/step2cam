@@ -12,7 +12,9 @@ fn list(value: &Value) -> &Vec<Value> {
 use serde_json::{Value, json};
 
 fn tools() -> Value {
-    fixture("../../demo/tools.json")
+    let mut t = fixture("../../demo/tools.json");
+    t["overrides"]["workholding_option"] = json!("vise_flip_face");
+    t
 }
 fn input() -> (Value, Value) {
     (
@@ -278,5 +280,103 @@ fn modeled_side_pockets_reduce_contact_and_preserve_a_usable_grip() {
         .filter(|p| p["setup"] != "front")
     {
         assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
+    }
+}
+
+#[test]
+fn default_and_none_trace_availability_without_changing_the_machine_independent_plan() {
+    let (a, m) = input();
+    let original = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
+    for choice in [None, Some("none")] {
+        let mut t = fixture("../../demo/tools.json");
+        if let Some(choice) = choice {
+            t["overrides"]["workholding_option"] = json!(choice);
+        }
+        let mut p = capp::flip::plan(&a, &m, &t).unwrap();
+        let d = p["decisions"].as_array_mut().unwrap().pop().unwrap();
+        assert_eq!(d["chosen"]["selected"], false);
+        assert_eq!(d["chosen"]["available"], true);
+        assert_eq!(d["chosen"]["requested"], json!(choice));
+        assert!(
+            d["says"]
+                .as_str()
+                .unwrap()
+                .contains("available but was not selected")
+        );
+        assert_eq!(p, original, "only the availability decision may differ");
+    }
+    let p = capp::flip::plan(&a, &m, &tools()).unwrap();
+    let d = list(&p["decisions"])
+        .iter()
+        .find(|d| {
+            d["rule"].as_str().unwrap().starts_with("setup.flip_face") && d["subject"] == "part"
+        })
+        .unwrap();
+    assert_eq!(d["chosen"]["selected"], true);
+    assert_eq!(d["chosen"]["available"], true);
+    assert_eq!(setup(&p, "bottom")["operations"][0]["kind"], "facing");
+}
+
+#[test]
+fn unavailable_selected_options_and_invalid_choices_are_explicit() {
+    let (a, m) = input();
+    let mut no_vise = tools();
+    no_vise.as_object_mut().unwrap().remove("machines");
+    let mut clamping = tools();
+    clamping["overrides"]["clamping"] = json!({"top":{"axis":"y","grip_height_mm":3.8}});
+    let mut ineligible = a.clone();
+    ineligible["features"] = json!([]);
+    let mut missing = m.clone();
+    missing["missing"] = json!([0]);
+    for (a, m, t, reason) in [
+        (&a, &m, &no_vise, "dimensioned vise"),
+        (&a, &m, &clamping, "clamping proposals"),
+        (
+            &ineligible,
+            &missing,
+            &tools(),
+            "no planned web or through features",
+        ),
+    ] {
+        let p = capp::flip::plan(a, m, t).unwrap();
+        let d = list(&p["decisions"]).last().unwrap();
+        assert_eq!(d["chosen"]["selected"], true);
+        assert_eq!(d["chosen"]["available"], false);
+        assert!(d["says"].as_str().unwrap().contains(reason), "{d}");
+        assert!(
+            !list(&p["setups"])
+                .iter()
+                .any(|s| s.get("flip_seating").is_some())
+        );
+    }
+    let validator =
+        jsonschema::validator_for(&fixture("../../schemas/resources-1.schema.json")).unwrap();
+    for choice in [
+        json!("typo"),
+        json!(""),
+        json!(null),
+        json!(false),
+        json!(1),
+    ] {
+        let mut t = tools();
+        t["overrides"]["workholding_option"] = choice;
+        let err = capp::resources::normalize(&t).unwrap_err();
+        assert!(err.contains("overrides.workholding_option"), "{err}");
+        assert!(
+            err.contains("none") && err.contains("vise_flip_face"),
+            "{err}"
+        );
+        assert!(
+            step2cam::process(&a, &m, &t)
+                .unwrap_err()
+                .contains("overrides.workholding_option")
+        );
+        assert!(!validator.is_valid(&t));
+    }
+    for choice in ["none", "vise_flip_face"] {
+        let mut t = tools();
+        t["overrides"]["workholding_option"] = json!(choice);
+        assert!(capp::resources::normalize(&t).is_ok());
+        assert!(validator.is_valid(&t));
     }
 }

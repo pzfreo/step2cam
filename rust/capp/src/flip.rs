@@ -367,58 +367,56 @@ pub fn fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Value, S
         "part",
         "none",
         &format!("vise flip option withheld; replanned without sacrificial bottom stock: {reason}"),
-        json!({"chosen":{"option":"vise_flip_face","available":false}}),
+        json!({"chosen":{"option":"vise_flip_face","selected":true,"available":false}}),
     );
     trace.store(&mut p);
     Ok(p)
 }
 
-/// Resource-aware entry point. Without a dimensioned vise this returns exactly
-/// machine-independent plan(defaults), including its original trace.
+/// Resource-aware entry point. Always trace availability, but only build the
+/// flip when overrides.workholding_option explicitly selects vise_flip_face.
 pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, String> {
+    let requested = crate::resources::workholding_option(resources)?;
+    let selected = requested == Some("vise_flip_face");
     let defaults = Options::default();
     let original = crate::plan::plan(analysis, Some(mesh), &defaults)?;
-    let vise = crate::machines::mill(resources).and_then(|m| {
-        m["workholding"]
-            .as_array()?
-            .iter()
-            .find(|w| w["kind"] == "vise")
-    });
-    let Some(vise) = vise.filter(|v| {
-        ["jaw_width_mm", "jaw_height_mm", "max_jaw_opening_mm"]
-            .iter()
-            .all(|k| v[*k].as_f64().is_some_and(|n| n.is_finite() && n > 0.))
-    }) else {
-        return Ok(original);
-    };
-    if resources["overrides"]["clamping"]
-        .as_object()
-        .is_some_and(|p| !p.is_empty())
-    {
-        let mut p = original;
-        let mut trace = Trace::take(&mut p);
-        trace.decide(
-            RULE,
-            "part",
-            "none",
-            "explicit clamping proposals retain their original stock and setup contract",
-            json!({"chosen":{"option":"vise_flip_face","available":false}}),
-        );
-        trace.store(&mut p);
-        return Ok(p);
-    }
-    let eligible = original["setups"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .flat_map(|s| s["operations"].as_array().into_iter().flatten())
-        .any(|o| o["web_mm"].as_f64().is_some_and(|w| w > 0.) || o["bottom"] == "through");
-    if !eligible {
-        return Ok(original);
-    }
-    let lo: Point = serde_json::from_value(mesh["bbox"][0].clone()).map_err(|e| e.to_string())?;
-    let hi: Point = serde_json::from_value(mesh["bbox"][1].clone()).map_err(|e| e.to_string())?;
-    let selected: Result<(f64, Value), String> = (|| {
+    let availability: Result<(f64, Value, Point, Point), String> = (|| {
+        let vise = crate::machines::mill(resources)
+            .and_then(|m| {
+                m["workholding"]
+                    .as_array()?
+                    .iter()
+                    .find(|w| w["kind"] == "vise")
+            })
+            .filter(|v| {
+                ["jaw_width_mm", "jaw_height_mm", "max_jaw_opening_mm"]
+                    .iter()
+                    .all(|k| v[*k].as_f64().is_some_and(|n| n.is_finite() && n > 0.))
+            })
+            .ok_or("a mill with a dimensioned vise is required (jaw width, height and opening)")?;
+        if resources["overrides"]["clamping"]
+            .as_object()
+            .is_some_and(|p| !p.is_empty())
+        {
+            return Err(
+                "explicit clamping proposals retain their original stock and setup contract".into(),
+            );
+        }
+        let eligible = original["setups"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|s| s["operations"].as_array().into_iter().flatten())
+            .any(|o| o["web_mm"].as_f64().is_some_and(|w| w > 0.) || o["bottom"] == "through");
+        if !eligible {
+            return Err(
+                "the part has no planned web or through features requiring flip-and-face".into(),
+            );
+        }
+        let lo: Point = serde_json::from_value(mesh["bbox"][0].clone())
+            .map_err(|e| format!("flip needs mesh bounds: {e}"))?;
+        let hi: Point = serde_json::from_value(mesh["bbox"][1].clone())
+            .map_err(|e| format!("flip needs mesh bounds: {e}"))?;
         if !original["setups"]
             .as_array()
             .into_iter()
@@ -463,24 +461,22 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         {
             return Err("Op 1 tool cannot reach the whole outline; camlib#121 / #45 box stock cannot carry the uncut margin for Op 2 finishing, so the flip option is withheld".into());
         }
-        Ok((b, seat))
+        Ok((b, seat, lo, hi))
     })();
-    let (b, mut seat) = match selected {
-        Ok(v) => v,
-        Err(reason) => {
-            let mut p = original;
-            let mut trace = Trace::take(&mut p);
-            trace.decide(
-                RULE,
-                "part",
-                "none",
-                &reason,
-                json!({"chosen":{"option":"vise_flip_face","available":false}}),
-            );
-            trace.store(&mut p);
-            return Ok(p);
-        }
-    };
+    if !selected || availability.is_err() {
+        let available = availability.is_ok();
+        let reason=match &availability {
+            Ok(_) => "vise flip-and-face option is available but was not selected; selection belongs to the caller, with choosing rules deferred to #94".to_string(),
+            Err(reason) if selected => format!("selected vise flip-and-face option is unavailable: {reason}"),
+            Err(reason) => format!("vise flip-and-face option was not selected and is unavailable: {reason}"),
+        };
+        let mut p = original;
+        let mut trace = Trace::take(&mut p);
+        trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available}}));
+        trace.store(&mut p);
+        return Ok(p);
+    }
+    let (b, mut seat, lo, hi) = availability?;
     let options = Options {
         bottom_stock: b,
         skin: 0.,
@@ -488,7 +484,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     };
     let mut p = crate::plan::plan(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take(&mut p);
-    let chosen = trace.decide(RULE,"part","chosen", "vise flip-and-face option enabled: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","available":true,"bottom_stock_mm":b,"seating":seat}}));
+    let chosen = trace.decide(RULE,"part","chosen", "explicitly selected vise flip-and-face option: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
     let warning = trace.warn(RULE,"bottom",format!("bottom setup starts from the part box plus bottom stock (camlib#121 / #45): stock history and Op 1's residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Stock history and holding strength are not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the box does not represent the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
     let setups = p["setups"].as_array_mut().unwrap();
     let top = setups.iter_mut().find(|s| s["id"] == "top").unwrap();
@@ -661,7 +657,7 @@ mod tests {
         );
     }
     #[test]
-    fn no_vise_or_missing_dimensions_is_exactly_the_original_plan() {
+    fn no_vise_or_missing_dimensions_traces_unavailability_without_changing_the_plan() {
         let a: Value =
             serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json"))
                 .unwrap();
@@ -672,7 +668,23 @@ mod tests {
             json!({}),
             json!({"machines":[{"kind":"mill","workholding":[{"kind":"vise","max_jaw_opening_mm":150}]}]}),
         ] {
-            assert_eq!(plan(&a, &m, &resources).unwrap(), original);
+            for selected in [false, true] {
+                let mut resources = resources.clone();
+                if selected {
+                    resources["overrides"]["workholding_option"] = json!("vise_flip_face");
+                }
+                let mut p = plan(&a, &m, &resources).unwrap();
+                let decision = p["decisions"].as_array_mut().unwrap().pop().unwrap();
+                assert_eq!(decision["chosen"]["selected"], selected);
+                assert_eq!(decision["chosen"]["available"], false);
+                assert!(
+                    decision["says"]
+                        .as_str()
+                        .unwrap()
+                        .contains("dimensioned vise")
+                );
+                assert_eq!(p, original);
+            }
         }
     }
     #[test]

@@ -116,11 +116,22 @@ holding-strength calculation. For ordinary setups no operations are removed by t
 recompute it after refusals, so excluded earlier operations do not count as cuts.
 
 `capp::flip::plan(analysis, mesh, resources)` implements the self-contained #86 vise
-flip-and-face option. `process` enables it for a dimensioned vise and a web or through
-feature. #94 can offer or withhold this entry point without changing machine-independent
-`plan`; no options table or supplied decision protocol is introduced. Missing vise dimensions
-retain the original plan. Ineligible seating, opening, grip or tool reach is traced as withheld;
-explicit clamping overrides retain their original stock contract.
+flip-and-face option. Selection is explicit in the resources:
+
+```json
+{"overrides":{"workholding_option":"vise_flip_face"}}
+```
+
+Without `overrides.workholding_option`, or with `"none"`, `process` keeps the ordinary
+machine-independent plan and its machining behavior, including the demo's default plans.
+It adds a trace decision recording whether the flip was available and that it was not
+selected. Only `"vise_flip_face"` requests the flip. Availability requires a dimensioned
+vise, a web or through feature, and the seating, grip, opening and reach checks below.
+An unavailable selected option keeps ordinary planning and traces the reason, including
+missing vise data, ineligible parts, explicit clamping proposals, and execution fallback.
+Unknown values (including null and non-strings) are rejected during resource normalisation.
+The switch chooses an option directly; a rule choosing between options belongs to #94.
+No options table, supplied-decision protocol or automatic choice is introduced.
 
 Stock in this option includes bottom stock B, solved from
 `B >= max(3.175, 0.2 * (part_height + top_stock + B)) + 1 + 1`.

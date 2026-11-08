@@ -73,6 +73,10 @@
      "type": "string",
      "description": "The material the part is cut from, in place of Specify's part.material."
     },
+    "workholding_option": {
+     "enum": ["none", "vise_flip_face"],
+     "description": "Explicit workholding selection. Absent or none retains ordinary planning; vise_flip_face requests the flip option subject to its availability and checks. Choosing rules belong to #94."
+    },
     "clamping": {
      "type": "object",
      "description": "Per-setup clamping proposals, checked against vise dimensions and grip rules. An omitted parallels_height_mm inherits the vise value; null disables modeled parallels.",
