@@ -54,7 +54,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             let hint = if turned { "; turned 90° it would fit, which this plan does not do" } else { "" };
             let rule = if clamping_failure.is_some() { "machine.clamping" } else { "machine.travel" };
             let says = clamping_failure.unwrap_or_else(|| format!("the {setup_id} setup's stock does not fit {}: {}{hint}", name(mill), over.join(", ")));
-            trace.warn(rule, &setup_id, format!("setup {setup_id} is not cut: {says}"));
+            trace.warn(rule, &setup_id, format!("setup {setup_id} is not cut: {says}"), json!({}));
             for op in setup["operations"].as_array().into_iter().flatten() {
                 if op["kind"] == "roughing" {
                     lost_roughing = Some((rule, says.clone()));
@@ -114,12 +114,12 @@ pub fn check_changer(plan: &Value, resources: &Value, trace: &mut Trace) {
             continue;
         }
         if changer["kind"] == "manual" {
-            trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()));
+            trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()), json!({}));
             continue;
         }
         if let Some(pockets) = changer["pockets"].as_u64() {
             if tools.len() as u64 > pockets {
-                trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")));
+                trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")), json!({}));
             }
         }
     }
