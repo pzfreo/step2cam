@@ -1,7 +1,7 @@
 {
  "format": "capp-rules",
  "version": 1,
- "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, and `else_reject` says why. Conditions in a list are checked in order, as `&&` would be. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values (drill_tolerance_mm), step2cam's constants (tip_clearance_mm) and the tool's fields (`tool.diameter`). A tool field that is missing or not a number fails every comparison, so that tool is not chosen.",
+ "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, and `else_reject` says why. Conditions in a list are checked in order, as `&&` would be. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values (drill_tolerance_mm), step2cam's constants (tip_clearance_mm) and the tool's fields (`tool.diameter`). A tool field that is missing or not a number fails every comparison, so that tool is not chosen. `needed` describes a missing tool using the same inputs and let values. up2/down2 round bounds conservatively to 0.01 mm; the thread neck and chamfer span descriptions restate the keep conditions algebraically.",
  "selectors": [
   {
    "id": "largest_end_mill",
@@ -12,7 +12,8 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "needed": "an end mill"
   },
   {
    "id": "drill",
@@ -34,7 +35,15 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "first"
-   }
+   },
+   "let": [
+    [
+     "minimum",
+     "diameter - drill_tolerance_mm"
+    ]
+   ],
+   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2}",
+   "needed_exact": "a drill of ⌀{diameter}"
   },
   {
    "id": "bore_mill",
@@ -45,14 +54,21 @@
    ],
    "keep": [
     {
-     "if": "tool.diameter < diameter - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} leaves no room to helix in ⌀{diameter}"
     }
    ],
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "let": [
+    [
+     "maximum",
+     "diameter - 0.05"
+    ]
+   ],
+   "needed": "an end mill under ⌀{maximum:down2}"
   },
   {
    "id": "pocket_mill",
@@ -64,7 +80,7 @@
    ],
    "keep": [
     {
-     "if": "tool.diameter < width - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} is too wide for the {width} mm width"
     },
     {
@@ -75,7 +91,14 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "let": [
+    [
+     "maximum",
+     "width - 0.05"
+    ]
+   ],
+   "needed": "an end mill under ⌀{maximum:down2}"
   },
   {
    "id": "v_bit",
@@ -97,7 +120,8 @@
    "prefer": {
     "largest": "tool.angle",
     "ties": "last"
-   }
+   },
+   "needed": "a sharp V-bit with zero tip diameter and angle at most {angle:down2}°"
   },
   {
    "id": "chamfer_mill",
@@ -118,7 +142,14 @@
    ],
    "prefer": {
     "first": true
-   }
+   },
+   "let": [
+    [
+     "radial_span",
+     "tip_clearance_mm + width"
+    ]
+   ],
+   "needed": "a 90° chamfer mill with (diameter - tip diameter) / 2 at least {radial_span:up2} mm"
   },
   {
    "id": "thread_mill",
@@ -137,15 +168,15 @@
      "else_reject": "{tool.id}: pitch {pitch} outside its range"
     },
     {
-     "if": "tool.diameter < start_diameter - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} does not fit the ⌀{start_diameter} hole"
     },
     {
-     "if": "tool.neck_diameter / 2 < room - 0.01",
+     "if": "tool.neck_diameter / 2 < room - clearance",
      "else_reject": "{tool.id}: its ⌀{tool.neck_diameter:raw} neck would rub the thread crests"
     },
     {
-     "if": "reach > below + 0.01",
+     "if": "reach > below + clearance",
      "else_reject": "{tool.id}: reaches {reach} mm, the thread ends {below:r} mm below the stock top"
     }
    ],
@@ -154,6 +185,10 @@
     "ties": "first"
    },
    "let": [
+    [
+     "clearance",
+     "0.01"
+    ],
     [
      "room",
      "start_diameter / 2 - (major / 2 - tool.diameter / 2)"
@@ -165,12 +200,25 @@
     [
      "below",
      "stock_top - bottom_z"
+    ],
+    [
+     "maximum",
+     "start_diameter - 0.05"
+    ],
+    [
+     "neck_offset",
+     "start_diameter - major - 2 * clearance"
+    ],
+    [
+     "reach_min",
+     "stock_top - bottom_z + clearance"
     ]
    ],
    "defaults": {
     "tool.min_pitch_mm": 0,
     "tool.max_pitch_mm": "inf"
-   }
+   },
+   "needed": "a thread mill whose pitch range includes {pitch} mm, under ⌀{maximum:down2}, with neck diameter under (cutter diameter + {neck_offset:down2}) mm and tooth height + neck length over {reach_min:up2} mm"
   }
  ]
 }

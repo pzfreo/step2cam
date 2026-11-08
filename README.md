@@ -203,6 +203,15 @@ The plan says **what** to cut, independent of tools and machine.
   allowance.
 - **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
   that cuts it, or why none can (`tool_note`).
+- **`tools_needed`**, after `capp::finish`: missing-tool queries, each with a `description`,
+  `features` and `operations` (operation ids or decision subjects). Identical descriptions merge;
+  alternatives stay together, without attempting a minimal shopping list. Tool-related reasons
+  and `tool_note` end with `: needs <description>`. Bounds come from the selectors in
+  `rust/capp/rulebase/rules/tools.json` and the library's drill tolerance. Diameter limits round
+  conservatively to 0.01 mm; flute reach rounds up to whole mm with 0.001 mm clearance for the
+  execution engine's numerical guard. A drill may additionally need its point length to reach
+  full diameter. Excessive stepdown is a cutting-data issue, not a missing-tool query. When
+  roughing is refused for tool reach, its covered features inherit the same query.
 - **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
   made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
   rationale, sources and where the code applies it. Where a rule's logic is itself data, it says

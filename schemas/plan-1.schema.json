@@ -136,6 +136,38 @@
    },
    "additionalProperties": false,
    "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
+  },
+  "tools_needed": {
+   "description": "After capp::finish: deduplicated missing-tool queries from tool_note and exclusion reasons. Identical descriptions merge features and operation/decision subjects. Absent before settlement and in older plans.",
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "description",
+     "features",
+     "operations"
+    ],
+    "properties": {
+     "description": {
+      "type": "string"
+     },
+     "features": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "uniqueItems": true
+     },
+     "operations": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "uniqueItems": true
+     }
+    },
+    "additionalProperties": false
+   }
   }
  },
  "additionalProperties": false,
