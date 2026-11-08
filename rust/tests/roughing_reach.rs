@@ -74,7 +74,8 @@ fn capped_roughing_runs_through_camlib_without_gouging() {
         &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &tools(12., 80.)).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(ops(&out["plan"]).iter().any(|o| o["kind"] == "roughing" && o["floor_z"] == -11.));
-    for program in out["programs"].as_array().unwrap() {
+    assert!(!out["programs"][0]["material"].is_null(), "roughing must retain its material check");
+    for program in out["programs"].as_array().unwrap().iter().filter(|p| !p["material"].is_null()) {
         assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
     }
     let validator = jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
@@ -106,6 +107,7 @@ fn boundary_and_partial_features_and_dependent_chamfers_use_the_capped_frame() {
         {"kind":"roughing", "top_z":10., "floor_z":-30., "web_mm":2.},
         {"kind":"flats", "floor_z":-30., "levels":[-5.,-1.,2.]},
         {"kind":"holes", "diameter":3., "bottom_z":-25., "features":["holes:0"]},
+        {"kind":"v_channel", "on_flat":true, "top_z":-5., "root_z":-6., "features":["v_channels:0"]},
         {"kind":"wall_finish", "wall":"wall-1", "floor_z":-2., "on_flat":false},
         {"kind":"edge_chamfer", "needs_wall":"wall-1", "boundaries":"outer", "radius":0.5,
          "features":["fillets:0"], "wall_features":["fillets:0"]}
@@ -122,7 +124,7 @@ fn boundary_and_partial_features_and_dependent_chamfers_use_the_capped_frame() {
     assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "roughing").unwrap()["floor_z"], -1.);
     assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "flats").unwrap()["levels"], json!([-1.,2.]));
     assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "holes").unwrap()["bottom_z"], -25.);
-    assert!(!ops(&plan).iter().any(|o| o["kind"] == "wall_finish" || o["kind"] == "edge_chamfer"));
+    assert!(!ops(&plan).iter().any(|o| o["kind"] == "wall_finish" || o["kind"] == "edge_chamfer" || o["kind"] == "v_channel"));
     assert!(plan["skipped"].as_array().unwrap().iter().any(|s| s["feature"] == "fillets:0" && s["reason"].as_str().unwrap().contains("its wall")));
 }
 
@@ -133,4 +135,23 @@ fn no_positive_reach_keeps_the_surface_for_checks_and_removes_roughing() {
     assert!(!ops(&plan).iter().any(|o| o["kind"] == "roughing" || o["kind"] == "flats" || o["kind"] == "wall_finish"));
     assert!(plan["covered_by_roughing"].as_array().unwrap().is_empty());
     assert!(plan["setups"][0]["part_surface"]["positions"].is_array());
+}
+
+#[test]
+fn schema_accepts_mesh_free_settled_roughing_but_rejects_missing_or_partial_input_meshes() {
+    let validator = jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
+    let mut plan = planned("top");
+    assert!(validator.is_valid(&plan));
+    let operations = plan["setups"][0]["operations"].as_array_mut().unwrap();
+    let rough = operations.iter_mut().find(|o| o["kind"] == "roughing").unwrap();
+    let positions = rough.as_object_mut().unwrap().remove("positions").unwrap();
+    assert!(!validator.is_valid(&plan));
+    let rough = plan["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == "roughing").unwrap();
+    rough.as_object_mut().unwrap().remove("indices");
+    assert!(!validator.is_valid(&plan), "unsettled roughing must have a mesh");
+    capp::finish(&mut plan, &tools(12., 80.), &[]).unwrap();
+    assert!(validator.is_valid(&plan), "settled roughing may omit both mesh arrays");
+    let rough = plan["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == "roughing").unwrap();
+    rough["positions"] = positions;
+    assert!(!validator.is_valid(&plan), "a half-present mesh is always invalid");
 }

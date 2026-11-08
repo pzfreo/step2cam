@@ -108,7 +108,7 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
             rough["web_mm"] = json!(web + floor - old);
         }
         let why = reach_reason(rough, mill)?;
-        let decision = trace.warn(REACH_RULE, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left for another setup"));
+        let decision = trace.warn(REACH_RULE, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"));
         because(rough, [decision]);
         if let Some(depths) = depths.as_object() {
             for (id, depth) in depths {
@@ -178,6 +178,13 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(
 
 /// Why this V-channel cannot be cut, if it cannot.
 fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(&'static str, String)>, String> {
+    if op["on_flat"] == true {
+        let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+        if let Some(rough) = rough.filter(|rough| op["top_z"].as_f64().zip(rough["floor_z"].as_f64()).is_some_and(|(top, floor)| top < floor))
+            && let Some(mill) = library.clearing("roughing")? {
+            return Ok(Some((REACH_RULE, format!("the flat it is cut in is below the cleared stock; {}", reach_reason(rough, mill)?))));
+        }
+    }
     if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
         return Ok(Some(("feasibility.v_channel.needs_flat", "the flat it is cut in has not been cut, so it is not cut".into())));
     }

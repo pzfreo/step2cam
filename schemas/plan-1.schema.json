@@ -401,9 +401,7 @@
       "top_z",
       "floor_z",
       "web_mm",
-      "surface_error_mm",
-      "positions",
-      "indices"
+      "surface_error_mm"
      ],
      "properties": {
       "kind": {
@@ -522,7 +520,29 @@
        "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
       }
      },
-     "additionalProperties": false
+     "additionalProperties": false,
+     "anyOf": [
+      {
+       "required": [
+        "positions",
+        "indices"
+       ]
+      },
+      {
+       "required": [
+        "tool",
+        "tool_note"
+       ]
+      }
+     ],
+     "dependentRequired": {
+      "positions": [
+       "indices"
+      ],
+      "indices": [
+       "positions"
+      ]
+     }
     },
     {
      "description": "Finish the upward flat faces between the top and the roughing floor.",
