@@ -68,7 +68,8 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
     for skip in &skipped {
         let reason = skip["reason"].as_str().unwrap();
         let (_, need) = reason.rsplit_once(": needs ").expect("reach refusal needs a tool");
-        assert!(reason.starts_with("left out: camlib refused top-"));
+        assert!(reason.starts_with("left out: camlib refused the holes: "), "{reason}");
+        assert!(!reason.contains("top-"), "{reason}");
         assert!(reason.contains("flutes are 2.0 mm"));
         assert!(need.contains("with flutes of at least 1"), "{need}");
         let matches: Vec<_> = plan["tools_needed"].as_array().unwrap().iter().filter(|n| n["description"] == need).collect();

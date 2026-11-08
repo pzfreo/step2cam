@@ -151,7 +151,7 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
 }
 
 /// Describe camlib's evidence; this does not decide whether any assembly part collides.
-fn stock_contact_reason(report: &camlib::stock_contact::Report, tool: &camlib::tool::ToolAssembly) -> Option<String> {
+fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool: &camlib::tool::ToolAssembly) -> Option<String> {
     use camlib::verification::ToolPart;
     let contacts: Vec<String> = report.findings.iter().filter(|c| c.finding.status == Status::Violation).map(|c| {
         let f = &c.finding;
@@ -159,7 +159,7 @@ fn stock_contact_reason(report: &camlib::stock_contact::Report, tool: &camlib::t
         let section = f.holder_section.map(|n| format!(" section {n}")).unwrap_or_default();
         let point = c.contact_point_mm.or_else(|| f.witness.as_ref().map(|w| w.tip_mm));
         let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{:.1}", p[0], p[1], p[2])).unwrap_or_default();
-        let mut text = format!("{}'s {part}{section} hits the stock{at} in {}", tool.id, report.operation);
+        let mut text = format!("{}'s {part}{section} hits the stock{at}", tool.id);
         if matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank))
             && let Some(w) = &f.witness {
                 let reach = (report.stock.max_mm[2] - w.tip_mm[2] + 1.).ceil();
@@ -173,7 +173,7 @@ fn stock_contact_reason(report: &camlib::stock_contact::Report, tool: &camlib::t
         }
         text
     }).collect();
-    (!contacts.is_empty()).then(|| format!("camlib refused {}: {}", report.operation, contacts.join("; ")))
+    (!contacts.is_empty()).then(|| format!("camlib refused the {}: {}", capp::plan::operation_noun(kind), contacts.join("; ")))
 }
 
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
@@ -228,8 +228,11 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
                     let checked = binding.decode(&raw, producer.completed(), Some(&motion))?;
                     match checked.check.motion_status() {
                         Some(Status::Violation) => {
+                            // Adapter IDs retain the planner kind (notch/slot/etc.) even when
+                            // camlib runs them as pocket jobs. Only the noun enters the reason.
+                            let kind = operation.id().split('-').nth(2).unwrap_or("");
                             if let Check::Motion { stock_contact: Some(report), .. } = &checked.check
-                                && let Some(reason) = stock_contact_reason(report, tool) {
+                                && let Some(reason) = stock_contact_reason(kind, report, tool) {
                                 return Err(reason);
                             }
                             if let Check::Motion { report: Some(report), .. } = &checked.check {
@@ -286,18 +289,20 @@ mod contact_wording_tests {
                 cell_range:[0,0,1,1], solid_lower_mm:0., possible_upper_mm:0., contact_point_mm:Some([3.,4.,-1.])
             }], stats:Default::default(), numerical_policy:String::new()
         };
-        let text = stock_contact_reason(&report, &tool).unwrap();
-        assert!(text.contains("em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0 in top-3-notch"), "{text}");
+        let text = stock_contact_reason("notch", &report, &tool).unwrap();
+        assert!(text.starts_with("camlib refused the notch: em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0: needs "), "{text}");
+        assert!(!text.contains(&report.operation), "{text}");
         assert!(text.contains(": needs an end mill of ⌀6 with stickout of at least 66 mm, or a narrower holder than the current ⌀40 mm"), "{text}");
         for (part, name) in [(ToolPart::Shank,"shank"), (ToolPart::Neck,"neck"), (ToolPart::Cutter,"flutes")] {
             report.findings[0].finding.part = Some(part);
             report.findings[0].finding.holder_section = None;
             report.findings[0].contact_point_mm = None;
-            let text = stock_contact_reason(&report, &tool).unwrap();
+            let text = stock_contact_reason("notch", &report, &tool).unwrap();
             assert!(text.contains(&format!("em6's {name} hits the stock at X1.0 Y2.0 Z-64.2")), "{text}");
             assert_eq!(text.contains(": needs "), part == ToolPart::Shank);
         }
+        assert!(stock_contact_reason("unknown", &report, &tool).unwrap().starts_with("camlib refused the operation: "));
         report.findings[0].finding.status = Status::Uncertain;
-        assert!(stock_contact_reason(&report, &tool).is_none());
+        assert!(stock_contact_reason("notch", &report, &tool).is_none());
     }
 }

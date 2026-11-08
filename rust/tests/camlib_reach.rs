@@ -73,10 +73,27 @@ fn short_tool_reaches_camlib_and_relays_its_refusal() {
         .as_str()
         .unwrap();
     assert!(
-        reason.contains("camlib refused")
+        reason.starts_with("left out: camlib refused the notch: ")
             && reason.contains("64.0 mm below the stock top")
             && reason.contains("em6's flutes are 20.0 mm"),
         "{reason}"
+    );
+    assert!(
+        !reason.contains(refusal["subject"].as_str().unwrap()),
+        "{reason}"
+    );
+    let operation = refusal["subject"].as_str().unwrap();
+    let warning = plan["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .find(|w| w.starts_with(&format!("{operation} left out: camlib refused the notch: ")))
+        .expect("the warning names the operation once, outside the reason");
+    assert_eq!(warning.matches(operation).count(), 1, "{warning}");
+    assert!(
+        warning.ends_with(reason.strip_prefix("left out: ").unwrap()),
+        "{warning}"
     );
     assert!(
         reason.contains(": needs an end mill under ⌀7.95 with flutes of at least 65 mm"),
@@ -278,6 +295,12 @@ fn short_drill_preserves_a_cuttable_bore_and_is_deferred_without_one() {
                         })
                 })
                 .expect("camlib must judge the only available short drill");
+            assert!(
+                refusal["says"]
+                    .as_str()
+                    .unwrap()
+                    .contains("camlib refused the holes: ")
+            );
             assert!(
                 refusal["says"]
                     .as_str()
