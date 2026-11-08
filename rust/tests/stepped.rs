@@ -22,7 +22,7 @@ fn operations<'a>(out: &'a Value, setup: &str) -> Vec<&'a Value> {
 #[test]
 fn it_is_roughed_drilled_and_slotted_from_the_top() {
     let out = process();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     let top = operations(&out, "top");
     let kinds: Vec<&str> = top.iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
@@ -55,7 +55,7 @@ fn the_side_holes_are_drilled_from_the_front() {
 #[test]
 fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
     let out = process();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     let top = operations(&out, "top");
     let flats: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "flats").collect();
     assert_eq!(flats.len(), 1);
@@ -73,7 +73,7 @@ fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
 #[test]
 fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert!(out["plan"]["skipped"].to_string().contains("chamfer: no operation cuts it"));

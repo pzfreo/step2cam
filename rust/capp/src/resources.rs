@@ -24,6 +24,8 @@ pub fn id(t: &Value) -> &str {
 pub struct Library<'a> {
     pub data: &'a Value,
     tools: Vec<&'a Value>,
+    /// Tools left out because the mill's spindle cannot hold them, and why.
+    pub too_big: Vec<(&'a Value, String)>,
     drill_tolerance: f64,
     pub breakthrough: f64,
 }
@@ -62,9 +64,23 @@ impl<'a> Library<'a> {
                 return Err("tool ids must be unique".into());
             }
         }
+        // A tool whose shank is wider than the mill's spindle holds is never chosen.
+        let mut too_big = vec![];
+        let mut tools = tools;
+        if let Some(max) = crate::machines::mill(data).and_then(|m| m["spindle"]["max_tool_diameter_mm"].as_f64()) {
+            tools.retain(|t| {
+                let shank = t.get("shank_diameter").and_then(Value::as_f64).or(t["diameter"].as_f64()).unwrap_or(0.);
+                let fits = shank <= max;
+                if !fits {
+                    too_big.push((*t, format!("{}: its ⌀{} shank is wider than the spindle holds (⌀{} at most), so it is not used", id(t), shank, max)));
+                }
+                fits
+            });
+        }
         Ok(Self {
             data,
             tools,
+            too_big,
             drill_tolerance: data.get("drill_tolerance_mm").and_then(Value::as_f64).unwrap_or(0.05),
             breakthrough: data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.),
         })

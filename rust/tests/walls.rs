@@ -1,7 +1,7 @@
 //! Finishing walls and flats: shapes an outline alone would cut wrongly, in tests/fixtures/synthetic/walls.
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
-use step2cam::post::{Machine, post};
+use step2cam::simulate::simulate;
 
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
@@ -14,11 +14,11 @@ fn fixture(path: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(path);
     serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
 }
+// The demo's tools on no particular machine: these tests are about planning, not the Carvera.
 fn tools() -> Value {
-    fixture("demo/tools.json")
-}
-fn machine() -> Machine {
-    serde_json::from_value(tools()["machine"].clone()).unwrap()
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    tools
 }
 fn part(name: &str) -> (Value, Value) {
     (fixture(&format!("tests/fixtures/synthetic/{name}.analysis.json")), fixture(&format!("tests/fixtures/synthetic/{name}.mesh.json")))
@@ -26,7 +26,7 @@ fn part(name: &str) -> (Value, Value) {
 fn process(name: &str) -> Value {
     let (analysis, mesh) = part(name);
     let out = step2cam::process(&analysis, &mesh, &tools()).unwrap();
-    assert!(out["post_error"].is_null(), "{name}: {}", out["post_error"]);
+    assert!(out["error"].is_null(), "{name}: {}", out["error"]);
     out
 }
 fn walls(out: &Value) -> Vec<Value> {
@@ -38,7 +38,7 @@ fn warnings(out: &Value) -> String {
 
 /// A cap wider than the tool: its section encloses the stem's and looks like room.
 #[test]
-fn a_wall_under_an_overhang_is_left_alone_and_the_part_still_posts() {
+fn a_wall_under_an_overhang_is_left_alone_and_the_part_still_runs() {
     let out = process("walls/overhang");
     assert!(warnings(&out).contains("0 mm beside the wall is too narrow"), "{}", warnings(&out));
     assert_eq!(walls(&out).len(), 1, "only the plate's");
@@ -76,7 +76,13 @@ fn a_round_boss_is_finished_as_a_full_circle() {
     assert_eq!(walls(&out).len(), 2);
     let circle = walls(&out).into_iter().find(|w| w["on_flat"] == true).unwrap();
     assert!(circle["outer"].as_array().unwrap().iter().all(|v| v[2].as_f64().unwrap().abs() <= 1.));
-    assert!(out["programs"][0]["nc"].as_str().unwrap().contains("G2 "), "climb milled, clockwise round the outside");
+    // An arc turning clockwise seen from above: its path bends to the right.
+    let clockwise = |m: &Value| {
+        let p: Vec<[f64; 2]> = m["points"].as_array().unwrap().iter().map(|p| [p[0].as_f64().unwrap(), p[1].as_f64().unwrap()]).collect();
+        m["curve"] != "line" && p.len() > 2 && (p[1][0] - p[0][0]) * (p[2][1] - p[1][1]) - (p[1][1] - p[0][1]) * (p[2][0] - p[1][0]) < 0.
+    };
+    let moves = out["programs"][0]["moves"].as_array().unwrap();
+    assert!(moves.iter().any(|m| m["op"].as_str().unwrap().ends_with("wall_finish") && m["kind"] == "cut" && clockwise(m)), "climb milled, clockwise round the outside");
 }
 
 /// With no roughing a contour would slot through solid stock, unchecked.
@@ -110,7 +116,7 @@ fn a_flat_where_roughing_did_not_reach_is_refused() {
             op["floor_z_mm"] = (-1.5).into();
         }
     }
-    let Err(failure) = post(&manifest.to_string(), machine()) else { panic!("a flat through uncut stock passed") };
+    let Err(failure) = simulate(&manifest.to_string()) else { panic!("a flat through uncut stock passed") };
     assert!(failure.message.contains("a flat would cut"), "{}", failure.message);
     assert!(failure.operation.as_deref().is_some_and(|id| id.ends_with("flats")), "{:?}", failure.operation);
 }
@@ -196,7 +202,7 @@ fn a_notch_in_the_wrong_place_is_refused() {
     for v in notch["region"]["components"][0]["outer"]["vertices"].as_array_mut().unwrap() {
         v[0] = (v[0].as_f64().unwrap() + 1.).into();
     }
-    let Err(failure) = post(&manifest.to_string(), machine()) else { panic!("a notch 1 mm out of place passed") };
+    let Err(failure) = simulate(&manifest.to_string()) else { panic!("a notch 1 mm out of place passed") };
     assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
 }
 
@@ -207,7 +213,7 @@ fn a_v_channel_cut_too_deep_is_refused() {
     let mut manifest = job_of_stepped();
     let v = manifest["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == "trace").unwrap();
     v["depth_z_mm"] = (v["depth_z_mm"].as_f64().unwrap() - 2.).into();
-    let Err(failure) = post(&manifest.to_string(), machine()) else { panic!("a V-channel 2 mm too deep passed") };
+    let Err(failure) = simulate(&manifest.to_string()) else { panic!("a V-channel 2 mm too deep passed") };
     assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
 }
 

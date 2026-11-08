@@ -2,10 +2,9 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs), job.rs and post.rs read it. Every number in the shipped files is a placeholder.",
+ "description": "The tools and shop policy values step2cam plans with, and the camlib job is made from: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs) and job.rs read it. There is no machine controller here: step2cam writes no G-code. Every number in the shipped files is a placeholder.",
  "type": "object",
  "required": [
-  "machine",
   "tools"
  ],
  "properties": {
@@ -15,15 +14,17 @@
   "version": {
    "const": 1
   },
-  "machine": {
-   "$ref": "#/$defs/machine"
-  },
   "tools": {
    "type": "array",
    "minItems": 1,
    "items": {
     "$ref": "#/$defs/tool"
    }
+  },
+  "rapid_mm_min": {
+   "type": "number",
+   "exclusiveMinimum": 0,
+   "description": "The rapid rate the page estimates time with; 5000 when absent."
   },
   "clearance_mm": {
    "type": "number",
@@ -82,6 +83,13 @@
   "roughing_tool": {
    "type": "string",
    "description": "The id of the end mill for roughing; the largest end mill when absent or empty."
+  },
+  "machines": {
+   "type": "array",
+   "description": "The machines parts are cut on, and what they can do. The planner uses the first mill. The controller's limits stay in machine.",
+   "items": {
+    "$ref": "#/$defs/machine_capabilities"
+   }
   }
  },
  "patternProperties": {
@@ -89,95 +97,6 @@
  },
  "additionalProperties": false,
  "$defs": {
-  "machine": {
-   "type": "object",
-   "required": [
-    "decimals",
-    "max_feed_mm_min",
-    "max_spindle_rpm",
-    "tool_change_position_mode"
-   ],
-   "properties": {
-    "name": {
-     "type": "string"
-    },
-    "dialect": {
-     "const": "linuxcnc"
-    },
-    "output_units": {
-     "const": "mm"
-    },
-    "decimals": {
-     "type": "integer",
-     "minimum": 0
-    },
-    "max_feed_mm_min": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "max_spindle_rpm": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "rapid_mm_min": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "planes": {
-     "type": "array",
-     "items": {
-      "enum": [
-       "xy",
-       "xz",
-       "yz"
-      ]
-     }
-    },
-    "arcs": {
-     "type": "boolean"
-    },
-    "helices": {
-     "type": "boolean"
-    },
-    "max_sweep_rad": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "max_tool_number": {
-     "type": "integer",
-     "minimum": 1
-    },
-    "max_length_register": {
-     "type": "integer",
-     "minimum": 1
-    },
-    "tolerance_mm": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "feed_tolerance_mm_min": {
-     "type": "number",
-     "minimum": 0
-    },
-    "tool_changes": {
-     "type": "boolean"
-    },
-    "flood": {
-     "type": "boolean"
-    },
-    "mist": {
-     "type": "boolean"
-    },
-    "tool_change_position_mode": {
-     "const": "table",
-     "description": "The only mode wired up."
-    }
-   },
-   "patternProperties": {
-    "^_": {}
-   },
-   "additionalProperties": false
-  },
   "tool": {
    "oneOf": [
     {
@@ -762,6 +681,153 @@
      "additionalProperties": false
     }
    ]
+  },
+  "machine_capabilities": {
+   "type": "object",
+   "required": [
+    "id",
+    "kind"
+   ],
+   "additionalProperties": false,
+   "patternProperties": {
+    "^_": {}
+   },
+   "properties": {
+    "id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "name": {
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "mill",
+      "lathe"
+     ]
+    },
+    "axes": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "linear": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "x",
+         "y",
+         "z"
+        ]
+       }
+      },
+      "rotary": {
+       "type": "array",
+       "items": {
+        "type": "object"
+       }
+      },
+      "travel_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "x": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "y": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "z": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        }
+       }
+      }
+     }
+    },
+    "spindle": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "max_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "power_kw": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "taper": {
+       "type": "string"
+      },
+      "max_tool_diameter_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "max_bar_diameter_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "tool_changer": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "enum": [
+        "automatic",
+        "manual",
+        "turret"
+       ]
+      },
+      "pockets": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    },
+    "coolant": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "flood",
+       "mist",
+       "air",
+       "through_spindle"
+      ]
+     }
+    },
+    "workholding": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+       "kind": {
+        "enum": [
+         "vise",
+         "fixture",
+         "chuck",
+         "collet"
+        ]
+       },
+       "max_jaw_opening_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "max_diameter_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       }
+      }
+     }
+    }
+   }
   }
  }
 }

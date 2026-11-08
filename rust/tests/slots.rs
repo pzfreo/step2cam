@@ -11,16 +11,22 @@ fn fixture(path: &str) -> Value {
 fn process() -> Value {
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
-    step2cam::process(&analysis, &mesh, &fixture("demo/tools.json")).unwrap()
+    // The demo's tools on no particular machine: this is about planning, not the Carvera.
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    step2cam::process(&analysis, &mesh, &tools).unwrap()
 }
-fn word(line: &str, letter: char) -> Option<f64> {
-    line.split(' ').find_map(|w| w.strip_prefix(letter)?.parse().ok())
+/// The points of camlib's fed moves (not rapids) for which `keep` holds.
+fn fed_points(out: &Value, keep: &dyn Fn(&Value) -> bool) -> Vec<[f64; 3]> {
+    let moves = out["programs"][0]["moves"].as_array().unwrap();
+    let point = |p: &Value| [0, 1, 2].map(|k| p[k].as_f64().unwrap());
+    moves.iter().filter(|m| m["kind"] != "rapid" && keep(m)).flat_map(|m| m["points"].as_array().unwrap().iter().skip(1).map(point)).collect()
 }
 
 #[test]
 fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     let out = process();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(out["plan"]["warnings"].as_array().unwrap().is_empty(), "{}", out["plan"]["warnings"]);
     let ops = out["plan"]["setups"][0]["operations"].as_array().unwrap();
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
@@ -34,29 +40,10 @@ fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     assert_eq!(slot["b"], serde_json::json!([84.0, 48.0]));
 
     // ⌀6 in an 8 wide slot: its centre runs ±1 across, and round the ends to 1 from their tips.
-    let nc = out["programs"][0]["nc"].as_str().unwrap();
-    let cut = nc.split_once("T3\n").expect("the ⌀6 mill").1;
-    let cut = cut.split_once("\nT").map_or(cut, |c| c.0);
-    let (mut x, mut y, mut z) = (vec![], vec![], vec![]);
-    let (mut at, mut depth) = ([0., 0.], 0.);
-    for line in cut.lines() {
-        if !["G0 ", "G1 ", "G2 ", "G3 "].iter().any(|code| line.starts_with(code)) {
-            continue;
-        }
-        let end = [word(line, 'X').unwrap_or(at[0]), word(line, 'Y').unwrap_or(at[1])];
-        depth = word(line, 'Z').unwrap_or(depth);
-        if !line.starts_with("G0 ") && depth < -1. {
-            x.push(end[0]);
-            y.push(end[1]);
-            z.push(depth);
-            if let (Some(i), Some(j)) = (word(line, 'I'), word(line, 'J')) {
-                let radius = i.hypot(j);
-                y.push(at[1] + j + radius);
-                y.push(at[1] + j - radius);
-            }
-        }
-        at = end;
-    }
+    let points: Vec<[f64; 3]> = fed_points(&out, &|m| m["op"].as_str().unwrap().ends_with("-slot")).into_iter().filter(|p| p[2] < -1.).collect();
+    let x: Vec<f64> = points.iter().map(|p| p[0]).collect();
+    let y: Vec<f64> = points.iter().map(|p| p[1]).collect();
+    let z: Vec<f64> = points.iter().map(|p| p[2]).collect();
     let range = |v: &[f64]| (v.iter().copied().fold(f64::MAX, f64::min), v.iter().copied().fold(f64::MIN, f64::max));
     let near = |a: f64, b: f64| (a - b).abs() < 0.01;
     let (x, y, z) = (range(&x), range(&y), range(&z));
@@ -99,7 +86,7 @@ fn a_wall_in_line_with_a_slot_is_not_material_under_it() {
 #[test]
 fn the_top_edges_are_chamfered_where_they_meet_the_round_and_never_inside_it() {
     let out = process();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     let ops = out["plan"]["setups"][0]["operations"].as_array().unwrap();
     let chamfer = ops.iter().find(|o| o["kind"] == "edge_chamfer").expect("a chamfer");
     assert_eq!(chamfer["boundaries"], "all");
@@ -107,18 +94,26 @@ fn the_top_edges_are_chamfered_where_they_meet_the_round_and_never_inside_it() {
     assert_eq!(chamfer["features"].as_array().unwrap().len(), 10);
     // Outer wall X102 in the setup, top Z-1. The cone (⌀0.5 tip, 90°) touches the wall 0.4686 below
     // the top from outside: its axis is tip radius + 0.5 clearance out, its tip 0.9686 below the top.
-    let nc = out["programs"][0]["nc"].as_str().unwrap();
-    let number = fixture("demo/tools.json")["tools"].as_array().unwrap().iter().find(|t| t["id"] == "cm6").unwrap()["number"].as_u64().unwrap();
-    let cut = nc.split_once(&format!("T{number}\n")).expect("the chamfer mill").1;
-    let (mut most_x, mut lowest) = (f64::MIN, f64::MAX);
-    let mut depth: f64 = 0.;
-    for line in cut.lines().filter(|l| ["G1 ", "G2 ", "G3 "].iter().any(|code| l.starts_with(code))) {
-        depth = word(line, 'Z').unwrap_or(depth);
-        lowest = lowest.min(depth);
-        if depth < -1. {
-            most_x = most_x.max(word(line, 'X').unwrap_or(f64::MIN));
-        }
-    }
+    let points = fed_points(&out, &|m| m["tool"] == "cm6");
+    let lowest = points.iter().map(|p| p[2]).fold(f64::MAX, f64::min);
+    let most_x = points.iter().filter(|p| p[2] < -1.).map(|p| p[0]).fold(f64::MIN, f64::max);
     assert!((most_x - 102.75).abs() < 0.01, "{most_x}");
     assert!((lowest + 1.9686).abs() < 0.01, "{lowest}");
+}
+
+/// Roughing covers features that have no operation of their own, until it is refused: then they
+/// must not be reported as covered.
+#[test]
+fn nothing_is_covered_by_a_roughing_that_was_refused() {
+    let mut library = fixture("demo/tools.json");
+    for tool in library["tools"].as_array_mut().unwrap() {
+        if tool["type"] == "end_mill" {
+            tool["flute_length"] = 1.into();
+            tool["stickout"] = 1.5.into();
+        }
+    }
+    let out = step2cam::process(&fixture("tests/fixtures/mounting-plate.analysis.json"), &fixture("tests/fixtures/mounting-plate.mesh.json"), &library).unwrap();
+    assert!(out["plan"]["warnings"].to_string().contains("roughing left out"), "{}", out["plan"]["warnings"]);
+    assert_eq!(out["plan"]["covered_by_roughing"], serde_json::json!([]));
+    assert!(out["plan"]["skipped"].to_string().contains("roughing was refused"), "{}", out["plan"]["skipped"]);
 }

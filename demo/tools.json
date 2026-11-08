@@ -1,28 +1,39 @@
 {
  "_comment": "The tool library of the step2cam demo. Every number is a placeholder chosen so that many parts can be shown: not for a real machine.",
- "machine": {
-  "name": "Example three-axis LinuxCNC mill",
-  "dialect": "linuxcnc",
-  "output_units": "mm",
-  "decimals": 3,
-  "max_feed_mm_min": 5000,
-  "max_spindle_rpm": 24000,
-  "rapid_mm_min": 5000,
-  "planes": [
-   "xy",
-   "xz",
-   "yz"
-  ],
-  "arcs": true,
-  "helices": true,
-  "max_sweep_rad": 6.283185307179586,
-  "max_tool_number": 99,
-  "max_length_register": 99,
-  "tool_changes": true,
-  "flood": true,
-  "mist": false,
-  "tool_change_position_mode": "table"
- },
+ "machines": [
+  {
+   "id": "carvera",
+   "name": "the Makera Carvera",
+   "kind": "mill",
+   "_comment": "Makera Carvera, from its published specifications (makera.com, and resellers' copies of its spec sheet, read 2026-11-07): 360 x 240 x 140 mm of travel, a 200 W spindle to 15,000 rpm, a 1/8\" collet as standard (1/4\", 6, 4 and 3 mm optional), an automatic tool changer holding 6 tools. With the 1/4\" collet fitted it holds shanks up to 6.35 mm. step2cam writes no G-code: the saved camlib job is posted by camlib's own posts, for the Carvera's controller. The tools and cutting data in this file are placeholders, not Makera's.",
+   "axes": {
+    "linear": [
+     "x",
+     "y",
+     "z"
+    ],
+    "travel_mm": {
+     "x": 360,
+     "y": 240,
+     "z": 140
+    }
+   },
+   "spindle": {
+    "max_rpm": 15000,
+    "power_kw": 0.2,
+    "taper": "1/4\" collet",
+    "max_tool_diameter_mm": 6.35
+   },
+   "tool_changer": {
+    "kind": "automatic",
+    "pockets": 6
+   },
+   "coolant": [
+    "air"
+   ]
+  }
+ ],
+ "rapid_mm_min": 5000,
  "clearance_mm": 10,
  "retract_mm": 2,
  "breakthrough_mm": 1,

@@ -27,9 +27,10 @@ A search in November 2026 found no open-source project that encodes this knowled
 ## The three phases
 
 ```
-STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► G-code
+STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► toolpaths, checks
         (specify-core)                    rust/capp                  step2cam: camlib adapter,
-                                          + resources.json           post (LinuxCNC), checks
+                                          + resources.json           camlib's simulation and checks
+                                                                     (G-code: camlib's posts, not step2cam)
 ```
 
 **1. Specify** (specify-core, unchanged). STEP in; the analysis and the mesh out, in specify-core's
@@ -46,8 +47,9 @@ no camlib:
   operation's tool, cutting data and ISO 14649 names.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
-operation's tool and cutting data and writes camlib's manifest; the post-processor (`post.rs`);
-and the browser entry point (`process`). An operation camlib refuses goes back to `capp::finish`
+operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
+with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
+camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 
@@ -200,29 +202,24 @@ Done:
 5. ISO 14649 names on each operation.
 6. Tool selection, operation order and feature handling as JSON rules.
 7. (part) The material, its ISO 513 group, and cutting data by group.
+8. (part) Machines: the 3-axis mill. The resources' `machines` list what each machine can do; the
+   plan is cut on the first mill. Its travels refuse a setup whose stock will not fit, its vise
+   flags stock too wide to hold, its spindle caps the speed (feeds scaled) and leaves out tools
+   it cannot hold, and its tool changer flags a setup needing more tools than it has pockets.
+   Each is a traced decision (stage `machine`). The demo's machine is the Makera Carvera, from its
+   published specifications.
 
 Steps 1–6 left the G-code unchanged. Each was compared with `main`: 8 fixtures and a tapped plate,
 with up to 5 tool libraries, one with a twin of every tool to test tie-breaks. Step 7 changes it
-only when a material is given and a tool states cutting data for its group.
+only when a material is given and a tool states cutting data for its group. Step 8 changes it only
+where a machine limits something; with the example library's generous mill, outputs match.
 
 Planned:
-- **Machines.** The resources describe one machine: a three-axis LinuxCNC mill, by its limits for
-  the post-processor. CAPP assumes it throughout: six square-on setups, each a re-clamp, and
-  turned features skipped. The resources should list machines and their capabilities:
-  - kind: mill, lathe, mill-turn;
-  - axes: 3-axis, 3+2 with an indexer or trunnion, 4th-axis rotary, 5-axis;
-  - travels, so a part that won't fit is refused;
-  - tool changer: manual or automatic, and its number of pockets;
-  - spindle: speed, power, coolant;
-  - workholding.
-
-  CAPP would then:
-  - choose a machine for each setup;
-  - merge the setups an indexer can reach into one clamping;
-  - send turned features to a lathe, if there is one;
-  - refuse what no machine can make.
-
-  Each of these would be a traced decision.
+- **The lathe.** A machine of kind `lathe`, and turned features (specify-core's `turned_bodies`,
+  `turned_steps`, `face_grooves`) planned on it rather than skipped: setups held in a chuck,
+  facing, turning, grooving and parting, each traced, then handed to camlib's turning (#57).
+- **More of the mill:** an indexer or trunnion (3+2) merging the setups it can reach into one
+  clamping; spindle power limiting cutting data.
 - **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a
   reaming operation. This needs a reamer tool type.
 - **Tapping** as an alternative to thread milling; camlib has a tapping operation.
