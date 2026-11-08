@@ -16,8 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup target add wasm32-unknown-unknown
-      - run: npm install -g wasm-pack@0.15.1
+      # GitHub downloads time out now and then: try three times.
+      - run: npm install -g wasm-pack@0.15.1 || (sleep 30 && npm install -g wasm-pack@0.15.1) || (sleep 60 && npm install -g wasm-pack@0.15.1)
       - run: demo/build.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

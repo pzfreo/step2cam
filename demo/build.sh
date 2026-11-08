@@ -6,6 +6,14 @@
 #
 # Needs a Rust toolchain with the wasm32-unknown-unknown target, and wasm-pack.
 set -eu
+# specify-core's release, through GitHub's API when gh is signed in (the plain release link has
+# returned 504 for hours at a time), else the plain link, retried.
+fetch_specify() { # version, archive, directory
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        gh release download "v$1" -R pzfreo/specify-core -p "$2" -D "$3" && return 0
+    fi
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$3/$2" "https://github.com/pzfreo/specify-core/releases/download/v$1/$2"
+}
 SPECIFY_VERSION=0.1.12
 SPECIFY_SHA256=4e66f12f8a78bd0ec96011dc922fa58796f5b782f1c870e468c0b9740297f616
 cd "$(dirname "$0")/.."
@@ -21,7 +29,7 @@ cp rust/capp/rulebase/rules.json site/rules.json
 
 archive="specify-core-wasm-$SPECIFY_VERSION.tgz"
 work=$(mktemp -d)
-curl -fsSL -o "$work/$archive" "https://github.com/pzfreo/specify-core/releases/download/v$SPECIFY_VERSION/$archive"
+fetch_specify "$SPECIFY_VERSION" "$archive" "$work"
 echo "$SPECIFY_SHA256  $work/$archive" | shasum -a 256 -c -
 tar -xzf "$work/$archive" -C "$work"
 mkdir -p site/specify
