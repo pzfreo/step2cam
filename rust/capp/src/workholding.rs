@@ -98,7 +98,8 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     if let Some(p) = parallel {
         // Two support bars at the gripped edges. The rule minimum is their envelope width;
         // no hidden support is omitted from verification when parallels are requested.
-        let bar = rule["min_grip_mm"].as_f64().unwrap().min(across / 3.);
+        let bar = seating.as_ref().and_then(|s|s["support_width_mm"].as_f64())
+            .unwrap_or_else(||rule["min_grip_mm"].as_f64().unwrap().min(across / 3.));
         for (n, side) in [lo[axis], hi[axis] - bar].iter().enumerate() {
             let mut min = lo;
             let mut max = hi;

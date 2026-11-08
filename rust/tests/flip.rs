@@ -244,3 +244,39 @@ fn mounting_plate_edge_breaks_get_inboard_supports_and_full_outline_depth() {
     assert!(!text.contains("boss"));
     assert!(!text.contains("material below the seat"));
 }
+
+#[test]
+fn modeled_side_pockets_reduce_contact_and_preserve_a_usable_grip() {
+    let (a, m) = input();
+    let mut t = tools();
+    // The finished short ends are 100 mm apart, so this vise forces the
+    // opposed long sides, which both have the modelled open side pockets.
+    t["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(80.);
+    let out = step2cam::process(&a, &m, &t).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let p = &out["plan"];
+    let bottom = setup(p, "bottom");
+    assert_eq!(bottom["flip_seating"]["axis"], 1);
+    for c in list(&bottom["clamping"]["contacts"]) {
+        let f = c["fraction"].as_f64().unwrap();
+        assert!((0.6..1.).contains(&f), "{c}");
+    }
+    assert_eq!(
+        audit(p, bottom)["status"],
+        "no_overlap",
+        "{}",
+        p["warnings"]
+    );
+    assert!(
+        list(&bottom["operations"])
+            .iter()
+            .any(|o| o["kind"] == "facing")
+    );
+    assert!(p["decisions"].to_string().contains("contact_measurements"));
+    for program in list(&out["programs"])
+        .iter()
+        .filter(|p| p["setup"] != "front")
+    {
+        assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
+    }
+}

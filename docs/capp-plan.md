@@ -141,11 +141,15 @@ in `workholding.json`, not a holding-force calculation. Holes, pockets and edge
 breaks reduce contact instead of rejecting the entire band. The retained contact
 polygons, area, fraction and effective length per side are recorded in seating,
 clamping and the trace. A top round/chamfer leaves the actual contact below the
-break; the nominal jaw top and seating height remain physically consistent.
+break; the nominal jaw top and seating height remain physically consistent. When
+minimum grip gives too little contact, search grip upward in the same 0.25 mm
+steps, within the existing 50% and jaw-height limits; use the least acceptable
+grip. The 16 mm support search covers large edge chamfers on benchmark-sized
+blocks; bars cannot overlap each other.
 
 Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
 support length (area divided by bar width), also judgement. Two 3.175 mm wide bars
-search inward up to 3 mm, in 0.25 mm steps, to seat beyond edge breaks. Support
+search inward up to 16 mm, in 0.25 mm steps, to seat beyond edge breaks. Support
 area, fraction and offset are recorded per bar; material projecting below the
 seat in the flipped frame must not interfere with their footprints. The most
 complete opposed contact is preferred, with narrower-axis precedence on a tie.

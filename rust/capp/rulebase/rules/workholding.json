@@ -8,8 +8,8 @@
  "flip_breakthrough_mm": 0.5,
  "flip_min_contact_fraction": 0.6,
  "flip_min_support_fraction": 0.75,
- "flip_max_support_inset_mm": 3.0,
+ "flip_max_support_inset_mm": 16.0,
  "flip_support_search_step_mm": 0.25,
  "flip_frame_tolerance_mm": 0.0002,
- "_flip_contact_comment": "Judgement: each jaw band needs at least 60% actual planar face area and 3.175 mm area/grip effective length. Each support footprint needs 75% horizontal face area and 3.175 mm area/width effective length. Search supports inward up to 3 mm in 0.25 mm steps; reject interference by material below the flipped seat. Contact may bridge holes and edge breaks; these are area checks, not force calculations. Numerical frame tolerance 0.0002 mm covers compounded four-decimal frame serialization, not manufacturing tolerance."
+ "_flip_contact_comment": "Judgement: each jaw band needs at least 60% actual planar face area and 3.175 mm area/grip effective length. Each support footprint needs 75% horizontal face area and 3.175 mm area/width effective length. Search supports inward up to 16 mm in 0.25 mm steps (also used to search grip from the minimum up to the existing 50% limit when an edge break leaves too little contact); reject interference by material below the flipped seat. Contact may bridge holes and edge breaks; these are area checks, not force calculations. Numerical frame tolerance 0.0002 mm covers compounded four-decimal frame serialization, not manufacturing tolerance."
 }

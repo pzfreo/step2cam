@@ -177,105 +177,123 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
         }
         for z in levels {
             let minimum = bar.max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
-            let grip = r(vise["parallels_height_mm"]
-                .as_f64()
-                .map_or(minimum, |p| vise["jaw_height_mm"].as_f64().unwrap() - p));
-            if grip < r(minimum)
-                || grip > vise["jaw_height_mm"].as_f64().unwrap()
-                || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
-                || z - lo[2] <= grip + rule["clearance_mm"].as_f64().unwrap()
-            {
-                continue;
-            }
-            let band = [[start, z - grip], [end, z]];
-            let contact: Vec<_> = side_tris
-                .iter()
-                .map(|ts| patches(ts, [along, 2], band))
-                .collect();
-            let areas: Vec<f64> = contact
-                .iter()
-                .map(|ps| ps.iter().map(|p| area(p)).sum())
-                .collect();
-            let fractions: Vec<_> = areas.iter().map(|a| a / ((end - start) * grip)).collect();
-            let score = fractions.iter().copied().fold(1., f64::min);
-            best_contact = best_contact.max(score);
-            if areas
-                .iter()
-                .any(|a| *a / ((end - start) * grip) + 1e-6 < fraction || *a / grip < bar)
-            {
-                continue;
-            }
-            contact_ok = true;
-            let horizontal: Vec<_> = tris
-                .iter()
-                .filter(|t| t.iter().all(|p| (p[2] - z).abs() < eps))
-                .copied()
-                .collect();
-            let mut supports = vec![];
-            for side in 0..2 {
-                let mut best_support: Option<(f64, Value)> = None;
-                for n in 0..=((inset / step).floor() as usize) {
-                    let offset = n as f64 * step;
-                    let edge = if side == 0 {
-                        lo[axis] + offset
-                    } else {
-                        hi[axis] - offset - bar
-                    };
-                    let mut rect = [[0.; 2]; 2];
-                    rect[0][axis] = edge;
-                    rect[1][axis] = edge + bar;
-                    rect[0][along] = start;
-                    rect[1][along] = end;
-                    let a = measured(&horizontal, [0, 1], rect);
-                    // Material projecting below this seating level in the flipped
-                    // setup must not intersect either parallel's footprint.
-                    let obstructed = tris
-                        .iter()
-                        .filter(|t| t.iter().any(|p| p[2] > z + eps))
-                        .any(|t| {
-                            area(&clipped(t.iter().map(|p| [p[0], p[1]]).collect(), rect)) > 1e-9
-                        });
-                    if !obstructed
-                        && a / (bar * (end - start)) + 1e-6 >= support_fraction
-                        && a / bar >= bar
-                        && best_support.as_ref().is_none_or(|(old, _)| a > *old + eps)
-                    {
-                        best_support = Some((
-                            a,
-                            json!({"offset_mm":offset,"area_mm2":r(a),"fraction":r(a/(bar*(end-start)))}),
-                        ));
+            let maximum = ((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
+                .min(vise["jaw_height_mm"].as_f64().unwrap());
+            let grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
+                vec![r(vise["jaw_height_mm"].as_f64().unwrap() - p)]
+            } else if maximum >= minimum {
+                (0..=((maximum - minimum) / step).floor() as usize)
+                    .map(|n| r(minimum + n as f64 * step))
+                    .chain([r(maximum)])
+                    .collect()
+            } else {
+                vec![]
+            };
+            for grip in grips {
+                if grip < r(minimum)
+                    || grip > vise["jaw_height_mm"].as_f64().unwrap()
+                    || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
+                    || z - lo[2] <= grip + rule["clearance_mm"].as_f64().unwrap()
+                {
+                    continue;
+                }
+                let band = [[start, z - grip], [end, z]];
+                let contact: Vec<_> = side_tris
+                    .iter()
+                    .map(|ts| patches(ts, [along, 2], band))
+                    .collect();
+                let areas: Vec<f64> = contact
+                    .iter()
+                    .map(|ps| ps.iter().map(|p| area(p)).sum())
+                    .collect();
+                let fractions: Vec<_> = areas.iter().map(|a| a / ((end - start) * grip)).collect();
+                let score = fractions.iter().copied().fold(1., f64::min);
+                best_contact = best_contact.max(score);
+                if areas
+                    .iter()
+                    .any(|a| *a / ((end - start) * grip) + 1e-6 < fraction || *a / grip < bar)
+                {
+                    continue;
+                }
+                contact_ok = true;
+                let horizontal: Vec<_> = tris
+                    .iter()
+                    .filter(|t| t.iter().all(|p| (p[2] - z).abs() < eps))
+                    .copied()
+                    .collect();
+                let mut supports = vec![];
+                for side in 0..2 {
+                    let mut best_support: Option<(f64, Value)> = None;
+                    let limit = inset.min((hi[axis] - lo[axis]) / 2. - bar);
+                    if limit < 0. {
+                        continue;
+                    }
+                    for n in 0..=((limit / step).floor() as usize) {
+                        let offset = n as f64 * step;
+                        let edge = if side == 0 {
+                            lo[axis] + offset
+                        } else {
+                            hi[axis] - offset - bar
+                        };
+                        let mut rect = [[0.; 2]; 2];
+                        rect[0][axis] = edge;
+                        rect[1][axis] = edge + bar;
+                        rect[0][along] = start;
+                        rect[1][along] = end;
+                        let a = measured(&horizontal, [0, 1], rect);
+                        // Material projecting below this seating level in the flipped
+                        // setup must not intersect either parallel's footprint.
+                        let obstructed = tris
+                            .iter()
+                            .filter(|t| t.iter().any(|p| p[2] > z + eps))
+                            .any(|t| {
+                                area(&clipped(t.iter().map(|p| [p[0], p[1]]).collect(), rect))
+                                    > 1e-9
+                            });
+                        if !obstructed
+                            && a / (bar * (end - start)) + 1e-6 >= support_fraction
+                            && a / bar >= bar
+                            && best_support.as_ref().is_none_or(|(old, _)| a > *old + eps)
+                        {
+                            best_support = Some((
+                                a,
+                                json!({"offset_mm":offset,"area_mm2":r(a),"fraction":r(a/(bar*(end-start)))}),
+                            ));
+                        }
+                    }
+                    if let Some((_, s)) = best_support {
+                        supports.push(s);
                     }
                 }
-                if let Some((_, s)) = best_support {
-                    supports.push(s);
+                if supports.len() != 2 {
+                    continue;
                 }
-            }
-            if supports.len() != 2 {
-                continue;
-            }
-            let contact_model: Vec<Vec<Vec<Point>>> = contact
-                .iter()
-                .enumerate()
-                .map(|(side, ps)| {
-                    ps.iter()
-                        .map(|p| {
-                            p.iter()
-                                .map(|q| {
-                                    let mut point = [0.; 3];
-                                    point[axis] = [lo[axis], hi[axis]][side];
-                                    point[along] = q[0];
-                                    point[2] = q[1];
-                                    point
-                                })
-                                .collect()
-                        })
-                        .collect()
-                })
-                .collect();
-            let contacts: Vec<_>=areas.iter().zip(&fractions).enumerate().map(|(side,(a,f))|json!({"face_model":format!("part.{}.{}",["x","y"][axis],["min","max"][side]),"area_mm2":r(*a),"fraction":r(*f),"effective_length_mm":r(a/grip)})).collect();
-            let seat = json!({"axis":axis,"along_min_model":start,"along_max_model":end,"seat_z_model":z,"grip_height_mm":grip,"support_width_mm":bar,"contacts":contacts,"supports":supports,"contact_patches_model":contact_model,"material_below_seat_mm":r(hi[2]-z)});
-            if best.as_ref().is_none_or(|(old, _)| score > *old + 1e-6) {
-                best = Some((score, seat));
+                let contact_model: Vec<Vec<Vec<Point>>> = contact
+                    .iter()
+                    .enumerate()
+                    .map(|(side, ps)| {
+                        ps.iter()
+                            .map(|p| {
+                                p.iter()
+                                    .map(|q| {
+                                        let mut point = [0.; 3];
+                                        point[axis] = [lo[axis], hi[axis]][side];
+                                        point[along] = q[0];
+                                        point[2] = q[1];
+                                        point
+                                    })
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let contacts: Vec<_>=areas.iter().zip(&fractions).enumerate().map(|(side,(a,f))|json!({"face_model":format!("part.{}.{}",["x","y"][axis],["min","max"][side]),"area_mm2":r(*a),"fraction":r(*f),"effective_length_mm":r(a/grip)})).collect();
+                let seat = json!({"axis":axis,"along_min_model":start,"along_max_model":end,"seat_z_model":z,"grip_height_mm":grip,"support_width_mm":bar,"contacts":contacts,"supports":supports,"contact_patches_model":contact_model,"material_below_seat_mm":r(hi[2]-z)});
+                if best.as_ref().is_none_or(|(old, _)| score > *old + 1e-6) {
+                    best = Some((score, seat));
+                }
+                // Use the least grip that satisfies the contact rule at this seat.
+                break;
             }
         }
     }
@@ -287,6 +305,49 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
 /// A cut is modelled only when all its original geometric inputs still agree.
 /// New or altered cuts continue through the conservative grip audit.
 pub(crate) fn modeled_cut(seat: &Value, op: &Value) -> bool {
+    // Ordinary generated spots fit entirely inside their modelled parent bore.
+    // Enlarged countersinks and altered/unrecognised spots retain the audit.
+    if op["kind"] == "spot_drill" {
+        let eps = crate::rules::workholding()["flip_frame_tolerance_mm"]
+            .as_f64()
+            .unwrap();
+        return op["spots"].as_array().is_some_and(|spots| {
+            !spots.is_empty()
+                && spots.iter().all(|spot| {
+                    seat["modeled_cuts"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .any(|hole| {
+                            hole["kind"] == "holes"
+                                && hole["centers"]
+                                    .as_array()
+                                    .is_some_and(|centers| centers.contains(&spot["center"]))
+                                && spot["features"].as_array().is_some_and(|features| {
+                                    !features.is_empty()
+                                        && features.iter().all(|f| {
+                                            hole["features"]
+                                                .as_array()
+                                                .is_some_and(|fs| fs.contains(f))
+                                        })
+                                })
+                                && hole["diameter"]
+                                    .as_f64()
+                                    .zip(spot["diameter"].as_f64())
+                                    .is_some_and(|(h, s)| s <= h)
+                                && hole["top_z"]
+                                    .as_f64()
+                                    .zip(spot["top_z"].as_f64())
+                                    .is_some_and(|(h, s)| (h - s).abs() <= eps)
+                                && spot["top_z"]
+                                    .as_f64()
+                                    .zip(spot["depth"].as_f64())
+                                    .zip(hole["bottom_z"].as_f64())
+                                    .is_some_and(|((top, depth), bottom)| top - depth >= bottom)
+                        })
+                })
+        });
+    }
     seat["modeled_cuts"]
         .as_array()
         .into_iter()
@@ -509,7 +570,18 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn interrupted_sides(hole_width: f64, top: bool) -> Value {
+    #[test]
+    fn only_spots_inside_a_modeled_parent_bore_share_its_contact_measurement() {
+        let seat = json!({"modeled_cuts":[{"kind":"holes","centers":[[2.,3.]],"features":["hole:1"],"top_z":-1.,"bottom_z":-9.,"diameter":4.}]});
+        let mut spot = json!({"kind":"spot_drill","spots":[{"center":[2.,3.],"features":["hole:1"],"top_z":-1.,"depth":1.,"diameter":4.}]});
+        assert!(modeled_cut(&seat, &spot));
+        spot["spots"][0]["diameter"] = json!(5.);
+        assert!(!modeled_cut(&seat, &spot));
+        spot["spots"][0]["diameter"] = json!(4.);
+        spot["spots"][0]["depth"] = json!(10.);
+        assert!(!modeled_cut(&seat, &spot));
+    }
+    fn interrupted_sides(hole_width: f64, hole_bottom: f64, top: bool) -> Value {
         let mut tris: Vec<Tri> = vec![];
         let mut quad = |a: Point, b: Point, c: Point, d: Point| {
             tris.push([a, b, c]);
@@ -521,7 +593,7 @@ mod tests {
             for (x0, x1, z0, z1) in [
                 (0., a, 0., 10.),
                 (b, 40., 0., 10.),
-                (a, b, 0., 7.),
+                (a, b, 0., hole_bottom),
                 (a, b, 9., 10.),
             ] {
                 quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]);
@@ -541,7 +613,7 @@ mod tests {
     fn holes_reduce_measured_contact_but_do_not_require_continuous_faces() {
         let vise = json!({"jaw_width_mm":100.,"jaw_height_mm":20.,"max_jaw_opening_mm":150.});
         let seat = seating(
-            &interrupted_sides(4., true),
+            &interrupted_sides(4., 7., true),
             [0., 0., 0.],
             [40., 20., 10.],
             &vise,
@@ -553,8 +625,24 @@ mod tests {
             assert!(f > 0.9 && f < 1.);
             assert!((c["area_mm2"].as_f64().unwrap() - (40. * 3.175 - 8.)).abs() < 1e-4);
         }
+        let deeper = seating(
+            &interrupted_sides(30., 7., true),
+            [0., 0., 0.],
+            [40., 20., 10.],
+            &vise,
+        )
+        .unwrap();
+        assert!(deeper["grip_height_mm"].as_f64().unwrap() > 3.175);
+        assert!(deeper["grip_height_mm"].as_f64().unwrap() <= 5.);
+        assert!(
+            deeper["contacts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|c| c["fraction"].as_f64().unwrap() >= 0.6)
+        );
         let err = seating(
-            &interrupted_sides(30., true),
+            &interrupted_sides(40., 5., true),
             [0., 0., 0.],
             [40., 20., 10.],
             &vise,
@@ -563,7 +651,7 @@ mod tests {
         assert!(err.contains("contact below rule"), "{err}");
         assert!(
             seating(
-                &interrupted_sides(4., false),
+                &interrupted_sides(4., 7., false),
                 [0., 0., 0.],
                 [40., 20., 10.],
                 &vise
