@@ -451,19 +451,19 @@ fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Thread> {
         };
         let (spec, full) = answer.split_once('@').map_or((answer, None), |(a, b)| (a, Some(b)));
         let Some((major, pitch)) = thread_size(spec) else {
-            trace.warn("requirement.thread.unknown_size", target, format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"));
+            trace.warn("requirement.thread.unknown_size", target, format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"), json!({"features": [target]}));
             continue;
         };
         let full_depth = match full.filter(|text| !text.is_empty()).map(str::parse::<f64>) {
             None => None,
             Some(Ok(depth)) => Some(depth),
             Some(Err(_)) => {
-                trace.warn("requirement.thread.unreadable_depth", target, format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")));
+                trace.warn("requirement.thread.unreadable_depth", target, format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")), json!({"features": [target]}));
                 continue;
             }
         };
         let Some(feature) = features.iter().find(|f| f["id"].as_str() == Some(target)) else {
-            trace.warn("requirement.thread.no_feature", target, format!("{target}: tapped {spec}, but the part has no such feature now; not threaded"));
+            trace.warn("requirement.thread.no_feature", target, format!("{target}: tapped {spec}, but the part has no such feature now; not threaded"), json!({"features": [target]}));
             continue;
         };
         let thread = Thread { spec: spec.to_string(), major, pitch, full_depth };
@@ -488,7 +488,7 @@ fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Thread> {
         for hole in &holes {
             let id = hole["id"].as_str().unwrap_or("");
             if !found.contains_key(id) && faces_of(hole).iter().any(|x| on.contains(x)) {
-                trace.warn("requirement.thread.no_size", id, format!("{id}: the file marks an internal thread here but states no size; not threaded (answer it in Specify to thread it)"));
+                trace.warn("requirement.thread.no_size", id, format!("{id}: the file marks an internal thread here but states no size; not threaded (answer it in Specify to thread it)"), json!({"features": [id]}));
             }
         }
     }
@@ -1325,7 +1325,7 @@ fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Va
             }
         }
         if unreadable && !had_wall {
-            trace.warn("process.wall_finish.not_upright", setup, format!("an outside wall above Z{} is not upright planes and cylinders, so it keeps its roughing allowance", show(r(low))));
+            trace.warn("process.wall_finish.not_upright", setup, format!("an outside wall above Z{} is not upright planes and cylinders, so it keeps its roughing allowance", show(r(low))), json!({}));
         }
     }
     Ok((ops, finished))
@@ -1776,7 +1776,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let mut placed: HashMap<String, String> = HashMap::new();
     let asked = threads(analysis, &mut trace);
     if mesh.is_none() {
-        trace.warn("process.no_mesh_checks", "part", "no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string());
+        trace.warn("process.no_mesh_checks", "part", "no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string(), json!({}));
     }
     let mut in_slot: Vec<String> = vec![];
     for feature in all_features.iter().filter(|x| x["family"] == "slots") {
@@ -1817,7 +1817,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                     placed.insert(id.to_string(), trace.decide("setup.hole.first_reachable", id, "chosen", &says, json!({"chosen": name, "considered": considered})));
                     by_setup.entry(name).or_default().push(hole);
                     for (rule, text) in w {
-                        trace.warn(rule, id, text);
+                        trace.warn(rule, id, text, json!({"features": [id]}));
                     }
                 }
                 Err((rule, reason)) => {

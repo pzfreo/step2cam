@@ -52,7 +52,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             let turned = limit("x").zip(limit("y")).is_some_and(|(tx, ty)| dy <= tx && dx <= ty && dz <= limit("z").unwrap_or(f64::INFINITY));
             let hint = if turned { "; turned 90° it would fit, which this plan does not do" } else { "" };
             let says = format!("the {setup_id} setup's stock does not fit {}: {}{hint}", name(mill), over.join(", "));
-            trace.warn("machine.travel", &setup_id, format!("setup {setup_id} is not cut: {says}"));
+            trace.warn("machine.travel", &setup_id, format!("setup {setup_id} is not cut: {says}"), json!({}));
             for op in setup["operations"].as_array().into_iter().flatten() {
                 if op["kind"] == "roughing" {
                     lost_roughing = Some(says.clone());
@@ -67,7 +67,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         if let Some(jaws) = jaws {
             let across = dx.min(dy);
             if across > jaws {
-                trace.warn("machine.workholding", &setup_id, format!("setup {setup_id}: the stock is {} mm across at its narrowest, wider than the vise opens ({} mm): hold it another way", show(r(across)), show(jaws)));
+                trace.warn("machine.workholding", &setup_id, format!("setup {setup_id}: the stock is {} mm across at its narrowest, wider than the vise opens ({} mm): hold it another way", show(r(across)), show(jaws)), json!({}));
             }
         }
     }
@@ -119,12 +119,12 @@ pub fn check_changer(plan: &Value, resources: &Value, trace: &mut Trace) {
             continue;
         }
         if changer["kind"] == "manual" {
-            trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()));
+            trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()), json!({}));
             continue;
         }
         if let Some(pockets) = changer["pockets"].as_u64() {
             if tools.len() as u64 > pockets {
-                trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")));
+                trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")), json!({}));
             }
         }
     }

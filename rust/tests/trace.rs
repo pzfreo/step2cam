@@ -71,7 +71,7 @@ fn check(plan: &Value, part: &str) {
         let (id, version) = d["rule"].as_str().unwrap().split_once('@').unwrap();
         assert_eq!(versions.get(id).copied(), Some(version.parse().unwrap()), "{part}: {d}");
     }
-    let warned: Vec<&str> = plan["decisions"].as_array().unwrap().iter().filter(|d| d["outcome"] == "warning").map(|d| d["says"].as_str().unwrap()).collect();
+    let warned: Vec<&str> = plan["decisions"].as_array().unwrap().iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).map(|d| d["says"].as_str().unwrap()).collect();
     let warnings: Vec<&str> = plan["warnings"].as_array().unwrap().iter().map(|w| w.as_str().unwrap()).collect();
     assert_eq!(warned, warnings, "{part}: each warning, in order, is a decision");
     for s in plan["skipped"].as_array().unwrap() {
@@ -168,4 +168,63 @@ fn a_refusal_supersedes_only_its_operations_own_decisions() {
     }
     let order = decisions.iter().find(|d| d["rule"] == "sequence.fixed_order@1").unwrap();
     assert!(order.get("superseded_by").is_none(), "shared with the setup's other operations");
+}
+
+#[test]
+fn warning_labels_are_enforced() {
+    let mut trace = capp::trace::Trace::default();
+    let doc = rules();
+    for rule in doc["rules"].as_array().unwrap().iter().filter(|r| r.get("warning_label").is_some()) {
+        assert!(!rule["warning_label"].as_str().unwrap().trim().is_empty());
+        trace.warn(rule["id"].as_str().unwrap(), "part", "test warning".into(), serde_json::json!({}));
+    }
+}
+
+#[test]
+#[should_panic(expected = "needs a warning_label")]
+fn an_unlabelled_rule_cannot_warn() {
+    capp::trace::Trace::default().warn("setup.stock.part_box_with_margins", "top", "test".into(), serde_json::json!({}));
+}
+
+#[test]
+fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
+    let out = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
+        &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("demo/tools.json")).unwrap();
+    let plan = &out["plan"];
+    let warnings: Vec<_> = plan["decisions"].as_array().unwrap().iter()
+        .filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).collect();
+    assert_eq!(warnings.len(), 4);
+    let ops = plan["setups"][0]["operations"].as_array().unwrap();
+    let inventory = rules();
+    for (d, n) in warnings.iter().zip([3, 7, 8, 9]) {
+        assert_eq!(d["features"], ops[n]["features"]);
+        assert!(!d["features"].as_array().unwrap().is_empty());
+        assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
+        assert_eq!(ops.iter().filter(|o| o["because"].as_array().unwrap().contains(&d["id"])).count(), 1);
+        let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
+        assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
+        let says = d["says"].as_str().unwrap();
+        assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
+        if n == 3 {
+            assert!(says.contains("depth/D 6.1"), "{says}");
+            assert!((d["depth_diameter_ratio"].as_f64().unwrap() - 20. / 3.3).abs() < 1e-10);
+        } else {
+            let radius = if n == 7 { "1.5" } else { "3" };
+            assert!(says.contains(&format!("left r{radius} by")), "{says}");
+            assert!(!says.contains("r3.0"), "{says}");
+        }
+    }
+}
+
+#[test]
+fn superseded_warnings_do_not_remain_in_the_string_list() {
+    let mut trace = capp::trace::Trace::default();
+    trace.warn("process.notch.corner_radius", "top:notch", "old warning".into(), serde_json::json!({"features": ["pockets:1"]}));
+    let current = trace.warn("process.notch.corner_radius", "top:notch", "current warning".into(), serde_json::json!({"features": ["pockets:1"]}));
+    trace.supersede("top:notch", "warning", &current);
+    let mut plan = serde_json::json!({});
+    trace.store(&mut plan);
+    assert_eq!(plan["warnings"], serde_json::json!(["current warning"]));
+    assert_eq!(plan["decisions"].as_array().unwrap().len(), 2);
+    assert_eq!(plan["decisions"][0]["superseded_by"], current);
 }

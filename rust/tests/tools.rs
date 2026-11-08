@@ -228,12 +228,14 @@ fn deep_drilled_holes_warn_only_above_five_diameters_and_link_the_trace() {
         } else {
             assert_eq!(warnings.len(), 1, "depth {depth}: {warnings:?}");
             let warning = warnings[0];
-            assert!(warning.contains("holes:0"), "{warning}");
-            assert!(warning.contains(&format!("depth/D {}", depth / 4.2)), "{warning}");
+            assert!(warning.contains("4.2 mm holes"), "{warning}");
+            assert!(warning.contains(&format!("depth/D {:.1}", depth / 4.2)), "{warning}");
             assert!(warning.contains("deep-hole drilling (pilot plus deep-hole drill) is not planned"), "{warning}");
             assert!(warning.contains("drilled with full-retract pecks"), "{warning}");
             let decision = list(&plan["decisions"]).iter().find(|d| d["outcome"] == "warning" && d["says"] == warning).unwrap();
             assert_eq!(decision["rule"], "process.hole.peck_by_depth@2");
+            assert_eq!(decision["features"], json!(["holes:0"]));
+            assert_close(number(&decision["depth_diameter_ratio"]), depth / 4.2);
             let op = list(&plan["setups"][0]["operations"]).iter().find(|o| o["kind"] == "holes").unwrap();
             assert!(list(&op["because"]).contains(&decision["id"]));
             assert_eq!(op["technology"]["peck_mode"], "full_retract");
