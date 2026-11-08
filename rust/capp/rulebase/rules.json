@@ -304,10 +304,10 @@
   },
   {
    "id": "process.edge_chamfer",
-   "version": 1,
+   "version": 2,
    "stage": "process",
-   "rationale": "Convex edge rounds on the top face are cut as 45° chamfers meeting the round at its middle.",
-   "code": "plan.rs edge_operations",
+   "rationale": "Modelled equal-leg 45° top loops are chamfered with their wall or bore at size. Convex top edge rounds retain the chamfer meeting their middle.",
+   "code": "plan.rs edge_operations, modelled_edge_operations",
    "sources": [
     {
      "kind": "step2cam"
@@ -331,10 +331,10 @@
   },
   {
    "id": "process.chamfer.not_cut",
-   "version": 1,
+   "version": 3,
    "stage": "process",
-   "rationale": "No operation cuts a chamfer feature: the edge stays sharp.",
-   "code": "plan.rs plan",
+   "rationale": "Chamfers without a complete reachable equal-leg 45° top loop and a wall or bore at size stay out with their geometry reason and a hand-chamfer instruction. Geometry refusals do not request tools.",
+   "code": "plan.rs plan, modelled_edge_operations",
    "sources": [
     {
      "kind": "step2cam"
@@ -592,10 +592,22 @@
   },
   {
    "id": "feasibility.chamfer.needs_wall",
+   "version": 3,
+   "stage": "feasibility",
+   "rationale": "An outside chamfer is cut only if its wall is finished to size; otherwise the edge stays sharp and a modelled chamfer is left for hand finishing.",
+   "code": "settle.rs settle_with",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "feasibility.chamfer.needs_opening",
    "version": 1,
    "stage": "feasibility",
-   "rationale": "An outside chamfer is cut only if its wall is finished to size; otherwise its rounds are not chamfered.",
-   "code": "settle.rs settle",
+   "rationale": "A mouth chamfer runs only after every hole or slot it depends on has a tool. A combined round-as-chamfer operation is blocked as a whole if any opening cannot be cut.",
+   "code": "settle.rs block_chamfers_without_openings",
    "sources": [
     {
      "kind": "step2cam"
@@ -757,10 +769,10 @@
   },
   {
    "id": "tool.edge_chamfer.chamfer_mill",
-   "version": 1,
+   "version": 2,
    "stage": "tools",
-   "rationale": "A 90° chamfer mill wide enough for the chamfer with its tip clear of the edge.",
-   "code": "resources.rs Library::chamfer_mill",
+   "rationale": "The largest 90° chamfer mill covering the whole width plus tip clearance, within loop clearance and cutting-length reach from the stock top.",
+   "code": "resources.rs Library::chamfer_mill_in",
    "sources": [
     {
      "kind": "step2cam"

@@ -1,0 +1,864 @@
+{
+ "schema": 1,
+ "binding": {
+  "source_sha256": "c6a2a410aae098e90f40ac83ed925153edbb913623a92e6f2dfc9865f9cc8684",
+  "face_count": 18,
+  "loader_version": 2,
+  "part": 0
+ },
+ "faces": [
+  {
+   "id": 0,
+   "kind": "plane",
+   "area": 572.0000000000002,
+   "centroid": [
+    -40.0,
+    0.0,
+    6.5
+   ],
+   "direction": [
+    -1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 1,
+   "kind": "cylinder",
+   "area": 163.36281798666926,
+   "centroid": [
+    -37.092958,
+    -27.092958,
+    6.5
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -32.0,
+    -22.0,
+    0.0
+   ],
+   "radius": 8.0
+  },
+  {
+   "id": 2,
+   "kind": "plane",
+   "area": 311.1269837220811,
+   "centroid": [
+    -37.5,
+    -0.0,
+    15.5
+   ],
+   "direction": [
+    -0.707106781,
+    0.0,
+    0.707106781
+   ]
+  },
+  {
+   "id": 3,
+   "kind": "plane",
+   "area": 4745.061929829748,
+   "centroid": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "direction": [
+    -0.0,
+    -0.0,
+    -1.0
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "cylinder",
+   "area": 163.36281798666926,
+   "centroid": [
+    -37.092958,
+    27.092958,
+    6.5
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    -32.0,
+    22.0,
+    0.0
+   ],
+   "radius": 8.0
+  },
+  {
+   "id": 5,
+   "kind": "cone",
+   "area": 61.089640399690005,
+   "centroid": [
+    -35.742553,
+    -25.742553,
+    15.121212
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -32.0,
+    -22.0,
+    13.0
+   ]
+  },
+  {
+   "id": 6,
+   "kind": "plane",
+   "area": 832.0000000000002,
+   "centroid": [
+    -0.0,
+    -30.0,
+    6.5
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 7,
+   "kind": "plane",
+   "area": 3492.274333882309,
+   "centroid": [
+    0.0,
+    -0.0,
+    18.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "cone",
+   "area": 61.08964039969,
+   "centroid": [
+    -35.742553,
+    25.742553,
+    15.121212
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -32.0,
+    22.0,
+    13.0
+   ]
+  },
+  {
+   "id": 9,
+   "kind": "plane",
+   "area": 832.0000000000002,
+   "centroid": [
+    0.0,
+    30.0,
+    6.5
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 10,
+   "kind": "cylinder",
+   "area": 163.36281798666926,
+   "centroid": [
+    37.092958,
+    -27.092958,
+    6.5
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    -22.0,
+    0.0
+   ],
+   "radius": 8.0
+  },
+  {
+   "id": 11,
+   "kind": "cylinder",
+   "area": 163.36281798666926,
+   "centroid": [
+    37.092958,
+    27.092958,
+    6.5
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "origin": [
+    32.0,
+    22.0,
+    0.0
+   ],
+   "radius": 8.0
+  },
+  {
+   "id": 12,
+   "kind": "plane",
+   "area": 572.0000000000002,
+   "centroid": [
+    40.0,
+    0.0,
+    6.5
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 13,
+   "kind": "plane",
+   "area": 452.54833995939043,
+   "centroid": [
+    -0.0,
+    -27.5,
+    15.5
+   ],
+   "direction": [
+    0.0,
+    -0.707106781,
+    0.707106781
+   ]
+  },
+  {
+   "id": 14,
+   "kind": "plane",
+   "area": 452.54833995939043,
+   "centroid": [
+    0.0,
+    27.5,
+    15.5
+   ],
+   "direction": [
+    0.0,
+    0.707106781,
+    0.707106781
+   ]
+  },
+  {
+   "id": 15,
+   "kind": "cone",
+   "area": 61.08964039969,
+   "centroid": [
+    35.742553,
+    -25.742553,
+    15.121212
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    32.0,
+    -22.0,
+    13.0
+   ]
+  },
+  {
+   "id": 16,
+   "kind": "cone",
+   "area": 61.089640399690005,
+   "centroid": [
+    35.742553,
+    25.742553,
+    15.121212
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    32.0,
+    22.0,
+    13.0
+   ]
+  },
+  {
+   "id": 17,
+   "kind": "plane",
+   "area": 311.1269837220811,
+   "centroid": [
+    37.5,
+    0.0,
+    15.5
+   ],
+   "direction": [
+    0.707106781,
+    0.0,
+    0.707106781
+   ]
+  }
+ ],
+ "features": [
+  {
+   "id": "fillets:10",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 8.0,
+    "at": [
+     37.657,
+     -27.657,
+     6.5
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    10
+   ]
+  },
+  {
+   "id": "fillets:1",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 8.0,
+    "at": [
+     -37.657,
+     -27.657,
+     6.5
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    1
+   ]
+  },
+  {
+   "id": "fillets:11",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 8.0,
+    "at": [
+     37.657,
+     27.657,
+     6.5
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    11
+   ]
+  },
+  {
+   "id": "fillets:4",
+   "family": "fillets",
+   "record": {
+    "axis": "z",
+    "radius": 8.0,
+    "at": [
+     -37.657,
+     27.657,
+     6.5
+    ],
+    "turned": false,
+    "side": "convex"
+   },
+   "faces": [
+    4
+   ]
+  },
+  {
+   "id": "chamfers:15",
+   "family": "chamfers",
+   "record": {
+    "axis": "z",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     35.889,
+     -25.889,
+     15.5
+    ],
+    "turned": true,
+    "corner": null,
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    15
+   ]
+  },
+  {
+   "id": "chamfers:5",
+   "family": "chamfers",
+   "record": {
+    "axis": "z",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     -35.889,
+     -25.889,
+     15.5
+    ],
+    "turned": true,
+    "corner": null,
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    5
+   ]
+  },
+  {
+   "id": "chamfers:16",
+   "family": "chamfers",
+   "record": {
+    "axis": "z",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     35.889,
+     25.889,
+     15.5
+    ],
+    "turned": true,
+    "corner": null,
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    16
+   ]
+  },
+  {
+   "id": "chamfers:8",
+   "family": "chamfers",
+   "record": {
+    "axis": "z",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     -35.889,
+     25.889,
+     15.5
+    ],
+    "turned": true,
+    "corner": null,
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    8
+   ]
+  },
+  {
+   "id": "chamfers:17",
+   "family": "chamfers",
+   "record": {
+    "axis": "y",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     37.5,
+     0.0,
+     15.5
+    ],
+    "turned": false,
+    "corner": [
+     40.0,
+     0.0,
+     18.0
+    ],
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    17
+   ]
+  },
+  {
+   "id": "chamfers:2",
+   "family": "chamfers",
+   "record": {
+    "axis": "y",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     -37.5,
+     0.0,
+     15.5
+    ],
+    "turned": false,
+    "corner": [
+     -40.0,
+     0.0,
+     18.0
+    ],
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    2
+   ]
+  },
+  {
+   "id": "chamfers:13",
+   "family": "chamfers",
+   "record": {
+    "axis": "x",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     0.0,
+     -27.5,
+     15.5
+    ],
+    "turned": false,
+    "corner": [
+     0.0,
+     -30.0,
+     18.0
+    ],
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    13
+   ]
+  },
+  {
+   "id": "chamfers:14",
+   "family": "chamfers",
+   "record": {
+    "axis": "x",
+    "leg1": 5.0,
+    "leg2": 5.0,
+    "angle": 45.0,
+    "at": [
+     0.0,
+     27.5,
+     15.5
+    ],
+    "turned": false,
+    "corner": [
+     0.0,
+     30.0,
+     18.0
+    ],
+    "leg1_direction": null,
+    "leg2_direction": null,
+    "length": null,
+    "support_spans": null,
+    "body_key": null
+   },
+   "faces": [
+    14
+   ]
+  }
+ ],
+ "dimensioning": {
+  "frame": {
+   "origin": [
+    -7.869396145525807e-18,
+    2.1502529804732735e-17,
+    8.715458642974106
+   ],
+   "x": [
+    1.0,
+    -0.0,
+    -0.0
+   ],
+   "y": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "gauge": "orthogonal"
+  },
+  "bounds": [
+   [
+    -40.0,
+    -30.0,
+    -8.715458642974106
+   ],
+   [
+    40.0,
+    30.0,
+    9.284541357025894
+   ]
+  ],
+  "holes": [],
+  "patterns": [],
+  "planes": [
+   {
+    "support": {
+     "feature": "plane:0",
+     "faces": [
+      0
+     ],
+     "body": 0,
+     "at": [
+      -40.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:3",
+     "faces": [
+      3
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -8.715458642974106
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:6",
+     "faces": [
+      6
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -30.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:7",
+     "faces": [
+      7
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      9.284541357025894
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:9",
+     "faces": [
+      9
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      30.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:12",
+     "faces": [
+      12
+     ],
+     "body": 0,
+     "at": [
+      40.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   }
+  ],
+  "steps": {
+   "axis": 2,
+   "heights": [],
+   "shoulders": []
+  },
+  "cartesian_envelope": true,
+  "deferred": [
+   {
+    "id": "deferred:chamfers:13",
+    "faces": [
+     13
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:14",
+    "faces": [
+     14
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:15",
+    "faces": [
+     15
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:16",
+    "faces": [
+     16
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:17",
+    "faces": [
+     17
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:2",
+    "faces": [
+     2
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:5",
+    "faces": [
+     5
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:chamfers:8",
+    "faces": [
+     8
+    ],
+    "family": "chamfers"
+   },
+   {
+    "id": "deferred:fillets:1",
+    "faces": [
+     1
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:10",
+    "faces": [
+     10
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:11",
+    "faces": [
+     11
+    ],
+    "family": "fillets"
+   },
+   {
+    "id": "deferred:fillets:4",
+    "faces": [
+     4
+    ],
+    "family": "fillets"
+   }
+  ],
+  "datums": [],
+  "round_axes": [],
+  "specified": [],
+  "policy": {
+   "origins": [
+    "automatic",
+    "automatic",
+    "automatic"
+   ],
+   "general_tolerance": true,
+   "references": false
+  }
+ },
+ "existing": [],
+ "part": {}
+}

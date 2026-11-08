@@ -1,10 +1,10 @@
-"""Writes stepped-plate.step and stepped-plate-chamfered.step: a synthetic part with the mix of features of NIST's CTC 01 test
+"""Writes the stepped plate and chamfer regression STEP fixtures: a synthetic part with the mix of features of NIST's CTC 01 test
 part (a plate with a raised boss, through and side holes, slots, notches, a V-channel, chamfers
 and rounds), at about 1/8 of its size and with its own dimensions. Not derived from NIST's model.
 
     uv run --no-project --with build123d python tests/fixtures/synthetic/stepped_plate.py
     then, for each NAME: specify-core analyse -o NAME.analysis.json NAME.step
-                          specify-core mesh -o NAME.mesh.json NAME.step
+    Mesh with the site's WASM release, as ../README.md describes.
 
 The second has the plate's top edge chamfered: with its rounded corners and boss, that shape is
 stevecad/camlib#70.
@@ -56,3 +56,17 @@ def build(chamfered):
 
 for name, chamfered in (("stepped-plate", False), ("stepped-plate-chamfered", True)):
     export_step(build(chamfered), str(Path(__file__).with_name(f"{name}.step")))
+
+# Issue #47: a 5 mm leg exceeds cm6's 2.25 mm usable radial span.
+large = Box(80, 60, 18, align=BOTTOM)
+large = fillet(large.edges().filter_by(Axis.Z), radius=8)
+large = chamfer(large.faces().sort_by(Axis.Z)[-1].edges(), length=5)
+export_step(large, str(Path(__file__).with_name("stepped-plate-large-chamfer.step")))
+
+# Complete hole and slot mouths, separate from countersink-only hole records.
+mouths = Box(80, 60, 12, align=BOTTOM)
+mouths -= Pos(-20, 0, -1) * Cylinder(8, 14, align=BOTTOM)
+mouths -= extrude(Plane.XY.offset(-1) * Pos(20, 0) * SlotOverall(20, 8), amount=14)
+top = mouths.faces().sort_by(Axis.Z)[-1]
+mouths = chamfer([edge for wire in top.inner_wires() for edge in wire.edges()], length=1)
+export_step(mouths, str(Path(__file__).with_name("stepped-plate-chamfer-mouths.step")))

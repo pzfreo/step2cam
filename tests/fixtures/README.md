@@ -23,7 +23,7 @@ tolerances yet (issues #40–#42).
 | `plate.step`, `plate-m5.step` | specify-core's test part `plate.step` |
 | `spindle.step` | specify-core's test part `spindle.step` |
 | `mounting-plate.step` | Thompson Labs' `mounting-plate.step`, MIT (`mounting-plate.LICENSE`) |
-| `synthetic/stepped-plate*.step` | `synthetic/stepped_plate.py` |
+| `synthetic/stepped-plate*.step` | `synthetic/stepped_plate.py` (including the plain 5 mm top chamfer regression for #47) |
 | `synthetic/walls/*.step` | made for the wall tests (`rust/tests/walls.rs`) |
 
 To change a part's GD&T, or after regenerating its geometry, write the answers into the plain

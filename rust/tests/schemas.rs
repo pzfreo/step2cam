@@ -31,6 +31,8 @@ fn plans_match_the_plan_schema() {
         ("tests/fixtures/spindle", false),
         ("tests/fixtures/synthetic/stepped-plate", true),
         ("tests/fixtures/synthetic/stepped-plate-chamfered", true),
+        ("tests/fixtures/synthetic/stepped-plate-large-chamfer", true),
+        ("tests/fixtures/synthetic/stepped-plate-chamfer-mouths", true),
         ("tests/fixtures/synthetic/walls/channel", true),
         ("tests/fixtures/synthetic/walls/island", true),
         ("tests/fixtures/synthetic/walls/overhang", true),
