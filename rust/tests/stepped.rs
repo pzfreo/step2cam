@@ -25,7 +25,7 @@ fn it_is_roughed_drilled_and_slotted_from_the_top() {
     assert!(out["error"].is_null(), "{}", out["error"]);
     let top = operations(&out, "top");
     let kinds: Vec<&str> = top.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "spot_drill", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert_eq!(kinds.iter().filter(|k| **k == "holes").count(), 3, "{kinds:?} {}", out["plan"]["warnings"]);
     // The round-ended slot gets its own cut, which ends at the plate's bottom.
     let slots: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "slot").collect();
@@ -75,6 +75,6 @@ fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["error"].is_null(), "{}", out["error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "spot_drill", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert!(out["plan"]["skipped"].to_string().contains("chamfer: no operation cuts it"));
 }

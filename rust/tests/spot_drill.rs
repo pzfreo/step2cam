@@ -156,3 +156,16 @@ fn refused_matching_spot_leaves_its_countersink_for_hand_finishing() {
     assert!(p["skipped"].as_array().unwrap().iter().any(|s|s["reason"].as_str().unwrap().contains("chamfer it by hand")));
     assert_eq!(ops(&p,"holes")[0]["tool"],"drill4.2");
 }
+
+#[test]
+fn pruning_updates_the_missing_tool_query_to_the_remaining_spots() {
+    let mut lib=example_tools();
+    lib["tools"].as_array_mut().unwrap().retain(|t| t["type"]!="spot_drill");
+    let mut p=plan(&holes_only(&[down(0.,0.,4.2,8.,"flat"),down(8.,0.,6.6,8.,"flat")]),None,&top_stock(0.)).unwrap();
+    let setup=p["setups"][0]["id"].as_str().unwrap().to_owned();
+    capp::finish(&mut p,&lib,&[json!({"operation":format!("{setup}-3-holes"),"message":"drill refused"})]).unwrap();
+    let s=ops(&p,"spot_drill").remove(0);
+    assert_eq!(s["spots"].as_array().unwrap().len(),1);
+    assert_eq!(s["diameter"],4.2);
+    assert!(s["tool_note"].as_str().unwrap().contains("at least ⌀4.2"));
+}

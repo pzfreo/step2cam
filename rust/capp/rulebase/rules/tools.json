@@ -1,7 +1,7 @@
 {
  "format": "capp-rules",
  "version": 1,
- "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, and `else_reject` says why. Conditions in a list are checked in order, as `&&` would be. Then it prefers the first kept, or the largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values (drill_tolerance_mm), step2cam's constants (tip_clearance_mm) and the tool's fields (`tool.diameter`). A tool field that is missing or not a number fails every comparison, so that tool is not chosen. `needed` describes a missing tool using the same inputs and let values. up2/down2 round bounds conservatively to 0.01 mm; the thread neck and chamfer span descriptions restate the keep conditions algebraically.",
+ "_comment": "Tool selectors. A selector keeps the tools of its type, in library order, for which every `keep` condition holds, checked in order; the first that fails turns the tool down, and `else_reject` says why. Conditions in a list are checked in order, as `&&` would be. Then it prefers the first kept, or the smallest or largest by a value, ties going to the first or the last in library order. Expressions are arithmetic and comparisons over the selector's inputs, its `let` values, the library's values (drill_tolerance_mm), step2cam's constants (tip_clearance_mm) and the tool's fields (`tool.diameter`). A tool field that is missing or not a number fails every comparison, so that tool is not chosen. `needed` describes a missing tool using the same inputs and let values. up2/down2 round bounds conservatively to 0.01 mm; the thread neck and chamfer span descriptions restate the keep conditions algebraically.",
  "selectors": [
   {
    "id": "largest_end_mill",
@@ -265,7 +265,8 @@
     "smallest": "tool.diameter",
     "ties": "first"
    },
-   "needed": "a spot drill of at least ⌀{diameter}, point angle at least {angle}° and under 180°, with flutes and stickout reaching {reach:up2} mm plus the spot point depth"
+   "let": [["reach_min", "reach + drilling_guard_mm"]],
+   "needed": "a spot drill of at least ⌀{diameter}, point angle at least {angle}° and under 180°, with flutes and stickout reaching {reach_min:up2} mm plus the spot point depth"
   }
  ]
 }

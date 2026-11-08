@@ -39,7 +39,10 @@ fn create_with(plan: &mut Value, library: &Library, trace: &mut Trace) -> Result
                 };
                 let name = tool.map(id);
                 let index = groups.iter().position(|g| g["spot_tool"].as_str() == name).unwrap_or_else(|| {
-                    groups.push(json!({"kind":"spot_drill", "spot_tool":name, "spots":[], "features":[],
+                    let parent: Vec<Value> = op["because"].as_array().into_iter().flatten().filter(|id|
+                        trace.decisions.iter().any(|d| d["id"] == **id && (d["stage"] == "setup" || d["stage"] == "sequence")))
+                        .cloned().collect();
+                    groups.push(json!({"because":parent,"kind":"spot_drill", "spot_tool":name, "spots":[], "features":[],
                         "diameter":diameter,"angle":angle,"reach":reach}));
                     groups.len()-1
                 });
@@ -70,9 +73,13 @@ pub(crate) fn prune(plan: &mut Value, library: &Library, finalize: bool) -> Resu
         let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
         let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
         let mut drilled = vec![];
+        let mut angles = vec![];
         for op in ops.iter().filter(|o| o["kind"] == "holes") {
-            if library.drill(num(op, "diameter")?, library.drill_depth(op, top)?).is_some() {
-                drilled.extend(op["features"].as_array().into_iter().flatten().cloned());
+            if let Some(drill) = library.drill(num(op, "diameter")?, library.drill_depth(op, top)?) {
+                for feature in op["features"].as_array().into_iter().flatten() {
+                    drilled.push(feature.clone());
+                    angles.push((feature.clone(), num(drill, "point_angle")?));
+                }
             }
         }
         for op in ops.iter_mut().filter(|o| o["kind"] == "spot_drill") {
@@ -80,6 +87,12 @@ pub(crate) fn prune(plan: &mut Value, library: &Library, finalize: bool) -> Resu
             spots.retain(|s| s["features"].as_array().into_iter().flatten().all(|f| drilled.contains(f)));
             let features: Vec<Value> = spots.iter().flat_map(|s| s["features"].as_array().into_iter().flatten().cloned()).collect();
             cut.extend(spots.iter().filter(|s| s["countersink"] == true).flat_map(|s| s["features"].as_array().into_iter().flatten().cloned()));
+            let diameter = spots.iter().filter_map(|s| s["diameter"].as_f64()).fold(0., f64::max);
+            let reach = spots.iter().filter_map(|s| s["top_z"].as_f64()).map(|z| (top-z).max(0.)).fold(0., f64::max);
+            let angle = angles.iter().filter(|(f, _)| features.contains(f)).map(|(_, a)| *a).fold(0., f64::max);
+            op["diameter"] = json!(diameter);
+            op["reach"] = json!(reach);
+            op["angle"] = json!(angle);
             op["features"] = json!(features);
         }
         ops.retain(|o| o["kind"] != "spot_drill" || o["spots"].as_array().is_some_and(|s| !s.is_empty()));
@@ -90,8 +103,8 @@ pub(crate) fn prune(plan: &mut Value, library: &Library, finalize: bool) -> Resu
         let Some(feature) = feature.as_str() else { continue; };
         let made = trace.decide("process.spot_drill", feature, "cut", "countersink cut by matching spot drill", Value::Null);
         // Only replace the countersink skip, never other skips on the same feature.
-        let decisions: Vec<Value> = trace.skipped.iter().filter(|s| s["feature"] == feature && s["reason"].as_str().is_some_and(|r| r.starts_with("countersink:"))).map(|s| s["decision"].clone()).collect();
-        trace.skipped.retain(|s| !decisions.contains(&s["decision"]));
+        let decisions: Vec<Value> = trace.skipped.iter().filter(|s| s["feature"] == feature && s["reason"].as_str().is_some_and(|r| r.starts_with("countersink:"))).filter_map(|s| s.get("decision").cloned()).collect();
+        trace.skipped.retain(|s| !(s["feature"] == feature && s["reason"].as_str().is_some_and(|r| r.starts_with("countersink:"))));
         for d in &mut trace.decisions {
             if decisions.contains(&d["id"]) { d["superseded_by"] = json!(made); }
         }
