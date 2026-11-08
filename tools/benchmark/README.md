@@ -38,11 +38,13 @@ ignores ranges is rejected before its body is read. Use `--zip /path/MachinePlan
 a local archive. Extracted members and temporary CLI results stay under
 `~/.cache/step2cam-benchmark` (`--cache PATH`, outside the repo). Members are bounded to 128 MiB
 and paths are checked for traversal and escaping symlinks; nothing is executed from the ZIP.
-Cached archive members are reused; recognition and planning always run again. Use a fresh cache
+Fetched ranges (including ZIP metadata) and extracted archive members are cached for this fixed
+record URL; recognition and planning always run again. The first remote run reads roughly 60 MB
+of ZIP metadata before the selected members. Delete the cache to force a complete refetch. Use a fresh cache
 to verify remote fetching, for example `--limit 3 --cache /tmp/mp10k-remote`.
 
-Allow several minutes for 100 parts after the initial Rust build; network and CPU performance
-vary. The report records per-part seconds, their sum and median, and wall time. Timings include
+The development machine takes about a minute for 100 parts after the initial Rust build; allow
+several minutes on slower machines or networks. A cold release build can exceed ten minutes. The report records per-part seconds, their sum and median, and wall time. Timings include
 fetching and worker lock waits, but exclude the initial build; the sum is not wall time with
 parallel jobs. `data` is the deterministic comparison payload, sorted by part and key with no
 timestamps. Variable measurements live separately in `timing` and `fetch`.

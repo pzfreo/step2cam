@@ -1,8 +1,10 @@
 """Read selected ZIP members; never accept a server's full-download fallback."""
+import hashlib
 import io
 import os
 from pathlib import Path, PurePosixPath
 import re
+import struct
 import tempfile
 import urllib.request
 
@@ -11,14 +13,25 @@ MAX_MEMBER = 128 * 1024 * 1024
 
 
 class RemoteZip(io.RawIOBase):
-    def __init__(self, url=URL):
+    def __init__(self, url=URL, cache=None):
         super().__init__()
         self.url, self.pos = url, 0
+        self.cache = cache
         self.requests, self.bytes = 0, 0
         # A one-byte range discovers size without trusting HEAD support or redirects.
         data, self.size = self._range(0, 0)
 
     def _range(self, start, end):
+        cached = None
+        if self.cache is not None:
+            key = hashlib.sha256(self.url.encode()).hexdigest()
+            cached = cache_path(self.cache, f'http-ranges/{key}/{start}-{end}')
+            if cached.is_file() and cached.stat().st_size == end - start + 9:
+                with cached.open('rb') as src:
+                    size = struct.unpack('>Q', src.read(8))[0]
+                    data = src.read()
+                if end < size:
+                    return data, size
         req = urllib.request.Request(self.url, headers={
             'Range': f'bytes={start}-{end}', 'Accept-Encoding': 'identity'})
         with urllib.request.urlopen(req, timeout=120) as response:
@@ -30,6 +43,18 @@ class RemoteZip(io.RawIOBase):
             data = response.read(end - start + 2)
             if len(data) != end - start + 1:
                 raise OSError('short or oversized HTTP range response')
+        if cached is not None:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            tmp = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=cached.parent, delete=False) as out:
+                    tmp = out.name
+                    out.write(struct.pack('>Q', size))
+                    out.write(data)
+                os.replace(tmp, cached)
+            finally:
+                if tmp and os.path.exists(tmp):
+                    os.unlink(tmp)
         self.requests += 1
         self.bytes += len(data)
         return data, size

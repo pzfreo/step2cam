@@ -104,7 +104,7 @@ def main():
     import threading
     lock = threading.Lock()
     wall_start = time.monotonic()
-    remote = None if args.zip else RemoteZip()
+    remote = None if args.zip else RemoteZip(cache=cache)
     source = args.zip or io.BufferedReader(remote, buffer_size=1 << 20)
     rows, seconds = [], {}
     with zipfile.ZipFile(source) as z, ThreadPoolExecutor(max_workers=args.jobs) as pool:

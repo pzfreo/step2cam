@@ -97,6 +97,24 @@ class FetchTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 extract(z, '../escape', tmp)
 
+    def test_validated_ranges_are_cached(self):
+        class Response:
+            status = 206
+            headers = {'Content-Range': 'bytes 0-0/100'}
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def read(self, n):
+                return b'x'
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('urllib.request.urlopen', return_value=Response()):
+                first = RemoteZip('https://example.invalid/fixed.zip', cache=tmp)
+            with patch('urllib.request.urlopen', side_effect=AssertionError('unexpected network')):
+                second = RemoteZip('https://example.invalid/fixed.zip', cache=tmp)
+            self.assertEqual((first.size, first.requests, first.bytes), (100, 1, 1))
+            self.assertEqual((second.size, second.requests, second.bytes), (100, 0, 0))
+
     def test_reject_server_ignoring_range(self):
         class Response:
             status = 200
