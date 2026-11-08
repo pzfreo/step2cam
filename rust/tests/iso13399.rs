@@ -94,6 +94,11 @@ fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
     assert_eq!(step2cam::process(&json!({}), &json!({}), &library).unwrap_err(), message);
     library["tools"][index]["DC"] = json!(6.0);
     assert!(normalize(&library).is_ok(), "integer and float compare by value");
+    library["tools"][index]["diameter"] = json!(9_007_199_254_740_993u64);
+    for other in [json!(9_007_199_254_740_992u64), json!(9_007_199_254_740_992f64)] {
+        library["tools"][index]["DC"] = other;
+        assert!(normalize(&library).is_err(), "distinct integers must not become equal by f64 rounding");
+    }
     let object = library["tools"][index].as_object_mut().unwrap();
     object.remove("DC");
     object.remove("diameter");
