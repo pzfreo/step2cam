@@ -55,7 +55,7 @@ skipped with a reach reason and needed-tool query, including the 1 mm margin in 
 minimum flute length and stickout. Flats below the cap are removed; crossing wall bands are
 finished down to the cap, with a needed-tool warning for the allowance left below it. Wholly
 unreachable wall bands are removed, and dependent edge chamfers follow the missing-wall
-handling. No second roughing setup is added.
+handling. No second roughing setup is added. The resource-aware `capp::flip::plan` option can instead reserve sacrificial bottom stock before planning, so the jaws do not obstruct the part.
 
 A vise with explicit `max_jaw_opening_mm`, `jaw_width_mm` and `jaw_height_mm` also
 records `setups[].clamping`: the stock faces gripped, grip height, jaw top Z, clearance,
@@ -115,8 +115,48 @@ This is a conservative warning, not a stock simulation, proof of retained contac
 holding-strength calculation. No operations are removed by this audit. Execution retries
 recompute it after refusals, so excluded earlier operations do not count as cuts.
 
-The automatic flip-onto-parallels and face-to-thickness pattern remains deferred pending
-camlib#121's ability to start a later job from the earlier job's stock.
+`capp::flip::plan(analysis, mesh, resources)` implements the self-contained #86 vise
+flip-and-face option. `process` enables it for a dimensioned vise and a web or through
+feature. #94 can offer or withhold this entry point without changing machine-independent
+`plan`; no options table or supplied decision protocol is introduced. Missing vise dimensions
+retain the original plan. Ineligible seating, opening, grip or tool reach is traced as withheld;
+explicit clamping overrides retain their original stock contract.
+
+Stock in this option includes bottom stock B, solved from
+`B >= max(3.175, 0.2 * (part_height + top_stock + B)) + 1 + 1`.
+The first 1 mm is the existing side-cut clearance; the additional 1 mm facing allowance
+is step2cam judgement. B is rounded upward to 0.0001 mm for numerical safety, not a machining
+tolerance. Supplied parallels prescribe grip as jaw height minus parallel height; both
+setups must satisfy the grip limits or the option is withheld. Op 1 roughs and finishes
+the complete outline to the part bottom, with no part web; through holes and slots break
+into the sacrificial stock by up to 0.5 mm (judgement, capped by the library breakthrough,
+to retain tool reach). Op 2 faces that stock to the bottom face at thickness. With
+this stock rule Op 1 reaches the whole outline, so no invented bottom wall operation is
+needed; genuinely bottom-entered features retain their setup.
+
+Op 2 grips opposed mesh-checked rectangular side bands prepared by Op 1 wall finishing.
+Two horizontal support strips are checked by clipping mesh triangles to their rectangles,
+requiring complete coverage (relative area tolerance 1e-6 is numerical judgement).
+This rejects holes, notches and missing material in the proposed seating. The narrower
+axis is tried first, then the other pair. The boss top is never assumed to be the edge
+seating: on the complex plate the supports seat under the plate top at model Z12, and
+its short end faces are gripped above that plane in the flipped frame. Bar width reuses
+3.175 mm, the existing judgement value. Missing parallels are explicitly chosen at the
+height needed for that real seating; supplied parallels must validate as given.
+
+The clamping-history audit uses these actual contact bands. Only a retained, tooled
+straight wall contour covering the entire band at its depth establishes prepared faces;
+then roughing, flats and wall envelopes that include preserved material do not generate
+false removed-material warnings for this flip. Holes, notches and other cutting envelopes
+remain checked. Other setups retain the existing conservative audit. Exclusions recompute
+this evidence; an absent finishing operation must not certify a prepared face.
+
+Until camlib#121 / #45, Op 2 starts from a fresh part box plus bottom stock. Its trace
+warns that this does not model the true boss underside, stock history, or Op 1's margin
+remaining below the jaw line. Facing explicitly overlaps the box by the original XY margin
+to clear this material; a facing cutter too small for that overlap withholds the option. Jaw and edge-support fixtures and
+the transformed target mesh remain checked by camlib; box stock is not a simulation of
+physical seating or a holding-strength calculation.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,

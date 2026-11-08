@@ -9,13 +9,20 @@ const RULE: &str = "machine.clamping";
 pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, trace: &mut Trace) -> Option<String> {
     let id = setup["id"].as_str().unwrap_or("").to_string();
     setup.as_object_mut()?.remove("clamping");
-    let lo: [f64; 3] = serde_json::from_value(setup["stock"]["min"].clone()).ok()?;
-    let hi: [f64; 3] = serde_json::from_value(setup["stock"]["max"].clone()).ok()?;
+    let mut lo: [f64; 3] = serde_json::from_value(setup["stock"]["min"].clone()).ok()?;
+    let mut hi: [f64; 3] = serde_json::from_value(setup["stock"]["max"].clone()).ok()?;
+    let seating = setup.get("flip_seating").cloned();
+    if let Some(seat) = &seating {
+        lo[2] = r(setup["origin_model"][2].as_f64()? - seat["seat_z_model"].as_f64()?);
+        // Grip limits refer to real finished plate material, excluding the boss
+        // below its edge seating and the sacrificial material above its bottom.
+        hi[2] = 0.;
+    }
     let given = match proposal.map(Proposal::read).transpose() {
         Ok(given) => given,
         Err(e) => return Some(format!("invalid clamping override: {e}")),
     };
-    let axis = given.as_ref().map_or_else(|| usize::from(hi[0] - lo[0] > hi[1] - lo[1]), |p| p.axis);
+    let axis = given.as_ref().map_or_else(|| seating.as_ref().map_or_else(|| usize::from(hi[0] - lo[0] > hi[1] - lo[1]), |s| s["axis"].as_u64().unwrap() as usize), |p| p.axis);
     let along = 1 - axis;
     let across = hi[axis] - lo[axis];
     let opening = vise.and_then(|v| v["max_jaw_opening_mm"].as_f64());
@@ -38,9 +45,13 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     let stock_height = hi[2] - lo[2];
     let minimum = r(rule["min_grip_mm"].as_f64().unwrap().max(stock_height * rule["min_grip_fraction"].as_f64().unwrap()));
     // An explicit null disables inherited parallels; an absent field inherits the vise's.
-    let parallel = if proposal.is_some_and(|p| p.get("parallels_height_mm").is_some()) {
+    let mut parallel = if proposal.is_some_and(|p| p.get("parallels_height_mm").is_some()) {
         given.as_ref().and_then(|p| p.parallels_height_mm)
     } else { vise.and_then(|v| v["parallels_height_mm"].as_f64()) };
+    if let Some(seat) = &seating {
+        if given.is_some() { return Some("flip seating is mesh-validated; clamping override requires withholding the flip option".into()); }
+        parallel = Some(r(height - seat["grip_height_mm"].as_f64()?));
+    }
     if parallel.is_some_and(|p| !p.is_finite() || p <= 0.) { return Some("parallels height must be positive and finite".into()); }
     let grip = r(given.as_ref().map_or_else(|| parallel.map_or(minimum, |p| height - p), |p| p.grip_height_mm));
     if !grip.is_finite() { return Some("grip height must be finite".into()); }
@@ -67,6 +78,12 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     }
     let top = r(lo[2] + grip);
     let center = (lo[along] + hi[along]) / 2.;
+    let (contact_min, contact_max) = if let Some(seat) = &seating {
+        let a = seat["along_min_model"].as_f64()?;
+        let b = seat["along_max_model"].as_f64()?;
+        let origin = setup["origin_model"][along].as_f64()?;
+        if along == 1 { (r(origin-b),r(origin-a)) } else { (r(a-origin),r(b-origin)) }
+    } else { (lo[along],hi[along]) };
     let mut jaws = vec![];
     for (n, side) in [lo[axis] - height, hi[axis]].iter().enumerate() {
         let mut min = [0., 0., top - height];
@@ -87,20 +104,32 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
             let mut max = hi;
             min[axis] = *side;
             max[axis] = side + bar;
+            min[along] = contact_min;
+            max[along] = contact_max;
             min[2] = lo[2] - p;
             max[2] = lo[2];
             parallels.push(json!({"id": format!("{id}-parallel-{}", n + 1), "min": min.map(r), "max": max.map(r)}));
         }
     }
     let faces = json!([format!("stock.{}.min", ["x", "y"][axis]), format!("stock.{}.max", ["x", "y"][axis])]);
-    let support = if parallel.is_some() {
+    let support = if seating.is_some() {
+        "two modeled edge parallels on mesh-checked finished plate top strips, clear of the boss; contact bands lie on real finished side faces, above the box bottom".to_string()
+    } else if parallel.is_some() {
         "seated on two parallels".to_string()
     } else {
         format!("raise stock on parallels or similar so jaws grip only {} mm; parallels_height_mm absent: support is not modeled or checked, so through cuts are not checked against it", show(grip))
     };
-    let choice = if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
-    let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; material below the cap needs a later setup; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
+    let choice = if seating.is_some() { "mesh-checked opposed finished side faces and edge seating" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
+    let remainder = if seating.is_some() { "outline already finished in top setup" }
+        else if setup["flip_role"] == "sacrificial_grip" { "sacrificial stock below the cap is removed by bottom facing" }
+        else { "material below the cap needs a later setup" };
+    let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
     setup["clamping"] = json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "because": [decision]});
+    if seating.is_some() {
+        setup["clamping"]["contact_min_z"] = json!(lo[2]);
+        setup["clamping"]["contact_along_min"] = json!(contact_min);
+        setup["clamping"]["contact_along_max"] = json!(contact_max);
+    }
     None
 }
 

@@ -95,10 +95,43 @@ fn bands(setup: &Value) -> Option<Vec<Bounds>> {
         b[1][axis] = stock[n][axis];
         b[0][along] = b[0][along].max(jaw["min"][along].as_f64()?);
         b[1][along] = b[1][along].min(jaw["max"][along].as_f64()?);
+        if let Some(z) = c["contact_min_z"].as_f64() { b[0][2] = z; }
+        if let Some(a) = c["contact_along_min"].as_f64() { b[0][along] = b[0][along].max(a); }
+        if let Some(a) = c["contact_along_max"].as_f64() { b[1][along] = b[1][along].min(a); }
         b[1][2] = c["jaw_top_z"].as_f64()?;
         bands.push(b);
     }
     Some(bands)
+}
+
+/// A finishing contour must contain the full contact segment, not just its box.
+fn prepared_band(earlier: &Value, band: Bounds) -> bool {
+    earlier["operations"].as_array().into_iter().flatten().any(|op|
+        op["kind"] == "wall_finish" && op["tool"].is_string()
+        && op["floor_z"].as_f64().is_some_and(|z| z <= band[0][2] + 1e-6)
+        && op["outer"].as_array().is_some_and(|points| (0..points.len()).any(|i| {
+            let a=&points[i]; let b=&points[(i+1)%points.len()];
+            (0..2).any(|axis| {
+                let along=1-axis;
+                (band[0][axis]-band[1][axis]).abs()<1e-6
+                && a[2].as_f64()==Some(0.)
+                && a[axis].as_f64().is_some_and(|v| (v-band[0][axis]).abs()<1e-6)
+                && b[axis].as_f64().is_some_and(|v| (v-band[0][axis]).abs()<1e-6)
+                && a[along].as_f64().zip(b[along].as_f64()).is_some_and(|(a,b)| a.min(b)<=band[0][along]+1e-6 && a.max(b)>=band[1][along]-1e-6)
+            })
+        })))
+}
+
+fn spot_envelope(op: &Value) -> Option<Bounds> {
+    let corners: Option<Vec<_>> = op["spots"].as_array()?.iter().map(|s| {
+        let x=s["center"][0].as_f64()?;
+        let y=s["center"][1].as_f64()?;
+        let z=s["top_z"].as_f64()?;
+        let radius=s["diameter"].as_f64()?/2.;
+        let depth=s["depth"].as_f64()?;
+        Some([[x-radius,y-radius,z-depth],[x+radius,y+radius,z]])
+    }).collect();
+    bounds(corners?.into_iter().flatten())
 }
 
 /// Called after settlement, exclusions and tool resolution, so absent/untooled operations
@@ -117,9 +150,23 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
                 continue;
             };
             let bands: Vec<_> = bands.into_iter().map(|b| transformed(b, &from, &to)).collect();
+            // Only this option's mesh-proven contact faces can treat retained
+            // outside finishing as preparation, rather than removed material.
+            // Still check holes/notches/slots and all other setups normally.
+            let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
+            let prepared = flip_top && bands.iter().all(|band| prepared_band(earlier, *band));
+            if flip_top && !bands.iter().all(|band| earlier["operations"].as_array().into_iter().flatten().any(|op|
+                op["tool"].is_string() && ((op["kind"] == "facing" && op["floor_z"].as_f64().is_some_and(|z| (z-band[1][2]).abs()<1e-6))
+                || (op["kind"] == "flats" && op["levels"].as_array().into_iter().flatten().any(|z| z.as_f64().is_some_and(|z| (z-band[1][2]).abs()<1e-6)))))) {
+                unchecked.push(json!({"setup": earlier["id"], "reason": "finished edge seating is not established by retained facing/flats"}));
+            }
             for (n, op) in cuts {
+                if prepared && matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) { continue; }
                 let operation = format!("{}-{}-{}", earlier["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""));
-                let Some(cut) = envelope(earlier, op, resources) else {
+                let cut = if setup["flip_seating"].is_object() && op["kind"] == "spot_drill" {
+                    spot_envelope(op)
+                } else { envelope(earlier, op, resources) };
+                let Some(cut) = cut else {
                     unchecked.push(json!({"operation": operation, "reason": "missing or unsupported cutting geometry"}));
                     continue;
                 };

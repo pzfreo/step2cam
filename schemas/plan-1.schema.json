@@ -286,6 +286,21 @@
      "type": "string",
      "description": "The machine it is cut on, once capp::finish has run."
     },
+    "flip_role": {"const": "sacrificial_grip"},
+    "flip_seating": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": ["axis", "along_min_model", "along_max_model", "seat_z_model", "grip_height_mm", "support_width_mm"],
+     "properties": {
+      "axis": {"enum": [0, 1]},
+      "along_min_model": {"type": "number"},
+      "along_max_model": {"type": "number"},
+      "seat_z_model": {"type": "number"},
+      "grip_height_mm": {"type": "number", "exclusiveMinimum": 0},
+      "support_width_mm": {"type": "number", "exclusiveMinimum": 0},
+      "residual_margin_mm": {"type": "number", "minimum": 0}
+     }
+    },
     "clamping": {
      "type": "object",
      "required": [
@@ -299,6 +314,9 @@
      ],
      "additionalProperties": false,
      "properties": {
+      "contact_min_z": {"type": "number", "description": "Actual finished-face seating Z for flip grip, above the boss/box bottom."},
+      "contact_along_min": {"type": "number"},
+      "contact_along_max": {"type": "number"},
       "faces": {
        "type": "array",
        "items": {

@@ -294,6 +294,9 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let bound = |v: &Value, i: usize| v[i].as_f64().ok_or("bad stock");
         let top = bound(hi, 2)?;
         let stock_bottom = bound(lo, 2)?;
+        let breakthrough = if setup["flip_role"] == "sacrificial_grip" {
+            breakthrough.min(capp::rules::workholding()["flip_breakthrough_mm"].as_f64().unwrap())
+        } else { breakthrough };
         let clearance = top + clearance_above;
         let retract = (top + retract_above).min(clearance);
 
@@ -328,6 +331,9 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             "stepdown_mm": num(s, "stepdown_mm")?, "stepover_mm": stepover, "clearance_z_mm": clearance,
                             "axis": "x", "mode": "zigzag", "reverse": false, "entry_air_gap_mm": 1.0, "edge_overlap_mm": null,
                         });
+                        if let Some(margin) = setup["flip_seating"]["residual_margin_mm"].as_f64() {
+                            out["edge_overlap_mm"] = json!(margin);
+                        }
                         cutting(&mut out, s, true)?;
                         out
                     } else {
@@ -343,7 +349,11 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
                         });
                         cutting(&mut out, s, true)?;
-                        notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
+                        if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
+                            notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
+                        } else {
+                            notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
+                        }
                         out
                     }
                 }
@@ -617,6 +627,14 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         };
         let first = operations[0]["tool"].as_str().unwrap_or("");
         let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
+        if setup["flip_seating"].is_object() {
+            // Use exactly the tool-change tip height. A fractional stock top can
+            // otherwise create a sub-nanometre lift that camlib refuses as a
+            // zero-length line after gauge subtraction.
+            for op in operations.iter_mut().filter(|o| o["kind"] == "facing") {
+                op["clearance_z_mm"] = json!(gauge_z - first_gauge);
+            }
+        }
         // The whole part is known only where roughing is planned, whether or not camlib accepted it.
         // A thread cuts past the bore the mesh shows, so the stock is compared just before threads.
         let part = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")).or_else(|| setup.get("part_surface"));

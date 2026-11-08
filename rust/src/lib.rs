@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
 /// What camlib's comparison of the finished stock with the part found, for the log.
-fn material_note(report: Option<&camlib::material::Report>, manifest: &Value) -> String {
+fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, flip: bool) -> String {
     let Some(report) = report else {
         return "the finished stock is not compared with the part in this setup: it holds no mesh of the part that is fine enough".into();
     };
@@ -19,8 +19,9 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value) ->
     // counts as cut: errors smaller than these pass, and they differ from part to part.
     let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
     let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
+    let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "the web and anything a later setup cuts" };
     format!(
-        "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting the web and anything a later setup cuts",
+        "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting {remainder}",
         4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
     )
 }
@@ -37,7 +38,7 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
         if run.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }
-        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_ref(), &job.manifest)));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_ref(), &job.manifest, plan["setups"].as_array().into_iter().flatten().any(|s| s["flip_role"]=="sacrificial_grip"))));
         if let Some(proof) = &run.sweep_proof {
             log.push(format!(
                 "note: setup {}: per-motion gouge proof: {} proven, {} unproven; {} possible gouge cells decided at {} mm tolerance{}",
@@ -63,7 +64,7 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
-    let planned = capp::plan::plan(analysis, Some(mesh), &capp::plan::Options::default())?;
+    let planned = capp::flip::plan(analysis, mesh, library)?;
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut exclusions: Vec<Value> = vec![];

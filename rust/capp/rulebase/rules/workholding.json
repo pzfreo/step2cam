@@ -2,5 +2,8 @@
  "min_grip_mm": 3.175,
  "min_grip_fraction": 0.2,
  "max_grip_fraction": 0.5,
- "clearance_mm": 1.0
+ "clearance_mm": 1.0,
+ "flip_facing_allowance_mm": 1.0,
+ "_flip_comment": "1 mm facing allowance is step2cam judgement, additional to the existing 1 mm side-cut clearance. bottom_stock solves B >= max(min_grip_mm, min_grip_fraction*(part_height+top_stock+B)) + clearance + facing allowance. Rounded upward to 0.0001 mm for numerical safety, not a machining tolerance. Flip breakthrough 0.5 mm is judgement: opens the exit in sacrificial material without spending the full ordinary 1 mm on cutting-length reach.",
+ "flip_breakthrough_mm": 0.5
 }
