@@ -80,6 +80,11 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
         };
         exclusions.push(json!({"operation": operation, "message": failure.message}));
     }
+    let needs: Vec<&str> = plan["tools_needed"].as_array().into_iter().flatten()
+        .filter_map(|n| n["description"].as_str()).collect();
+    if !needs.is_empty() {
+        log.push(format!("tools needed: {}", needs.join("; ")));
+    }
     // The page has the mesh already; the plan's copy of it is not needed.
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         if let Some(s) = setup.as_object_mut() {

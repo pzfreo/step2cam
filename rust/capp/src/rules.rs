@@ -212,6 +212,8 @@ pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, Str
                 v => v.to_string(),
             },
             (_, "r") => show(r(lookup(name)?)),
+            (_, "up2") => format!("{:.2}", (lookup(name)? * 100.).ceil() / 100.),
+            (_, "down2") => format!("{:.2}", (lookup(name)? * 100.).floor() / 100.),
             _ => show(lookup(name)?),
         };
         out.push_str(&text);
@@ -350,4 +352,19 @@ pub fn case_for(family: &str, holds: &mut dyn FnMut(&str) -> Result<bool, String
         }
     }
     Err(format!("rulebase/rules/process.json has no case for a {family} feature"))
+}
+
+/// A library query for a missing tool, using the selector's own inputs and derived values.
+pub fn needed(selector: &str, inputs: &[(&str, f64)], params: &[(&str, f64)]) -> Result<String, String> {
+    let rule = tools_rule(selector)?;
+    let mut values: HashMap<String, f64> = inputs.iter().chain(params).map(|(k, v)| (k.to_string(), *v)).collect();
+    for pair in rule["let"].as_array().into_iter().flatten() {
+        let expr = pair[1].as_str().ok_or("bad selector expression")?;
+        // Tool-dependent values (thread neck clearance) cannot be evaluated without a tool.
+        if expr.contains("tool.") { continue; }
+        let value = eval(expr, &|n| values.get(n).copied().ok_or_else(|| format!("no value {n}")))?;
+        values.insert(pair[0].as_str().ok_or("bad selector value")?.into(), value);
+    }
+    fill(rule["needed"].as_str().ok_or("selector has no needed template")?, &Value::Null,
+        &|n| values.get(n).copied().ok_or_else(|| format!("no value {n}")))
 }

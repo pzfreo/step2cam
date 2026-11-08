@@ -12,7 +12,8 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "needed": "an end mill"
   },
   {
    "id": "drill",
@@ -34,7 +35,14 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "first"
-   }
+   },
+   "let": [
+    [
+     "minimum",
+     "diameter - drill_tolerance_mm"
+    ]
+   ],
+   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2}"
   },
   {
    "id": "bore_mill",
@@ -45,14 +53,21 @@
    ],
    "keep": [
     {
-     "if": "tool.diameter < diameter - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} leaves no room to helix in ⌀{diameter}"
     }
    ],
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "let": [
+    [
+     "maximum",
+     "diameter - 0.05"
+    ]
+   ],
+   "needed": "an end mill under ⌀{maximum:down2}"
   },
   {
    "id": "pocket_mill",
@@ -64,7 +79,7 @@
    ],
    "keep": [
     {
-     "if": "tool.diameter < width - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} is too wide for the {width} mm width"
     },
     {
@@ -75,7 +90,14 @@
    "prefer": {
     "largest": "tool.diameter",
     "ties": "last"
-   }
+   },
+   "let": [
+    [
+     "maximum",
+     "width - 0.05"
+    ]
+   ],
+   "needed": "an end mill under ⌀{maximum:down2}"
   },
   {
    "id": "v_bit",
@@ -97,7 +119,8 @@
    "prefer": {
     "largest": "tool.angle",
     "ties": "last"
-   }
+   },
+   "needed": "a sharp V-bit with zero tip diameter and angle at most {angle:down2}°"
   },
   {
    "id": "chamfer_mill",
@@ -118,7 +141,14 @@
    ],
    "prefer": {
     "first": true
-   }
+   },
+   "let": [
+    [
+     "radial_span",
+     "tip_clearance_mm + width"
+    ]
+   ],
+   "needed": "a 90° chamfer mill with (diameter - tip diameter) / 2 at least {radial_span:up2} mm"
   },
   {
    "id": "thread_mill",
@@ -137,7 +167,7 @@
      "else_reject": "{tool.id}: pitch {pitch} outside its range"
     },
     {
-     "if": "tool.diameter < start_diameter - 0.05",
+     "if": "tool.diameter < maximum",
      "else_reject": "{tool.id}: ⌀{tool.diameter:raw} does not fit the ⌀{start_diameter} hole"
     },
     {
@@ -165,12 +195,25 @@
     [
      "below",
      "stock_top - bottom_z"
+    ],
+    [
+     "maximum",
+     "start_diameter - 0.05"
+    ],
+    [
+     "neck_offset",
+     "start_diameter - major - 0.02"
+    ],
+    [
+     "reach_min",
+     "stock_top - bottom_z + 0.01"
     ]
    ],
    "defaults": {
     "tool.min_pitch_mm": 0,
     "tool.max_pitch_mm": "inf"
-   }
+   },
+   "needed": "a thread mill whose pitch range includes {pitch} mm, under ⌀{maximum:down2}, with neck diameter under (cutter diameter + {neck_offset:down2}) mm and tooth height + neck length over {reach_min:up2} mm"
   }
  ]
 }

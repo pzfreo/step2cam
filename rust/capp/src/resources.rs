@@ -97,6 +97,10 @@ impl<'a> Library<'a> {
     fn pick(&self, selector: &str, inputs: &[(&str, f64)]) -> Option<&'a Value> {
         self.select(selector, inputs).unwrap_or_else(|e| panic!("{e}")).0
     }
+    /// The same selector expressed as a query for a tool to load or buy.
+    pub fn needed(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<String, String> {
+        crate::rules::needed(selector, inputs, &[("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE)])
+    }
     pub fn clearing(&self, name: &str) -> Result<Option<&'a Value>, String> {
         if let Some(wanted) = self.data.get(format!("{name}_tool")).and_then(Value::as_str).filter(|s| !s.is_empty()) {
             return self.tools.iter().copied().find(|t| id(t) == wanted).map(Some).ok_or_else(|| format!("no tool {wanted:?} in the library"));
