@@ -1,0 +1,1031 @@
+{
+ "schema": 1,
+ "binding": {
+  "source_sha256": "4da23785b5885129b153dcfbb03b032e75b1fde82a1111d9823eb0846f33f013",
+  "face_count": 17,
+  "loader_version": 2,
+  "part": 0
+ },
+ "faces": [
+  {
+   "id": 0,
+   "kind": "plane",
+   "area": 1000.0000000000002,
+   "centroid": [
+    -30.0,
+    9.0,
+    26.0
+   ],
+   "direction": [
+    -1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 1,
+   "kind": "plane",
+   "area": 600.0000000000001,
+   "centroid": [
+    0.0,
+    -20.0,
+    5.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 2,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    -0.0,
+    0.0,
+    0.0
+   ],
+   "direction": [
+    -0.0,
+    -0.0,
+    -1.0
+   ]
+  },
+  {
+   "id": 3,
+   "kind": "plane",
+   "area": 4200.000000000003,
+   "centroid": [
+    -0.0,
+    20.0,
+    35.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "plane",
+   "area": 600.0000000000001,
+   "centroid": [
+    -0.0,
+    15.0,
+    70.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 5,
+   "kind": "plane",
+   "area": 3600.0000000000014,
+   "centroid": [
+    0.0,
+    10.0,
+    40.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 6,
+   "kind": "plane",
+   "area": 1647.7256663250885,
+   "centroid": [
+    0.0,
+    -5.277245,
+    10.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 7,
+   "kind": "plane",
+   "area": 1000.0000000000002,
+   "centroid": [
+    30.0,
+    9.0,
+    26.0
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "plane",
+   "area": 7.999999861736,
+   "centroid": [
+    -10.0,
+    -2.0,
+    8.0
+   ],
+   "direction": [
+    1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 9,
+   "kind": "cylinder",
+   "area": 18.849555921538766,
+   "centroid": [
+    -8.909859,
+    -4.909859,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -7.0,
+    -3.0,
+    6.0
+   ],
+   "radius": 3.0
+  },
+  {
+   "id": 10,
+   "kind": "plane",
+   "area": 56.00000000000001,
+   "centroid": [
+    0.0,
+    -6.0,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 11,
+   "kind": "cylinder",
+   "area": 18.849555921538762,
+   "centroid": [
+    8.909859,
+    -4.909859,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    7.0,
+    -3.0,
+    6.0
+   ],
+   "radius": 3.0
+  },
+  {
+   "id": 12,
+   "kind": "plane",
+   "area": 7.999999861736,
+   "centroid": [
+    10.0,
+    -2.0,
+    8.0
+   ],
+   "direction": [
+    -1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 13,
+   "kind": "cylinder",
+   "area": 18.849555921538762,
+   "centroid": [
+    8.909859,
+    0.909859,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    7.0,
+    -1.0,
+    6.0
+   ],
+   "radius": 3.0
+  },
+  {
+   "id": 14,
+   "kind": "plane",
+   "area": 56.00000000000001,
+   "centroid": [
+    0.0,
+    2.0,
+    8.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 15,
+   "kind": "cylinder",
+   "area": 18.849555921538762,
+   "centroid": [
+    -8.909859,
+    0.909859,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    -1.0
+   ],
+   "origin": [
+    -7.0,
+    -1.0,
+    6.0
+   ],
+   "radius": 3.0
+  },
+  {
+   "id": 16,
+   "kind": "plane",
+   "area": 152.27433367491216,
+   "centroid": [
+    0.0,
+    -2.0,
+    6.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  }
+ ],
+ "features": [
+  {
+   "id": "through_steps:5.6",
+   "family": "through_steps",
+   "record": {
+    "axis": "x",
+    "length": 60.0,
+    "at": [
+     0.0,
+     -5.0,
+     40.0
+    ],
+    "section": [
+     [
+      10.0,
+      70.0
+     ],
+     [
+      10.0,
+      10.0
+     ],
+     [
+      -20.0,
+      10.0
+     ]
+    ],
+    "body_key": [
+     -30.0,
+     -20.0,
+     0.0,
+     30.0,
+     20.0,
+     70.0,
+     59390.9026659,
+     15403.3982234
+    ],
+    "endpoint_scopes": [
+     "solid",
+     "solid"
+    ]
+   },
+   "faces": [
+    5,
+    6
+   ]
+  },
+  {
+   "id": "plates:3.5",
+   "family": "plates",
+   "record": {
+    "axis": "y",
+    "lo": 10.0,
+    "hi": 20.0,
+    "u": 0.0,
+    "v": 37.307692,
+    "body_key": [
+     -30.0,
+     -20.0,
+     0.0,
+     30.0,
+     20.0,
+     70.0,
+     59390.9026659,
+     15403.3982234
+    ]
+   },
+   "faces": [
+    3,
+    5
+   ]
+  },
+  {
+   "id": "plates:2.6",
+   "family": "plates",
+   "record": {
+    "axis": "z",
+    "lo": 0.0,
+    "hi": 10.0,
+    "u": 0.0,
+    "v": -2.148231,
+    "body_key": [
+     -30.0,
+     -20.0,
+     0.0,
+     30.0,
+     20.0,
+     70.0,
+     59390.9026659,
+     15403.3982234
+    ]
+   },
+   "faces": [
+    2,
+    6
+   ]
+  },
+  {
+   "id": "blends:13",
+   "family": "blends",
+   "record": {
+    "radius": 3.0,
+    "side": "concave",
+    "path": {
+     "at": [
+      7.0,
+      -1.0,
+      8.0
+     ],
+     "direction": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   },
+   "faces": [
+    13
+   ]
+  },
+  {
+   "id": "blends:15",
+   "family": "blends",
+   "record": {
+    "radius": 3.0,
+    "side": "concave",
+    "path": {
+     "at": [
+      -7.0,
+      -1.0,
+      8.0
+     ],
+     "direction": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   },
+   "faces": [
+    15
+   ]
+  },
+  {
+   "id": "blends:11",
+   "family": "blends",
+   "record": {
+    "radius": 3.0,
+    "side": "concave",
+    "path": {
+     "at": [
+      7.0,
+      -3.0,
+      8.0
+     ],
+     "direction": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   },
+   "faces": [
+    11
+   ]
+  },
+  {
+   "id": "blends:9",
+   "family": "blends",
+   "record": {
+    "radius": 3.0,
+    "side": "concave",
+    "path": {
+     "at": [
+      -7.0,
+      -3.0,
+      8.0
+     ],
+     "direction": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   },
+   "faces": [
+    9
+   ]
+  },
+  {
+   "id": "pockets:8.10.12.14",
+   "family": "pockets",
+   "record": {
+    "width_axis": "y",
+    "long_axis": "x",
+    "width": 8.0,
+    "length": 20.0,
+    "depth": 4.0,
+    "w_center": -2.0,
+    "lo": -10.0,
+    "hi": 10.0,
+    "d_lo": 6.0,
+    "d_hi": 10.0,
+    "open_sign": 1,
+    "edge_anchored": false,
+    "rectangular_boundary": false,
+    "body_key": [
+     -30.0,
+     -20.0,
+     0.0,
+     30.0,
+     20.0,
+     70.0,
+     59390.9026659,
+     15403.3982234
+    ],
+    "end_radius": null,
+    "corner_radius": 3.0
+   },
+   "faces": [
+    8,
+    10,
+    12,
+    14
+   ]
+  },
+  {
+   "id": "section_recesses:8.9.10.11.12.13.14.15",
+   "family": "section_recesses",
+   "record": {
+    "index": 0,
+    "body": 0,
+    "geometry": {
+     "type": "section_recess",
+     "frame": {
+      "origin": [
+       0.0,
+       -2.0,
+       0.0
+      ],
+      "run": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "u": [
+       -1.0,
+       0.0,
+       0.0
+      ],
+      "v": [
+       0.0,
+       -1.0,
+       0.0
+      ]
+     },
+     "run_interval": [
+      6.0,
+      10.0
+     ],
+     "profile": {
+      "closure": "closed",
+      "boundary": [
+       {
+        "point": [
+         -10.0,
+         -1.0
+        ],
+        "bulge": 0.414213562373
+       },
+       {
+        "point": [
+         -7.0,
+         -4.0
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         7.0,
+         -4.0
+        ],
+        "bulge": 0.414213562373
+       },
+       {
+        "point": [
+         10.0,
+         -1.0
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         10.0,
+         1.0
+        ],
+        "bulge": 0.414213562373
+       },
+       {
+        "point": [
+         7.0,
+         4.0
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         -7.0,
+         4.0
+        ],
+        "bulge": 0.414213562373
+       },
+       {
+        "point": [
+         -10.0,
+         1.0
+        ],
+        "bulge": 0.0
+       }
+      ]
+     },
+     "ends": {
+      "low": {
+       "condition": "capped",
+       "surface": {
+        "type": "plane",
+        "gradient": [
+         0.0,
+         0.0
+        ]
+       }
+      },
+      "high": {
+       "condition": "open",
+       "surface": {
+        "type": "plane",
+        "gradient": [
+         0.0,
+         0.0
+        ]
+       }
+      }
+     }
+    },
+    "classification": {
+     "feature_kind": "pocket",
+     "section_shape": "general"
+    },
+    "evidence": {
+     "defining_faces": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+     ],
+     "constituent_faces": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+     ]
+    }
+   },
+   "faces": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ]
+  }
+ ],
+ "dimensioning": {
+  "frame": {
+   "origin": [
+    -4.2275529846518734e-16,
+    9.11281308044786,
+    26.184603222442675
+   ],
+   "x": [
+    1.0,
+    -0.0,
+    -0.0
+   ],
+   "y": [
+    -0.0,
+    1.0,
+    -0.0
+   ],
+   "z": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "gauge": "full"
+  },
+  "bounds": [
+   [
+    -30.0,
+    -29.11281308044786,
+    -26.184603222442675
+   ],
+   [
+    30.0,
+    10.88718691955214,
+    43.815396777557325
+   ]
+  ],
+  "holes": [],
+  "patterns": [],
+  "planes": [
+   {
+    "support": {
+     "feature": "plane:0",
+     "faces": [
+      0
+     ],
+     "body": 0,
+     "at": [
+      -30.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:1",
+     "faces": [
+      1
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -29.11281308044786,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:2",
+     "faces": [
+      2
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -26.184603222442675
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:3",
+     "faces": [
+      3
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      10.88718691955214,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:4",
+     "faces": [
+      4
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      43.815396777557325
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:5",
+     "faces": [
+      5
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.8871869195521391,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:6",
+     "faces": [
+      6
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -16.184603222442675
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:7",
+     "faces": [
+      7
+     ],
+     "body": 0,
+     "at": [
+      30.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:8",
+     "faces": [
+      8
+     ],
+     "body": 0,
+     "at": [
+      -10.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:10",
+     "faces": [
+      10
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -15.112813067940861,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:12",
+     "faces": [
+      12
+     ],
+     "body": 0,
+     "at": [
+      10.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:14",
+     "faces": [
+      14
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -7.112813067940861,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:16",
+     "faces": [
+      16
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -20.184603222442675
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   }
+  ],
+  "steps": {
+   "axis": 2,
+   "heights": [],
+   "shoulders": []
+  },
+  "cartesian_envelope": true,
+  "deferred": [
+   {
+    "id": "deferred:blends:11",
+    "faces": [
+     11
+    ],
+    "family": "blends"
+   },
+   {
+    "id": "deferred:blends:13",
+    "faces": [
+     13
+    ],
+    "family": "blends"
+   },
+   {
+    "id": "deferred:blends:15",
+    "faces": [
+     15
+    ],
+    "family": "blends"
+   },
+   {
+    "id": "deferred:blends:9",
+    "faces": [
+     9
+    ],
+    "family": "blends"
+   },
+   {
+    "id": "deferred:plate thickness:2.6",
+    "faces": [
+     2,
+     6
+    ],
+    "family": "plate thickness"
+   },
+   {
+    "id": "deferred:plate thickness:3.5",
+    "faces": [
+     3,
+     5
+    ],
+    "family": "plate thickness"
+   },
+   {
+    "id": "deferred:pockets:8.10.12.14",
+    "faces": [
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16
+    ],
+    "family": "pockets"
+   },
+   {
+    "id": "deferred:section_recesses:8.9.10.11.12.13.14.15",
+    "faces": [
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16
+    ],
+    "family": "section_recesses"
+   }
+  ],
+  "datums": [],
+  "round_axes": [],
+  "specified": [],
+  "policy": {
+   "origins": [
+    "automatic",
+    "automatic",
+    "automatic"
+   ],
+   "general_tolerance": true,
+   "references": false
+  }
+ },
+ "existing": [],
+ "part": {}
+}

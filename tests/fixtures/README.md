@@ -26,6 +26,7 @@ tolerances yet (issues #40–#42).
 | `spindle.step` | specify-core's test part `spindle.step` |
 | `mounting-plate.step` | Thompson Labs' `mounting-plate.step`, MIT (`mounting-plate.LICENSE`) |
 | `synthetic/stepped-plate*.step` | `synthetic/stepped_plate.py` (including the plain 5 mm top chamfer regression for #47) |
+| `synthetic/tall-wall-pocket.step` | `synthetic/tall-wall-pocket.py`; no GD&T answers needed (camlib reach verdict tests) |
 | `synthetic/square-slots.step` | `synthetic/square_slots.py`; no GD&T answers needed (geometry and corner-deviation tests) |
 | `synthetic/walls/*.step` | made for the wall tests (`rust/tests/walls.rs`) |
 
