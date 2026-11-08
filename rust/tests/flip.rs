@@ -142,7 +142,7 @@ fn grip_audit_still_reports_a_hole_crossing_a_prepared_band() {
 }
 
 #[test]
-fn excluded_finishing_cannot_establish_the_finished_grip() {
+fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning() {
     let mut p = planned();
     capp::finish(&mut p, &tools(), &[]).unwrap();
     let index = list(&setup(&p, "top")["operations"])
@@ -159,6 +159,24 @@ fn excluded_finishing_cannot_establish_the_finished_grip() {
     .unwrap();
     assert_eq!(audit(&p, setup(&p, "bottom"))["status"], "possible_overlap");
     assert!(list(&setup(&p, "bottom")["operations"]).is_empty());
+    assert!(
+        p["warnings"]
+            .to_string()
+            .contains("part remains on 7.25 mm of sacrificial bottom stock")
+    );
+    let mut fallback = capp::flip::fallback(
+        &input().0,
+        &input().1,
+        "test refusal of finished grip preparation",
+    )
+    .unwrap();
+    capp::finish(&mut fallback, &tools(), &[]).unwrap();
+    assert_eq!(setup(&fallback, "top")["stock"]["min"][2], -19.);
+    assert!(
+        list(&fallback["setups"])
+            .iter()
+            .all(|s| s.get("flip_seating").is_none())
+    );
 }
 
 #[test]
@@ -186,4 +204,43 @@ fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
             .iter()
             .any(|d| d["outcome"] == "none" && d["says"].as_str().unwrap().contains("minimum"))
     );
+}
+
+#[test]
+fn mounting_plate_edge_breaks_get_inboard_supports_and_full_outline_depth() {
+    let a = fixture("mounting-plate.analysis.json");
+    let m = fixture("mounting-plate.mesh.json");
+    let out = step2cam::process(&a, &m, &tools()).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let p = &out["plan"];
+    let bottom = setup(p, "bottom");
+    assert!(
+        bottom["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|o| o["kind"] == "facing")
+    );
+    assert!(
+        bottom["flip_seating"]["supports"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s["offset_mm"].as_f64().unwrap() > 0.)
+    );
+    assert!(bottom["flip_seating"]["contacts"].as_array().unwrap().iter().all(|c|c["fraction"].as_f64().unwrap()>=0.6 && c["fraction"].as_f64().unwrap()<1.));
+    for id in ["fillets:1", "fillets:4", "fillets:15", "fillets:37"] {
+        assert!(
+            !list(&p["skipped"]).iter().any(|s| s["feature"] == id),
+            "{id}: {}",
+            p["skipped"]
+        );
+        assert!(list(&p["covered_by_roughing"]).contains(&json!(id)));
+    }
+    for program in list(&out["programs"]) {
+        assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
+    }
+    let text = p["warnings"].to_string();
+    assert!(!text.contains("boss"));
+    assert!(!text.contains("material below the seat"));
 }

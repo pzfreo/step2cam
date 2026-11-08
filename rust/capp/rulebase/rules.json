@@ -5,12 +5,12 @@
  "rules": [
   {
    "id": "setup.flip_face",
-   "version": 1,
+   "version": 2,
    "stage": "setup",
    "rationale": "Self-contained vise flip option: solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
    "code": "flip.rs; workholding.rs; clamping_history.rs",
    "data": ["rules/workholding.json"],
-   "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Mesh area coverage tolerance 1e-6 relative is numerical, not a manufacturing tolerance."}]
+   "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."}]
   },
   {
    "id": "requirement.thread.unknown_size",

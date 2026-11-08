@@ -102,8 +102,10 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         for (n, side) in [lo[axis], hi[axis] - bar].iter().enumerate() {
             let mut min = lo;
             let mut max = hi;
-            min[axis] = *side;
-            max[axis] = side + bar;
+            let index = if seating.is_some() && axis==1 {1-n} else {n};
+            let offset=seating.as_ref().and_then(|s|s["supports"][index]["offset_mm"].as_f64()).unwrap_or(0.);
+            min[axis] = side + if n==0 {offset} else {-offset};
+            max[axis] = min[axis] + bar;
             min[along] = contact_min;
             max[along] = contact_max;
             min[2] = lo[2] - p;
@@ -112,8 +114,8 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         }
     }
     let faces = json!([format!("stock.{}.min", ["x", "y"][axis]), format!("stock.{}.max", ["x", "y"][axis])]);
-    let support = if seating.is_some() {
-        "two modeled edge parallels on mesh-checked finished plate top strips, clear of the boss; contact bands lie on real finished side faces, above the box bottom".to_string()
+    let support = if let Some(seat)=&seating {
+        format!("two modeled parallels on horizontal faces at model Z{}, width {} mm; support measurements {}; actual side contact {}; holes and edge breaks reduce measured contact",seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"])
     } else if parallel.is_some() {
         "seated on two parallels".to_string()
     } else {
@@ -125,10 +127,19 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         else { "material below the cap needs a later setup" };
     let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
     setup["clamping"] = json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "because": [decision]});
-    if seating.is_some() {
-        setup["clamping"]["contact_min_z"] = json!(lo[2]);
+    if let Some(seat)=&seating {
+        let z=seat["contact_patches_model"].as_array().into_iter().flatten().flat_map(|side|side.as_array().into_iter().flatten()).flat_map(|patch|patch.as_array().into_iter().flatten()).filter_map(|p|p[2].as_f64()).fold(f64::NEG_INFINITY,f64::max);
+        setup["clamping"]["contact_min_z"] = json!(r(setup["origin_model"][2].as_f64()? - z));
+        let mut contacts=seat["contacts"].as_array()?.clone();
+        if axis==1 {contacts.reverse();}
+        setup["clamping"]["contacts"] = json!(contacts);
         setup["clamping"]["contact_along_min"] = json!(contact_min);
         setup["clamping"]["contact_along_max"] = json!(contact_max);
+    }
+    if let Some(seat)=seating
+        && let Some(d)=trace.decisions.iter_mut().find(|d|d["id"]==setup["clamping"]["because"][0]) {
+            d["chosen"]["contact_measurements"]=setup["clamping"]["contacts"].clone();
+            d["chosen"]["support_measurements"]=seat["supports"].clone();
     }
     None
 }

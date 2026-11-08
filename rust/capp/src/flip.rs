@@ -58,7 +58,7 @@ fn triangles(mesh: &Value) -> Option<Vec<Tri>> {
         })
         .collect()
 }
-fn area(p: &[[f64; 2]]) -> f64 {
+pub(crate) fn area(p: &[[f64; 2]]) -> f64 {
     (0..p.len())
         .map(|i| {
             let q = p[(i + 1) % p.len()];
@@ -68,142 +68,248 @@ fn area(p: &[[f64; 2]]) -> f64 {
         .abs()
         / 2.
 }
-/// Exact polygon clipping of mesh triangles to a support rectangle: holes and
-/// missing corners reduce the covered area, rather than becoming box material.
-fn covered(tris: &[Tri], axes: [usize; 2], rect: [[f64; 2]; 2]) -> bool {
-    let mut sum = 0.;
-    for tri in tris {
-        let mut poly: Vec<_> = tri.iter().map(|p| [p[axes[0]], p[axes[1]]]).collect();
-        for axis in 0..2 {
-            for (side, corner) in rect.iter().enumerate() {
-                let edge = corner[axis];
-                let inside = |p: [f64; 2]| {
-                    if side == 0 {
-                        p[axis] >= edge
-                    } else {
-                        p[axis] <= edge
-                    }
-                };
-                let mut out = vec![];
-                for i in 0..poly.len() {
-                    let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
-                    if inside(a) {
-                        out.push(a);
-                    }
-                    if inside(a) != inside(b) {
-                        let t = (edge - a[axis]) / (b[axis] - a[axis]);
-                        out.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
-                    }
+/// Clip a polygon to a rectangular band. Used for mesh contact measurements
+/// and again by the retained-operation audit; holes never become box material.
+pub(crate) fn clipped(mut poly: Vec<[f64; 2]>, rect: [[f64; 2]; 2]) -> Vec<[f64; 2]> {
+    for axis in 0..2 {
+        for (side, corner) in rect.iter().enumerate() {
+            let edge = corner[axis];
+            let inside = |p: [f64; 2]| {
+                if side == 0 {
+                    p[axis] >= edge
+                } else {
+                    p[axis] <= edge
                 }
-                poly = out;
+            };
+            let mut out = vec![];
+            for i in 0..poly.len() {
+                let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
+                if inside(a) {
+                    out.push(a);
+                }
+                if inside(a) != inside(b) {
+                    let t = (edge - a[axis]) / (b[axis] - a[axis]);
+                    out.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+                }
             }
+            poly = out;
         }
-        sum += area(&poly);
     }
-    let want = (rect[1][0] - rect[0][0]) * (rect[1][1] - rect[0][1]);
-    want > 0. && (sum - want).abs() < 1e-6 * want.max(1.)
+    poly
+}
+fn patches(tris: &[Tri], axes: [usize; 2], rect: [[f64; 2]; 2]) -> Vec<Vec<[f64; 2]>> {
+    tris.iter()
+        .map(|t| clipped(t.iter().map(|p| [p[axes[0]], p[axes[1]]]).collect(), rect))
+        .filter(|p| area(p) > 1e-9)
+        .collect()
+}
+fn measured(tris: &[Tri], axes: [usize; 2], rect: [[f64; 2]; 2]) -> f64 {
+    patches(tris, axes, rect).iter().map(|p| area(p)).sum()
 }
 
-/// Mesh-backed contact and support. Prefer the narrower axis, but try the other
-/// pair when a notch splits a long side. Require rectangular opposed face bands
-/// and continuous, horizontal support strips; do not infer seating from the box.
+/// Contact may be interrupted by modelled holes/notches. Measure the retained
+/// planar face, and search inboard for supported strips below horizontal faces.
 fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, String> {
     let width = vise["jaw_width_mm"].as_f64().unwrap();
     let tris = triangles(mesh).ok_or("flip seating needs a complete mesh")?;
     let rule = crate::rules::workholding();
     let bar = rule["min_grip_mm"].as_f64().unwrap();
+    let fraction = rule["flip_min_contact_fraction"].as_f64().unwrap();
+    let support_fraction = rule["flip_min_support_fraction"].as_f64().unwrap();
+    let inset = rule["flip_max_support_inset_mm"].as_f64().unwrap();
+    let step = rule["flip_support_search_step_mm"].as_f64().unwrap();
+    let eps = rule["flip_frame_tolerance_mm"].as_f64().unwrap();
+    if !tris
+        .iter()
+        .any(|t| t[0][2] > lo[2] + bar && t.iter().all(|p| (p[2] - t[0][2]).abs() < eps))
+    {
+        return Err("no horizontal support face above the minimum grip level".into());
+    }
     let preferred = usize::from(hi[0] - lo[0] > hi[1] - lo[1]);
+    let mut best: Option<(f64, Value)> = None;
+    let mut best_contact = 0_f64;
+    let mut contact_ok = false;
     for axis in [preferred, 1 - preferred] {
+        if hi[axis] - lo[axis] > vise["max_jaw_opening_mm"].as_f64().unwrap() {
+            continue;
+        }
         let along = 1 - axis;
-        // Candidate seating levels come from actual horizontal mesh triangles.
         let mut levels: Vec<_> = tris
             .iter()
-            .filter(|t| t.iter().all(|p| (p[2] - t[0][2]).abs() < 1e-6))
+            .filter(|t| t.iter().all(|p| (p[2] - t[0][2]).abs() < eps))
             .map(|t| t[0][2])
             .collect();
         levels.sort_by(|a, b| b.total_cmp(a));
-        levels.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+        levels.dedup_by(|a, b| (*a - *b).abs() < eps);
+        let side_tris: Vec<Vec<Tri>> = [lo[axis], hi[axis]]
+            .iter()
+            .map(|edge| {
+                tris.iter()
+                    .filter(|t| t.iter().all(|p| (p[axis] - edge).abs() < eps))
+                    .copied()
+                    .collect()
+            })
+            .collect();
+        let start = side_tris
+            .iter()
+            .map(|ts| {
+                ts.iter()
+                    .flatten()
+                    .map(|p| p[along])
+                    .min_by(f64::total_cmp)
+                    .unwrap_or(f64::INFINITY)
+            })
+            .fold(lo[along], f64::max);
+        let end = side_tris
+            .iter()
+            .map(|ts| {
+                ts.iter()
+                    .flatten()
+                    .map(|p| p[along])
+                    .max_by(f64::total_cmp)
+                    .unwrap_or(f64::NEG_INFINITY)
+            })
+            .fold(hi[along], f64::min);
+        let center = (lo[along] + hi[along]) / 2.;
+        let (start, end) = (start.max(center - width / 2.), end.min(center + width / 2.));
+        if end <= start {
+            continue;
+        }
         for z in levels {
-            let minimum = rule["min_grip_mm"]
-                .as_f64()
-                .unwrap()
-                .max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
+            let minimum = bar.max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
             let grip = r(vise["parallels_height_mm"]
                 .as_f64()
                 .map_or(minimum, |p| vise["jaw_height_mm"].as_f64().unwrap() - p));
             if grip < r(minimum)
                 || grip > vise["jaw_height_mm"].as_f64().unwrap()
                 || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
+                || z - lo[2] <= grip + rule["clearance_mm"].as_f64().unwrap()
             {
                 continue;
             }
-            if z - lo[2] < grip + rule["clearance_mm"].as_f64().unwrap() {
-                continue;
-            }
-            // Restrict contact to the central jaw width. Side-plane coverage
-            // rejects notches, holes and round corners inside this band.
-            let side_tris: Vec<Vec<Tri>> = [lo[axis], hi[axis]]
-                .iter()
-                .map(|edge| {
-                    tris.iter()
-                        .filter(|t| t.iter().all(|p| (p[axis] - edge).abs() < 1e-6))
-                        .copied()
-                        .collect()
-                })
-                .collect();
-            let start = side_tris
-                .iter()
-                .map(|ts| {
-                    ts.iter()
-                        .flatten()
-                        .map(|p| p[along])
-                        .min_by(f64::total_cmp)
-                        .unwrap_or(f64::INFINITY)
-                })
-                .fold(lo[along], f64::max);
-            let end = side_tris
-                .iter()
-                .map(|ts| {
-                    ts.iter()
-                        .flatten()
-                        .map(|p| p[along])
-                        .max_by(f64::total_cmp)
-                        .unwrap_or(f64::NEG_INFINITY)
-                })
-                .fold(hi[along], f64::min);
-            let center = (lo[along] + hi[along]) / 2.;
-            let (start, end) = (start.max(center - width / 2.), end.min(center + width / 2.));
             let band = [[start, z - grip], [end, z]];
-            if !side_tris.iter().all(|ts| covered(ts, [along, 2], band)) {
+            let contact: Vec<_> = side_tris
+                .iter()
+                .map(|ts| patches(ts, [along, 2], band))
+                .collect();
+            let areas: Vec<f64> = contact
+                .iter()
+                .map(|ps| ps.iter().map(|p| area(p)).sum())
+                .collect();
+            let fractions: Vec<_> = areas.iter().map(|a| a / ((end - start) * grip)).collect();
+            let score = fractions.iter().copied().fold(1., f64::min);
+            best_contact = best_contact.max(score);
+            if areas
+                .iter()
+                .any(|a| *a / ((end - start) * grip) + 1e-6 < fraction || *a / grip < bar)
+            {
                 continue;
             }
+            contact_ok = true;
             let horizontal: Vec<_> = tris
                 .iter()
-                .filter(|t| t.iter().all(|p| (p[2] - z).abs() < 1e-6))
+                .filter(|t| t.iter().all(|p| (p[2] - z).abs() < eps))
                 .copied()
                 .collect();
-            let strips: Vec<_> = [lo[axis], hi[axis] - bar]
-                .iter()
-                .map(|edge| {
+            let mut supports = vec![];
+            for side in 0..2 {
+                let mut best_support: Option<(f64, Value)> = None;
+                for n in 0..=((inset / step).floor() as usize) {
+                    let offset = n as f64 * step;
+                    let edge = if side == 0 {
+                        lo[axis] + offset
+                    } else {
+                        hi[axis] - offset - bar
+                    };
                     let mut rect = [[0.; 2]; 2];
-                    rect[0][axis] = *edge;
+                    rect[0][axis] = edge;
                     rect[1][axis] = edge + bar;
                     rect[0][along] = start;
                     rect[1][along] = end;
-                    rect
+                    let a = measured(&horizontal, [0, 1], rect);
+                    // Material projecting below this seating level in the flipped
+                    // setup must not intersect either parallel's footprint.
+                    let obstructed = tris
+                        .iter()
+                        .filter(|t| t.iter().any(|p| p[2] > z + eps))
+                        .any(|t| {
+                            area(&clipped(t.iter().map(|p| [p[0], p[1]]).collect(), rect)) > 1e-9
+                        });
+                    if !obstructed
+                        && a / (bar * (end - start)) + 1e-6 >= support_fraction
+                        && a / bar >= bar
+                        && best_support.as_ref().is_none_or(|(old, _)| a > *old + eps)
+                    {
+                        best_support = Some((
+                            a,
+                            json!({"offset_mm":offset,"area_mm2":r(a),"fraction":r(a/(bar*(end-start)))}),
+                        ));
+                    }
+                }
+                if let Some((_, s)) = best_support {
+                    supports.push(s);
+                }
+            }
+            if supports.len() != 2 {
+                continue;
+            }
+            let contact_model: Vec<Vec<Vec<Point>>> = contact
+                .iter()
+                .enumerate()
+                .map(|(side, ps)| {
+                    ps.iter()
+                        .map(|p| {
+                            p.iter()
+                                .map(|q| {
+                                    let mut point = [0.; 3];
+                                    point[axis] = [lo[axis], hi[axis]][side];
+                                    point[along] = q[0];
+                                    point[2] = q[1];
+                                    point
+                                })
+                                .collect()
+                        })
+                        .collect()
                 })
                 .collect();
-            if strips
-                .iter()
-                .all(|rect| covered(&horizontal, [0, 1], *rect))
-            {
-                return Ok(
-                    json!({"axis": axis, "along_min_model": start, "along_max_model": end, "seat_z_model": z, "grip_height_mm": grip, "support_width_mm": bar}),
-                );
+            let contacts: Vec<_>=areas.iter().zip(&fractions).enumerate().map(|(side,(a,f))|json!({"face_model":format!("part.{}.{}",["x","y"][axis],["min","max"][side]),"area_mm2":r(*a),"fraction":r(*f),"effective_length_mm":r(a/grip)})).collect();
+            let seat = json!({"axis":axis,"along_min_model":start,"along_max_model":end,"seat_z_model":z,"grip_height_mm":grip,"support_width_mm":bar,"contacts":contacts,"supports":supports,"contact_patches_model":contact_model,"material_below_seat_mm":r(hi[2]-z)});
+            if best.as_ref().is_none_or(|(old, _)| score > *old + 1e-6) {
+                best = Some((score, seat));
             }
         }
     }
-    Err("no opposed continuous side bands with horizontal support strips clear of bosses, holes and notches".into())
+    best.map(|(_,s)|s).ok_or_else(|| if contact_ok {
+        format!("no horizontal support pair reaches {}% contact within {} mm inboard, without interfering material",100.*support_fraction,inset)
+    } else {format!("opposed finished side contact below rule: best minimum fraction {}, required {} and {} mm effective length per side",r(best_contact),fraction,bar)})
+}
+
+/// A cut is modelled only when all its original geometric inputs still agree.
+/// New or altered cuts continue through the conservative grip audit.
+pub(crate) fn modeled_cut(seat: &Value, op: &Value) -> bool {
+    seat["modeled_cuts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|cut| {
+            cut.as_object()
+                .is_some_and(|fields| fields.iter().all(|(k, v)| op.get(k) == Some(v)))
+        })
+}
+
+/// Reset exclusions when switching plans: operation indices belong to one plan.
+pub fn fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Value, String> {
+    let mut p = crate::plan::plan(analysis, Some(mesh), &Options::default())?;
+    let mut trace = Trace::take(&mut p);
+    trace.decide(
+        RULE,
+        "part",
+        "none",
+        &format!("vise flip option withheld; replanned without sacrificial bottom stock: {reason}"),
+        json!({"chosen":{"option":"vise_flip_face","available":false}}),
+    );
+    trace.store(&mut p);
+    Ok(p)
 }
 
 /// Resource-aware entry point. Without a dimensioned vise this returns exactly
@@ -249,10 +355,8 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     if !eligible {
         return Ok(original);
     }
-    let lo: Point =
-        serde_json::from_value(original["part"]["min"].clone()).map_err(|e| e.to_string())?;
-    let hi: Point =
-        serde_json::from_value(original["part"]["max"].clone()).map_err(|e| e.to_string())?;
+    let lo: Point = serde_json::from_value(mesh["bbox"][0].clone()).map_err(|e| e.to_string())?;
+    let hi: Point = serde_json::from_value(mesh["bbox"][1].clone()).map_err(|e| e.to_string())?;
     let selected: Result<(f64, Value), String> = (|| {
         if !original["setups"]
             .as_array()
@@ -296,11 +400,11 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
                 .min(crate::resources::num(tool, "stickout")?)
                 - 1.
         {
-            return Err("Op 1 tool cannot reach the whole outline; flip option withheld".into());
+            return Err("Op 1 tool cannot reach the whole outline; camlib#121 / #45 box stock cannot carry the uncut margin for Op 2 finishing, so the flip option is withheld".into());
         }
         Ok((b, seat))
     })();
-    let (b, seat) = match selected {
+    let (b, mut seat) = match selected {
         Ok(v) => v,
         Err(reason) => {
             let mut p = original;
@@ -324,10 +428,26 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     let mut p = crate::plan::plan(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take(&mut p);
     let chosen = trace.decide(RULE,"part","chosen", "vise flip-and-face option enabled: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","available":true,"bottom_stock_mm":b,"seating":seat}}));
-    let warning = trace.warn(RULE,"bottom","bottom setup starts from the part box plus bottom stock (camlib#121 / #45): it does not model Op 1's residual margin below the jaw line or the true boss-shaped underside. Facing must clear that residual margin; modeled edge supports seat on the finished plate top clear of the boss, not on the box bottom. Seating and contact are mesh checked; stock history and holding strength are not simulated".into());
+    let warning = trace.warn(RULE,"bottom",format!("bottom setup starts from the part box plus bottom stock (camlib#121 / #45): stock history and Op 1's residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Stock history and holding strength are not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the box does not represent the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}));
     let setups = p["setups"].as_array_mut().unwrap();
     let top = setups.iter_mut().find(|s| s["id"] == "top").unwrap();
     top["flip_role"] = json!("sacrificial_grip");
+    seat["modeled_cuts"] = json!(
+        top["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|op| !matches!(
+                op["kind"].as_str(),
+                Some("roughing" | "flats" | "facing" | "wall_finish")
+            ))
+            .map(|op| {
+                let mut cut = op.clone();
+                cut.as_object_mut().unwrap().remove("because");
+                cut
+            })
+            .collect::<Vec<_>>()
+    );
     for op in top["operations"].as_array_mut().unwrap() {
         because(op, [chosen.clone()]);
     }
@@ -389,6 +509,69 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn interrupted_sides(hole_width: f64, top: bool) -> Value {
+        let mut tris: Vec<Tri> = vec![];
+        let mut quad = |a: Point, b: Point, c: Point, d: Point| {
+            tris.push([a, b, c]);
+            tris.push([a, c, d]);
+        };
+        for y in [0., 20.] {
+            let a = 20. - hole_width / 2.;
+            let b = 20. + hole_width / 2.;
+            for (x0, x1, z0, z1) in [
+                (0., a, 0., 10.),
+                (b, 40., 0., 10.),
+                (a, b, 0., 7.),
+                (a, b, 9., 10.),
+            ] {
+                quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]);
+            }
+        }
+        if top {
+            quad(
+                [0., 0., 10.],
+                [40., 0., 10.],
+                [40., 20., 10.],
+                [0., 20., 10.],
+            );
+        }
+        json!({"positions":tris.iter().flatten().flatten().copied().collect::<Vec<_>>(),"indices":(0..tris.len()*3).collect::<Vec<_>>()})
+    }
+    #[test]
+    fn holes_reduce_measured_contact_but_do_not_require_continuous_faces() {
+        let vise = json!({"jaw_width_mm":100.,"jaw_height_mm":20.,"max_jaw_opening_mm":150.});
+        let seat = seating(
+            &interrupted_sides(4., true),
+            [0., 0., 0.],
+            [40., 20., 10.],
+            &vise,
+        )
+        .unwrap();
+        assert_eq!(seat["axis"], 1);
+        for c in seat["contacts"].as_array().unwrap() {
+            let f = c["fraction"].as_f64().unwrap();
+            assert!(f > 0.9 && f < 1.);
+            assert!((c["area_mm2"].as_f64().unwrap() - (40. * 3.175 - 8.)).abs() < 1e-4);
+        }
+        let err = seating(
+            &interrupted_sides(30., true),
+            [0., 0., 0.],
+            [40., 20., 10.],
+            &vise,
+        )
+        .unwrap_err();
+        assert!(err.contains("contact below rule"), "{err}");
+        assert!(
+            seating(
+                &interrupted_sides(4., false),
+                [0., 0., 0.],
+                [40., 20., 10.],
+                &vise
+            )
+            .unwrap_err()
+            .contains("no horizontal support face")
+        );
+    }
     #[test]
     fn no_vise_or_missing_dimensions_is_exactly_the_original_plan() {
         let a: Value =

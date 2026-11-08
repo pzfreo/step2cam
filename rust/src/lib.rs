@@ -65,6 +65,10 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
     let planned = capp::flip::plan(analysis, mesh, library)?;
+    process_planned(analysis, mesh, library, planned)
+}
+
+fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Value) -> Result<Value, String> {
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut exclusions: Vec<Value> = vec![];
@@ -76,6 +80,15 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
         if let Err(message) = capp::finish(&mut plan, library, &exclusions) {
             error = Some(message);
             break;
+        }
+        if let Some(bottom)=plan["setups"].as_array().into_iter().flatten().find(|s|s["flip_seating"].is_object())
+            && !bottom["operations"].as_array().into_iter().flatten().any(|o|o["kind"]=="facing" && o["tool"].is_string()) {
+            let reason=plan["warnings"].as_array().into_iter().flatten().filter_map(Value::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
+            planned=capp::flip::fallback(analysis,mesh,&reason)?;
+            // Retried indices refer to the flip plan. Re-run ordinary planning
+            // and exclusions from scratch, once, with the flip now withheld.
+            exclusions.clear();
+            continue;
         }
         let Err(failure) = simulate_all(&plan, library, &mut programs, &mut log) else {
             break;
@@ -117,4 +130,29 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String,
     let (analysis, mesh, library) = (parse(analysis)?, parse(mesh)?, parse(library)?);
     let out = process(&analysis, &mesh, &library).map_err(|e| JsError::new(&e))?;
     Ok(out.to_string())
+}
+
+#[cfg(test)]
+mod flip_tests {
+    use super::*;
+    #[test]
+    fn refused_preparation_replans_without_the_flip_and_resets_exclusions() {
+        let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
+        let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
+        let t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut p=capp::flip::plan(&a,&m,&t).unwrap();
+        // Distort a lower corner arc while preserving the straight grip faces: camlib must refuse it, after
+        // which the bottom grip loses its preparation and triggers fallback.
+        let wall=p["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o|o["kind"]=="wall_finish").unwrap();
+        wall["outer"][0][2]=json!(2.);
+        let mut checked=p.clone();capp::finish(&mut checked,&t,&[]).unwrap();
+        assert!(checked["setups"][1]["operations"].as_array().unwrap().iter().any(|o|o["kind"]=="facing"));
+        let out=process_planned(&a,&m,&t,p).unwrap();
+        assert!(out["error"].is_null(),"{}",out["error"]);
+        let p=&out["plan"];
+        assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
+        assert_eq!(p["setups"][0]["stock"]["min"][2],-19.);
+        assert!(p["decisions"].as_array().unwrap().iter().any(|d|d["chosen"]["available"]==false && d["says"].as_str().unwrap().contains("replanned without sacrificial bottom stock")));
+        assert_eq!(out["programs"].as_array().unwrap().len(),2);
+    }
 }

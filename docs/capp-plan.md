@@ -134,28 +134,43 @@ to retain tool reach). Op 2 faces that stock to the bottom face at thickness. Wi
 this stock rule Op 1 reaches the whole outline, so no invented bottom wall operation is
 needed; genuinely bottom-entered features retain their setup.
 
-Op 2 grips opposed mesh-checked rectangular side bands prepared by Op 1 wall finishing.
-Two horizontal support strips are checked by clipping mesh triangles to their rectangles,
-requiring complete coverage (relative area tolerance 1e-6 is numerical judgement).
-This rejects holes, notches and missing material in the proposed seating. The narrower
-axis is tried first, then the other pair. The boss top is never assumed to be the edge
-seating: on the complex plate the supports seat under the plate top at model Z12, and
-its short end faces are gripped above that plane in the flipped frame. Bar width reuses
-3.175 mm, the existing judgement value. Missing parallels are explicitly chosen at the
-height needed for that real seating; supplied parallels must validate as given.
+Op 2 measures real planar face area in each opposed jaw band by clipping mesh
+triangles. Each side needs at least 60% of the nominal band area and 3.175 mm of
+effective contact length (area divided by grip height). These are judgement values
+in `workholding.json`, not a holding-force calculation. Holes, pockets and edge
+breaks reduce contact instead of rejecting the entire band. The retained contact
+polygons, area, fraction and effective length per side are recorded in seating,
+clamping and the trace. A top round/chamfer leaves the actual contact below the
+break; the nominal jaw top and seating height remain physically consistent.
 
-The clamping-history audit uses these actual contact bands. Only a retained, tooled
-straight wall contour covering the entire band at its depth establishes prepared faces;
-then roughing, flats and wall envelopes that include preserved material do not generate
-false removed-material warnings for this flip. Holes, notches and other cutting envelopes
-remain checked. Other setups retain the existing conservative audit. Exclusions recompute
-this evidence; an absent finishing operation must not certify a prepared face.
-A missing finished support level, missing side finishing or a conflicting cutting envelope
-withholds the flip setup's operations, with a warning and feature skips, until its grip
-can be established. Other setups retain their warning-only audit.
+Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
+support length (area divided by bar width), also judgement. Two 3.175 mm wide bars
+search inward up to 3 mm, in 0.25 mm steps, to seat beyond edge breaks. Support
+area, fraction and offset are recorded per bar; material projecting below the
+seat in the flipped frame must not interfere with their footprints. The most
+complete opposed contact is preferred, with narrower-axis precedence on a tie.
+Missing support faces or insufficient side contact withhold the option with the
+measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
+matching covers compounded four-decimal serialization; neither is a manufacturing
+tolerance. Missing parallels are chosen at the required height; supplied parallels
+must pass the existing grip limits.
+
+The clamping-history audit requires retained, tooled wall contour segments covering
+all real contact polygons at their depths, and retained facing/flats at the support
+level. Several segments can prepare a side interrupted by notches. Modelled opening
+operations are recognised by their original geometric inputs: their missing contact
+is already measured from the final mesh. New or changed cuts still run through the
+conservative envelope audit; other setups retain that audit unchanged. Exclusions
+recompute preparation. If a grip or facing becomes unavailable, `process` replans
+without the flip, traces the reason and resets operation-index exclusions (which
+belong to the previous plan). It then retries ordinary planning/execution normally.
+A direct `capp::finish` caller also gets an explicit warning that the part remains on
+B mm of sacrificial stock and needs facing by hand or another setup; its bottom
+operations are withheld. Thus an unavailable featureless facing cannot disappear
+without explaining the unfinished part.
 
 Until camlib#121 / #45, Op 2 starts from a fresh part box plus bottom stock. Its trace
-warns that this does not model the true boss underside, stock history, or Op 1's margin
+warns that this does not model the true underside shape, stock history, or Op 1's margin
 remaining below the jaw line. Facing explicitly overlaps the box by the original XY margin
 to clear this material; a facing cutter too small for that overlap withholds the option. Jaw and edge-support fixtures and
 the transformed target mesh remain checked by camlib; box stock is not a simulation of
