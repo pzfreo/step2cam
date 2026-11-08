@@ -156,8 +156,10 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
             wall["floor_z"] = json!(floor);
             // It now stops in the roughed stock, above the flat it originally stood on.
             wall["on_flat"] = json!(false);
+            let mut extras = json!({"features": wall["features"]});
+            if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
             let d = trace.warn(rule, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
-                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)), json!({"features": wall["features"]}));
+                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)), extras);
             because(wall, [d]);
         }
         for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
@@ -165,7 +167,9 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
                 let before = levels.len();
                 levels.retain(|z| z.as_f64().is_some_and(|z| z >= floor));
                 if levels.len() != before {
-                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)), json!({"features": op["features"]}));
+                    let mut extras = json!({"features": op["features"]});
+                    if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
+                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)), extras);
                     because(op, [d]);
                 }
             }
