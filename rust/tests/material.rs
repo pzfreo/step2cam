@@ -1,5 +1,5 @@
 //! camlib compares the stock left by the last move with the part. A height field cannot decide cells
-//! beside a wall, so what it can say is: no definite gouge, and at least so much left.
+//! beside a wall on its own; camlib also reports a separate per-motion gouge proof.
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::simulate::simulate;
@@ -198,5 +198,18 @@ fn stock_below_the_part_is_no_gouge() {
 #[test]
 fn the_log_says_how_small_an_error_the_check_can_miss() {
     let log = process("mounting-plate")["log"].to_string();
-    assert!(log.contains("cannot see an error under about 0.04 mm in height or 0.26 mm sideways"), "{log}");
+    assert!(log.contains("cell comparison can miss an error under about 0.04 mm in height or 0.26 mm sideways"), "{log}");
+}
+
+#[test]
+fn the_per_motion_proof_reports_when_mesh_error_spends_its_tolerance() {
+    let out = process("mounting-plate");
+    let program = &out["programs"][0];
+    let proof = &program["material"]["sweep_proof"];
+    assert_eq!(proof["history_complete"], true);
+    assert_eq!(proof["proven_moves"], 0);
+    assert_eq!(proof["unproven_moves"].as_u64().unwrap(), program["moves"].as_array().unwrap().len() as u64);
+    assert_eq!(proof["decided_cells"], 0);
+    assert!(proof["unavailable"].as_str().unwrap().contains("does not exceed the target mesh's surface error"));
+    assert!(out["log"].to_string().contains("per-motion gouge proof"));
 }
