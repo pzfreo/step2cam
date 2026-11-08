@@ -1265,6 +1265,7 @@ function setFocus(key) {
 function setPin(key, scroll = true) {
   pinKey = key;
   focusKey = null;
+  updatePlanSelection();
   applyFocus(scroll);
 }
 
