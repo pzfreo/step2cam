@@ -278,6 +278,15 @@ a thread mill takes a light cut, and does not snap off in the hole if something 
 ## The tool library
 
 The tool library is JSON: see [`examples/tools.example.json`](examples/tools.example.json).
+Each mapped tool field may also be supplied by its ISO 13399 symbol, in the same units
+(mm, or degrees for `SIG`). The [mapping table](rust/capp/rulebase/reference/iso13399-fields.json)
+lists every field, its type-specific alias and public sources, or why it has no exact alias.
+For example, `diameter` may be `DC` for an end mill, and `overall_length` may be `OAL`.
+Mill `flute_length` uses `APMX`; drill `flute_length` uses `LCF`. Unmapped fields keep
+their current names. Both names may be given if their values are equal; differing values
+refuse the library with an error naming the tool and both fields. Missing fields are
+reported using the current name. This translates names only, without converting dimensions.
+
 **Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
 on purpose.
 

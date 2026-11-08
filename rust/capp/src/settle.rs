@@ -14,6 +14,8 @@ use serde_json::{Value, json};
 /// an operation as the execution engine named it (`top-2-roughing`, numbered in the plan as it
 /// stood when that engine saw it) and says why it refused it.
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
+    let normalized = crate::resources::normalize(library)?;
+    let library = normalized.as_ref();
     settle(plan, library)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;

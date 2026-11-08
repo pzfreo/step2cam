@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The tables, as shipped with the crate.
-pub const TABLES: [(&str, &str); 4] = [
+pub const TABLES: [(&str, &str); 5] = [
+    ("iso13399-fields.json", include_str!("../rulebase/reference/iso13399-fields.json")),
     ("iso261-coarse-pitch.json", include_str!("../rulebase/reference/iso261-coarse-pitch.json")),
     ("full-thread.json", include_str!("../rulebase/reference/full-thread.json")),
     ("iso14649-names.json", include_str!("../rulebase/reference/iso14649-names.json")),
@@ -15,6 +16,12 @@ pub const TABLES: [(&str, &str); 4] = [
 fn table(name: &str) -> Value {
     let (_, text) = TABLES.iter().find(|(n, _)| *n == name).unwrap_or_else(|| panic!("no reference table {name}"));
     serde_json::from_str(text).unwrap_or_else(|e| panic!("rulebase/reference/{name}: {e}"))
+}
+
+/// Exact, type-specific tool property aliases and the fields deliberately left unmapped.
+pub fn iso13399_fields() -> &'static Value {
+    static FIELDS: OnceLock<Value> = OnceLock::new();
+    FIELDS.get_or_init(|| table("iso13399-fields.json"))
 }
 
 /// ISO 261's coarse pitch for a nominal size (`M5`), among the sizes the table lists.

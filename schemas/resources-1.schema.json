@@ -106,15 +106,12 @@
       "id",
       "type",
       "number",
-      "diameter",
-      "overall_length",
       "stickout",
       "holder_length",
       "holder_diameter",
       "feed_mm_min",
       "spindle_rpm",
       "coolant",
-      "flute_length",
       "plunge_mm_min",
       "stepdown_mm",
       "stepover_mm"
@@ -233,12 +230,76 @@
         "additionalProperties": false
        },
        "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
+      },
+      "DC": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for diameter; conflicting paired values are refused by the library reader."
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      },
+      "APMX": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for flute_length; conflicting paired values are refused by the library reader."
       }
      },
      "patternProperties": {
       "^_": {}
      },
-     "additionalProperties": false
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "diameter"
+         ]
+        },
+        {
+         "required": [
+          "DC"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "flute_length"
+         ]
+        },
+        {
+         "required": [
+          "APMX"
+         ]
+        }
+       ]
+      }
+     ]
     },
     {
      "description": "A twist drill.",
@@ -247,16 +308,12 @@
       "id",
       "type",
       "number",
-      "diameter",
-      "overall_length",
       "stickout",
       "holder_length",
       "holder_diameter",
       "feed_mm_min",
       "spindle_rpm",
-      "coolant",
-      "flute_length",
-      "point_angle"
+      "coolant"
      ],
      "properties": {
       "id": {
@@ -370,12 +427,96 @@
         "additionalProperties": false
        },
        "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
+      },
+      "DC": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for diameter; conflicting paired values are refused by the library reader."
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      },
+      "LCF": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for flute_length; conflicting paired values are refused by the library reader."
+      },
+      "SIG": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "exclusiveMaximum": 180,
+       "description": "ISO 13399 alias for point_angle; conflicting paired values are refused by the library reader."
       }
      },
      "patternProperties": {
       "^_": {}
      },
-     "additionalProperties": false
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "diameter"
+         ]
+        },
+        {
+         "required": [
+          "DC"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "flute_length"
+         ]
+        },
+        {
+         "required": [
+          "LCF"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "point_angle"
+         ]
+        },
+        {
+         "required": [
+          "SIG"
+         ]
+        }
+       ]
+      }
+     ]
     },
     {
      "description": "A single-profile thread mill: diameter is the tooth's, on a narrower neck.",
@@ -384,8 +525,6 @@
       "id",
       "type",
       "number",
-      "diameter",
-      "overall_length",
       "stickout",
       "holder_length",
       "holder_diameter",
@@ -393,7 +532,6 @@
       "spindle_rpm",
       "coolant",
       "tooth_height",
-      "neck_diameter",
       "neck_length",
       "plunge_mm_min"
      ],
@@ -527,12 +665,76 @@
         "additionalProperties": false
        },
        "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
+      },
+      "DC": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for diameter; conflicting paired values are refused by the library reader."
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      },
+      "DN": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for neck_diameter; conflicting paired values are refused by the library reader."
       }
      },
      "patternProperties": {
       "^_": {}
      },
-     "additionalProperties": false
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "diameter"
+         ]
+        },
+        {
+         "required": [
+          "DC"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "neck_diameter"
+         ]
+        },
+        {
+         "required": [
+          "DN"
+         ]
+        }
+       ]
+      }
+     ]
     },
     {
      "description": "A chamfer mill or V-bit: angle is the included angle; tip_diameter 0 is sharp.",
@@ -542,14 +744,12 @@
       "type",
       "number",
       "diameter",
-      "overall_length",
       "stickout",
       "holder_length",
       "holder_diameter",
       "feed_mm_min",
       "spindle_rpm",
       "coolant",
-      "flute_length",
       "angle",
       "tip_diameter",
       "plunge_mm_min"
@@ -673,12 +873,57 @@
         "additionalProperties": false
        },
        "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      },
+      "APMX": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for flute_length; conflicting paired values are refused by the library reader."
       }
      },
      "patternProperties": {
       "^_": {}
      },
-     "additionalProperties": false
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "flute_length"
+         ]
+        },
+        {
+         "required": [
+          "APMX"
+         ]
+        }
+       ]
+      }
+     ]
     }
    ]
   },

@@ -79,6 +79,7 @@ rulebase/
     full-thread.json             specify-core's default minimum full thread, as a formula
     iso14649-names.json          ISO 14649 feature and operation names for each operation kind
     iso513-groups.json           ISO 513 groups, and how a material's name is placed in one
+    iso13399-fields.json         exact tool property aliases by type, with public sources
   rules/
     tools.json                   tool selectors: which tools qualify, why others are turned down, which wins
     sequence.json                the order of operations in a setup
@@ -186,7 +187,7 @@ There is no access to the standards themselves. The rulebase holds values, never
 | ISO 2306 tap drills | Planned: table from catalogues, D − P as a check |
 | ISO 286 fits | Planned: specify-core already computes fit limits |
 | ISO 2768 general tolerances | Planned: recorded; nothing uses them yet |
-| ISO 13399 tool property symbols | Planned: names mapped to the library's fields |
+| ISO 13399 tool property symbols | Done: exact aliases by type, public manufacturer lists; current names retained |
 | ISO 15065 countersinks | Later, if a source is found |
 
 Cutting data are not standardised: they are shop policy, in the resources.
@@ -209,6 +210,10 @@ Done:
    Each is a traced decision (stage `machine`). The demo's machine is the Makera Carvera, from its
    published specifications.
 
+9. ISO 13399 tool library aliases: a sourced table, normalized at the library entry points.
+   Equal paired names are accepted; conflicting values are refused. Fields without exact
+   equivalents keep their current names.
+
 Steps 1–6 left the G-code unchanged. Each was compared with `main`: 8 fixtures and a tapped plate,
 with up to 5 tool libraries, one with a twin of every tool to test tie-breaks. Step 7 changes it
 only when a material is given and a tool states cutting data for its group. Step 8 changes it only
@@ -223,7 +228,5 @@ Planned:
 - **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a
   reaming operation. This needs a reamer tool type.
 - **Tapping** as an alternative to thread milling; camlib has a tapping operation.
-- **The ISO 13399 tool library:** map the library's field names to ISO 13399 symbols, keeping the
-  current names.
 - **Surface finish and ISO 2768**, once a rule uses them.
 - **Optional:** an AP238 (STEP-NC) export; a second execution engine.

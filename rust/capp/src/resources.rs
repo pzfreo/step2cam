@@ -3,6 +3,44 @@
 //! standard.
 use serde_json::Value;
 use std::collections::HashMap;
+use std::borrow::Cow;
+
+fn same_property(a: &Value, b: &Value) -> bool {
+    if a == b { return true; }
+    let (Some(a), Some(b)) = (a.as_number(), b.as_number()) else { return false };
+    if a.is_f64() == b.is_f64() { return false; }
+    let (float, integer) = if a.is_f64() { (a, b) } else { (b, a) };
+    let f = float.as_f64().expect("a JSON float");
+    if f.fract() != 0. { return false; }
+    // Compare the float's exact integer value, rather than rounding the integer to f64.
+    let exact = format!("{f:.0}");
+    exact.parse::<i64>().is_ok_and(|n| Some(n) == integer.as_i64())
+        || exact.parse::<u64>().is_ok_and(|n| Some(n) == integer.as_u64())
+}
+
+/// Translate ISO symbols once at the library boundary. Downstream readers use current names.
+/// Equal numeric pairs (including 6 and 6.0) are accepted; a disagreement names both inputs.
+pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
+    let mut out = Cow::Borrowed(data);
+    for (n, tool) in data["tools"].as_array().into_iter().flatten().enumerate() {
+        for row in crate::reference::iso13399_fields()["fields"].as_array().expect("tool fields") {
+            let Some(symbol) = row["symbol"].as_str() else { continue };
+            if !row["types"].as_array().expect("tool types").contains(&tool["type"]) {
+                continue;
+            }
+            let Some(value) = tool.get(symbol) else { continue };
+            let field = row["field"].as_str().expect("tool field name");
+            if let Some(current) = tool.get(field) && !same_property(current, value) {
+                let name = tool["id"].as_str().map_or_else(|| format!("tools[{n}]"), String::from);
+                return Err(format!("tool {name}: {field} {current} and {symbol} {value} disagree"));
+            }
+            let object = out.to_mut()["tools"][n].as_object_mut().expect("a tool with a property is an object");
+            object.entry(field).or_insert_with(|| value.clone());
+            object.remove(symbol);
+        }
+    }
+    Ok(out)
+}
 
 /// Every tool needs these: no defaults, as holder size and cutting data are specific to the tool,
 /// material and machine.

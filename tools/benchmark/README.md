@@ -77,11 +77,9 @@ member holes, not the pattern. A feature referenced by a retained operation
 counts as cut, even if other operations also refer to it; cut takes precedence over covered,
 then left out. This measures the final plan's claims, not machining completeness or quality.
 Warnings and reasons retain their full text with numeric values replaced by `#`.
-The current planner can retain `covered_by_roughing` entries after a machine travel check
-removes all operations from a setup. This benchmark preserves those claims; an increased
-covered count is not evidence that roughing ran. Check the setup travel warnings. This is a
-planner limitation tracked in issue #67, not corrected by benchmark accounting. The benchmark
-machine is sized to avoid these travel rejections in the fixed sample.
+When a machine travel check removes the last roughing operation, its covered features become
+`left_out` with the travel reason. The benchmark machine is sized to avoid these travel
+rejections in the fixed sample.
 
 Known limit: pockets, slots and notches cannot be matched face by face: the dataset's details
 give no face IDs. That would require labelled geometry/face correspondence in the dataset,

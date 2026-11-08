@@ -106,14 +106,25 @@ fn the_top_edges_are_chamfered_where_they_meet_the_round_and_never_inside_it() {
 #[test]
 fn nothing_is_covered_by_a_roughing_that_was_refused() {
     let mut library = fixture("demo/tools.json");
+    let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
+    let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
+    let mut normal = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut normal, &library, &[]).unwrap();
+    let covered = normal["covered_by_roughing"].as_array().unwrap();
+    assert!(!covered.is_empty(), "the normal plan must cover features by roughing");
     for tool in library["tools"].as_array_mut().unwrap() {
         if tool["type"] == "end_mill" {
             tool["flute_length"] = 1.into();
             tool["stickout"] = 1.5.into();
         }
     }
-    let out = step2cam::process(&fixture("tests/fixtures/mounting-plate.analysis.json"), &fixture("tests/fixtures/mounting-plate.mesh.json"), &library).unwrap();
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
     assert!(out["plan"]["warnings"].to_string().contains("roughing left out"), "{}", out["plan"]["warnings"]);
     assert_eq!(out["plan"]["covered_by_roughing"], serde_json::json!([]));
     assert!(out["plan"]["skipped"].to_string().contains("roughing was refused"), "{}", out["plan"]["skipped"]);
+    for feature in covered {
+        let skipped = out["plan"]["skipped"].as_array().unwrap().iter().find(|s| s["feature"] == *feature && s["reason"].as_str().unwrap().contains("roughing was refused")).unwrap_or_else(|| panic!("{feature} must be skipped after roughing was refused"));
+        let decision = out["plan"]["decisions"].as_array().unwrap().iter().find(|d| d["subject"] == *feature && d["outcome"] == "covered").unwrap();
+        assert_eq!(decision["superseded_by"], skipped["decision"]);
+    }
 }
