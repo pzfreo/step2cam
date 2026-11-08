@@ -42,25 +42,36 @@ What the plan leaves out today, and why, on parts deeper or larger than the demo
 14. #41 Keep features toleranced to the same datum in one setup.
 15. #45 Start each later setup from the stock the previous one left.
     *Waits on* stevecad/camlib#121.
-16. #55 An agent that proposes the setup order and workholding, checked by the planner (after
-    #40, #43 and #45).
 
 ## Phase 5: cutting data and the machine
 
-17. #39 Describe the machine.
-18. #38 Calculate cutting data from the material group, the tool and the machine.
-19. #37 Rough with bounded engagement (camlib's adaptive clearing).
-20. Engagement-based feeds, in #38. *Waits on* stevecad/camlib#23.
-21. #51 Name the tool library's fields by ISO 13399.
+16. #39 Describe the machine.
+17. #38 Calculate cutting data from the material group, the tool and the machine.
+18. #37 Rough with bounded engagement (camlib's adaptive clearing).
+19. Engagement-based feeds, in #38. *Waits on* stevecad/camlib#23.
+20. #51 Name the tool library's fields by ISO 13399.
 
 ## Phase 6: the lathe through camlib
 
-22. #57 Hand lathe setups to camlib's turning (after PR #28 and #46).
+21. #57 Hand lathe setups to camlib's turning (after PR #28 and #46).
 
 ## Phase 7: G-code in the browser
 
-23. #52 Save G-code from the browser through camlib's Rust posts.
+22. #52 Save G-code from the browser through camlib's Rust posts.
     *Waits on* stevecad/camlib#120.
+
+## Phase 8: agents
+
+Agents propose, the planner and camlib decide (docs/agents.md). Each item can start once what it
+needs is in.
+
+23. #58 Supplied decisions: any decision from outside, checked and traced with its source.
+24. #59 Agent tools: specify-core, the planner and camlib as a command-line and MCP interface.
+25. #60 Repair refusals until camlib accepts.
+26. #61 Answer Specify's questions from drawings and notes.
+27. #55 Propose the setup order and workholding (after #40, #43, #45).
+28. #62 Turn review comments into rule changes, accepted by tests and the benchmark.
+29. #63 Build the tool library and machine from catalogues.
 
 ## Alongside every phase: evidence
 
