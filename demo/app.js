@@ -877,6 +877,8 @@ async function loadRules() {
   return rulesById;
 }
 
+const STAGES = { machine: "Machine", requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
+
 function describeSource(src) {
   const what = src.kind === "standard" ? src.ref : src.kind === "practice" ? "recognised practice" : "step2cam's own judgement";
   const via = src.via ? ` (${src.via})` : "";
@@ -889,7 +891,7 @@ function decisionItem(d, rules, compact = false) {
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
   const sourceTag = d.source && d.source !== "rule" ? ` <span class="tag" title="${escapeHtml(d.reason || "")}">chosen by ${escapeHtml(d.source.replace(/^agent:/, ""))}</span>` : "";
-  const says = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced</span>` : ""}</span>`;
+  const says = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag" title="Replaced by ${escapeHtml(d.superseded_by)}">replaced</span>` : ""}</span>`;
   const more = document.createElement("details");
   more.className = "rule-detail";
   const statement = rule?.statement || rule?.name || rule?.rationale;
@@ -901,6 +903,8 @@ function decisionItem(d, rules, compact = false) {
       + `<p>Source: ${rule.sources.map((s) => escapeHtml(describeSource(s))).join("; ")}</p>` : "<p>Rule text unavailable.</p>")
     + (considered.length ? `${d.stage === "setup" ? "<p>Setups turned down</p>" : ""}<ul>${considered.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "")
     + `<details class="rule-developers"><summary>for developers</summary><p class="rule">${escapeHtml(d.rule)}</p>`
+    + `<p>Decision: ${escapeHtml(d.id)} · ${escapeHtml(STAGES[d.stage] || d.stage)}</p>`
+    + (d.superseded_by ? `<p>replaced by ${escapeHtml(d.superseded_by)}</p>` : "")
     + (rule ? `<p>Applied in ${escapeHtml(rule.code)}</p>`
       + (rule.data ? `<p>Kept as data in ${rule.data.map(escapeHtml).join(", ")}</p>` : "") : "")
     + `<p>In this plan: ${uses} ${uses === 1 ? "decision" : "decisions"}</p></details>`;
@@ -917,7 +921,14 @@ function toolChoice(op, decisions, tools) {
   if (!choices.length) return null;
   const rows = new Map();
   for (const d of choices) {
-    if (typeof d.chosen === "string") rows.set(d.chosen, { chosen: true, reason: d.says || "chosen" });
+    if (typeof d.chosen === "string") {
+      const others = d.considered.filter((c) => c.candidate !== d.chosen);
+      const preference = ["the largest", "the smallest", "the first in the library"].find((p) =>
+        others.some((c) => c.rejected === `qualifies, but ${d.chosen} is preferred (${p})`));
+      const only = others.length && others.every((c) => c.rejected?.trim() && !c.rejected.startsWith("qualifies, but"));
+      const reason = preference ? `${preference} that qualifies` : only ? "the only one that qualifies" : d.says || "chosen";
+      rows.set(d.chosen, { chosen: true, reason });
+    }
     for (const c of d.considered) {
       if (!rows.get(c.candidate)?.chosen) rows.set(c.candidate, { chosen: false, reason: c.rejected });
     }
