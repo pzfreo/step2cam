@@ -1378,13 +1378,16 @@ async function showWarnings(m, notes) {
     error.textContent = `camlib could not run the plan: ${m.data.error}`;
     host.append(error);
   }
-  if (!warned.length && !notes.length) return;
+  for (const text of notes) {
+    const line = document.createElement("div"); line.textContent = text; host.append(line);
+  }
+  if (!warned.length) return;
   const rules = await loadRules();
   if (model !== m) return;
   const details = document.createElement("details"), summary = document.createElement("summary");
   details.className = "banner-warnings";
   const labels = [...new Set(warned.map((d) => rules.get(d.rule)?.warning_label || "plan needs checking"))];
-  summary.textContent = warned.length ? `⚠ ${warned.length} warnings: ${labels.join(" · ")}` : `⚠ ${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  summary.textContent = `⚠ ${warned.length} warnings: ${labels.join(" · ")}`;
   details.append(summary);
   for (const d of warned) {
     const line = document.createElement("button");
@@ -1392,9 +1395,6 @@ async function showWarnings(m, notes) {
     line.textContent = warningText(m, d);
     linkWarning(line, m, d);
     details.append(line);
-  }
-  for (const text of notes) {
-    const line = document.createElement("div"); line.textContent = text; details.append(line);
   }
   host.append(details);
 }

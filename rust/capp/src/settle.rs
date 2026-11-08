@@ -75,8 +75,11 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
     trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"), json!({"features": removed["features"]}));
     // Its own decisions (what made it, its tool and cutting data) no longer stand; those it shares
     // with the rest of the setup (the setup, the order, where its holes are cut) do.
+    // Feature-subject warnings are borrowed by every operation cutting that feature.
     let own: Vec<&str> = removed["because"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
-    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id)) && (d["stage"] == "process" || d["stage"] == "tools")) {
+    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id))
+        && (d["stage"] == "process" || d["stage"] == "tools")
+        && !(d["outcome"] == "warning" && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"])))) {
         d["superseded_by"] = json!(refused);
     }
     trace.store(plan);
