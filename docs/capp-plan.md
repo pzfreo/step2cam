@@ -161,7 +161,10 @@ must pass the existing grip limits.
 
 The clamping-history audit requires retained, tooled wall contour segments covering
 all real contact polygons at their depths, and retained facing/flats at the support
-level. Several segments can prepare a side interrupted by notches. Modelled opening
+level. Both are recorded as positive evidence and required even if no earlier cut
+overlaps the grip bands, including when roughing and all finishing were refused.
+An overlap-free audit alone never establishes a grip. Clamping is described as a
+proposal until retained operations confirm it. Several segments can prepare a side interrupted by notches. Modelled opening
 operations are recognised by their original geometric inputs: their missing contact
 is already measured from the final mesh. New or changed cuts still run through the
 conservative envelope audit; other setups retain that audit unchanged. Exclusions

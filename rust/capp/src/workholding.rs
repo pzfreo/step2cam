@@ -122,8 +122,8 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     } else {
         format!("raise stock on parallels or similar so jaws grip only {} mm; parallels_height_mm absent: support is not modeled or checked, so through cuts are not checked against it", show(grip))
     };
-    let choice = if seating.is_some() { "mesh-checked opposed finished side faces and edge seating" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
-    let remainder = if seating.is_some() { "outline already finished in top setup" }
+    let choice = if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
+    let remainder = if seating.is_some() { "grip preparation must be verified against retained top operations" }
         else if setup["flip_role"] == "sacrificial_grip" { "sacrificial stock below the cap is removed by bottom facing" }
         else { "material below the cap needs a later setup" };
     let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));

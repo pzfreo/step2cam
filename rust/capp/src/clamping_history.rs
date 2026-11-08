@@ -135,6 +135,19 @@ fn prepared_contacts(setup: &Value, earlier: &Value) -> bool {
     }))
 }
 
+/// Positive evidence for the actual support plane, independent of cutting
+/// envelopes: absence of cuts is never evidence of prepared seating or faces.
+fn established_seat(setup: &Value, earlier: &Value) -> bool {
+    let support=setup["flip_seating"]["seat_z_model"].as_f64()
+        .zip(earlier["origin_model"][2].as_f64()).map(|(seat,origin)|seat-origin);
+    let eps=crate::rules::workholding()["flip_frame_tolerance_mm"].as_f64().unwrap();
+    earlier["operations"].as_array().into_iter().flatten().any(|op|
+        op["tool"].is_string() && support.is_some_and(|support|
+            (op["kind"]=="facing" && op["floor_z"].as_f64().is_some_and(|z|(z-support).abs()<eps))
+            || (op["kind"]=="flats" && op["levels"].as_array().into_iter().flatten()
+                .any(|z|z.as_f64().is_some_and(|z|(z-support).abs()<eps)))))
+}
+
 fn spot_envelope(op: &Value) -> Option<Bounds> {
     let corners: Option<Vec<_>> = op["spots"].as_array()?.iter().map(|s| {
         let x=s["center"][0].as_f64()?;
@@ -155,6 +168,18 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         let id = setup["id"].as_str().unwrap_or("");
         let mut hits = vec![];
         let mut unchecked = vec![];
+        let flip=setup["flip_seating"].is_object();
+        let top=setups[..index].iter().find(|s|s["id"]=="top");
+        let prepared=flip && top.is_some_and(|s|prepared_contacts(setup,s));
+        let seated=flip && top.is_some_and(|s|established_seat(setup,s));
+        // Check these even when top has no retained cuts, or only cuts that
+        // never touch the bands. A clean overlap audit cannot prepare a grip.
+        if flip && !prepared {
+            unchecked.push(json!({"setup":"top","reason":"finished grip faces are not established by retained tooled wall finishing"}));
+        }
+        if flip && !seated {
+            unchecked.push(json!({"setup":"top","reason":"finished edge seating is not established by retained facing/flats"}));
+        }
         for earlier in &setups[..index] {
             let cuts: Vec<_> = earlier["operations"].as_array().into_iter().flatten().enumerate().filter(|(_, o)| o["tool"].is_string()).collect();
             if cuts.is_empty() { continue; }
@@ -167,16 +192,8 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             // outside finishing as preparation, rather than removed material.
             // Still check holes/notches/slots and all other setups normally.
             let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
-            let prepared = flip_top && prepared_contacts(setup, earlier);
-            let support_z=setup["flip_seating"]["seat_z_model"].as_f64().zip(earlier["origin_model"][2].as_f64()).map(|(seat,origin)|seat-origin);
-            let eps=crate::rules::workholding()["flip_frame_tolerance_mm"].as_f64().unwrap();
-            if flip_top && !earlier["operations"].as_array().into_iter().flatten().any(|op|
-                op["tool"].is_string() && support_z.is_some_and(|support| (op["kind"] == "facing" && op["floor_z"].as_f64().is_some_and(|z| (z-support).abs()<eps))
-                || (op["tool"].is_string() && op["kind"] == "flats" && op["levels"].as_array().into_iter().flatten().any(|z| z.as_f64().is_some_and(|z| (z-support).abs()<eps))))) {
-                unchecked.push(json!({"setup": earlier["id"], "reason": "finished edge seating is not established by retained facing/flats"}));
-            }
             for (n, op) in cuts {
-                if prepared && (matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) || crate::flip::modeled_cut(&setup["flip_seating"],op)) { continue; }
+                if flip_top && prepared && (matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) || crate::flip::modeled_cut(&setup["flip_seating"],op)) { continue; }
                 let operation = format!("{}-{}-{}", earlier["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""));
                 let cut = if setup["flip_seating"].is_object() && op["kind"] == "spot_drill" {
                     spot_envelope(op)
@@ -190,7 +207,11 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
-        let detail = json!({"status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        let mut detail = json!({"status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        if flip {
+            detail["prepared_contacts"]=json!(prepared);
+            detail["established_seat"]=json!(seated);
+        }
         let says = match status {
             "possible_overlap" => format!("setup {id}: earlier cuts may have removed material in the later grip band: {}; {SCOPE}", detail["overlaps"]),
             "unchecked" => format!("setup {id}: later grip band could not be checked completely against earlier cuts: {}; {SCOPE}", detail["unchecked"]),
@@ -200,12 +221,19 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         let primary = setup["clamping"]["because"][0].as_str().unwrap_or("");
         if let Some(d) = trace.decisions.iter_mut().find(|d| d["id"] == primary) {
             d["chosen"]["prior_setups"] = detail.clone();
+            if flip {
+                let ready=prepared && seated && status=="no_overlap";
+                let conclusion=if ready {"finished grip faces and edge seating confirmed by retained top operations"}
+                    else {"grip preparation not established; flip clamping is unavailable"};
+                d["says"]=json!(format!("{}; {conclusion}",d["says"].as_str().unwrap_or("")));
+                if !ready {d["outcome"]=json!("none");}
+            }
         }
         let decision = if status == "no_overlap" {
             trace.decide(RULE, id, "chosen", &says, json!({"chosen": detail}))
         } else { trace.warn(RULE, id, says) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
-        if setup["flip_seating"].is_object() && status != "no_overlap" {
+        if flip && (!prepared || !seated || status != "no_overlap") {
             let b=setup["stock"]["max"][2].as_f64().unwrap_or(0.);
             let reason = format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned");
             trace.warn(RULE, id, reason.clone());
