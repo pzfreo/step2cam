@@ -343,7 +343,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
                         });
                         cutting(&mut out, s, true)?;
-                        notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
+                        notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
                         out
                     }
                 }

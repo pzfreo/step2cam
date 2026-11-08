@@ -61,7 +61,8 @@ fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
     assert_eq!(flats.len(), 1);
     assert_eq!(flats[0]["levels"], serde_json::json!([-7.0]));
     let walls: Vec<f64> = top.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["floor_z"].as_f64().unwrap()).collect();
-    assert_eq!(walls, [-18.5, -7.0]);
+    // The lower wall stops 1 mm above the jaws (stock bottom -19 + 20% grip).
+    assert_eq!(walls, [-14.2, -7.0]);
     let ids: Vec<&str> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap()).collect();
     assert!(ids.iter().filter(|i| i.ends_with("wall_finish")).count() == 2 && ids.iter().any(|i| i.ends_with("flats")), "{ids:?} {}", out["log"]);
     // A top edge that stays only rounded is still said so.

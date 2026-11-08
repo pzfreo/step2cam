@@ -6,7 +6,12 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-fn library() -> Value { fixture("../../demo/tools.json") }
+fn library() -> Value {
+    let mut tools = fixture("../../demo/tools.json");
+    // These tall synthetic stocks exercise missing tools, independently of vise grip limits.
+    tools["machines"][0].as_object_mut().unwrap().remove("workholding");
+    tools
+}
 fn simple(ops: Value) -> Value {
     json!({"setups": [{"id": "top", "stock": {"min": [-20,-20,-140], "max": [20,20,0]}, "operations": ops}],
         "skipped": [], "warnings": [], "covered_by_roughing": []})

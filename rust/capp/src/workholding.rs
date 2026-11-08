@@ -68,7 +68,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, trace: &mut Trace) -> Opti
         }
     }
     let faces = json!([format!("stock.{}.min", ["x", "y"][axis]), format!("stock.{}.max", ["x", "y"][axis])]);
-    let decision = trace.decide(RULE, &id, "chosen", &format!("grip {faces}: stock long sides, closing across the narrower XY dimension (X on a tie); {} mm grip, jaw top Z{}, {} mm side-cut clearance; material below the cap needs a later setup; {}", show(grip), show(top), show(clearance), if parallel.is_some() { "seated on two parallels" } else { "jaws positioned for the chosen grip, no parallels used" }), json!({"faces": faces, "grip_height_mm": grip}));
+    let decision = trace.decide(RULE, &id, "chosen", &format!("grip {faces}: stock long sides, closing across the narrower XY dimension (X on a tie); {} mm grip, jaw top Z{}, {} mm side-cut clearance; material below the cap needs a later setup; {}", show(grip), show(top), show(clearance), if parallel.is_some() { "seated on two parallels" } else { "jaws positioned for the chosen grip, no parallels used" }), json!({"chosen": {"faces": faces, "grip_height_mm": grip}}));
     setup["clamping"] = json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "because": [decision]});
     None
 }

@@ -254,20 +254,36 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         if let Some(cap) = setup["clamping"]["jaw_top_z"].as_f64().map(|z| z + setup["clamping"]["clearance_mm"].as_f64().unwrap()) {
+            let axis = usize::from(setup["clamping"]["faces"][0] == "stock.y.min");
+            let low = setup["stock"]["min"][axis].as_f64().unwrap();
+            let high = setup["stock"]["max"][axis].as_f64().unwrap();
             let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
-            ops.retain(|op| {
-                let floor = match op["kind"].as_str().unwrap_or("") {
+            ops.retain_mut(|op| {
+                let kind = op["kind"].as_str().unwrap_or("").to_string();
+                let floor = match kind.as_str() {
                     "slot" | "notch" => op["floor_z"].as_f64(),
                     "v_channel" => op["root_z"].as_f64(),
                     _ => None,
                 };
                 if floor.is_none_or(|z| z >= cap) { return true; }
-                let reason = format!("{} below Z{} jaw clearance cap left for a later setup", op["kind"].as_str().unwrap_or("side cut"), show(cap));
-                trace.warn("machine.clamping", &setup_id, reason.clone());
+                let edge = if kind == "notch" {
+                    op["outer"].as_array().into_iter().flatten().filter_map(|p| p[axis].as_f64()).any(|v| v <= low || v >= high)
+                } else {
+                    let half = op["width"].as_f64().unwrap_or(0.) / 2.;
+                    ["a", "b"].iter().filter_map(|k| op[k][axis].as_f64()).any(|v| v - half <= low || v + half >= high)
+                };
+                if !edge { return true; }
+                let reason = format!("{kind} material below Z{} jaw clearance cap left for a later setup", show(cap));
+                let d = trace.warn("machine.clamping", &setup_id, reason.clone());
                 for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     trace.skip("machine.clamping", feature, reason.clone());
                 }
-                false
+                if kind == "v_channel" { return false; }
+                op["floor_z"] = json!(cap);
+                // It no longer breaks through: job generation must not extend below the cap.
+                op["bottom"] = json!("blind");
+                because(op, [d]);
+                true
             });
         }
         let view = setup.clone();

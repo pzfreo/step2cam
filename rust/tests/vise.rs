@@ -25,6 +25,15 @@ fn plate_jobs_have_clamping_and_camlib_clears_the_fixtures() {
                 assert!(number(&op["floor_z"]) >= cap);
             }
         }
+        if name == "synthetic/stepped-plate" {
+            let ops = list(&plan["setups"][0]["operations"]);
+            let slot = ops.iter().find(|o| o["kind"] == "slot").unwrap();
+            assert_eq!(slot["floor_z"], -19., "the enclosed slot does not reach a jaw");
+            for notch in ops.iter().filter(|o| o["kind"] == "notch" && o["open"] == true) {
+                assert_close(number(&notch["floor_z"]), -14.2);
+                assert_eq!(notch["bottom"], "blind", "no breakthrough below the cap");
+            }
+        }
         let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
         assert!(!jobs.is_empty());
         for job in jobs {
@@ -91,4 +100,14 @@ fn parallels_are_recorded_and_passed_as_fixtures() {
     assert_eq!(list(&plan["setups"][0]["clamping"]["parallels"]).len(), 2);
     let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
     assert_eq!(list(&jobs[0].manifest["verification"]["scene"]["scene"]["bodies"]).len(), 4);
+}
+
+#[test]
+fn jaws_choose_the_narrower_axis_and_x_on_a_tie() {
+    for (size, faces) in [([20., 40., 20.], ["stock.x.min", "stock.x.max"]), ([40., 20., 20.], ["stock.y.min", "stock.y.max"]), ([20., 20., 20.], ["stock.x.min", "stock.x.max"])] {
+        let mut plan = json!({"setups": [{"id": "top", "stock": {"min": [7., 9., -20.], "max": [7. + size[0], 9. + size[1], 0.]}, "operations": []}]});
+        capp::machines::place(&mut plan, &library(), &mut capp::trace::Trace::default());
+        assert_eq!(plan["setups"][0]["clamping"]["faces"], json!(faces));
+        assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 4.);
+    }
 }
