@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "binding": {
-  "source_sha256": "7810703748d5013da4cb0a53fde1e399f6327428b1e8410671deb85116b10f00",
+  "source_sha256": "3785d7a7347b970c37e74d5fcb168bc3f136846f9881c4beb46fb390a492ae1c",
   "face_count": 11,
   "loader_version": 2,
   "part": 0
@@ -27,7 +27,7 @@
    "kind": "cone",
    "area": 17.771531752632157,
    "centroid": [
-    0.0,
+    -0.0,
     0.0,
     51.621333
    ],
@@ -66,9 +66,9 @@
   {
    "id": 3,
    "kind": "cylinder",
-   "area": 121.3911401347097,
+   "area": 121.39114013470966,
    "centroid": [
-    0.0,
+    -0.0,
     0.0,
     46.6
    ],
@@ -138,7 +138,7 @@
   {
    "id": 7,
    "kind": "cylinder",
-   "area": 185.09846879742938,
+   "area": 185.09846879742943,
    "centroid": [
     -0.0,
     0.0,
@@ -429,8 +429,8 @@
      3698.10206027
     ],
     "origin": [
-     -2.797096001493258e-16,
-     4.55046931916736e-13,
+     -2.9262602296282534e-16,
+     4.548963671773274e-13,
      16.512028688945065
     ],
     "height_axis": "y"
@@ -443,8 +443,8 @@
  "dimensioning": {
   "frame": {
    "origin": [
-    -2.797096001493258e-16,
-    4.55046931916736e-13,
+    -2.9262602296282534e-16,
+    4.548963671773274e-13,
     16.512028688945065
    ],
    "x": [
@@ -689,9 +689,260 @@
  },
  "existing": [],
  "part": {},
+ "process": {
+  "value": "machined",
+  "source": "answered"
+ },
  "resume": {
   "answers": {
-   "diameter.fit:turned_steps:9": "knurl:straight"
+   "part.material": "Aluminium 6082-T6",
+   "part.general_tolerance": "ISO 2768-m",
+   "part.surface_finish": "Ra 3.2",
+   "part.coating": "None (as machined)",
+   "part.heat_treatment": "None",
+   "part.edges": "Break sharp edges 0.2 max",
+   "part.notes": [],
+   "part.locating": "position tolerances",
+   "hole.function:holes:3": "general",
+   "hole.position:holes:3": "0.25",
+   "hole.function:holes:7": "general",
+   "diameter.fit:turned_steps:9": "general",
+   "diameter.runout:turned_steps:9": "0.02",
+   "diameter.fit:turned_steps:6": "h6",
+   "diameter.fit:turned_steps:2": "general",
+   "diameter.runout:turned_steps:2": "0.02",
+   "datum.A": [
+    6
+   ],
+   "datum.B": [
+    10
+   ],
+   "datum.C": [],
+   "datum.B.control": "0.05",
+   "hole.full_thread:holes:3": "6.5",
+   "part.process": "machined"
   }
- }
+ },
+ "characteristics": [
+  {
+   "number": 1,
+   "entity": 995,
+   "kind": "datum",
+   "type": "A",
+   "faces": [
+    6
+   ]
+  },
+  {
+   "number": 2,
+   "entity": 997,
+   "kind": "datum",
+   "type": "B",
+   "faces": [
+    10
+   ]
+  },
+  {
+   "number": 6,
+   "entity": 999,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    6
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     6
+    ],
+    "parameter": "step.diameter"
+   }
+  },
+  {
+   "number": 8,
+   "entity": 1005,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    9
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     9
+    ],
+    "parameter": "step.diameter"
+   }
+  },
+  {
+   "number": 4,
+   "entity": 1009,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    2
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     2
+    ],
+    "parameter": "step.diameter"
+   }
+  },
+  {
+   "number": 7,
+   "entity": 1013,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    8
+   ],
+   "reference": [
+    10
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 5,
+   "entity": 1017,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    4
+   ],
+   "reference": [
+    10
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 3,
+   "entity": 1021,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    0
+   ],
+   "reference": [
+    10
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 9,
+   "entity": 1025,
+   "kind": "dimension",
+   "type": "Size_CurveLength",
+   "faces": [
+    3
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     3
+    ],
+    "parameter": "bore.depth"
+   }
+  },
+  {
+   "number": 10,
+   "entity": 1029,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    3
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     3
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 13,
+   "entity": 1033,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    7
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     7
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 14,
+   "entity": 1037,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    7
+   ],
+   "reference": [
+    10
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "6754c93121ce0e5db2c91c45619da5706474f0f19a60f3bf762ba5dd6b1aacfa",
+    "support": [
+     7
+    ],
+    "parameter": "location.length.z"
+   }
+  },
+  {
+   "number": 11,
+   "entity": 1044,
+   "kind": "geometric_tolerance",
+   "type": "CircularRunout",
+   "faces": [
+    9
+   ]
+  },
+  {
+   "number": 12,
+   "entity": 1046,
+   "kind": "geometric_tolerance",
+   "type": "CircularRunout",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 15,
+   "entity": 1048,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    10
+   ]
+  },
+  {
+   "number": 16,
+   "entity": 1173,
+   "kind": "surface_texture",
+   "type": "Ra",
+   "faces": []
+  }
+ ]
 }

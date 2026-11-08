@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "binding": {
-  "source_sha256": "1abff6698ff2b4f9e22aff237d751e8da43a3fff53f6cc3495c721606011619e",
+  "source_sha256": "ba0793741a0318375bdfd831b6027997aaf664449ee8e33bb4d6b4f3e90f13b1",
   "face_count": 59,
   "loader_version": 2,
   "part": 0
@@ -3905,5 +3905,751 @@
   }
  },
  "existing": [],
- "part": {}
+ "part": {},
+ "process": {
+  "value": "machined",
+  "source": "answered"
+ },
+ "resume": {
+  "answers": {
+   "part.material": "Aluminium 6082-T6",
+   "part.general_tolerance": "ISO 2768-m",
+   "part.surface_finish": "Ra 3.2",
+   "part.coating": "None (as machined)",
+   "part.heat_treatment": "None",
+   "part.edges": "Break sharp edges 0.2 max",
+   "part.notes": [],
+   "part.locating": "position tolerances",
+   "hole.function:holes:36": "fit:H7",
+   "hole.position:holes:36": "2",
+   "hole.function:hole_patterns.rectangle:16.29.35.45": "clearance:M4",
+   "hole.position:hole_patterns.rectangle:16.29.35.45": "0.4",
+   "hole.function:hole_patterns.rectangle:17.22.30.31": "general",
+   "hole.position:hole_patterns.rectangle:17.22.30.31": "0.25",
+   "hole.function:hole_patterns.set:48.49.57.58": "general",
+   "hole.position:hole_patterns.set:48.49.57.58": "0.2",
+   "datum.A": [
+    4
+   ],
+   "datum.B": [
+    0
+   ],
+   "datum.C": [
+    5
+   ],
+   "datum.A.flatness": "0.02",
+   "datum.B.control": "0.05",
+   "datum.C.control": "0.05",
+   "hole.full_thread:hole_patterns.set:48.49.57.58": "8.5",
+   "part.process": "machined"
+  }
+ },
+ "characteristics": [
+  {
+   "number": 1,
+   "entity": 4455,
+   "kind": "datum",
+   "type": "A",
+   "faces": [
+    4
+   ]
+  },
+  {
+   "number": 2,
+   "entity": 4457,
+   "kind": "datum",
+   "type": "B",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 3,
+   "entity": 4459,
+   "kind": "datum",
+   "type": "C",
+   "faces": [
+    5
+   ]
+  },
+  {
+   "number": 31,
+   "entity": 4461,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    35
+   ],
+   "reference": [
+    16
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     35
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 19,
+   "entity": 4466,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    29
+   ],
+   "reference": [
+    16
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     29
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 24,
+   "entity": 4471,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    16,
+    29,
+    35,
+    36,
+    45
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     16,
+     29,
+     35,
+     36,
+     45
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 25,
+   "entity": 4476,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    16,
+    29,
+    35,
+    36,
+    45
+   ],
+   "reference": [
+    5,
+    9
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     16,
+     29,
+     35,
+     36,
+     45
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 21,
+   "entity": 4481,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    36
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     36
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 22,
+   "entity": 4487,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    16,
+    29,
+    35,
+    45
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     16,
+     29,
+     35,
+     45
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 17,
+   "entity": 4493,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    44
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 16,
+   "entity": 4497,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    37
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 14,
+   "entity": 4501,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    8,
+    12
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 12,
+   "entity": 4505,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    6,
+    14
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 10,
+   "entity": 4509,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    21
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 9,
+   "entity": 4513,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    18
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 34,
+   "entity": 4517,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    13
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 32,
+   "entity": 4521,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    26
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 37,
+   "entity": 4525,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    41
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 38,
+   "entity": 4529,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    40
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 33,
+   "entity": 4533,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    25
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 39,
+   "entity": 4537,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    7
+   ],
+   "reference": [
+    5
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 5,
+   "entity": 4541,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    23
+   ],
+   "reference": [
+    28
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 6,
+   "entity": 4545,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    24
+   ],
+   "reference": [
+    27
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 35,
+   "entity": 4549,
+   "kind": "dimension",
+   "type": "Size_CurveLength",
+   "faces": [
+    48,
+    49,
+    57,
+    58
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     48,
+     49,
+     57,
+     58
+    ],
+    "parameter": "bore.depth"
+   }
+  },
+  {
+   "number": 36,
+   "entity": 4553,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    48,
+    49,
+    57,
+    58
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     48,
+     49,
+     57,
+     58
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 23,
+   "entity": 4557,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    17,
+    22,
+    30,
+    31
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     17,
+     22,
+     30,
+     31
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 30,
+   "entity": 4561,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    22
+   ],
+   "reference": [
+    17
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     22
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 20,
+   "entity": 4565,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    30
+   ],
+   "reference": [
+    17
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     30
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 15,
+   "entity": 4569,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    48,
+    57
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     48,
+     57
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 11,
+   "entity": 4573,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    49,
+    58
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     49,
+     58
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 26,
+   "entity": 4577,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    17,
+    22,
+    30,
+    31
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     17,
+     22,
+     30,
+     31
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 18,
+   "entity": 4581,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    33
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 40,
+   "entity": 4585,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    5,
+    9
+   ],
+   "reference": [
+    11,
+    15
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 13,
+   "entity": 4589,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    48,
+    49,
+    57,
+    58
+   ],
+   "reference": [
+    4
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     48,
+     49,
+     57,
+     58
+    ],
+    "parameter": "location.length.z"
+   }
+  },
+  {
+   "number": 4,
+   "entity": 4593,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    56
+   ],
+   "reference": [
+    4
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 7,
+   "entity": 4597,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    1,
+    46
+   ],
+   "reference": [
+    4
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 27,
+   "entity": 4601,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    17,
+    22,
+    30,
+    31
+   ],
+   "reference": [
+    5,
+    9
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "41cb674f173793219ee74dd5bc631cf2c4344354df2cbea59e275f6123edb77b",
+    "support": [
+     17,
+     22,
+     30,
+     31
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 28,
+   "entity": 4610,
+   "kind": "geometric_tolerance",
+   "type": "Position",
+   "faces": [
+    36
+   ]
+  },
+  {
+   "number": 29,
+   "entity": 4614,
+   "kind": "geometric_tolerance",
+   "type": "Position",
+   "faces": [
+    16,
+    29,
+    35,
+    45
+   ]
+  },
+  {
+   "number": 42,
+   "entity": 4618,
+   "kind": "geometric_tolerance",
+   "type": "Flatness",
+   "faces": [
+    4
+   ]
+  },
+  {
+   "number": 8,
+   "entity": 4622,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 41,
+   "entity": 4627,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    5
+   ]
+  },
+  {
+   "number": 43,
+   "entity": 5001,
+   "kind": "surface_texture",
+   "type": "Ra",
+   "faces": []
+  }
+ ]
 }

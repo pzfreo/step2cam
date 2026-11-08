@@ -409,6 +409,7 @@ cargo test --release --workspace --manifest-path rust/Cargo.toml
 
 The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
 What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
+What comes next, in order, is in [ROADMAP.md](ROADMAP.md). How AI agents fit in is in [docs/agents.md](docs/agents.md).
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
 for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the
