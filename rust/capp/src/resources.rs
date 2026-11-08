@@ -3,6 +3,34 @@
 //! standard.
 use serde_json::Value;
 use std::collections::HashMap;
+use std::borrow::Cow;
+
+/// Translate ISO symbols once at the library boundary. Downstream readers use current names.
+/// Equal numeric pairs (including 6 and 6.0) are accepted; a disagreement names both inputs.
+pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
+    let mut out = Cow::Borrowed(data);
+    for (n, tool) in data["tools"].as_array().into_iter().flatten().enumerate() {
+        for row in crate::reference::iso13399_fields()["fields"].as_array().expect("tool fields") {
+            let Some(symbol) = row["symbol"].as_str() else { continue };
+            if !row["types"].as_array().expect("tool types").contains(&tool["type"]) {
+                continue;
+            }
+            let Some(value) = tool.get(symbol) else { continue };
+            let field = row["field"].as_str().expect("tool field name");
+            if let Some(current) = tool.get(field) {
+                let equal = current == value || current.as_f64().zip(value.as_f64()).is_some_and(|(a, b)| a == b);
+                if !equal {
+                    let name = tool["id"].as_str().map_or_else(|| format!("tools[{n}]"), String::from);
+                    return Err(format!("tool {name}: {field} {current} and {symbol} {value} disagree"));
+                }
+            }
+            let object = out.to_mut()["tools"][n].as_object_mut().expect("a tool with a property is an object");
+            object.entry(field).or_insert_with(|| value.clone());
+            object.remove(symbol);
+        }
+    }
+    Ok(out)
+}
 
 /// Every tool needs these: no defaults, as holder size and cutting data are specific to the tool,
 /// material and machine.
