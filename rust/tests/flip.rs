@@ -134,6 +134,10 @@ fn grip_audit_still_reports_a_hole_crossing_a_prepared_band() {
     capp::finish(&mut p, &tools(), &[]).unwrap();
     let bottom = setup(&p, "bottom");
     assert_eq!(audit(&p, bottom)["status"], "possible_overlap");
+    assert!(
+        list(&bottom["operations"]).is_empty(),
+        "a disputed grip must not be machined"
+    );
     assert!(audit(&p, bottom)["overlaps"].to_string().contains("holes"));
 }
 
@@ -154,6 +158,7 @@ fn excluded_finishing_cannot_establish_the_finished_grip() {
     )
     .unwrap();
     assert_eq!(audit(&p, setup(&p, "bottom"))["status"], "possible_overlap");
+    assert!(list(&setup(&p, "bottom")["operations"]).is_empty());
 }
 
 #[test]

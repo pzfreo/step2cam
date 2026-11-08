@@ -112,7 +112,7 @@ clamping decision, with the audit decision also linked from `clamping.because`.
 Roughing and contour envelopes include preserved part material; grouped-hole boxes include
 the space between holes. Missing frames or unsupported geometry are reported as unchecked.
 This is a conservative warning, not a stock simulation, proof of retained contact area, or
-holding-strength calculation. No operations are removed by this audit. Execution retries
+holding-strength calculation. For ordinary setups no operations are removed by this audit. Execution retries
 recompute it after refusals, so excluded earlier operations do not count as cuts.
 
 `capp::flip::plan(analysis, mesh, resources)` implements the self-contained #86 vise
@@ -150,6 +150,9 @@ then roughing, flats and wall envelopes that include preserved material do not g
 false removed-material warnings for this flip. Holes, notches and other cutting envelopes
 remain checked. Other setups retain the existing conservative audit. Exclusions recompute
 this evidence; an absent finishing operation must not certify a prepared face.
+A missing finished support level, missing side finishing or a conflicting cutting envelope
+withholds the flip setup's operations, with a warning and feature skips, until its grip
+can be established. Other setups retain their warning-only audit.
 
 Until camlib#121 / #45, Op 2 starts from a fresh part box plus bottom stock. Its trace
 warns that this does not model the true boss underside, stock history, or Op 1's margin

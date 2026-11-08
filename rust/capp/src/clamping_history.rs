@@ -190,5 +190,14 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             trace.decide(RULE, id, "chosen", &says, json!({"chosen": detail}))
         } else { trace.warn(RULE, id, says) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
+        if setup["flip_seating"].is_object() && status != "no_overlap" {
+            let reason = "bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating";
+            trace.warn(RULE, id, reason.into());
+            for feature in setup["operations"].as_array().into_iter().flatten()
+                .flat_map(|o| o["features"].as_array().into_iter().flatten()).filter_map(Value::as_str) {
+                trace.skip(RULE, feature, reason.into());
+            }
+            plan["setups"][index]["operations"] = json!([]);
+        }
     }
 }
