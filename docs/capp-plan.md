@@ -290,3 +290,17 @@ Mouth chamfers record their required hole/slot features in `needs_openings`. Aft
 tool resolution, an absent or tool-less opening blocks its chamfer and supplies the
 reason. A combined round-as-chamfer operation is conservatively blocked as a whole
 if any required opening cannot be cut.
+
+### Rectangular recesses
+
+Rectangular slots and pockets use the `notch` operation, including edge-open blind slots.
+Their `outer` vertices retain the model's corner arcs; `corner_radius` records that radius
+(zero for sharp corners), and `inside_corners` is four for a closed recess or two for an
+edge-open recess. The largest end mill narrower than the width whose flutes reach the depth
+cuts it. If its radius exceeds the model radius, `process.notch.corner_radius` warns in the
+plan that those inside corners retain the cutter radius. No dog-bone relief is generated:
+the analysis and answers currently have no way to request it.
+
+Matching upright concave corner fillets can recover straight-wall records' missing ends and
+radius. A corner pair implies an open opposite end only when the mesh clears the full run-out;
+otherwise the previously validated interior cut is retained for that partial record.

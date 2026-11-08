@@ -52,7 +52,7 @@ fn lower_facing(by: f64) -> impl Fn(&mut Value) {
 
 #[test]
 fn correct_parts_finish_without_a_definite_gouge() {
-    for part in ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered"] {
+    for part in ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered", "synthetic/square-slots"] {
         let material = &process(part)["programs"][0]["material"];
         assert_eq!(material["complete"], true, "{part}");
         assert_eq!(material["gouge"]["definite_cells"], 0, "{part}");
