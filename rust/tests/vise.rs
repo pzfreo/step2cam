@@ -68,6 +68,16 @@ fn a_move_through_a_jaw_is_refused_and_names_the_fixture() {
     assert_eq!(checked.check.motion_status(), Some(Status::Violation));
     let Check::Motion { report: Some(report), .. } = checked.check else { panic!("no scene report") };
     assert!(report.findings.iter().any(|f| f.kind == FindingKind::FixtureContact && f.object_id == jaw["id"].as_str().unwrap() && f.status == Status::Violation));
+    // Also exercise step2cam's refusal boundary, not just the passive camlib report.
+    // A raised jaw covering the facing region must stop this job and retain its name.
+    let mut blocked = jobs[0].manifest.clone();
+    let body = &mut blocked["verification"]["scene"]["scene"]["bodies"][0];
+    body["footprint"]["components"][0]["outer"]["vertices"] = json!([[-100., -100., 0.], [200., -100., 0.], [200., 200., 0.], [-100., 200., 0.]]);
+    body["z_max_mm"] = json!(1.);
+    let failure = step2cam::simulate::simulate(&blocked.to_string()).err().expect("raised jaw must refuse the job");
+    assert!(failure.message.contains("fixture/scene check"), "{}", failure.message);
+    assert!(failure.message.contains(jaw["id"].as_str().unwrap()), "{}", failure.message);
+
 }
 
 #[test]
