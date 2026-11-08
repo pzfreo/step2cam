@@ -265,3 +265,19 @@ fn a_corner_pair_with_a_blocked_run_out_keeps_the_validated_interior_cut() {
     assert_eq!(op["open"], false);
     assert_eq!(op["corner_radius"], 0.);
 }
+
+#[test]
+fn recovered_open_corner_arcs_can_extend_into_the_run_out() {
+    let mut analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    // Like a wall record interrupted by another recess: only 1 mm of its straight
+    // interval remains. The closed r2 end still has room when run-out is included.
+    let feature = analysis["features"].as_array_mut().unwrap().iter_mut().find(|f| f["family"] == "pockets" && f["record"]["width"] == 8. && f["record"]["corner_radius"].is_null()).unwrap();
+    feature["record"]["lo"] = (-18.).into();
+    let id = feature["id"].clone();
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let op = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&id))).unwrap();
+    assert_eq!(op["corner_radius"], 2.);
+    assert_eq!(op["length"], 3.);
+    assert_eq!(op["open"], true);
+}

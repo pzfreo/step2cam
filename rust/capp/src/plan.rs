@@ -1166,8 +1166,8 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
         let (lo, hi) = ((a[0].min(b[0]), a[1].min(b[1])), (a[0].max(b[0]), a[1].max(b[1])));
         let (floor, top) = (a[2].min(b[2]), a[2].max(b[2]));
         let mesh = frame.triangles(triangles);
-        if radius > width / 2. + LEVEL_EPS || radius > (side.1 - side.0) / 2. + LEVEL_EPS { continue; }
-        if occupied_rounded(mesh, lo, hi, floor + 1e-3, radius) {
+        let invalid_radius = radius > width / 2. + LEVEL_EPS || radius > (side_ends.1 - side_ends.0) / 2. + LEVEL_EPS;
+        if invalid_radius || occupied_rounded(mesh, lo, hi, floor + 1e-3, radius) {
             // A corner pair alone cannot prove the opposite end is open. Partial records
             // of irregular recesses can have other walls there. Preserve their previously
             // validated interior cut when the inferred run-out is blocked.
