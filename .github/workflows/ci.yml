@@ -12,3 +12,5 @@ jobs:
         working-directory: rust
       - name: The frozen fixtures are what specify-core writes
         run: tests/specify-link.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
