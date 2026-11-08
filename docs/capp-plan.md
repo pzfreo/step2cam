@@ -27,9 +27,10 @@ A search in November 2026 found no open-source project that encodes this knowled
 ## The three phases
 
 ```
-STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► G-code
+STEP ─► 1. Specify ─► analysis + mesh ─► 2. CAPP ─► plan (traced) ─► 3. Execution ─► toolpaths, checks
         (specify-core)                    rust/capp                  step2cam: camlib adapter,
-                                          + resources.json           post (LinuxCNC), checks
+                                          + resources.json           camlib's simulation and checks
+                                                                     (G-code: camlib's posts, not step2cam)
 ```
 
 **1. Specify** (specify-core, unchanged). STEP in; the analysis and the mesh out, in specify-core's
@@ -46,8 +47,9 @@ no camlib:
   operation's tool, cutting data and ISO 14649 names.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
-operation's tool and cutting data and writes camlib's manifest; the post-processor (`post.rs`);
-and the browser entry point (`process`). An operation camlib refuses goes back to `capp::finish`
+operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
+with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
+camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 
@@ -215,8 +217,7 @@ where a machine limits something; with the example library's generous mill, outp
 Planned:
 - **The lathe.** A machine of kind `lathe`, and turned features (specify-core's `turned_bodies`,
   `turned_steps`, `face_grooves`) planned on it rather than skipped: setups held in a chuck,
-  facing, turning, grooving and parting, each traced. camlib cuts only on mills, so lathe
-  operations would be planned and explained but not posted until a turning engine is added.
+  facing, turning, grooving and parting, each traced, then handed to camlib's turning (#57).
 - **More of the mill:** an indexer or trunnion (3+2) merging the setups it can reach into one
   clamping; spindle power limiting cutting data.
 - **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a

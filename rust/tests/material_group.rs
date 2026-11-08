@@ -36,9 +36,11 @@ fn specify_cores_materials_fall_in_their_groups() {
 
 fn plate(material: Option<&str>) -> Value {
     let mut analysis = read("tests/fixtures/plate.analysis.json");
-    if let Some(m) = material {
-        analysis["resume"] = json!({"answers": {"part.material": m}});
-    }
+    // The fixture states a material (Aluminium 6082-T6); these tests choose their own, or none.
+    analysis["resume"] = match material {
+        Some(m) => json!({"answers": {"part.material": m}}),
+        None => json!({"answers": {}}),
+    };
     analysis
 }
 

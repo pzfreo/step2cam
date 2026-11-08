@@ -1,29 +1,65 @@
-# step2cam: STEP features to camlib toolpaths
+# step2cam: STEP features to a process plan and camlib toolpaths
+
+## Read this first: what step2cam is, and what it is not
+
+**step2cam is an experiment in explainable process planning, not CAM you can trust to run on a
+machine.** For simple prismatic (2.5D) parts it drafts a plan (setups, operations, tools, order)
+and shows the rule behind every choice. Mechanical engineers and machinists will rightly point out
+that real process planning is a much harder problem, and step2cam does not model most of what
+makes it hard:
+
+- **Workholding and datums:** how the part is located and clamped, which faces are reference
+  faces, how a second setup picks up the first. It assumes a part in a vise.
+- **Tolerances and GD&T,** which in practice decide the order of operations and what goes in one
+  setup. It ignores them.
+- **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
+  rigidity. Its rules are simple, and "the largest tool that fits" is often not what a machinist
+  would choose.
+- **Real cutting data:** every feed, speed and tool in the demo is a placeholder.
+- **Real parts:** interacting features, drafts and freeform shapes break its recognition and
+  planning. The samples are friendly.
+
+camlib's check proves the toolpaths do not cut into the model; it does not show that the part
+will be good: finish, accuracy, burrs, whether it survives being cut. Commercial planners with
+decades of rules still produce a first draft that a machinist edits.
+
+**Use it** to see how recognition and planning could fit together, to read a plan's reasoning,
+and to argue with specific rules: every decision names the rule it was made by, so "rule X is
+wrong here, because…" is the most useful feedback. **Do not cut anything from its output without
+someone who knows machining checking it first.**
 
 `step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
-STEP part (holes, slots, counterbores, the part's shape) into toolpaths and G-code with
-[camlib](https://github.com/stevecad/camlib), the CAM engine. It is written in Rust and runs in the
-browser as WebAssembly, or natively.
+STEP part (holes, slots, counterbores, the part's shape) into a process plan, and hands that plan
+to [camlib](https://github.com/stevecad/camlib), the CAM engine, which makes the toolpaths,
+simulates them on the stock and checks them. It is written in Rust and runs in the browser as
+WebAssembly, or natively.
+
+**step2cam writes no G-code.** G-code is controller-specific and safety-critical, and camlib's own
+posts write and check it. step2cam's outputs are the plan and, for each setup, the camlib job it
+becomes: `examples/post_with_camlib.py` posts a saved job with camlib's LinuxCNC post.
 
 Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
 is a plain JSON plan.
 
 ```
-part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ post::post ─▶ LinuxCNC G-code
-             (quiddity: features)            (what to cut, with   (camlib's    (camlib: how)  one per setup
-                                              which tool)          manifest)
+part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ simulate::simulate
+             (quiddity: features)            (what to cut, with   (the camlib  (camlib: toolpaths, stock,
+                                              which tool)          job, JSON)   checks; one per setup)
+                                                                       │
+                                                                       └─▶ camlib's posts ─▶ G-code (not step2cam)
 ```
 
 The planning is the `capp` crate (`rust/capp`): `capp::plan::plan` decides what to cut in which
 setup, and `capp::finish` takes out what the tool library cannot cut and names each operation's
-tool. `step2cam` is the camlib adapter (`job.rs`), the post-processor (`post.rs`) and the browser
-entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
+tool. `step2cam` is the camlib adapter (`job.rs`), the run of each job in camlib's engine with its
+checks (`simulate.rs`) and the browser entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
 is finished again without it.
 
 ## Use
 
 The easiest way is the demo below. Without a browser, `rust/examples/process.rs` takes
-specify-core's output and a tool library, and prints the plan, the G-code and the log as JSON:
+specify-core's output and a tool library, and prints the plan, each setup's camlib job and moves,
+and the log as JSON:
 
 ```bash
 rust/fetch-camlib.sh    # camlib at the pinned commit
@@ -35,19 +71,19 @@ cargo run --release --manifest-path rust/Cargo.toml --example process -- analysi
 ## Demo
 
 **https://pzfreo.github.io/step2cam/** opens a STEP file and shows its recognised features beside
-the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or a G-code line
-and the others follow; press Play and the feature being cut lights up. Save writes each setup's
-G-code as `<part>-<setup>.nc`, with comments at its top saying what the file does not.
+the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or one of camlib's
+moves and the others follow; press Play and the feature being cut lights up. **Save camlib job**
+writes each setup as `<part>-<setup>.camlib-job.json`, for camlib's posts to write G-code from.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
 The page tells the story in three panes, in the order the work happens:
 1. **What the part is:** the features specify-core recognised.
 2. **How to make it:** the process plan.
-3. **Making it:** camlib's toolpaths and G-code.
+3. **Making it:** camlib's toolpaths, simulated on the stock and checked.
 
 A bar above the panes sums up each step for the part opened: faces and features found; setups,
-operations, tools and decisions; lines of G-code and the gouge check.
+operations, tools and decisions; camlib's toolpath moves and the gouge check.
 
 In the plan pane:
 - **The part:** its material and ISO 513 group.
@@ -59,15 +95,15 @@ In the plan pane:
 - **Problems:** what was refused, what was not cut and the warnings, each with its rule.
 - **Save plan:** downloads the plan as JSON, trace included.
 
-Hovering or clicking a feature, an operation, a toolpath or a G-code line lights the same thing in
+Hovering or clicking a feature, an operation, a toolpath or a move lights the same thing in
 all three panes.
 
 On a screen narrower than 1300 px one pane is open and the others are rails: click a rail or a
 step in the bar to open it. On a wider screen, **Expand** does the same.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
-package recognises the features, and `rust/` (step2cam's planning and posting, with camlib's
-engine) makes the toolpaths. It uses `demo/tools.json`: **placeholder tools and cutting data, not
+package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
+toolpaths. It uses `demo/tools.json`: **placeholder tools and cutting data, not
 for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
@@ -81,9 +117,21 @@ thread mill as a flat disc. camlib's comparison of the stock with the part is th
 demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
 ```
 
-Every block written is read back and checked by camlib's whole-program intent checker, against
-the plan's motions, tools, spindle, coolant and work offsets, and camlib's stock-contact checks
-run. A program that fails is not given out. Only LinuxCNC output in mm is wired up.
+camlib's checks run on every move before anything is shown: its stock-contact check (tool and
+holder against the stock as it stands), its link limits, a flat-depth guard, and the comparison of
+the finished stock with the part. An operation that fails is left out and reported; a gouge refuses
+the setup. These check the toolpaths; checking G-code is the job of the post that writes it.
+
+## Getting G-code: camlib's posts
+
+```bash
+python examples/post_with_camlib.py plate-top.camlib-job.json plate-top.nc
+```
+
+The script needs camlib's Python package. It runs the saved job in camlib and posts it with
+camlib's LinuxCNC post, which reads every block back and compares it with the plan. Its machine is
+an example: replace it with your controller and camlib's post for it (LinuxCNC, GRBL, Haas, FANUC,
+Siemens, Centroid; camlib's `docs/posts.md`).
 
 ## The plan (`specify-cam-plan`, version 1)
 
@@ -224,9 +272,8 @@ The tool library is JSON: see [`examples/tools.example.json`](examples/tools.exa
 **Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
 on purpose.
 
-- `machine`: camlib's `Machine` fields for your controller. Only `linuxcnc` and
-  `"tool_change_position_mode": "table"` are wired up here; camlib's examples show GRBL, Haas,
-  FANUC, Siemens and Centroid posts.
+- There is no controller here: step2cam writes no G-code. `rapid_mm_min` is only for the page's
+  time estimate.
 - `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
   - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
     why;
@@ -238,12 +285,11 @@ on purpose.
   Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
   trace says so. The demo's machine is the **Makera Carvera**, from its published specifications:
   360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
-  changer. So the demo leaves out its larger tools and bores the larger holes. Its G-code is still
-  posted for LinuxCNC, not for the Carvera's own controller.
+  changer. So the demo leaves out its larger tools and bores the larger holes.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks
-  it, and the post starts from the same position, so the program and the plan agree. By default it is over X0 Y0, at the clearance height
+  it; a post must start from the same position, so the program and the plan agree. By default it is over X0 Y0, at the clearance height
   plus the longest gauge length, so every tool's tip is above the clearance height.
 - `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `thread_mill` or `chamfer_mill`), `number`,
   `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
@@ -341,8 +387,8 @@ And:
   roughing allowance is kept at least twice that. camlib refuses a mesh with more than
   0.1 mm of error, so a large part with such faces is not roughed (the plan says why).
 
-**Simulate the G-code in your own tools, dry-run above the part, and single-block the first
-run.**
+**Simulate any G-code made from it in your own tools, dry-run above the part, and single-block the
+first run.**
 
 ## Not done (yet)
 
@@ -359,13 +405,11 @@ rust/fetch-camlib.sh
 cargo test --release --workspace --manifest-path rust/Cargo.toml
 ```
 
-- `rust/tests/parity.rs`: plans, jobs and G-code against `tests/fixtures/rust-golden`, a frozen
+- `rust/tests/parity.rs`: plans and jobs against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as, since moved only by the plate's
   wall finish. It is compared by hand when an intended change moves it.
 - `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong
   toolpaths that must be refused.
-- `rust/tests/checker.rs`: changes written blocks (preamble, plane, motion, control and end) and
-  expects no program to be given out.
 - `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
   output with the frozen fixtures.
 - `rust/tests/walls.rs`: shapes an outline alone would cut wrongly, from `synthetic/walls/`.
@@ -377,6 +421,7 @@ cargo test --release --workspace --manifest-path rust/Cargo.toml
 
 The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
 What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
+What comes next, in order, is in [ROADMAP.md](ROADMAP.md). How AI agents fit in is in [docs/agents.md](docs/agents.md).
 
 The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
 for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the

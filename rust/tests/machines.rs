@@ -96,12 +96,12 @@ fn without_a_machine_the_trace_says_nothing_was_checked() {
     assert_eq!(none[0]["outcome"], "none");
 }
 
-/// The whole program still posts on the Carvera, and the vise check stays quiet without a vise.
+/// The whole job still runs in camlib on the Carvera, and the vise check stays quiet without a vise.
 #[test]
-fn the_stepped_plate_posts_on_the_carvera() {
+fn the_stepped_plate_runs_on_the_carvera() {
     let analysis = read("tests/fixtures/synthetic/stepped-plate.analysis.json");
     let mesh = read("tests/fixtures/synthetic/stepped-plate.mesh.json");
     let out = step2cam::process(&analysis, &mesh, &read("demo/tools.json")).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(!out["programs"].as_array().unwrap().is_empty());
 }

@@ -1,24 +1,6 @@
 {
- "_comment": "An example tool library for step2cam post. Every number here is a placeholder: set the cutting data for your tools, material and machine, and the machine block for your controller. camlib has no defaults for these on purpose.",
- "machine": {
-  "name": "Example three-axis LinuxCNC mill",
-  "dialect": "linuxcnc",
-  "output_units": "mm",
-  "decimals": 3,
-  "max_feed_mm_min": 5000,
-  "max_spindle_rpm": 24000,
-  "rapid_mm_min": 5000,
-  "planes": ["xy", "xz", "yz"],
-  "arcs": true,
-  "helices": true,
-  "max_sweep_rad": 6.283185307179586,
-  "max_tool_number": 99,
-  "max_length_register": 99,
-  "tool_changes": true,
-  "flood": true,
-  "mist": false,
-  "tool_change_position_mode": "table"
- },
+ "_comment": "An example tool library for step2cam. Every number here is a placeholder: set the cutting data for your tools, material and machine. camlib has no defaults for these on purpose.",
+ "rapid_mm_min": 5000,
  "machines": [
   {
    "id": "mill", "name": "the example 3-axis mill", "kind": "mill",

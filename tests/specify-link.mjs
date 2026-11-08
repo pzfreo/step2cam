@@ -40,6 +40,9 @@ function differences(actual, expected, at = "") {
 
 for (const [step, stem] of [
   ["plate.step", "plate"],
+  ["plate-m5.step", "plate-m5"],
+  ["spindle.step", "spindle"],
+  ["mounting-plate.step", "mounting-plate"],
   ["synthetic/stepped-plate.step", "synthetic/stepped-plate"],
   ["synthetic/stepped-plate-chamfered.step", "synthetic/stepped-plate-chamfered"],
   ["synthetic/walls/overhang.step", "synthetic/walls/overhang"],
@@ -55,7 +58,10 @@ for (const [step, stem] of [
   engine.free();
   const found = [
     ...differences(analysis, JSON.parse(read(`${stem}.analysis.json`)), "analysis"),
-    ...differences(triangles(mesh), triangles(JSON.parse(read(`${stem}.mesh.json`))), "mesh"),
+    // Only the parts a test meshes have a frozen mesh.
+    ...(fs.existsSync(new URL(`${stem}.mesh.json`, fixtures))
+      ? differences(triangles(mesh), triangles(JSON.parse(read(`${stem}.mesh.json`))), "mesh")
+      : []),
   ];
   assert.equal(found.length, 0, `${step}: ${found.length} differences:\n${found.slice(0, 20).join("\n")}`);
   console.log(`${step}: the frozen analysis and mesh are what specify-core writes`);

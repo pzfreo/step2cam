@@ -2,10 +2,9 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "The machine, tools and shop policy values step2cam plans and posts with: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs), job.rs and post.rs read it. Every number in the shipped files is a placeholder.",
+ "description": "The tools and shop policy values step2cam plans with, and the camlib job is made from: demo/tools.json and examples/tools.example.json. Describes the format as capp (resources.rs, settle.rs) and job.rs read it. There is no machine controller here: step2cam writes no G-code. Every number in the shipped files is a placeholder.",
  "type": "object",
  "required": [
-  "machine",
   "tools"
  ],
  "properties": {
@@ -15,15 +14,17 @@
   "version": {
    "const": 1
   },
-  "machine": {
-   "$ref": "#/$defs/machine"
-  },
   "tools": {
    "type": "array",
    "minItems": 1,
    "items": {
     "$ref": "#/$defs/tool"
    }
+  },
+  "rapid_mm_min": {
+   "type": "number",
+   "exclusiveMinimum": 0,
+   "description": "The rapid rate the page estimates time with; 5000 when absent."
   },
   "clearance_mm": {
    "type": "number",
@@ -96,95 +97,6 @@
  },
  "additionalProperties": false,
  "$defs": {
-  "machine": {
-   "type": "object",
-   "required": [
-    "decimals",
-    "max_feed_mm_min",
-    "max_spindle_rpm",
-    "tool_change_position_mode"
-   ],
-   "properties": {
-    "name": {
-     "type": "string"
-    },
-    "dialect": {
-     "const": "linuxcnc"
-    },
-    "output_units": {
-     "const": "mm"
-    },
-    "decimals": {
-     "type": "integer",
-     "minimum": 0
-    },
-    "max_feed_mm_min": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "max_spindle_rpm": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "rapid_mm_min": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "planes": {
-     "type": "array",
-     "items": {
-      "enum": [
-       "xy",
-       "xz",
-       "yz"
-      ]
-     }
-    },
-    "arcs": {
-     "type": "boolean"
-    },
-    "helices": {
-     "type": "boolean"
-    },
-    "max_sweep_rad": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "max_tool_number": {
-     "type": "integer",
-     "minimum": 1
-    },
-    "max_length_register": {
-     "type": "integer",
-     "minimum": 1
-    },
-    "tolerance_mm": {
-     "type": "number",
-     "exclusiveMinimum": 0
-    },
-    "feed_tolerance_mm_min": {
-     "type": "number",
-     "minimum": 0
-    },
-    "tool_changes": {
-     "type": "boolean"
-    },
-    "flood": {
-     "type": "boolean"
-    },
-    "mist": {
-     "type": "boolean"
-    },
-    "tool_change_position_mode": {
-     "const": "table",
-     "description": "The only mode wired up."
-    }
-   },
-   "patternProperties": {
-    "^_": {}
-   },
-   "additionalProperties": false
-  },
   "tool": {
    "oneOf": [
     {
