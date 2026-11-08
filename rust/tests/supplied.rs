@@ -100,3 +100,139 @@ fn malformed_is_error_but_unsupported_unmatched_and_ambiguous_are_refused() {
         assert!(plan["supplied_decisions"][0]["refusal_reason"].as_str().unwrap().contains(reason));
     }
 }
+
+fn at_diameter(plan: &Value, diameter: f64) -> &Value {
+    list(&plan["setups"][0]["operations"]).iter().find(|o| o["kind"] == "holes" && o["diameter"] == diameter).unwrap()
+}
+fn add_tool(tools: &mut Value, from: &str, name: &str, fields: &[(&str, f64)]) {
+    let mut tool = list(&tools["tools"]).iter().find(|t| t["id"] == from).unwrap().clone();
+    tool["id"] = json!(name);
+    for (key, value) in fields { tool[*key] = json!(value); }
+    tools["tools"].as_array_mut().unwrap().push(tool);
+}
+fn spot_for<'a>(plan: &'a Value, feature: &Value) -> Option<&'a Value> {
+    list(&plan["setups"][0]["operations"]).iter().find(|o| o["kind"] == "spot_drill" && list(&o["features"]).contains(feature))
+}
+// Use the rule-only plan with this tool preferred as the oracle for finished-plan numbering.
+// Spot insertion can change that number; a pre-spot or old-plan index is not the contract.
+fn with_hole_tool(diameter: f64, tools: &Value, name: &str, oracle_tools: &Value) -> Value {
+    let mut oracle = fresh();
+    capp::finish(&mut oracle, oracle_tools, &[]).unwrap();
+    let target = at_diameter(&oracle, diameter);
+    assert_eq!(target["tool"], name);
+    let number = list(&oracle["setups"][0]["operations"]).iter().position(|o| o == target).unwrap() + 1;
+    let mut entry = supplied(json!(name));
+    entry["operation"] = json!(format!("top-{number}-holes"));
+    let mut tools = tools.clone();
+    tools["decisions"] = json!([entry]);
+    let mut plan = fresh();
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    assert_eq!(at_diameter(&plan, diameter)["tool"], name, "{}", plan["supplied_decisions"]);
+    assert_eq!(plan["supplied_decisions"][0]["accepted"], true);
+    let actual = list(&plan["setups"][0]["operations"]).iter().position(|o| o == at_diameter(&plan, diameter)).unwrap() + 1;
+    assert_eq!(plan["supplied_decisions"][0]["operation"], format!("top-{actual}-holes"));
+    let without_trace = |p: &Value| list(&p["setups"][0]["operations"]).iter().cloned().map(|mut op| { op.as_object_mut().unwrap().remove("because"); op }).collect::<Vec<_>>();
+    assert_eq!(without_trace(&plan), without_trace(&oracle), "same operations and cutting data as the rules with that tool preferred");
+    let mut replay = fresh();
+    replay["supplied_decisions"] = plan["supplied_decisions"].clone();
+    tools.as_object_mut().unwrap().remove("decisions");
+    capp::finish(&mut replay, &tools, &[]).unwrap();
+    assert_eq!(replay, plan);
+    plan
+}
+
+#[test]
+fn supplied_boring_mill_removes_spots_for_its_hole_features() {
+    let tools = example_tools();
+    let mut oracle = tools.clone();
+    oracle["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "drill4.2");
+    let plan = with_hole_tool(4.2, &tools, "em3", &oracle);
+    for feature in list(&at_diameter(&plan, 4.2)["features"]) { assert!(spot_for(&plan, feature).is_none()); }
+    for feature in list(&at_diameter(&plan, 6.6)["features"]) { assert!(spot_for(&plan, feature).is_some()); }
+}
+
+#[test]
+fn supplied_drill_spots_a_previously_bored_plate_hole() {
+    let mut tools = example_tools();
+    let mut before = fresh();
+    capp::finish(&mut before, &tools, &[]).unwrap();
+    assert_eq!(at_diameter(&before, 8.)["tool"], "em6");
+    for feature in list(&at_diameter(&before, 8.)["features"]) { assert!(spot_for(&before, feature).is_none()); }
+    add_tool(&mut tools, "drill6.6", "drill8", &[("diameter", 8.)]);
+    let plan = with_hole_tool(8., &tools, "drill8", &tools);
+    for feature in list(&at_diameter(&plan, 8.)["features"]) { assert!(spot_for(&plan, feature).is_some()); }
+}
+
+#[test]
+fn supplied_drill_point_angle_selects_a_covering_spot_and_final_operation_number() {
+    let mut tools = example_tools();
+    add_tool(&mut tools, "drill4.2", "drill140", &[("point_angle", 140.)]);
+    add_tool(&mut tools, "spot8", "spot140", &[("point_angle", 140.)]);
+    let mut oracle = tools.clone();
+    oracle["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "drill4.2");
+    let plan = with_hole_tool(4.2, &tools, "drill140", &oracle);
+    for feature in list(&at_diameter(&plan, 4.2)["features"]) {
+        let spot = spot_for(&plan, feature).unwrap();
+        assert_eq!(spot["tool"], "spot140");
+        assert!(number(&spot["angle"]) >= 140.);
+        let tool = list(&tools["tools"]).iter().find(|t| t["id"] == spot["tool"]).unwrap();
+        assert!(number(&tool["point_angle"]) >= 140.);
+    }
+}
+
+#[test]
+fn removing_the_last_spot_uses_the_finished_hole_number_and_refuses_inconsistent_names() {
+    let mut tools = example_tools();
+    let fresh = || capp::plan::plan(&holes_only(&[down(0., 0., 4.2, 8., "flat")]), None, &top_stock(0.)).unwrap();
+    for (number, accepted) in [(1, true), (2, false)] {
+        let mut entry = supplied(json!("em3"));
+        entry["operation"] = json!(format!("top-{number}-holes"));
+        tools["decisions"] = json!([entry]);
+        let mut plan = fresh();
+        capp::finish(&mut plan, &tools, &[]).unwrap();
+        assert_eq!(plan["supplied_decisions"][0]["accepted"], accepted);
+        let ops = list(&plan["setups"][0]["operations"]);
+        if accepted {
+            assert_eq!(ops.len(), 1);
+            assert_eq!(ops[0]["tool"], "em3");
+            let mut replay = fresh();
+            replay["supplied_decisions"] = plan["supplied_decisions"].clone();
+            let mut replay_tools = tools.clone();
+            replay_tools.as_object_mut().unwrap().remove("decisions");
+            capp::finish(&mut replay, &replay_tools, &[]).unwrap();
+            assert_eq!(replay, plan);
+        } else {
+            assert_eq!(ops.len(), 2);
+            assert_eq!(ops[1]["tool"], "drill4.2");
+            assert!(plan["supplied_decisions"][0]["refusal_reason"].as_str().unwrap().contains("numbering"));
+        }
+    }
+}
+
+#[test]
+fn an_unavailable_channel_reports_its_feasibility_reason() {
+    let mut tools = example_tools();
+    tools["decisions"] = json!([{"rule":"tool.v_channel.v_bit", "subject":"top:v_channel", "choice":"absent", "source":"user", "reason":"test"}]);
+    let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[-20,-20,-10],"max":[20,20,0]}, "operations":[{"kind":"v_channel", "angle":90., "width":4., "top_z":0., "root_z":-2., "on_flat":true, "features":[]}]}]});
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    let reason = plan["supplied_decisions"][0]["refusal_reason"].as_str().unwrap();
+    assert!(reason.contains("operation unavailable") && reason.contains("flat it is cut in has not been cut"), "{reason}");
+}
+
+#[test]
+fn an_excluded_spot_is_not_recreated_for_a_supplied_drill() {
+    let mut tools = example_tools();
+    add_tool(&mut tools, "drill4.2", "drill140", &[("point_angle", 140.)]);
+    add_tool(&mut tools, "spot8", "spot140", &[("point_angle", 140.)]);
+    tools["decisions"] = json!([supplied(json!("drill140"))]);
+    let fresh = || capp::plan::plan(&holes_only(&[down(0., 0., 4.2, 8., "flat")]), None, &top_stock(0.)).unwrap();
+    let mut initial = fresh();
+    capp::finish(&mut initial, &tools, &[]).unwrap();
+    assert_eq!(initial["setups"][0]["operations"][0]["tool"], "spot140");
+    let mut plan = fresh();
+    capp::finish(&mut plan, &tools, &[json!({"operation":"top-1-spot_drill", "message":"spot refused"})]).unwrap();
+    let ops = list(&plan["setups"][0]["operations"]);
+    assert_eq!(ops.len(), 1);
+    assert_eq!(ops[0]["tool"], "drill140");
+    assert_eq!(plan["supplied_decisions"][0]["accepted"], true);
+}
