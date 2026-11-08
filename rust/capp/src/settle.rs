@@ -128,7 +128,9 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
         let why = if rule == "machine.clamping" {
             format!("side cutting stops at Z{}: jaw top plus {} mm clearance; the gripped stock and material below the jaws need a later setup", show(floor), show(crate::rules::workholding()["clearance_mm"].as_f64().unwrap()))
         } else { reach_reason(rough, mill)? };
-        let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"), json!({"features": rough["features"]}));
+        let mut extras = json!({"features": rough["features"]});
+        if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
+        let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"), extras);
         because(rough, [decision]);
         if let Some(depths) = depths.as_object() {
             for (id, depth) in depths {
@@ -289,7 +291,7 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
                 };
                 if !edge { return true; }
                 let reason = format!("{kind} material below Z{} jaw clearance cap left for a later setup", show(cap));
-                let d = trace.warn("machine.clamping", &setup_id, reason.clone(), json!({"features": op["features"]}));
+                let d = trace.warn("machine.clamping", &setup_id, reason.clone(), json!({"features": op["features"], "jaw_cap_z": cap}));
                 for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     trace.skip("machine.clamping", feature, reason.clone());
                 }
