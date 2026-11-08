@@ -263,10 +263,16 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
                 let floor = match kind.as_str() {
                     "slot" | "notch" => op["floor_z"].as_f64(),
                     "v_channel" => op["root_z"].as_f64(),
+                    "edge_chamfer" if op["boundaries"] != "holes" => {
+                        op["width"].as_f64().and_then(|width| library.chamfer_mill(width).and_then(|tool| {
+                            let half = (tool["angle"].as_f64()? / 2.).to_radians().tan();
+                            Some(op["top_z"].as_f64()? - (width + crate::resources::TIP_CLEARANCE) / half)
+                        }))
+                    }
                     _ => None,
                 };
                 if floor.is_none_or(|z| z >= cap) { return true; }
-                let edge = if kind == "notch" {
+                let edge = if kind == "edge_chamfer" { true } else if kind == "notch" {
                     op["outer"].as_array().into_iter().flatten().filter_map(|p| p[axis].as_f64()).any(|v| v <= low || v >= high)
                 } else {
                     let half = op["width"].as_f64().unwrap_or(0.) / 2.;
@@ -278,7 +284,7 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
                 for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     trace.skip("machine.clamping", feature, reason.clone());
                 }
-                if kind == "v_channel" { return false; }
+                if kind == "v_channel" || kind == "edge_chamfer" || op["top_z"].as_f64().is_some_and(|z| z <= cap) { return false; }
                 op["floor_z"] = json!(cap);
                 // It no longer breaks through: job generation must not extend below the cap.
                 op["bottom"] = json!("blind");

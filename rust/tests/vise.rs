@@ -121,3 +121,12 @@ fn jaws_choose_the_narrower_axis_and_x_on_a_tie() {
         assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 4.);
     }
 }
+
+#[test]
+fn an_outside_chamfer_tip_must_stay_above_the_jaws() {
+    let mut plan = json!({"setups": [{"id": "top", "stock": {"min": [0., 0., -10.], "max": [30., 20., 0.]},
+        "operations": [{"kind": "edge_chamfer", "top_z": -5., "width": 1., "radius": 1., "boundaries": "outer", "features": ["fillets:0"]}]}]});
+    capp::finish(&mut plan, &library(), &[]).unwrap();
+    assert!(list(&plan["setups"][0]["operations"]).is_empty());
+    assert!(plan["skipped"].to_string().contains("jaw clearance cap"));
+}

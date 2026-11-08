@@ -69,7 +69,9 @@ and the trace says so.
 
 Side cuts stop at least 1 mm above the jaw top, or higher if tool reach requires it.
 Roughing, flats and wall bands reuse the reach cap; open pockets at gripped stock edges
-retain their upper cut without breakthrough. Closed interior features retain their depth.
+retain their upper cut without breakthrough. Outside chamfers are left out if the selected
+cutter's tip would descend below the cap; their width is not silently changed. Closed
+interior features retain their depth.
 Features and wall allowance below the cap are reported as remainders requiring another
 setup, without suggesting a longer tool would solve the clamping obstruction.
 Each jaw is passed to camlib as a fixture prism, checked against the whole tool assembly.
