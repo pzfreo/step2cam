@@ -39,8 +39,11 @@ fn plate_spots_are_grouped_before_twist_drills_and_match_the_formula() {
 
 #[test]
 fn matching_countersink_is_cut_but_wrong_angle_or_diameter_keeps_the_skip() {
-    let lib = example_tools();
-    for (angle,major,cut) in [(120.,7.,true),(120.8,7.,true),(122.,7.,false),(90.,7.,false),(120.,25.,false)] {
+    let mut lib = example_tools();
+    let right_angle = spot(&lib,8.,90.,"spot90");
+    lib["tools"].as_array_mut().unwrap().push(right_angle);
+    // The 90° case formerly encoded the erroneous twist-drill angle restriction.
+    for (angle,major,cut) in [(120.,7.,true),(120.8,7.,true),(122.,7.,false),(90.,7.,true),(120.,25.,false)] {
         let h = with(down(0.,0.,4.2,8.,"flat"),"csink",json!({"major_diameter":major,"included_angle":angle}));
         let p = finish(&holes_only(&[h]),&lib);
         let spots = ops(&p,"spot_drill"); let s = &spots[0]["spots"][0];
@@ -168,4 +171,32 @@ fn pruning_updates_the_missing_tool_query_to_the_remaining_spots() {
     assert_eq!(s["spots"].as_array().unwrap().len(),1);
     assert_eq!(s["diameter"],4.2);
     assert!(s["tool_note"].as_str().unwrap().contains("at least ⌀4.2"));
+}
+
+#[test]
+fn right_angle_spot_cuts_an_enlarged_countersink_but_not_an_ordinary_spot() {
+    let mut lib=example_tools();
+    let right_angle=spot(&lib,8.,90.,"spot90");
+    lib["tools"].as_array_mut().unwrap().retain(|t| t["type"]!="spot_drill");
+    lib["tools"].as_array_mut().unwrap().push(right_angle);
+    let h=down(0.,0.,4.2,8.,"flat");
+    let ordinary=finish(&holes_only(std::slice::from_ref(&h)),&lib);
+    assert!(ops(&ordinary,"spot_drill")[0]["tool"].is_null());
+    assert_eq!(ops(&ordinary,"holes")[0]["tool"],"drill4.2");
+
+    let h=with(h,"csink",json!({"major_diameter":7.,"included_angle":90.}));
+    let p=finish(&holes_only(&[h]),&lib);
+    let group=ops(&p,"spot_drill").remove(0);
+    assert_eq!(group["tool"],"spot90");
+    let s=&group["spots"][0];
+    assert_eq!(s["countersink"],true);
+    assert_eq!(s["diameter"],7.);
+    assert_close(number(&s["depth"]),3.5);
+    assert_eq!(ops(&p,"holes")[0]["tool"],"drill4.2");
+    assert!(!p["skipped"].as_array().unwrap().iter().any(|s|s["reason"].as_str().unwrap().contains("chamfer it by hand")));
+    assert!(ops(&p,"edge_chamfer").is_empty());
+    let (jobs,_)=step2cam::job::jobs(&p,&lib).unwrap();
+    let cycle=jobs[0].manifest["operations"].as_array().unwrap().iter().find(|o|o["tool"]=="spot90").unwrap();
+    assert_eq!(cycle["depth_reference"],"tip");
+    assert_close(number(&cycle["depth_z_mm"]),-3.5);
 }

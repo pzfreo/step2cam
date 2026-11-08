@@ -32,7 +32,9 @@ fn create_with(plan: &mut Value, library: &Library, trace: &mut Trace) -> Result
                 let csink = &op["countersinks"][n];
                 let enlarged = csink["major_diameter"].as_f64().zip(csink["included_angle"].as_f64())
                     .filter(|(d, _)| *d > diameter)
-                    .and_then(|(d, a)| library.spot(d, angle, reach, a).map(|t| (t, d)));
+                    // An enlarged countersink uses its own cone angle; the twist-drill
+                    // angle minimum applies only to ordinary, drill-diameter spots.
+                    .and_then(|(d, a)| library.spot(d, 0., reach, a).map(|t| (t, d)));
                 let (tool, spot_diameter, countersink) = match enlarged {
                     Some((t, d)) => (Some(t), d, true),
                     None => (library.spot(diameter, angle, reach, 0.), diameter, false),

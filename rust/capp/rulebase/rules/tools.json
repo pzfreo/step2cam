@@ -248,7 +248,7 @@
   {
    "id": "spot_drill",
    "tool_type": "spot_drill",
-   "description": "The smallest spot drill covering the requested spot, with an angle at least the twist drill angle and sufficient point, flutes and stickout.",
+   "description": "The smallest spot drill covering the requested spot with sufficient point, flutes and stickout. Ordinary spots require at least the twist drill angle. Enlarged countersinks pass angle = 0 and instead require their included angle to match within 1°.",
    "inputs": [
     "diameter",
     "angle",

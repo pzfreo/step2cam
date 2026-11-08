@@ -313,3 +313,8 @@ is finished only with full diameter coverage and angle agreement within 1 degree
 otherwise it keeps its hand-finishing skip. The adapter uses no peck and a 0.2-second
 dwell for a clean spot/chamfer. `process.json` classifies feature families rather than
 operation kinds, so spot drilling needs no new feature-family case there.
+
+For an enlarged countersink (larger than the following drill), the reviewer-approved
+spot-and-chamfer rule uses the countersink angle alone, matched within 1 degree. The
+selector receives a zero minimum angle for this query. Ordinary spots still require
+a point angle at least as large as the following twist drill's.

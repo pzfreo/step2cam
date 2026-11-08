@@ -931,7 +931,7 @@
    "id": "process.spot_drill",
    "version": 1,
    "stage": "process",
-   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Point angle >= twist drill angle; depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
    "code": "spots.rs; settle.rs; job.rs",
    "data": [
     "rules/tools.json#spot_drill",
@@ -956,7 +956,7 @@
    "id": "tool.spot_drill",
    "version": 1,
    "stage": "tools",
-   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Point angle >= twist drill angle; depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
    "code": "spots.rs; settle.rs; job.rs",
    "data": [
     "rules/tools.json#spot_drill",
