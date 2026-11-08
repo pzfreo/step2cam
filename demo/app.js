@@ -23,9 +23,67 @@ let model = null;        // the current part, see buildModel
 let focusKey = null;     // what is hovered: a feature id or an operation id
 let pinKey = null;       // what was clicked
 // Counts an event with GoatCounter (index.html): only that it happened, never anything about the
-// file. Does nothing if the counter is blocked or hasn't loaded.
-function count(event) {
-  try { window.goatcounter?.count?.({ path: event, title: event, event: true }); } catch { /* not counted */ }
+// file. The counter loads after the page starts (and not at all if blocked): an early count waits up
+// to 15 s for it.
+function count(event, tries = 30) {
+  try {
+    if (window.goatcounter?.count) return window.goatcounter.count({ path: event, title: event, event: true });
+  } catch { return; /* not counted */ }
+  if (tries > 0) setTimeout(() => count(event, tries - 1), 500);
+}
+// The same event counted at most once per page load (a tab opened, a Why read).
+const countedOnce = new Set();
+function countOnce(event) {
+  if (!countedOnce.has(event)) { countedOnce.add(event); count(event); }
+}
+// n in broad groups: band(4, [2, 3, 6], 1) is "3–5".
+function band(n, edges, from = 0) {
+  for (const [i, e] of edges.entries()) {
+    if (n < e) {
+      const lo = i ? edges[i - 1] : from;
+      return e - lo === 1 ? String(lo) : `${lo}–${e - 1}`;
+    }
+  }
+  return `${edges.at(-1)}+`;
+}
+const DAY_BANDS = [2, 3, 4, 6, 11, 21, 51];
+// Whether people come back: once a day, on opening, how many different days this browser has used
+// step2cam and how long since its first, in broad groups. The tally stays in the browser; no id is
+// sent, so nothing links one browser's counts together.
+const USE_DAYS = "step2cam.use-days"; // { first, last, days }
+function useDays() {
+  try { return JSON.parse(localStorage.getItem(USE_DAYS) || "null")?.days ?? 1; } catch { return 1; }
+}
+function countReturn() {
+  try {
+    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+    const was = JSON.parse(localStorage.getItem(USE_DAYS) || "null");
+    if (was?.last === today) return;
+    const use = { first: was?.first ?? today, last: today, days: (was?.days ?? 0) + 1 };
+    localStorage.setItem(USE_DAYS, JSON.stringify(use));
+    const since = Math.round((Date.parse(today) - Date.parse(use.first)) / 864e5);
+    count(`use: day ${band(use.days, DAY_BANDS, 1)}`);
+    count(`use: first ${since === 0 ? "today" : since < 7 ? "1–6 days ago" : since < 28 ? "1–4 weeks ago" : since < 91 ? "1–3 months ago" : "3+ months ago"}`);
+  } catch { /* not counted */ }
+}
+// What happened to a visitor's own STEP file: planned (and on which of their files and days of use,
+// to see whether people come back with another), camlib could not run the plan, or the file failed
+// with a short reason. Never the file's name or contents.
+const OWN_FILES = "step2cam.own-files";
+function countOwnFile(data, error) {
+  try {
+    if (error) return count(`own-file failed: ${shortReason(String(error).replaceAll(openPart.name, "the file"))}`);
+    const n = +(localStorage.getItem(OWN_FILES) || 0) + 1;
+    localStorage.setItem(OWN_FILES, n);
+    count(data.error ? "own-file: camlib could not run the plan" : "own-file: planned");
+    count(`own-file: file ${band(n, [2, 3, 4, 6, 11], 1)}, day ${band(useDays(), DAY_BANDS, 1)}`);
+  } catch { /* not counted */ }
+}
+// An error short enough to count together: its last line, without paths, numbers as N.
+function shortReason(error) {
+  const last = String(error?.message ?? error).trim().split("\n").at(-1) || "unknown";
+  return last.replace(/^(Uncaught )?(\w*Error): /, "").replace(/(\/[\w.-]+)+/g, "…")
+    .replace(/\d+(\.\d+)?/g, "N").slice(0, 80) || "unknown";
 }
 
 let time = 0;            // playhead, in estimated machining seconds
@@ -1534,9 +1592,11 @@ for (const button of document.querySelectorAll("[data-machine]")) {
   });
 }
 
-function run(name, bytes) {
+// own: a visitor's file (true) or a sample (false); left out when the same part is planned again
+// for another machine, which keeps what is known about it.
+function run(name, bytes, own) {
   const id = ++job;
-  openPart = { name, bytes: bytes.slice(0) };
+  openPart = own === undefined ? { ...openPart, bytes: bytes.slice(0) } : { name, bytes: bytes.slice(0), own };
   $("busy").hidden = false;
   $("start").hidden = true;
   showBanner("");
@@ -1546,6 +1606,10 @@ function run(name, bytes) {
 worker.onmessage = ({ data: { id, data, error } }) => {
   if (id !== job) return;  // a newer file or machine was chosen meanwhile
   $("busy").hidden = true;
+  if (openPart.own && !openPart.counted) {
+    openPart.counted = true;  // once per file, not again when the machine changes
+    countOwnFile(data, error);
+  }
   if (error) {
     console.error(error);
     showBanner(`Could not process that file: ${error}`);
@@ -1560,7 +1624,7 @@ worker.onerror = (event) => {
 
 async function openFile(file) {
   count("open-step-file");
-  run(file.name, await file.arrayBuffer());
+  run(file.name, await file.arrayBuffer(), true);
 }
 
 $("file").addEventListener("change", (event) => {
@@ -1656,7 +1720,7 @@ $("phone-menu").addEventListener("click", (event) => {
   if (event.target === $("phone-menu")) closePhoneMenu();
 });
 for (const tab of document.querySelectorAll("[data-tab]")) {
-  tab.addEventListener("click", () => expandPane(tab.dataset.tab));
+  tab.addEventListener("click", () => { countOnce(`tab-${tab.dataset.tab}`); expandPane(tab.dataset.tab); });
   tab.addEventListener("keydown", (event) => {
     const index = PANES.indexOf(tab.dataset.tab);
     const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
@@ -1715,6 +1779,7 @@ let panelShare = 40;
 document.addEventListener("toggle", (event) => {
   const opened = event.target;
   if (opened instanceof HTMLDetailsElement && opened.open && opened.closest(".panes")) {
+    countOnce("read-why");
     opened.scrollIntoView({ block: "nearest" });
   }
 }, true);
@@ -1768,7 +1833,7 @@ function layoutDesktop() {
   setPanelShare(panelShare, false);
 }
 for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
-  tab.addEventListener("click", () => expandPane(tab.dataset.desktopTab));
+  tab.addEventListener("click", () => { countOnce(`tab-${tab.dataset.desktopTab}`); expandPane(tab.dataset.desktopTab); });
   tab.addEventListener("keydown", (event) => {
     const index = PANES.indexOf(tab.dataset.desktopTab);
     const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
@@ -1918,6 +1983,7 @@ $("plan-save").addEventListener("click", savePlan);
 
 initRight();
 initCadLinks();
+countReturn();
 // Nothing is loaded until the visitor opens a file or picks a sample.
 for (const b of document.querySelectorAll("[data-sample]")) {
   b.addEventListener("click", async () => {
@@ -1926,7 +1992,7 @@ for (const b of document.querySelectorAll("[data-sample]")) {
     try {
       const response = await fetch(name);
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-      run(name, await response.arrayBuffer());
+      run(name, await response.arrayBuffer(), false);
     } catch (error) {
       showBanner(`Could not load the sample ${name}: ${error.message}`);
     }
