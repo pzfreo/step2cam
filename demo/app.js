@@ -1742,7 +1742,7 @@ for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
 function toggleDesktopExpand() {
   if (panelBeforeExpand === null) {
     panelBeforeExpand = panelShare;
-    setPanelShare(70);
+    setPanelShare(70, false);
   } else {
     setPanelShare(panelBeforeExpand);
     panelBeforeExpand = null;
