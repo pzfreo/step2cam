@@ -1064,7 +1064,7 @@ async function showStory(m) {
   const ops = plan.setups.flatMap((s) => s.operations);
   const tools = new Set(ops.map((o) => o.tool).filter(Boolean));
   const decisions = plan.decisions || [];
-  $("story-plan").textContent = `Decides how to make it: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
+  $("story-plan").textContent = `Decides how to make it on the ${machines.find((m) => m.machine === data.library.machine).name}: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
   const checked = data.programs.filter((p) => p.material);
   const check = data.error ? "camlib could not run it." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
   $("story-toolpaths").textContent = data.error ? "camlib could not run the plan: see the message above." : `camlib turns the plan into ${count(m.lines.length, "toolpath move")}, ${check}`;
@@ -1075,7 +1075,7 @@ function savePlan() {
   if (!model) return;
   count("save-plan");
   const name = (model.data.name || "part").replace(/\.(step|stp)$/i, "");
-  const blob = new Blob([JSON.stringify(model.data.plan, null, 1)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ ...model.data.plan, library: model.data.library }, null, 1)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `${name}-plan.json`;
@@ -1089,15 +1089,16 @@ function buildSaveButtons(m) {
   host.replaceChildren();
   const stem = m.data.name.replace(/\.[^.]*$/, "");
   for (const program of m.data.programs) {
+    const filename = `${stem}-${program.setup}-${m.data.library.machine}.camlib-job.json`;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = m.data.programs.length > 1 ? `Save ${program.setup} job` : "Save camlib job";
-    button.title = `Save ${stem}-${program.setup}.camlib-job.json: the setup as a camlib job, for camlib's posts to write G-code from`;
+    button.title = `Save ${filename}: the setup on the ${machines.find((machine) => machine.machine === m.data.library.machine).name} as a camlib job, for camlib's posts to write G-code from`;
     button.addEventListener("click", () => {
       count("save-job");
       const link = document.createElement("a");
       link.href = URL.createObjectURL(new Blob([JSON.stringify(program.job)], { type: "application/json" }));
-      link.download = `${stem}-${program.setup}.camlib-job.json`;
+      link.download = filename;
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
@@ -1503,17 +1504,45 @@ function show(data) {
 // specify-core, step2cam and camlib all run in this worker, in the visitor's browser.
 const worker = new Worker("worker.js", { type: "module" });
 let job = 0;
+let openPart = null; // Keep an owned copy: postMessage transfers and detaches its input.
+const machines = [
+  { machine: "carvera", name: "Makera Carvera", file: "machines/carvera.json" },
+  { machine: "haas-vf2", name: "Haas VF-2", file: "machines/haas-vf2.json" },
+  { machine: "benchmark-vmc", name: "Generic machining centre", file: "machines/generic.json" },
+];
+let machine = machines[0];
+try {
+  machine = machines.find((m) => m.machine === localStorage.getItem("step2cam.machine")) || machine;
+} catch { /* Keep the default when storage is unavailable. */ }
+function markMachine() {
+  for (const button of document.querySelectorAll("[data-machine]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.machine === machine.machine));
+  }
+}
+markMachine();
+for (const button of document.querySelectorAll("[data-machine]")) {
+  button.addEventListener("click", () => {
+    const next = machines.find((m) => m.machine === button.dataset.machine);
+    if (!next || next === machine) return;
+    machine = next;
+    markMachine();
+    try { localStorage.setItem("step2cam.machine", machine.machine); } catch { /* Keep working without storage. */ }
+    count(`machine-${machine.machine}`);
+    if (openPart) run(openPart.name, openPart.bytes.slice(0));
+  });
+}
 
 function run(name, bytes) {
   const id = ++job;
+  openPart = { name, bytes: bytes.slice(0) };
   $("busy").hidden = false;
   $("start").hidden = true;
   showBanner("");
-  worker.postMessage({ id, name, bytes }, [bytes]);
+  worker.postMessage({ id, name, bytes, library: { machine: machine.machine, file: machine.file } }, [bytes]);
 }
 
 worker.onmessage = ({ data: { id, data, error } }) => {
-  if (id !== job) return;  // a newer file was opened meanwhile
+  if (id !== job) return;  // a newer file or machine was chosen meanwhile
   $("busy").hidden = true;
   if (error) {
     console.error(error);

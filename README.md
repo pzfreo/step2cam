@@ -103,7 +103,7 @@ step in the bar to open it. On a wider screen, **Expand** does the same.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
-toolpaths. It uses `demo/tools.json`: **placeholder tools and cutting data, not
+toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2 (`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`): **placeholder tools and cutting data, not
 for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.

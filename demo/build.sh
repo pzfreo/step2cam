@@ -24,7 +24,10 @@ mkdir -p site/licenses
 wasm-pack build rust --release --target web --no-typescript --no-pack --out-dir ../site/step2cam
 cp demo/index.html demo/app.js demo/stock.js demo/worker.js demo/style.css site/
 cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
-cp demo/tools.json site/tools.json
+mkdir -p site/machines
+cp demo/tools.json site/machines/carvera.json
+cp libraries/haas-vf2.json site/machines/haas-vf2.json
+cp tools/benchmark/tools.json site/machines/generic.json
 cp rust/capp/rulebase/rules.json site/rules.json
 
 archive="specify-core-wasm-$SPECIFY_VERSION.tgz"
