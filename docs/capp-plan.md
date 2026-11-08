@@ -46,6 +46,17 @@ no camlib:
   what an execution engine refused; places the material in its ISO 513 group; and names each
   operation's tool, cutting data and ISO 14649 names.
 
+Settlement caps roughing at stock top minus `min(flute_length, stickout) - 1 mm`, before
+camlib sees it. This is the stopgap for stevecad/camlib#122; once camlib checks each layer's
+cutting depth, the flute limit can be relaxed to holder clearance. The plan keeps
+`covered_by_roughing` as feature ids and records their conservative lowest Z and family in
+`roughing_feature_depths`, in the rough-from frame. Features extending below the cap are
+skipped with a reach reason and needed-tool query, including the 1 mm margin in both the
+minimum flute length and stickout. Flats below the cap are removed; crossing wall bands are
+finished down to the cap, with a needed-tool warning for the allowance left below it. Wholly
+unreachable wall bands are removed, and dependent edge chamfers follow the missing-wall
+handling. No second roughing setup is added.
+
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:

@@ -91,8 +91,8 @@ fn with_roughing_refused_no_wall_or_flat_is_cut() {
     let mut library = tools();
     for tool in library["tools"].as_array_mut().unwrap() {
         if tool["type"] == "end_mill" {
-            tool["flute_length"] = 1.into();
-            tool["stickout"] = 1.5.into();
+            // Reach is capped before execution; invalid cutting data force camlib's refusal.
+            tool["stepdown_mm"] = 0.into();
         }
     }
     let (analysis, mesh) = part("stepped-plate");
