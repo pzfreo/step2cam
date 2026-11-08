@@ -1438,6 +1438,7 @@ function show(data) {
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
   showWarnings(model, notes);
   showChecks(data);
+  app.classList.add("has-part");
   showPart(model);
   showToolpaths(model);
   buildFeatureList(model);

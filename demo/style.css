@@ -242,6 +242,7 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
   .story-who, .story-text { display: none; }
   #phone-story { flex: none; margin: 0; padding: 8px; max-height: 100px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
   #phone-view { position: relative; flex: 0 0 30dvh; min-height: 160px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
+  .app:not(.has-part) #phone-view { display: none; }
   #phone-view > .view { position: absolute; inset: 0; }
   #phone-view > .views { position: absolute; top: 6px; right: 6px; z-index: 6; display: flex; }
   #phone-view > .views button { min-height: 30px; padding: 0 8px; font-size: 12px; background: #161b22d9; }
