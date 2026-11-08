@@ -52,7 +52,7 @@ impl Trace {
         let s = &self.supplied[n];
         let subject = s["subject"].as_str().unwrap().to_owned();
         let text = format!("supplied {} for {subject} refused: {reason}; the rule's own choice is used", s["rule"].as_str().unwrap());
-        let id = self.warn("requirement.supplied_refused", &subject, text);
+        let id = self.warn("requirement.supplied_refused", &subject, text, json!({}));
         self.supplied[n]["accepted"] = json!(false);
         self.supplied[n]["refusal_reason"] = json!(reason);
         self.supplied[n]["decision"] = json!(id);

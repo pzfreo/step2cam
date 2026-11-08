@@ -874,6 +874,13 @@ async function buildPlan(m) {
       card.className = `plan-op${o && o.time ? "" : " unused"}`;
       const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not run</span>'}</span>`, key);
       card.append(headBtn);
+      for (const d of planWarnings(m).filter((d) => op.because?.includes(d.id))) {
+        const note = document.createElement("button");
+        note.type = "button"; note.className = "operation-warning";
+        note.textContent = warningText(m, d, true);
+        linkWarning(note, m, d);
+        card.append(note);
+      }
       const iso = op.iso14649;
       const open = document.createElement("details");
       open.className = "why";
@@ -883,7 +890,7 @@ async function buildPlan(m) {
       open.append(facts([
         ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
         ["Cutting data", describeTechnology(op.technology)],
-        ["Features", op.features?.length ? escapeHtml(op.features.join(", ")) : null],
+        ["Features", op.features?.length ? escapeHtml(op.features.map((id) => m.features.get(id)?.name || "feature").join(", ")) : null],
         ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.bottom_condition ? `, ${escapeHtml(iso.bottom_condition)}` : ""}${iso.exact ? "" : ' <span class="tag">closest</span>'}` : null],
         ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
       ]));
@@ -926,16 +933,16 @@ async function buildPlan(m) {
   }
   if (plan.warnings.length) {
     head("Warnings");
-    const warned = (plan.decisions || []).filter((d) => d.outcome === "warning");
-    plan.warnings.forEach((w, i) => {
+    for (const d of planWarnings(m)) {
       const note = document.createElement("div");
       note.className = "plan-note";
-      note.textContent = w;
-      const d = warned[i];
-      if (d && d.says === w) note.append(whyList([d.id], decisions, rules, "Rule"));
+      note.textContent = warningText(m, d);
+      note.append(whyList([d.id], decisions, rules, "Rule"));
+      linkWarning(note, m, d);
       host.append(note);
-    });
+    }
   }
+
   applyFocus(false);
 }
 
@@ -971,7 +978,7 @@ async function showDetail(m, setup, op, n, key) {
   host.append(facts([
     ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
     ["Cutting data", describeTechnology(op.technology)],
-    ["Features", op.features?.length ? escapeHtml(op.features.join(", ")) : null],
+    ["Features", op.features?.length ? escapeHtml(op.features.map((id) => m.features.get(id)?.name || "feature").join(", ")) : null],
     ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.exact ? "" : ' <span class="tag">closest</span>'}${iso.note ? `<br><span style="color:var(--muted)">${escapeHtml(iso.note)}</span>` : ""}` : null],
     ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
   ]));
@@ -1161,9 +1168,10 @@ function applyFocus(scroll) {
   if (!model) return;
   const key = activeFocus();
   for (const el of document.querySelectorAll("[data-key]")) {
-    const on = key && (el.dataset.key === key || el.dataset.keyAlso === key);
+    const matches = (target) => target && (el.dataset.key === target || el.dataset.keyAlso === target || model.operations.get(target)?.features?.includes(el.dataset.key));
+    const on = matches(key);
     el.classList.toggle("is-lit", Boolean(on));
-    el.classList.toggle("is-pinned", pinKey !== null && (el.dataset.key === pinKey || el.dataset.keyAlso === pinKey));
+    el.classList.toggle("is-pinned", Boolean(matches(pinKey)));
   }
   paintToolpaths();
   highlightCad();
@@ -1189,13 +1197,19 @@ function highlightCad() {
   }
   const feature = model.features.get(key);
   const operation = model.operations.get(key);
-  const path = feature ? leafByFeature.get(key)
-    : operation?.features?.length === 1 ? leafByFeature.get(operation.features[0])
-    : operation && !operation.features ? `/${ROOT}/Body`
-    : null;
-  if (path === litCad) return;
-  litCad = path;
-  viewer.handleTreeHover(path ?? null);
+  const paths = feature ? [leafByFeature.get(key)]
+    : operation?.features?.length ? [...new Set(operation.features.map((id) => leafByFeature.get(id)).filter(Boolean))]
+    : operation && !operation.features ? [`/${ROOT}/Body`] : [];
+  const identity = paths.join("|");
+  if (identity === litCad) return;
+  litCad = identity;
+  viewer.clearSelection();
+  viewer.handleTreeHover(paths.length === 1 ? paths[0] : null);
+  if (paths.length > 1) {
+    const highlight = viewer.rendered.nestedGroup.highlight;
+    for (const path of paths) highlight.selectSolid(path, true);
+    viewer.update(true, false);
+  }
 }
 
 function drawStatus() {
@@ -1322,26 +1336,68 @@ function showChecks(data) {
   $("checks-detail").innerHTML = `<ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
 }
 
-// Warnings a person can act on, with repeats folded together.
-function warningLines(m) {
-  const lines = [], narrow = new Map();
-  for (const w of m.data.plan.warnings) {
-    const wall = w.match(/outside wall above .* too narrow for (\S+)/);
-    if (wall) narrow.set(wall[1], (narrow.get(wall[1]) || 0) + 1);
-    else {
-      const text = w.replace(/no source-admitted entry\/route for component 0; choose a smaller radius or another entry strategy/, "camlib found no way for that tool to enter it");
-      if (!lines.includes(text)) lines.push(text);
-    }
+// Warning identity and links come from the trace, never from warning prose.
+function planWarnings(m) {
+  return (m.data.plan.decisions || []).filter((d) => d.outcome === "warning" && !d.superseded_by);
+}
+
+function warningOperations(m, d) {
+  return [...m.operations.values()].filter((o) => o.because?.includes(d.id));
+}
+
+function warningText(m, d, brief = false) {
+  let text = d.says.replace("no source-admitted entry/route for component 0; choose a smaller radius or another entry strategy", "camlib found no way for that tool to enter it");
+  if (brief && d.depth_diameter_ratio != null) text = `${Number(d.depth_diameter_ratio).toFixed(1)} × diameter deep: full-retract pecks`;
+  else if (brief && d.radius != null) text = `Inside corners left r${trim(d.radius)} (${d.model_radius ? `model r${trim(d.model_radius)}` : "sharp in the model"})`;
+  // Older subject-specific warnings still include their subject in the prose.
+  for (const id of d.features || []) {
+    text = text.replaceAll(id, m.features.get(id)?.name || "the requested feature");
   }
-  for (const [tool, count] of narrow) {
-    lines.push(`${count} outside ${count === 1 ? "wall was" : "walls were"} not finished: there is no room beside ${count === 1 ? "it" : "them"} for ${tool}.`);
+  if (d.rule.startsWith("execution.refused@")) text = text.replaceAll(d.subject, "This operation");
+  if (brief) return text;
+  const ops = warningOperations(m, d);
+  const names = ops.length ? ops.map((o) => {
+    const family = m.features.get(o.features?.[0])?.family;
+    const count = family ? o.features.filter((id) => m.features.get(id)?.family === family).length : 0;
+    return o.name + (count > 1 ? ` ×${count}` : "");
+  })
+    : (d.features || []).map((id) => m.features.get(id)?.name).filter(Boolean);
+  return names.length ? `${[...new Set(names)].join(", ")}: ${text}` : text;
+}
+
+function linkWarning(el, m, d) {
+  const key = warningOperations(m, d)[0]?.id || (d.features || []).find((id) => m.features.has(id));
+  if (key) rowEvents(el, key);
+}
+
+async function showWarnings(m, notes) {
+  const host = $("banner"), warned = planWarnings(m);
+  host.replaceChildren();
+  host.hidden = !warned.length && !notes.length && !m.data.error;
+  if (m.data.error) {
+    const error = document.createElement("div");
+    error.textContent = `camlib could not run the plan: ${m.data.error}`;
+    host.append(error);
   }
-  const notCut = [...m.features.values()].filter((f) => f.notCut);
-  if (notCut.length) {
-    const names = [...new Set(notCut.map((f) => f.name.split(",")[0].toLowerCase()))].join(", ");
-    lines.unshift(`Not cut to size: ${notCut.length} recognised ${notCut.length === 1 ? "feature" : "features"} (${names}) too narrow for the largest end mill. No smaller tool is planned for them.`);
+  for (const text of notes) {
+    const line = document.createElement("div"); line.textContent = text; host.append(line);
   }
-  return lines;
+  if (!warned.length) return;
+  const rules = await loadRules();
+  if (model !== m) return;
+  const details = document.createElement("details"), summary = document.createElement("summary");
+  details.className = "banner-warnings";
+  const labels = [...new Set(warned.map((d) => rules.get(d.rule)?.warning_label || "plan needs checking"))];
+  summary.textContent = `⚠ ${warned.length} warnings: ${labels.join(" · ")}`;
+  details.append(summary);
+  for (const d of warned) {
+    const line = document.createElement("button");
+    line.type = "button"; line.className = "banner-warning";
+    line.textContent = warningText(m, d);
+    linkWarning(line, m, d);
+    details.append(line);
+  }
+  host.append(details);
 }
 
 function show(data) {
@@ -1351,10 +1407,13 @@ function show(data) {
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
   const notes = data.notice ? [data.notice] : [];
-  if (data.error) notes.push(`camlib could not run the plan: ${data.error}`);
-  notes.push(...warningLines(model));
+  const notCut = [...model.features.values()].filter((f) => f.notCut);
+  if (notCut.length) {
+    const names = [...new Set(notCut.map((f) => f.name.split(",")[0].toLowerCase()))].join(", ");
+    notes.push(`Not cut to size: ${notCut.length} recognised ${notCut.length === 1 ? "feature" : "features"} (${names}) too narrow for the largest end mill. No smaller tool is planned for them.`);
+  }
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
-  showBanner(notes.join("\n"));
+  showWarnings(model, notes);
   showChecks(data);
   showPart(model);
   showToolpaths(model);

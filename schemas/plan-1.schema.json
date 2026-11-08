@@ -2384,6 +2384,22 @@
     "message": {
      "type": "string"
     },
+    "depth_diameter_ratio": {
+     "type": "number",
+     "description": "Unrounded drilling depth divided by drill diameter."
+    },
+    "radius": {
+     "type": "number",
+     "description": "Corner radius left by the tool, in mm."
+    },
+    "model_radius": {
+     "type": "number",
+     "description": "Corner radius in the model, in mm."
+    },
+    "corners": {
+     "type": "integer",
+     "minimum": 0
+    },
     "superseded_by": {
      "type": "string",
      "pattern": "^d-[0-9]+$",

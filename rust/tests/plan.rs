@@ -382,3 +382,39 @@ fn a_thread_written_by_specify_is_milled() {
     assert_eq!(ops.len(), 1, "{}", plan["warnings"]);
     assert_same(json!([ops[0]["spec"], ops[0]["features"], ops[0]["through"]]), json!(["M5", ["holes:12"], true]));
 }
+
+#[test]
+fn refusing_a_spot_does_not_supersede_the_drills_shared_feature_warning() {
+    let analysis = holes_only(&[down(0., 0., 4.2, 3., "through")]);
+    let mesh = mesh_of(&square(-5., 5., 0., 0.), BOX);
+    let mut plan = plan(&analysis, Some(&mesh), &top_stock(0.)).unwrap();
+    capp::finish(&mut plan, &fixture("../../demo/tools.json"), &[]).unwrap();
+    let warning = list(&plan["decisions"]).iter().find(|d| d["rule"] == "process.hole.short_of_far_face@1").unwrap().clone();
+    assert_eq!(warning["subject"], "holes:0");
+    assert!(warning.get("superseded_by").is_none());
+    let ops = operations(&plan, 0);
+    let spot_index = ops.iter().position(|o| o["kind"] == "spot_drill").unwrap();
+    let spot = &ops[spot_index];
+    let drill = ops.iter().find(|o| o["kind"] == "holes").unwrap().clone();
+    assert!(spot["tool"].is_string());
+    assert!(drill["tool"].is_string());
+    assert!(list(&spot["because"]).contains(&warning["id"]));
+    assert!(list(&drill["because"]).contains(&warning["id"]));
+    let own: Vec<_> = list(&plan["decisions"]).iter().filter(|d| list(&spot["because"]).contains(&d["id"])
+        && d["subject"] == "top:spot_drill" && (d["stage"] == "process" || d["stage"] == "tools"))
+        .map(|d| d["id"].clone()).collect();
+    assert!(!own.is_empty());
+    let operation = format!("top-{}-spot_drill", spot_index + 1);
+    capp::exclude(&mut plan, &operation, "spot refused").unwrap();
+    let decisions = list(&plan["decisions"]);
+    let still_warned = decisions.iter().find(|d| d["id"] == warning["id"]).unwrap();
+    assert_eq!(*still_warned, warning, "a refusal must leave a borrowed feature warning unchanged");
+    let refusal = decisions.iter().find(|d| d["subject"] == operation && d["outcome"] == "removed").unwrap();
+    for id in own {
+        let d = decisions.iter().find(|d| d["id"] == id).unwrap();
+        assert_eq!(d["superseded_by"], refusal["id"], "the spot's own decisions still cease to stand");
+    }
+    assert_eq!(*of_kind(&plan, 0, "holes")[0], drill, "the drill still runs with its warning link");
+    assert!(of_kind(&plan, 0, "spot_drill").is_empty());
+    assert!(list(&plan["warnings"]).contains(&warning["says"]));
+}

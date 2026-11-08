@@ -141,7 +141,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         }
         let decision = if status == "no_overlap" {
             trace.decide(RULE, id, "chosen", &says, json!({"chosen": detail}))
-        } else { trace.warn(RULE, id, says) };
+        } else { trace.warn(RULE, id, says, json!({})) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
     }
 }

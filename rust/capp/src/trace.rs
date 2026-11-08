@@ -12,9 +12,9 @@ use std::sync::OnceLock;
 /// The rules, as shipped with the crate.
 pub const RULES: &str = include_str!("../rulebase/rules.json");
 
-/// (version, stage) of each rule, by id.
-pub(crate) fn rules() -> &'static HashMap<String, (u64, String)> {
-    static RULES_BY_ID: OnceLock<HashMap<String, (u64, String)>> = OnceLock::new();
+/// (version, stage, has warning label) of each rule, by id.
+pub(crate) fn rules() -> &'static HashMap<String, (u64, String, bool)> {
+    static RULES_BY_ID: OnceLock<HashMap<String, (u64, String, bool)>> = OnceLock::new();
     RULES_BY_ID.get_or_init(|| {
         let doc: Value = serde_json::from_str(RULES).expect("rulebase/rules.json is JSON");
         doc["rules"]
@@ -23,7 +23,7 @@ pub(crate) fn rules() -> &'static HashMap<String, (u64, String)> {
             .iter()
             .map(|r| {
                 let id = r["id"].as_str().expect("a rule has an id").to_string();
-                (id, (r["version"].as_u64().expect("a rule has a version"), r["stage"].as_str().expect("a rule has a stage").to_string()))
+                (id, (r["version"].as_u64().expect("a rule has a version"), r["stage"].as_str().expect("a rule has a stage").to_string(), r["warning_label"].as_str().is_some_and(|s| !s.trim().is_empty())))
             })
             .collect()
     })
@@ -60,7 +60,7 @@ impl Trace {
     /// outcome and what it says, with anything more in `detail` (an object, merged in). Returns
     /// the decision's id.
     pub fn decide(&mut self, rule: &str, subject: &str, outcome: &str, says: &str, detail: Value) -> String {
-        let (version, stage) = rules().get(rule).unwrap_or_else(|| panic!("rule {rule} is not in rulebase/rules.json"));
+        let (version, stage, _) = rules().get(rule).unwrap_or_else(|| panic!("rule {rule} is not in rulebase/rules.json"));
         let id = format!("d-{}", self.decisions.len() + 1);
         let mut decision = json!({
             "id": id, "stage": stage, "rule": format!("{rule}@{version}"), "subject": subject,
@@ -74,8 +74,12 @@ impl Trace {
     }
 
     /// A warning, by `rule`.
-    pub fn warn(&mut self, rule: &str, subject: &str, text: String) -> String {
-        let id = self.decide(rule, subject, "warning", &text, Value::Null);
+    pub fn warn(&mut self, rule: &str, subject: &str, text: String, mut detail: Value) -> String {
+        assert!(rules().get(rule).is_some_and(|r| r.2), "warning rule {rule} needs a warning_label");
+        if detail["features"].is_null() {
+            detail.as_object_mut().unwrap().remove("features");
+        }
+        let id = self.decide(rule, subject, "warning", &text, detail);
         self.warnings.push(text);
         id
     }

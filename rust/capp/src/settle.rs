@@ -73,11 +73,14 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
     for feature in removed["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
         trace.skip("execution.refused", feature, format!("left out: {brief}"));
     }
-    trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"));
+    trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"), json!({"features": removed["features"]}));
     // Its own decisions (what made it, its tool and cutting data) no longer stand; those it shares
     // with the rest of the setup (the setup, the order, where its holes are cut) do.
+    // Feature-subject warnings are borrowed by every operation cutting that feature.
     let own: Vec<&str> = removed["because"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
-    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id)) && (d["stage"] == "process" || d["stage"] == "tools")) {
+    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id))
+        && (d["stage"] == "process" || d["stage"] == "tools")
+        && !(d["outcome"] == "warning" && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"])))) {
         d["superseded_by"] = json!(refused);
     }
     trace.store(plan);
@@ -125,7 +128,7 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
         let why = if rule == "machine.clamping" {
             format!("side cutting stops at Z{}: jaw top plus {} mm clearance; the gripped stock and material below the jaws need a later setup", show(floor), show(crate::rules::workholding()["clearance_mm"].as_f64().unwrap()))
         } else { reach_reason(rough, mill)? };
-        let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"));
+        let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"), json!({"features": rough["features"]}));
         because(rough, [decision]);
         if let Some(depths) = depths.as_object() {
             for (id, depth) in depths {
@@ -152,7 +155,7 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
             // It now stops in the roughed stock, above the flat it originally stood on.
             wall["on_flat"] = json!(false);
             let d = trace.warn(rule, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
-                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)));
+                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)), json!({"features": wall["features"]}));
             because(wall, [d]);
         }
         for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
@@ -160,7 +163,7 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
                 let before = levels.len();
                 levels.retain(|z| z.as_f64().is_some_and(|z| z >= floor));
                 if levels.len() != before {
-                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)));
+                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)), json!({"features": op["features"]}));
                     because(op, [d]);
                 }
             }
@@ -286,7 +289,7 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
                 };
                 if !edge { return true; }
                 let reason = format!("{kind} material below Z{} jaw clearance cap left for a later setup", show(cap));
-                let d = trace.warn("machine.clamping", &setup_id, reason.clone());
+                let d = trace.warn("machine.clamping", &setup_id, reason.clone(), json!({"features": op["features"]}));
                 for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     trace.skip("machine.clamping", feature, reason.clone());
                 }
@@ -304,14 +307,14 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
         for op in ops.iter().filter(|o| o["kind"] == "wall_finish") {
             if let Some((rule, why)) = wall_refusal(&view, op, &library)? {
                 let wall = format!("{setup_id}:{}", op["wall"].as_str().unwrap_or(""));
-                trace.warn(rule, &wall, format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?)));
+                trace.warn(rule, &wall, format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?)), json!({"features": op["features"]}));
                 refused.push(op["wall"].clone());
             }
         }
         let mut no_channel = vec![];
         for (n, op) in ops.iter().enumerate().filter(|(_, o)| o["kind"] == "v_channel") {
             if let Some((rule, why)) = v_channel_refusal(&view, op, &library)? {
-                trace.warn(rule, &format!("{setup_id}:v_channel"), format!("setup {setup_id}: V-channel left out: {why}"));
+                trace.warn(rule, &format!("{setup_id}:v_channel"), format!("setup {setup_id}: V-channel left out: {why}"), json!({"features": op["features"]}));
                 for id in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     trace.skip(rule, id, format!("V-channel left out: {why}"));
                 }
@@ -510,6 +513,11 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 op["iso14649"] = names;
             }
             let mut why = vec![decided];
+            // Feature warnings made before grouping belong to each operation cutting that feature.
+            why.extend(trace.decisions.iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()
+                && !op["because"].as_array().is_some_and(|ids| ids.contains(&d["id"]))
+                && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"]) && features.iter().any(|f| op["features"].as_array().is_some_and(|own| own.contains(f)))))
+                .filter_map(|d| d["id"].as_str().map(String::from)));
             if let Some(name) = tool.as_str() {
                 let spec = library.data["tools"].as_array().and_then(|t| t.iter().find(|x| x["id"] == name)).ok_or("a chosen tool is not in the library")?;
                 // No dog-bone relief: neither analysis nor answers can request it today.
@@ -519,9 +527,9 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     if radius > model + 1e-6 {
                         let corners = op["inside_corners"].as_u64().unwrap_or(4);
                         let shape = if model == 0. { "square inside corners" } else { "inside corners" };
-                        let model_note = if model == 0. { "the model has them sharp".to_string() } else { format!("the model has r{}", show(model)) };
-                        let feature_names = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", ");
-                        why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, show(radius))));
+                        let model_note = if model == 0. { "the model has them sharp".to_string() } else { format!("the model has r{}", warning_number(model)) };
+                        let feature_names = format!("setup {setup_id}: {} mm notch", warning_number(num(op, "width")?));
+                        why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, warning_number(radius)), json!({"features": op["features"], "radius": radius, "model_radius": model, "corners": corners})));
                     }
                 }
                 let (mut technology, source) = technology(spec, group.as_deref());
@@ -541,8 +549,8 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     let cycle = crate::reference::drilling(depth, diameter, spec);
                     if let Some(ratio) = crate::reference::deep_drilling_ratio(depth, diameter) {
                         why.push(trace.warn("process.hole.peck_by_depth", &subject, format!(
-                            "{subject} [{}], depth/D {ratio}: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
-                            op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))));
+                            "setup {setup_id}: {} mm holes, depth/D {ratio:.1}: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
+                            warning_number(diameter)), json!({"features": op["features"], "depth_diameter_ratio": ratio})));
                     }
                     why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
                         "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
@@ -640,4 +648,9 @@ fn material(plan: &mut Value, library: &Value, trace: &mut Trace) -> Option<Stri
     trace.decide("requirement.material.group", "part", outcome, &says, json!({"chosen": group}));
     plan["material"] = json!({"specified": specified, "override": over, "used": used, "iso513": group});
     group
+}
+
+/// Millimetres in warning prose, rounded without trailing zeroes.
+fn warning_number(value: f64) -> String {
+    crate::plan::r(value).to_string()
 }

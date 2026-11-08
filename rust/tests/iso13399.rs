@@ -67,7 +67,7 @@ fn published_symbols_and_measurement_conventions() {
 #[test]
 fn symbol_libraries_validate_and_normalize_without_changing_inputs() {
     let validator = jsonschema::validator_for(&fixture("../../schemas/resources-1.schema.json")).unwrap();
-    for path in ["../../demo/tools.json", "../../examples/tools.example.json", "../../tools/benchmark/tools.json"] {
+    for path in ["../../demo/tools.json", "../../examples/tools.example.json", "../../tools/benchmark/tools.json", "../../libraries/haas-vf2.json"] {
         let current = fixture(path);
         let iso = symbols(&current);
         assert_ne!(current, iso);

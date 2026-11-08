@@ -169,3 +169,57 @@ fn a_refusal_supersedes_only_its_operations_own_decisions() {
     let order = decisions.iter().find(|d| d["rule"] == "sequence.fixed_order@1").unwrap();
     assert!(order.get("superseded_by").is_none(), "shared with the setup's other operations");
 }
+
+#[test]
+fn warning_labels_are_enforced() {
+    let mut trace = capp::trace::Trace::default();
+    let doc = rules();
+    for rule in doc["rules"].as_array().unwrap().iter().filter(|r| r.get("warning_label").is_some()) {
+        assert!(!rule["warning_label"].as_str().unwrap().trim().is_empty());
+        trace.warn(rule["id"].as_str().unwrap(), "part", "test warning".into(), serde_json::json!({}));
+    }
+}
+
+#[test]
+#[should_panic(expected = "needs a warning_label")]
+fn an_unlabelled_rule_cannot_warn() {
+    capp::trace::Trace::default().warn("setup.stock.part_box_with_margins", "top", "test".into(), serde_json::json!({}));
+}
+
+#[test]
+fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
+    let out = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
+        &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("demo/tools.json")).unwrap();
+    let plan = &out["plan"];
+    let active: Vec<_> = plan["decisions"].as_array().unwrap().iter()
+        .filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).collect();
+    let inventory = rules();
+    // Every warning, including the vise-clamping ones, has a label for the page's headline.
+    for d in &active {
+        let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
+        assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())), "{d}");
+    }
+    // The deep-hole and corner-radius warnings belong to one operation each.
+    let warnings: Vec<_> = active.into_iter()
+        .filter(|d| d["rule"] == "process.hole.peck_by_depth@2" || d["rule"] == "process.notch.corner_radius@1").collect();
+    assert_eq!(warnings.len(), 4);
+    let ops = plan["setups"][0]["operations"].as_array().unwrap();
+    for (d, n) in warnings.iter().zip([4, 8, 9, 10]) {
+        assert_eq!(d["features"], ops[n]["features"]);
+        assert!(!d["features"].as_array().unwrap().is_empty());
+        assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
+        assert_eq!(ops.iter().filter(|o| o["because"].as_array().unwrap().contains(&d["id"])).count(), 1);
+        let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
+        assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
+        let says = d["says"].as_str().unwrap();
+        assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
+        if n == 4 {
+            assert!(says.contains("depth/D 6.1"), "{says}");
+            assert!((d["depth_diameter_ratio"].as_f64().unwrap() - 20. / 3.3).abs() < 1e-10);
+        } else {
+            let radius = if n == 8 { "1.5" } else { "3" };
+            assert!(says.contains(&format!("left r{radius} by")), "{says}");
+            assert!(!says.contains("r3.0"), "{says}");
+        }
+    }
+}
