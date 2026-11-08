@@ -464,8 +464,8 @@
    "feed_mm_min": 236.67,
    "spindle_rpm": 2254,
    "coolant": "flood",
-   "_comment": "TOYO TCM90-12; _sources.chamfer and holder; starting values, _policy. Catalogue axial K=4.75 mm stored one floating-point ULP upward (4.750000000000001): camlib computes the 90-degree cone with tan(pi/4)<1 and otherwise rejects exact nominal K. This is numerical rounding, not extra physical cutting reach.",
-   "flute_length": 4.750000000000001,
+   "_comment": "TOYO TCM90-12; _sources.chamfer and holder; starting values, _policy. Catalogue axial K=4.75 mm.",
+   "flute_length": 4.75,
    "angle": 90,
    "tip_diameter": 2.5,
    "plunge_mm_min": 59.17
