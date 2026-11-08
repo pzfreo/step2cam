@@ -22,6 +22,12 @@ const ROW_HEIGHT = 20;
 let model = null;        // the current part, see buildModel
 let focusKey = null;     // what is hovered: a feature id or an operation id
 let pinKey = null;       // what was clicked
+// Counts an event with GoatCounter (index.html): only that it happened, never anything about the
+// file. Does nothing if the counter is blocked or hasn't loaded.
+function count(event) {
+  try { window.goatcounter?.count?.({ path: event, title: event, event: true }); } catch { /* not counted */ }
+}
+
 let time = 0;            // playhead, in estimated machining seconds
 let playing = false;
 let showRapids = false;  // moves through the air in the toolpath view
@@ -1022,6 +1028,7 @@ async function showStory(m) {
 
 function savePlan() {
   if (!model) return;
+  count("save-plan");
   const name = (model.data.name || "part").replace(/\.(step|stp)$/i, "");
   const blob = new Blob([JSON.stringify(model.data.plan, null, 1)], { type: "application/json" });
   const a = document.createElement("a");
@@ -1042,6 +1049,7 @@ function buildSaveButtons(m) {
     button.textContent = m.data.programs.length > 1 ? `Save ${program.setup} job` : "Save camlib job";
     button.title = `Save ${stem}-${program.setup}.camlib-job.json: the setup as a camlib job, for camlib's posts to write G-code from`;
     button.addEventListener("click", () => {
+      count("save-job");
       const link = document.createElement("a");
       link.href = URL.createObjectURL(new Blob([JSON.stringify(program.job)], { type: "application/json" }));
       link.download = `${stem}-${program.setup}.camlib-job.json`;
@@ -1268,6 +1276,7 @@ function setPlaying(on) {
   playing = on && Boolean(model?.segments.length);
   $("play").textContent = playing ? "Pause" : "Play";
   if (playing) {
+    count("play");
     if (time >= model.total) time = 0;
     lastFrame = performance.now();
     requestAnimationFrame(tick);
@@ -1389,6 +1398,7 @@ worker.onerror = (event) => {
 };
 
 async function openFile(file) {
+  count("open-step-file");
   run(file.name, await file.arrayBuffer());
 }
 
@@ -1508,6 +1518,7 @@ initCadLinks();
 for (const b of document.querySelectorAll("[data-sample]")) {
   b.addEventListener("click", async () => {
     const name = b.dataset.sample;
+    count(name === "plate.step" ? "sample-simple-plate" : "sample-complex-plate");
     try {
       const response = await fetch(name);
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
