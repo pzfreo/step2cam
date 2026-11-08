@@ -20,7 +20,7 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value) ->
     let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
     let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
     format!(
-        "finished stock against the part: no definite gouge. It cannot see an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting the web and anything a later setup cuts",
+        "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting the web and anything a later setup cuts",
         4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
     )
 }
@@ -38,13 +38,20 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }
         log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_ref(), &job.manifest)));
-        // What the check cannot see, as the note says it, for the page to word.
+        if let Some(proof) = &run.sweep_proof {
+            log.push(format!(
+                "note: setup {}: per-motion gouge proof: {} proven, {} unproven; {} possible gouge cells decided at {} mm tolerance{}",
+                job.setup, proof.proven_moves, proof.unproven_moves, proof.decided_cells, proof.tolerance_mm,
+                proof.unavailable.as_ref().map_or(String::new(), |reason| format!("; unavailable: {reason}")),
+            ));
+        }
+        // The cell comparison's resolution, for the page to word.
         let check = &job.manifest["verification"]["material"][0];
         let limits = json!({
             "height_mm": check["target"]["surface"]["surface_error_mm"], "sideways_mm": job.manifest["stock"]["cell_size_mm"],
             "before_threads": !check["after_operation"].is_null(),
         });
-        let material = run.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits}));
+        let material = run.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits, "sweep_proof": run.sweep_proof}));
         programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material}));
     }
     Ok(())
