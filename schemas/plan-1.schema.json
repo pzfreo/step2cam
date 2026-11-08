@@ -285,6 +285,99 @@
     "machine": {
      "type": "string",
      "description": "The machine it is cut on, once capp::finish has run."
+    },
+    "clamping": {
+     "type": "object",
+     "required": [
+      "faces",
+      "grip_height_mm",
+      "jaw_top_z",
+      "clearance_mm",
+      "jaws",
+      "parallels",
+      "because"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "faces": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "stock.x.min",
+         "stock.x.max",
+         "stock.y.min",
+         "stock.y.max"
+        ]
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "grip_height_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "jaw_top_z": {
+       "type": "number"
+      },
+      "clearance_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "jaws": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "id",
+         "min",
+         "max"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "min": {
+          "$ref": "#/$defs/box/properties/min"
+         },
+         "max": {
+          "$ref": "#/$defs/box/properties/max"
+         }
+        }
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "parallels": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "id",
+         "min",
+         "max"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "min": {
+          "$ref": "#/$defs/box/properties/min"
+         },
+         "max": {
+          "$ref": "#/$defs/box/properties/max"
+         }
+        }
+       }
+      }
+     }
     }
    },
    "additionalProperties": false
@@ -724,7 +817,7 @@
       },
       "bottom": {
        "type": "string",
-       "description": "specify-core's bottom: through, flat, drill_point …"
+       "description": "specify-core's bottom: through, flat, drill_point \u2026"
       },
       "centers": {
        "type": "array",
@@ -847,6 +940,15 @@
        },
        "additionalProperties": false,
        "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "countersinks": {
+       "type": "array",
+       "items": {
+        "type": [
+         "object",
+         "null"
+        ]
+       }
       }
      },
      "additionalProperties": false
@@ -1999,6 +2101,190 @@
       }
      },
      "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "spot_tool",
+      "diameter",
+      "angle",
+      "reach",
+      "features",
+      "spots"
+     ],
+     "properties": {
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "The id of the tool that cuts it, from capp::finish; null if none can."
+      },
+      "tool_note": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "description": "Why no tool cuts it, when tool is null; null when nothing needs saying."
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^d-[0-9]+$"
+       },
+       "description": "The decisions behind this operation."
+      },
+      "iso14649": {
+       "type": "object",
+       "required": [
+        "feature",
+        "operation",
+        "exact"
+       ],
+       "properties": {
+        "feature": {
+         "type": "string"
+        },
+        "operation": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "bottom_condition": {
+         "type": "string"
+        },
+        "exact": {
+         "type": "boolean"
+        },
+        "note": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false,
+       "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
+      },
+      "technology": {
+       "type": "object",
+       "required": [
+        "source"
+       ],
+       "properties": {
+        "feed_mm_min": {
+         "type": "number"
+        },
+        "spindle_rpm": {
+         "type": "number"
+        },
+        "plunge_mm_min": {
+         "type": "number"
+        },
+        "stepdown_mm": {
+         "type": "number"
+        },
+        "stepover_mm": {
+         "type": "number"
+        },
+        "source": {
+         "type": "string",
+         "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+        },
+        "capped": {
+         "const": true,
+         "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+        },
+        "peck_mm": {
+         "type": [
+          "number",
+          "null"
+         ],
+         "exclusiveMinimum": 0
+        },
+        "peck_mode": {
+         "enum": [
+          "full_retract",
+          "chip_break"
+         ]
+        }
+       },
+       "additionalProperties": false,
+       "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "kind": {
+       "const": "spot_drill"
+      },
+      "spot_tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "diameter": {
+       "type": "number"
+      },
+      "angle": {
+       "type": "number"
+      },
+      "reach": {
+       "type": "number"
+      },
+      "features": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "spots": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "type": "object",
+        "required": [
+         "center",
+         "top_z",
+         "diameter",
+         "depth",
+         "features",
+         "countersink"
+        ],
+        "properties": {
+         "center": {
+          "type": "array",
+          "items": {
+           "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+         },
+         "top_z": {
+          "type": "number"
+         },
+         "diameter": {
+          "type": "number"
+         },
+         "depth": {
+          "type": [
+           "number",
+           "null"
+          ]
+         },
+         "features": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "countersink": {
+          "type": "boolean"
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     },
+     "additionalProperties": false
     }
    ]
   },
@@ -2045,14 +2331,15 @@
       "covered",
       "skipped",
       "warning",
-      "removed"
+      "removed",
+      "given"
      ]
     },
     "says": {
      "type": "string"
     },
     "chosen": {
-     "description": "What was chosen: a setup or a tool id; null for none."
+     "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
     },
     "considered": {
      "type": "array",

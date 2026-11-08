@@ -14,6 +14,12 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+pub const WORKHOLDING: &str = include_str!("../rulebase/rules/workholding.json");
+pub fn workholding() -> &'static Value {
+    static CELL: OnceLock<Value> = OnceLock::new();
+    parsed(WORKHOLDING, "workholding.json", &CELL)
+}
+
 pub const TOOLS: &str = include_str!("../rulebase/rules/tools.json");
 pub const SEQUENCE: &str = include_str!("../rulebase/rules/sequence.json");
 pub const PROCESS: &str = include_str!("../rulebase/rules/process.json");
@@ -288,7 +294,7 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
         }
     }
     let prefer = &rule["prefer"];
-    let chosen = match prefer["largest"].as_str() {
+    let chosen = match prefer["largest"].as_str().or(prefer["smallest"].as_str()) {
         None => kept.first().copied(),
         Some(by) => {
             let key = |t: &Value| -> f64 { t[by.strip_prefix("tool.").unwrap_or(by)].as_f64().unwrap_or(0.) };
@@ -297,7 +303,7 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
             for t in kept {
                 let better = match best {
                     None => true,
-                    Some(b) => key(t) > key(b) || (last_wins && key(t) == key(b)),
+                    Some(b) => (if prefer["smallest"].is_string() { key(t) < key(b) } else { key(t) > key(b) }) || (last_wins && key(t) == key(b)),
                 };
                 if better {
                     best = Some(t);
@@ -315,7 +321,7 @@ pub fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>,
     let rule = tools_rule(selector)?;
     let (chosen, why) = select(selector, tools, inputs, params)?;
     let chosen_id = chosen.and_then(|t| t["id"].as_str()).unwrap_or("");
-    let prefer = if rule["prefer"]["largest"].is_string() { "the largest" } else { "the first in the library" };
+    let prefer = if rule["prefer"]["largest"].is_string() { "the largest" } else if rule["prefer"]["smallest"].is_string() { "the smallest" } else { "the first in the library" };
     let mut out = vec![];
     for tool in tools.iter().filter(|t| t["type"] == rule["tool_type"]) {
         let id = tool["id"].as_str().unwrap_or("");

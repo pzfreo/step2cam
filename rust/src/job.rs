@@ -33,7 +33,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     let (diameter, stickout) = (num(spec, "diameter")?, num(spec, "stickout")?);
     let gauge = stickout + num(spec, "holder_length")?;
     let radius = num(spec, "holder_diameter")? / 2.;
-    let drill = spec["type"] == "drill";
+    let drill = spec["type"] == "drill" || spec["type"] == "spot_drill";
     if spec["type"] == "thread_mill" {
         return Ok(json!({
             "id": name,
@@ -262,7 +262,7 @@ pub struct Job {
 
 /// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
 /// The operation kinds a plan holds, each of which `capp::resolve` gives a tool or a note.
-const KNOWN: [&str; 11] = ["facing", "roughing", "flats", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
+const KNOWN: [&str; 12] = ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
 
 /// The operation's tool, or else its note in the log and on to the next operation.
 macro_rules! tool_or_skip {
@@ -343,7 +343,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
                         });
                         cutting(&mut out, s, true)?;
-                        notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; it cuts the margin where vise jaws on the stock would be, so hold the stock from below or by the web", show(radial), show(num(op, "web_mm")?)));
+                        notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
                         out
                     }
                 }
@@ -362,6 +362,35 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     });
                     cutting(&mut out, s, true)?;
                     out
+                }
+                "spot_drill" => {
+                    let spec = tool_or_skip!(tool, notes);
+                    let cut = cutting_data(spec, op);
+                    // A plan group can contain different mouth heights and spot diameters.
+                    // camlib has one absolute tip Z per drilling operation.
+                    let mut depths: Vec<(f64, Vec<Value>)> = vec![];
+                    for spot in op["spots"].as_array().ok_or("spot operation has no spots")? {
+                        let z = num(spot, "top_z")? - num(spot, "depth")?;
+                        if let Some((_, centers)) = depths.iter_mut().find(|(depth, _)| *depth == z) {
+                            centers.push(spot["center"].clone());
+                        } else {
+                            depths.push((z, vec![spot["center"].clone()]));
+                        }
+                    }
+                    for (i, (z, centers)) in depths.into_iter().enumerate() {
+                        let mut out = json!({
+                            "kind":"drilling", "id":format!("{op_id}-{}", i + 1), "tool":id(spec),
+                            "centers_mm":centers, "depth_z_mm":z, "depth_reference":"tip",
+                            "peck_mm":null, "peck_mode":"full_retract", "dwell_s":0.2,
+                            "retract_z_mm":retract, "chip_break_lift_mm":1.0, "reentry_clearance_mm":0.5,
+                            "allow_breakthrough_mm":0., "clearance_z_mm":clearance,
+                            "retract_feed_mm_min":num(&cut, "feed_mm_min")?,
+                        });
+                        cutting(&mut out, &cut, false)?;
+                        operations.push(out);
+                    }
+                    if !used.iter().any(|t| id(t) == id(spec)) { used.push(spec); }
+                    continue;
                 }
                 "holes" => {
                     let d = num(op, "diameter")?;
@@ -612,6 +641,16 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             }
             None => json!([]),
         };
+        let scene = if let Some(clamping) = setup.get("clamping") {
+            let bodies = ["jaws", "parallels"].into_iter().flat_map(|key| clamping[key].as_array().into_iter().flatten()).map(|body| {
+                let (lo, hi) = (&body["min"], &body["max"]);
+                json!({"id": body["id"], "role": "fixture", "z_min_mm": lo[2], "z_max_mm": hi[2], "z_error_mm": 0.,
+                    "footprint": {"version": 1, "units": "mm", "name": body["id"], "boundary_error_mm": 0.,
+                        "components": [{"outer": {"vertices": [[lo[0], lo[1], 0.], [hi[0], lo[1], 0.], [hi[0], hi[1], 0.], [lo[0], hi[1], 0.]]}, "holes": []}]}})
+            }).collect::<Vec<_>>();
+            json!({"scene": {"version": 1, "units": "mm", "id": format!("{setup_id}-workholding"), "revision": "1",
+                "work_to_machine": camlib::motion::WorkFrame::identity(), "bodies": bodies, "machine": null}})
+        } else { Value::Null };
         let manifest = json!({
             "version": 1,
             "run": {"id": format!("step2cam-{setup_id}"), "revision": "1"},
@@ -621,7 +660,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "sweep": {"tolerance_mm": 1e-5, "chord_error_mm": 0.002, "max_tip_step_mm": 0.1, "max_segments": 100000,
                       "max_scratch_cells": u32::MAX, "max_changed_cells": u32::MAX, "max_cell_visits": 100000000},
             "operations": operations,
-            "verification": {"scene": null, "material": material, "stock_contact": {
+            "verification": {"scene": scene, "material": material, "stock_contact": {
                 "tolerance_mm": 1e-5, "spatial_resolution_mm": 0.001, "max_nodes": 200000, "max_cell_reads": 2000000, "max_findings": 128}},
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,

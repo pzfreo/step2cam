@@ -88,12 +88,15 @@ fn capped_roughing_runs_through_camlib_without_gouging() {
 }
 
 #[test]
-fn normal_library_does_not_change_fixture_floors_or_coverage() {
+fn without_jaw_data_normal_library_does_not_change_fixture_floors_or_coverage() {
     for name in ["plate", "mounting-plate", "synthetic/stepped-plate"] {
         let mut plan = capp::plan::plan(&read(&format!("tests/fixtures/{name}.analysis.json")),
             Some(&read(&format!("tests/fixtures/{name}.mesh.json"))), &Default::default()).unwrap();
         let before = plan.clone();
-        capp::finish(&mut plan, &read("demo/tools.json"), &[]).unwrap();
+        // Isolate the reach rule: clamping intentionally caps these floors when jaw data exists.
+        let mut library = read("demo/tools.json");
+        library["machines"][0].as_object_mut().unwrap().remove("workholding");
+        capp::finish(&mut plan, &library, &[]).unwrap();
         assert_eq!(plan["covered_by_roughing"], before["covered_by_roughing"]);
         assert!(!plan["decisions"].as_array().unwrap().iter().any(|d| d["rule"] == "process.roughing.reach@1"));
         for setup in plan["setups"].as_array().unwrap() {

@@ -72,6 +72,31 @@
     "material": {
      "type": "string",
      "description": "The material the part is cut from, in place of Specify's part.material."
+    },
+    "clamping": {
+     "type": "object",
+     "description": "Per-setup clamping proposals, checked against vise dimensions and grip rules. An omitted parallels_height_mm inherits the vise value; null disables modeled parallels.",
+     "additionalProperties": false,
+     "properties": {
+      "top": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "bottom": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "front": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "back": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "left": {
+       "$ref": "#/$defs/clamping_override"
+      },
+      "right": {
+       "$ref": "#/$defs/clamping_override"
+      }
+     }
     }
    },
    "additionalProperties": false
@@ -924,6 +949,223 @@
        ]
       }
      ]
+    },
+    {
+     "description": "A twist drill.",
+     "type": "object",
+     "required": [
+      "id",
+      "type",
+      "number",
+      "stickout",
+      "holder_length",
+      "holder_diameter",
+      "feed_mm_min",
+      "spindle_rpm",
+      "coolant"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "minLength": 1
+      },
+      "number": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "overall_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "stickout": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "holder_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "holder_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "feed_mm_min": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "spindle_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "coolant": {
+       "enum": [
+        "off",
+        "flood",
+        "mist"
+       ]
+      },
+      "shank_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length_register": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "retract_feed_mm_min": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "type": {
+       "const": "spot_drill"
+      },
+      "flute_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "point_angle": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "exclusiveMaximum": 180
+      },
+      "peck_mm": {
+       "type": "number",
+       "minimum": 0,
+       "description": "Maximum peck increment when the depth rule calls for pecking. Positive values cap the rule increment; 0 or absent means no cap. Shallow holes still use one plunge."
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "feed_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "plunge_mm_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepdown_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "stepover_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       },
+       "description": "Cutting data for a workpiece material's ISO 513 group, in place of the tool's own."
+      },
+      "DC": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for diameter; conflicting paired values are refused by the library reader."
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      },
+      "LCF": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for flute_length; conflicting paired values are refused by the library reader."
+      },
+      "SIG": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "exclusiveMaximum": 180,
+       "description": "ISO 13399 alias for point_angle; conflicting paired values are refused by the library reader."
+      }
+     },
+     "patternProperties": {
+      "^_": {}
+     },
+     "additionalProperties": false,
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "diameter"
+         ]
+        },
+        {
+         "required": [
+          "DC"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "flute_length"
+         ]
+        },
+        {
+         "required": [
+          "LCF"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "point_angle"
+         ]
+        },
+        {
+         "required": [
+          "SIG"
+         ]
+        }
+       ]
+      }
+     ]
     }
    ]
   },
@@ -1068,9 +1310,49 @@
        "max_diameter_mm": {
         "type": "number",
         "exclusiveMinimum": 0
+       },
+       "jaw_width_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "jaw_height_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "parallels_height_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
        }
       }
      }
+    }
+   }
+  },
+  "clamping_override": {
+   "type": "object",
+   "required": [
+    "axis",
+    "grip_height_mm"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "axis": {
+     "enum": [
+      "x",
+      "y"
+     ],
+     "description": "The setup-frame axis across which the jaws close; selects that stock axis min/max faces."
+    },
+    "grip_height_mm": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "parallels_height_mm": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "exclusiveMinimum": 0
     }
    }
   }

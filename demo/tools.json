@@ -5,7 +5,7 @@
    "id": "carvera",
    "name": "the Makera Carvera",
    "kind": "mill",
-   "_comment": "Makera Carvera, from its published specifications (makera.com, and resellers' copies of its spec sheet, read 2026-11-07): 360 x 240 x 140 mm of travel, a 200 W spindle to 15,000 rpm, a 1/8\" collet as standard (1/4\", 6, 4 and 3 mm optional), an automatic tool changer holding 6 tools. With the 1/4\" collet fitted it holds shanks up to 6.35 mm. step2cam writes no G-code: the saved camlib job is posted by camlib's own posts, for the Carvera's controller. The tools and cutting data in this file are placeholders, not Makera's.",
+   "_comment": "Makera Carvera, from its published specifications (makera.com, and resellers' copies of its spec sheet, read 2026-11-07): 360 x 240 x 140 mm of travel, a 200 W spindle to 15,000 rpm, a 1/8\" collet as standard (1/4\", 6, 4 and 3 mm optional), an automatic tool changer holding 6 tools. With the 1/4\" collet fitted it holds shanks up to 6.35 mm. step2cam writes no G-code: the saved camlib job is posted by camlib's own posts, for the Carvera's controller. The tools and cutting data in this file are placeholders, not Makera's. Placeholder vise: rectangular jaws, thickness conservatively equal to height; not validated workholding.",
    "axes": {
     "linear": [
      "x",
@@ -30,6 +30,14 @@
    },
    "coolant": [
     "air"
+   ],
+   "workholding": [
+    {
+     "kind": "vise",
+     "max_jaw_opening_mm": 150,
+     "jaw_width_mm": 100,
+     "jaw_height_mm": 20
+    }
    ]
   }
  ],
@@ -540,6 +548,23 @@
    "spindle_rpm": 8000,
    "coolant": "flood",
    "stepdown_mm": 0.5
+  },
+  {
+   "id": "spot8",
+   "type": "spot_drill",
+   "number": 31,
+   "diameter": 8,
+   "flute_length": 10,
+   "overall_length": 60,
+   "point_angle": 120,
+   "stickout": 25,
+   "holder_length": 30,
+   "holder_diameter": 25,
+   "feed_mm_min": 120,
+   "spindle_rpm": 3000,
+   "coolant": "flood",
+   "shank_diameter": 6,
+   "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation. Reduced 6 mm shank on the 8 mm spot drill fits the demo Carvera collet."
   }
  ]
 }

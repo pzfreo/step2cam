@@ -5,7 +5,7 @@
    "id": "benchmark-vmc",
    "name": "the placeholder benchmark vertical machining centre",
    "kind": "mill",
-   "_comment": "Placeholder generic 3-axis vertical machining centre sized for MachinePlan-10K's 200-500 mm steel blocks. Generous travel and a 600 mm vise opening avoid rejecting these dataset blocks because of machine size or vise opening, so the benchmark measures planning rules. The 25 mm shank capacity admits every tool in this library. Machine, workholding and cutting data are placeholders, not a validated machine or fixture.",
+   "_comment": "Placeholder generic 3-axis vertical machining centre sized for MachinePlan-10K's 200-500 mm steel blocks. Generous travel and a 600 mm vise opening avoid rejecting these dataset blocks because of machine size or vise opening, so the benchmark measures planning rules. The 25 mm shank capacity admits every tool in this library. Machine, workholding and cutting data are placeholders, not a validated machine or fixture. Placeholder vise: rectangular jaws, thickness conservatively equal to height; not validated workholding.",
    "axes": {
     "linear": [
      "x",
@@ -32,7 +32,9 @@
    "workholding": [
     {
      "kind": "vise",
-     "max_jaw_opening_mm": 600
+     "max_jaw_opening_mm": 600,
+     "jaw_width_mm": 600,
+     "jaw_height_mm": 150
     }
    ]
   }
@@ -544,6 +546,40 @@
    "spindle_rpm": 8000,
    "coolant": "flood",
    "stepdown_mm": 0.5
+  },
+  {
+   "id": "spot8",
+   "type": "spot_drill",
+   "number": 31,
+   "diameter": 8,
+   "flute_length": 10,
+   "overall_length": 60,
+   "point_angle": 120,
+   "stickout": 25,
+   "holder_length": 30,
+   "holder_diameter": 25,
+   "feed_mm_min": 120,
+   "spindle_rpm": 3000,
+   "coolant": "flood",
+   "shank_diameter": 6,
+   "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation. Reduced 6 mm shank on the 8 mm spot drill fits the demo Carvera collet."
+  },
+  {
+   "id": "spot20",
+   "type": "spot_drill",
+   "number": 32,
+   "diameter": 20,
+   "flute_length": 10,
+   "overall_length": 60,
+   "point_angle": 120,
+   "stickout": 25,
+   "holder_length": 30,
+   "holder_diameter": 25,
+   "feed_mm_min": 120,
+   "spindle_rpm": 3000,
+   "coolant": "flood",
+   "shank_diameter": 20,
+   "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation."
   }
  ]
 }

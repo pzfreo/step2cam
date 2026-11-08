@@ -57,6 +57,67 @@ finished down to the cap, with a needed-tool warning for the allowance left belo
 unreachable wall bands are removed, and dependent edge chamfers follow the missing-wall
 handling. No second roughing setup is added.
 
+A vise with explicit `max_jaw_opening_mm`, `jaw_width_mm` and `jaw_height_mm` also
+records `setups[].clamping`: the stock faces gripped, grip height, jaw top Z, clearance,
+and named jaw/support boxes in the setup frame. The `machine.clamping` rule and
+`rules/workholding.json` choose the long stock sides across the narrower XY dimension
+(X on a tie), gripping at least 3.175 mm or 20% of stock height, up to 50%. These values
+are step2cam judgement: no applicable public source for a minimum grip of standard vise
+jaws was found. They are not a holding-force calculation. Stock and the faced part top
+must stand above the jaws. Missing jaw data means no inferred dimensions or fixture scene,
+and the trace says so.
+
+Side cuts stop at least 1 mm above the jaw top, or higher if tool reach requires it.
+Roughing, flats and wall bands reuse the reach cap; open pockets at gripped stock edges
+retain their upper cut without breakthrough. Outside chamfers are left out if the selected
+cutter's tip would descend below the cap; their width is not silently changed. Closed
+interior features retain their depth.
+Features and wall allowance below the cap are reported as remainders requiring another
+setup, without suggesting a longer tool would solve the clamping obstruction.
+Each jaw is passed to camlib as a fixture prism, checked against the whole tool assembly.
+Jaw thickness is conservatively modeled equal to jaw height. Without `parallels_height_mm`,
+the stock must be raised on parallels or similar so the jaws grip only the chosen height.
+That support is not modeled or checked, so through cuts are not checked against it.
+If `parallels_height_mm` is supplied, stock seats on two modeled edge bars; grip becomes
+jaw height minus parallel height and must satisfy the same limits. Bar envelopes use the rule's minimum grip as
+width (or one third of the opening for narrow stock) and span the stock length. Their
+prisms are included in verification so through cuts cannot silently enter them.
+
+A rejected grip names the failed limit: minimum grip, jaw height, maximum grip as a
+fraction of stock height, or the part top plus side-cut clearance. When parallels set a
+grip above the maximum, the trace gives that maximum in mm and calls for taller parallels;
+a grip below the minimum calls for shorter parallels.
+
+Clamping proposals use the existing resources override path. For example, with 20 mm jaws:
+
+```json
+{"overrides":{"clamping":{"top":{"axis":"x","grip_height_mm":3.5,"parallels_height_mm":16.5}}}}
+```
+
+`axis` selects the setup stock's X or Y min/max face pair, and `grip_height_mm` is required.
+If `parallels_height_mm` is omitted it inherits the vise value; explicit null disables modeled
+parallels. A specified/inherited height must agree with the given grip and jaw height.
+Proposals pass the same opening, grip and part-clearance checks as chosen clamping and are
+traced with outcome `given`. Invalid proposals are refused, never replaced by a chosen grip;
+unknown/absent setup IDs are errors. A proposal needs complete vise dimensions.
+
+Later jobs still start from fresh stock (camlib#121), but their grip bands are audited now.
+After caps, exclusions and tool resolution, each later setup's two stock-face contact bands
+(from stock bottom to jaw top, limited along the jaw width) are transformed through its
+rotation and `origin_model` into each earlier setup's frame. The audit compares them with
+conservative cutting envelopes of retained, tooled earlier operations, using their depths
+and hole/slot/pocket bounds where available. It warns of possible removed grip material and
+records the overlapping operations/faces in `chosen.prior_setups` of the given/chosen
+clamping decision, with the audit decision also linked from `clamping.because`.
+Roughing and contour envelopes include preserved part material; grouped-hole boxes include
+the space between holes. Missing frames or unsupported geometry are reported as unchecked.
+This is a conservative warning, not a stock simulation, proof of retained contact area, or
+holding-strength calculation. No operations are removed by this audit. Execution retries
+recompute it after refusals, so excluded earlier operations do not count as cuts.
+
+The automatic flip-onto-parallels and face-to-thickness pattern remains deferred pending
+camlib#121's ability to start a later job from the earlier job's stock.
+
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
@@ -216,7 +277,8 @@ Done:
 7. (part) The material, its ISO 513 group, and cutting data by group.
 8. (part) Machines: the 3-axis mill. The resources' `machines` list what each machine can do; the
    plan is cut on the first mill. Its travels refuse a setup whose stock will not fit, its vise
-   flags stock too wide to hold, its spindle caps the speed (feeds scaled) and leaves out tools
+   rejects stock too wide to hold when jaw dimensions are supplied (otherwise retaining the
+   opening warning), its spindle caps the speed (feeds scaled) and leaves out tools
    it cannot hold, and its tool changer flags a setup needing more tools than it has pockets.
    Each is a traced decision (stage `machine`). The demo's machine is the Makera Carvera, from its
    published specifications.
@@ -304,3 +366,31 @@ the analysis and answers currently have no way to request it.
 Matching upright concave corner fillets can recover straight-wall records' missing ends and
 radius. A corner pair implies an open opposite end only when the mesh clears the full run-out;
 otherwise the previously validated interior cut is retained for that partial record.
+
+### Spot drilling
+
+`finish` inserts `spot_drill` groups after first settlement, before replaying any
+execution exclusions. Selection uses the same twist-drill selector as hole resolution.
+Each spot retains its centre, mouth Z, diameter, tip depth and feature ids; the adapter
+splits a group into drilling cycles by absolute tip Z, without changing tool. Pruning
+runs after each replayed exclusion, so later indices match the plan the engine saw;
+no refused spot is recreated.
+
+The public [Harvey guide](https://www.harveyperformance.com/in-the-loupe/choosing-spot-drill/)
+and [MSC application guide](https://www.mscdirect.com/resources/buying-guides/drills-countersinks)
+were read on 2026-11-08. Both advise a spot point angle equal to or greater than the
+following drill's, so the drill starts at its centre. Harvey also describes using the
+spot to chamfer a hole, and plunging a larger spot tool only to the required diameter.
+These support `process.spot_drill` and `tool.spot_drill` in the rulebase.
+
+We require full diameter coverage rather than falling back to an undersized spot.
+Depth is `(diameter / 2) / tan(point_angle / 2)`, measured to the tip. A countersink
+is finished only with full diameter coverage and angle agreement within 1 degree;
+otherwise it keeps its hand-finishing skip. The adapter uses no peck and a 0.2-second
+dwell for a clean spot/chamfer. `process.json` classifies feature families rather than
+operation kinds, so spot drilling needs no new feature-family case there.
+
+For an enlarged countersink (larger than the following drill), the reviewer-approved
+spot-and-chamfer rule uses the countersink angle alone, matched within 1 degree. The
+selector receives a zero minimum angle for this query. Ordinary spots still require
+a point angle at least as large as the following twist drill's.

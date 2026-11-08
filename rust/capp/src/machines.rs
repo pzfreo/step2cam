@@ -34,8 +34,8 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     };
     let id = mill["id"].as_str().unwrap_or("mill").to_string();
     let travel = &mill["axes"]["travel_mm"];
-    let jaws = mill["workholding"].as_array().into_iter().flatten().find(|w| w["kind"] == "vise").and_then(|w| w["max_jaw_opening_mm"].as_f64());
-    let mut lost: Vec<(String, String)> = vec![];
+    let vise = mill["workholding"].as_array().into_iter().flatten().find(|w| w["kind"] == "vise");
+    let mut lost: Vec<(&str, String, String)> = vec![];
     let mut lost_roughing = None;
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
@@ -48,39 +48,34 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             .iter()
             .filter_map(|(axis, d)| limit(axis).filter(|t| d > t).map(|t| format!("{} mm in {axis} against {} mm of travel", show(r(*d)), show(t))))
             .collect();
-        if !over.is_empty() {
+        let clamping_failure = if over.is_empty() { crate::workholding::clamp(setup, vise, resources["overrides"]["clamping"].get(&setup_id), trace) } else { None };
+        if !over.is_empty() || clamping_failure.is_some() {
             let turned = limit("x").zip(limit("y")).is_some_and(|(tx, ty)| dy <= tx && dx <= ty && dz <= limit("z").unwrap_or(f64::INFINITY));
             let hint = if turned { "; turned 90° it would fit, which this plan does not do" } else { "" };
-            let says = format!("the {setup_id} setup's stock does not fit {}: {}{hint}", name(mill), over.join(", "));
-            trace.warn("machine.travel", &setup_id, format!("setup {setup_id} is not cut: {says}"), json!({}));
+            let rule = if clamping_failure.is_some() { "machine.clamping" } else { "machine.travel" };
+            let says = clamping_failure.unwrap_or_else(|| format!("the {setup_id} setup's stock does not fit {}: {}{hint}", name(mill), over.join(", ")));
+            trace.warn(rule, &setup_id, format!("setup {setup_id} is not cut: {says}"), json!({}));
             for op in setup["operations"].as_array().into_iter().flatten() {
                 if op["kind"] == "roughing" {
-                    lost_roughing = Some(says.clone());
+                    lost_roughing = Some((rule, says.clone()));
                 }
                 for f in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
-                    lost.push((f.to_string(), says.clone()));
+                    lost.push((rule, f.to_string(), says.clone()));
                 }
             }
             setup["operations"] = json!([]);
-            continue;
-        }
-        if let Some(jaws) = jaws {
-            let across = dx.min(dy);
-            if across > jaws {
-                trace.warn("machine.workholding", &setup_id, format!("setup {setup_id}: the stock is {} mm across at its narrowest, wider than the vise opens ({} mm): hold it another way", show(r(across)), show(jaws)), json!({}));
-            }
         }
     }
-    for (feature, says) in lost {
-        trace.skip("machine.travel", &feature, format!("not cut: {says}"));
+    for (rule, feature, says) in lost {
+        trace.skip(rule, &feature, format!("not cut: {says}"));
     }
     // Nothing is covered by roughing that does not run. Wait until every setup is checked,
     // so a roughing operation retained in another setup still counts.
     let roughs = plan["setups"].as_array().into_iter().flatten().any(|s| s["operations"].as_array().into_iter().flatten().any(|o| o["kind"] == "roughing"));
-    if let Some(says) = lost_roughing.filter(|_| !roughs) {
+    if let Some((rule, says)) = lost_roughing.filter(|_| !roughs) {
         let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
         for id in covered.iter().filter_map(Value::as_str) {
-            let not_cut = trace.skip("machine.travel", id, format!("not cut: {says}"));
+            let not_cut = trace.skip(rule, id, format!("not cut: {says}"));
             trace.supersede(id, "covered", &not_cut);
         }
     }

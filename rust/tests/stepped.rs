@@ -25,7 +25,7 @@ fn it_is_roughed_drilled_and_slotted_from_the_top() {
     assert!(out["error"].is_null(), "{}", out["error"]);
     let top = operations(&out, "top");
     let kinds: Vec<&str> = top.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "spot_drill", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "v_channel", "wall_finish", "wall_finish"], "{}", out["plan"]["warnings"]);
     assert_eq!(kinds.iter().filter(|k| **k == "holes").count(), 3, "{kinds:?} {}", out["plan"]["warnings"]);
     // The round-ended slot gets its own cut, which ends at the plate's bottom.
     let slots: Vec<&&Value> = top.iter().filter(|o| o["kind"] == "slot").collect();
@@ -61,7 +61,8 @@ fn the_plate_and_the_boss_are_finished_at_their_own_heights() {
     assert_eq!(flats.len(), 1);
     assert_eq!(flats[0]["levels"], serde_json::json!([-7.0]));
     let walls: Vec<f64> = top.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["floor_z"].as_f64().unwrap()).collect();
-    assert_eq!(walls, [-18.5, -7.0]);
+    // The lower wall stops 1 mm above the jaws (stock bottom -19 + 20% grip).
+    assert_eq!(walls, [-14.2, -7.0]);
     let ids: Vec<&str> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap()).collect();
     assert!(ids.iter().filter(|i| i.ends_with("wall_finish")).count() == 2 && ids.iter().any(|i| i.ends_with("flats")), "{ids:?} {}", out["log"]);
     // A top edge that stays only rounded is still said so.
@@ -75,7 +76,7 @@ fn a_chamfered_plate_with_a_boss_is_roughed() {
     let out = process_part("stepped-plate-chamfered");
     assert!(out["error"].is_null(), "{}", out["error"]);
     let kinds: Vec<&str> = operations(&out, "top").iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "flats", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish", "edge_chamfer"], "{}", out["plan"]["warnings"]);
+    assert_eq!(kinds, ["facing", "roughing", "flats", "spot_drill", "holes", "holes", "holes", "slot", "notch", "notch", "notch", "wall_finish", "wall_finish", "edge_chamfer"], "{}", out["plan"]["warnings"]);
     let edges = operations(&out, "top").into_iter().find(|o| o["kind"] == "edge_chamfer").expect("the modelled 1 mm top chamfer");
     assert!(edges["tool"].is_null(), "cm6's 4 mm flutes cannot satisfy camlib's stock-top reach check");
     assert!(edges["tool_note"].as_str().unwrap().contains("flutes of at least 8.51 mm"));

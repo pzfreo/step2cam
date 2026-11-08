@@ -97,8 +97,8 @@ compatibility. Invalid input reports are command errors.
 
 The benchmark owns `tools/benchmark/tools.json` so the demo's Carvera travel and shank limits
 do not dominate results for MachinePlan-10K's 200–500 mm steel blocks. Its tools, cutting data,
-clearances and all other non-machine settings are copied from `demo/tools.json` and remain
-placeholders. Its single machine is a placeholder generic 3-axis vertical machining centre:
+clearances and other non-machine settings start from `demo/tools.json` and remain placeholders.
+It also has a 20 mm, 120° spot drill for the larger drills that this machine can hold. Its single machine is a placeholder generic 3-axis vertical machining centre:
 1000 × 600 × 600 mm travel, 12,000 rpm, 25 mm shank capacity, 24 automatic tool pockets and
 flood coolant. A placeholder vise opens to 600 mm to avoid excluding these blocks by size.
 The spindle cap can scale feeds for tools whose copied cutting data exceed 12,000 rpm.

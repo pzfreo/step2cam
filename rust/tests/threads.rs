@@ -203,7 +203,9 @@ fn a_thread_in_a_hole_that_is_not_cut_is_not_threaded() {
     assert!(any_note(&notes, "is not cut, so it is not threaded"), "{notes:?}");
     let (ops, notes) = a_thread_in_a_small_hole(&with_a_small_drill());
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["drilling"]);
+    assert_eq!(kinds, ["drilling", "drilling"]); // spot, then the tap drill
+    assert_eq!(ops[0]["tool"], "spot8");
+    assert_eq!(ops[1]["tool"], "drill2.5");
     assert!(any_note(&notes, "no thread mill can cut it (tm3: "), "{notes:?}");
 }
 

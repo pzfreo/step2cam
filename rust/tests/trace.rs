@@ -49,7 +49,7 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
         assert!(rule["sources"].as_array().is_some_and(|s| !s.is_empty()), "{rule}");
         for data in rule["data"].as_array().into_iter().flatten().filter_map(Value::as_str) {
             let (file, selector) = data.split_once('#').unwrap_or((data, ""));
-            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json"].contains(&file), "{}: {data}", rule["id"]);
+            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json", "rules/workholding.json"].contains(&file), "{}: {data}", rule["id"]);
             if !selector.is_empty() {
                 assert!(selectors["selectors"].as_array().unwrap().iter().any(|s| s["id"] == selector), "{}: no selector {selector}", rule["id"]);
             }
@@ -191,12 +191,20 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
     let out = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
         &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("demo/tools.json")).unwrap();
     let plan = &out["plan"];
-    let warnings: Vec<_> = plan["decisions"].as_array().unwrap().iter()
+    let active: Vec<_> = plan["decisions"].as_array().unwrap().iter()
         .filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).collect();
+    let inventory = rules();
+    // Every warning, including the vise-clamping ones, has a label for the page's headline.
+    for d in &active {
+        let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
+        assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())), "{d}");
+    }
+    // The deep-hole and corner-radius warnings belong to one operation each.
+    let warnings: Vec<_> = active.into_iter()
+        .filter(|d| d["rule"] == "process.hole.peck_by_depth@2" || d["rule"] == "process.notch.corner_radius@1").collect();
     assert_eq!(warnings.len(), 4);
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
-    let inventory = rules();
-    for (d, n) in warnings.iter().zip([3, 7, 8, 9]) {
+    for (d, n) in warnings.iter().zip([4, 8, 9, 10]) {
         assert_eq!(d["features"], ops[n]["features"]);
         assert!(!d["features"].as_array().unwrap().is_empty());
         assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
@@ -205,11 +213,11 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
         let says = d["says"].as_str().unwrap();
         assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
-        if n == 3 {
+        if n == 4 {
             assert!(says.contains("depth/D 6.1"), "{says}");
             assert!((d["depth_diameter_ratio"].as_f64().unwrap() - 20. / 3.3).abs() < 1e-10);
         } else {
-            let radius = if n == 7 { "1.5" } else { "3" };
+            let radius = if n == 8 { "1.5" } else { "3" };
             assert!(says.contains(&format!("left r{radius} by")), "{says}");
             assert!(!says.contains("r3.0"), "{says}");
         }

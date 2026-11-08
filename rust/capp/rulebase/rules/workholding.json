@@ -1,0 +1,6 @@
+{
+ "min_grip_mm": 3.175,
+ "min_grip_fraction": 0.2,
+ "max_grip_fraction": 0.5,
+ "clearance_mm": 1.0
+}

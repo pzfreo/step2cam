@@ -413,7 +413,7 @@ struct Hole {
     bottom: String,
     exit_clear: Option<Option<f64>>,
     enlargements: Vec<(f64, f64, f64)>,
-    csink: bool,
+    csink: Value,
     thread: Option<Value>,
 }
 
@@ -598,7 +598,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         bottom: bottom_kind.clone(),
         exit_clear: None,
         enlargements,
-        csink: false,
+        csink: Value::Null,
         thread: None,
     };
     let mut warnings = vec![];
@@ -637,7 +637,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
             hole.thread = Some(json!({"spec": thread.spec, "major": r(thread.major), "pitch": thread.pitch, "top_z": r(top), "bottom_z": r(end)}));
         }
     }
-    hole.csink = truthy(record.get("csink")) && !chosen.reversed;
+    hole.csink = if !chosen.reversed && truthy(record.get("csink")) { record["csink"].clone() } else { Value::Null };
     Ok(Ok((name, hole, warnings, blocked)))
 }
 
@@ -678,6 +678,9 @@ fn hole_operations(holes: &[Hole]) -> Vec<Value> {
                 "centers": g.members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
                 "features": g.members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
             });
+            if g.members.iter().any(|h| !h.csink.is_null()) {
+                op["countersinks"] = json!(g.members.iter().map(|h| h.csink.clone()).collect::<Vec<_>>());
+            }
             if h.bottom == "through" {
                 op["exit_clear_mm"] = json!(h.exit_clear.flatten());
             }
@@ -1999,7 +2002,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         // just before, since a thread goes beyond the bore the part's mesh shows.
         ops.extend(thread_operations(holes));
         for h in holes {
-            if h.csink {
+            if !h.csink.is_null() {
                 trace.skip("process.countersink.not_cut", &h.feature, "countersink: not planned (chamfer it by hand)".into());
             }
         }
@@ -2014,7 +2017,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         // the decision that put them in this setup.
         let stock = json!({"min": rp(frame.stock.0), "max": rp(frame.stock.1)});
         let in_setup = trace.decide("setup.stock.part_box_with_margins", name, "chosen", &format!("the {name} setup, zeroed on the {}", frame.zeroed_on), json!({"zero": frame.zeroed_on, "stock": stock}));
-        let order = trace.decide("sequence.fixed_order", name, "chosen", "facing, roughing, flats, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, threads last", Value::Null);
+        let order = trace.decide("sequence.fixed_order", name, "chosen", "facing, roughing, flats, spot drills, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, threads last", Value::Null);
         for op in &mut ops {
             let kind = op["kind"].as_str().unwrap_or("").to_string();
             let features: Vec<String> = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect();
@@ -2023,6 +2026,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 "roughing" => "process.roughing",
                 "flats" => "process.flats",
                 "holes" => "process.holes",
+                "spot_drill" => "process.spot_drill",
                 "counterbore" => "process.counterbore",
                 "thread" => "process.thread",
                 "slot" => "process.slot",
