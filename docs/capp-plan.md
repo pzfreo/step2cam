@@ -270,6 +270,27 @@ as the peck decision. It is a planning warning threshold, not a universal drill 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
 coolant settings cannot faithfully describe their single-lip geometry and coolant needs.
 
+### Chamfers
+
+Modelled equal-leg 45° top chamfers use `edge_chamfer`, with `width` as the leg and
+no `radius`. A whole outside loop needs its wall finished; hole and slot mouths
+need their bore or slot at size. Interrupted convex perimeters may bridge removed
+notches only when the mesh lies inside the bevel. Other edges stay out with a reason.
+The largest 90° chamfer mill that covers the full leg plus 0.5 mm tip clearance
+and fits the loop is selected. Camlib lowers that cone in width steps of at most
+1 mm; these passes split the load but cannot extend its conical cutting edge.
+Deburr breaks finished edges and also requires the width to fit its cone.
+Camlib measures chamfer flute reach from the job's stock top, including air above
+a lower flat. Such a chamfer can therefore need longer flutes than its local leg.
+Geometry refusals explain the cause and leave the edge for hand chamfering. They
+do not request tools: a larger cone cannot resolve an unsupported loop. Missing-tool
+queries apply to planned operations whose geometry can be cut.
+
+Mouth chamfers record their required hole/slot features in `needs_openings`. After
+tool resolution, an absent or tool-less opening blocks its chamfer and supplies the
+reason. A combined round-as-chamfer operation is conservatively blocked as a whole
+if any required opening cannot be cut.
+
 ### Spot drilling
 
 `finish` inserts `spot_drill` groups after first settlement, before replaying any

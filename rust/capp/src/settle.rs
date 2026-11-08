@@ -282,10 +282,15 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
             if op["kind"] != "edge_chamfer" || op["needs_wall"].is_null() || walls.contains(&op["needs_wall"]) {
                 return true;
             }
-            let radius = op["radius"].as_f64().unwrap_or(0.);
             let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
             for id in lost.iter().filter_map(Value::as_str) {
-                trace.skip("feasibility.chamfer.needs_wall", id, format!("r{} edge round: its wall keeps its roughing allowance, so it is not chamfered", show(radius)));
+                let edge = op["radius"].as_f64().map_or("edge chamfer".into(), |radius| format!("r{} edge round", show(radius)));
+                let reason = if op["radius"].is_number() {
+                    format!("{edge}: its wall keeps its roughing allowance, so it is not chamfered")
+                } else {
+                    format!("{edge}: its wall keeps its roughing allowance, so the edge stays sharp (chamfer it by hand); leg {} mm", show(op["width"].as_f64().unwrap_or(0.)))
+                };
+                trace.skip("feasibility.chamfer.needs_wall", id, reason);
             }
             if op["boundaries"] != "all" {
                 return false;
@@ -402,9 +407,12 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     None => (library.clearing("roughing")?.ok_or(None), "tool.wall.roughing_mill"),
                 },
                 "edge_chamfer" => {
-                    let (width, radius) = (num(op, "width")?, num(op, "radius")?);
-                    considered = library.considered("chamfer_mill", &[("width", width)]);
-                    (library.chamfer_mill(width).ok_or_else(|| Some(format!("no 90° chamfer mill wide enough for the r{} edges, so they stay sharp", show(radius)))), "tool.edge_chamfer.chamfer_mill")
+                    let width = num(op, "width")?;
+                    let maximum = op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY);
+                    let room = op["room"].as_f64().unwrap_or(f64::INFINITY);
+                    let depth = top - num(op, "top_z")? + width + crate::resources::TIP_CLEARANCE;
+                    considered = library.considered("chamfer_mill", &[("width", width), ("maximum_diameter", maximum), ("depth", depth), ("room", room)]);
+                    (library.chamfer_mill_in(width, maximum, depth, room).ok_or_else(|| Some(format!("no 90° chamfer mill covers the whole {} mm chamfer with tip clearance, loop clearance and cutting-length reach; width passes cannot extend its cone", show(width)))), "tool.edge_chamfer.chamfer_mill")
                 }
                 _ => continue,
             };
@@ -468,8 +476,45 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             op["tool_note"] = note;
             because(op, why);
         }
+        block_chamfers_without_openings(setup, trace);
     }
     Ok(())
+}
+
+/// Resolve every opening first, then gate its mouth chamfer on the actual result.
+/// Feature ids survive operation grouping, renumbering and execution exclusions.
+/// A combined round-as-chamfer operation is conservatively blocked as a whole.
+fn block_chamfers_without_openings(setup: &mut Value, trace: &mut Trace) {
+    let view = setup["operations"].as_array().cloned().unwrap_or_default();
+    let subject = format!("{}:edge_chamfer", setup["id"].as_str().unwrap_or(""));
+    for op in setup["operations"].as_array_mut().into_iter().flatten().filter(|o| o["kind"] == "edge_chamfer") {
+        let blocked = op["needs_openings"].as_array().into_iter().flatten().find_map(|feature| {
+            let opening = view.iter().find(|o| matches!(o["kind"].as_str(), Some("holes" | "slot"))
+                && o["features"].as_array().is_some_and(|f| f.contains(feature)));
+            if opening.is_some_and(|o| o["tool"].is_string()) { return None; }
+            let why = opening.and_then(|o| o["tool_note"].as_str())
+                .or_else(|| trace.skipped.iter().find(|s| s["feature"] == *feature).and_then(|s| s["reason"].as_str()))
+                .unwrap_or("its hole or slot operation was left out");
+            Some((feature.clone(), why.to_owned()))
+        });
+        let Some((feature, why)) = blocked else { continue; };
+        let reason = format!("mouth chamfer: required opening {} is not cut, so the edge stays sharp (chamfer it by hand)", feature.as_str().unwrap_or(""));
+        let note = match op["tool_note"].as_str().filter(|_| op["tool"].is_null()) {
+            Some(own) => format!("{reason}: {}; {own}", why.split(": needs ").next().unwrap_or(&why)),
+            None => format!("{reason}: {why}"),
+        };
+        let decided = trace.decide("feasibility.chamfer.needs_opening", &subject, "none", &note, json!({"chosen": null, "features": [feature]}));
+        for decision in &mut trace.decisions {
+            if decision["rule"].as_str().is_some_and(|r| r.starts_with("tool.edge_chamfer.chamfer_mill@"))
+                && op["because"].as_array().is_some_and(|ids| ids.contains(&decision["id"])) {
+                decision["superseded_by"] = json!(decided);
+            }
+        }
+        op["tool"] = Value::Null;
+        op["tool_note"] = json!(note);
+        if let Some(object) = op.as_object_mut() { object.remove("technology"); }
+        because(op, [decided]);
+    }
 }
 
 /// The cutting data a tool's operations use: its own, with what it states for the material's ISO

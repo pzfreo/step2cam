@@ -49,11 +49,11 @@ CAPP maps families instead of matching words.
 
 ## S3. A mesh as fine as asked
 
-Not filed yet.
+Filed as specify-core#162, with the missing `dimensioning` for parts with no planar face.
 
 **Missing.** `specify-core mesh` (and its WASM equivalent) has no tolerance option: the mesh comes
 at specify-core's own chordal error. On NIST's CTC 01 test part, the r50 cylinders' mesh is
-0.14 mm from the true surface.
+0.14 mm from the true surface, and on a block with a spherical dome (R60) 0.13 mm.
 
 **Used by.** Roughing and the material check, which hand camlib the mesh as the part's surface
 with its `surface_error_mm` (`rust/capp/src/plan.rs`, `rust/src/job.rs`). camlib refuses a surface

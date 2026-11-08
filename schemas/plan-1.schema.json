@@ -1814,13 +1814,12 @@
      "additionalProperties": false
     },
     {
-     "description": "Edge rounds on the top face, cut as a chamfer.",
+     "description": "Modelled equal-leg 45° top chamfers, or top edge rounds cut as a chamfer. radius is present only for rounds.",
      "type": "object",
      "required": [
       "kind",
       "needs_wall",
       "wall_features",
-      "radius",
       "width",
       "top_z",
       "outer",
@@ -1971,6 +1970,29 @@
        },
        "additionalProperties": false,
        "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "maximum_diameter": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "minimum": 0,
+       "description": "Conservative loop clearance for tool selection; null means no neighboring material limits the diameter."
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "minimum": 0,
+       "description": "Clear distance outside the loop; null when no neighboring material limits it."
+      },
+      "needs_openings": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "Hole or slot feature ids whose operations must be present and tooled before this chamfer can run."
       }
      },
      "additionalProperties": false
