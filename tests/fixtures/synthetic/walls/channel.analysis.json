@@ -1,1 +1,1018 @@
-{"schema":1,"binding":{"source_sha256":"98db52f5a00e268af07af60f8bcc11e7096d0f7727b5078d8b3c7530eeb1693f","face_count":14,"loader_version":2,"part":0},"faces":[{"id":0,"kind":"plane","area":1312.0000000000002,"centroid":[-60,0,12.536585],"direction":[-1,0,0]},{"id":1,"kind":"plane","area":960.0000000000001,"centroid":[0,-32,4],"direction":[0,-1,0]},{"id":2,"kind":"plane","area":7680.000000000003,"centroid":[0,0,0],"direction":[0,0,-1]},{"id":3,"kind":"plane","area":960.0000000000001,"centroid":[0,32,4],"direction":[0,1,0]},{"id":4,"kind":"plane","area":1476,"centroid":[0,0,8],"direction":[0,0,1]},{"id":5,"kind":"plane","area":702.0000000000003,"centroid":[0,29.075,8],"direction":[0,0,1]},{"id":6,"kind":"plane","area":2400.0000000000005,"centroid":[0,-6.15,18],"direction":[0,1,0]},{"id":7,"kind":"plane","area":2400.0000000000005,"centroid":[0,-16.15,28],"direction":[0,0,1]},{"id":8,"kind":"plane","area":2400.0000000000005,"centroid":[0,-26.15,18],"direction":[0,-1,0]},{"id":9,"kind":"plane","area":702.0000000000003,"centroid":[0,-29.075,8],"direction":[0,0,1]},{"id":10,"kind":"plane","area":1312.0000000000002,"centroid":[60,0,12.536585],"direction":[1,0,0]},{"id":11,"kind":"plane","area":2400.0000000000005,"centroid":[0,6.15,18],"direction":[0,-1,0]},{"id":12,"kind":"plane","area":2400.0000000000005,"centroid":[0,16.15,28],"direction":[0,0,1]},{"id":13,"kind":"plane","area":2400.0000000000005,"centroid":[0,26.15,18],"direction":[0,1,0]}],"features":[{"id":"through_steps:8.9","family":"through_steps","record":{"axis":"x","length":120,"at":[0,-29.075,18],"section":[[-32,8],[-26.15,8],[-26.15,28]],"body_key":[-60,-32,0,60,32,28,157440,29504],"endpoint_scopes":["solid","solid"]},"faces":[8,9]},{"id":"through_steps:5.13","family":"through_steps","record":{"axis":"x","length":120,"at":[0,29.075,18],"section":[[32,8],[26.15,8],[26.15,28]],"body_key":[-60,-32,0,60,32,28,157440,29504],"endpoint_scopes":["solid","solid"]},"faces":[5,13]},{"id":"plates:6.8","family":"plates","record":{"axis":"y","lo":-26.15,"hi":-6.15,"u":0,"v":18,"body_key":[-60,-32,0,60,32,28,157440,29504]},"faces":[6,8]},{"id":"plates:11.13","family":"plates","record":{"axis":"y","lo":6.15,"hi":26.15,"u":0,"v":18,"body_key":[-60,-32,0,60,32,28,157440,29504]},"faces":[11,13]},{"id":"channels:6.11","family":"channels","record":{"width_axis":"y","long_axis":"x","width":12.3,"w_center":0,"lo":-60,"hi":60,"d_lo":8,"d_hi":28,"open_sign":1,"body_key":[-60,-32,0,60,32,28,157440,29504]},"faces":[6,11]},{"id":"section_recesses:6.11","family":"section_recesses","record":{"index":0,"body":0,"geometry":{"type":"section_recess","frame":{"origin":[0,0,18],"run":[-1,0,0],"u":[0,0,1],"v":[0,1,0]},"run_interval":[-60,60],"profile":{"closure":"open","boundary":[{"point":[10,-6.15],"bulge":0},{"point":[-10,-6.15],"bulge":0},{"point":[-10,6.15],"bulge":0},{"point":[10,6.15],"bulge":0}],"opening":[[10,6.15],[10,-6.15]],"material_side":"left"},"ends":{"low":{"condition":"open","surface":{"type":"plane","gradient":[0,0]}},"high":{"condition":"open","surface":{"type":"plane","gradient":[0,0]}}}},"classification":{"feature_kind":"channel","section_shape":"rectangular"},"evidence":{"defining_faces":[6,11],"constituent_faces":[4,6,11]}},"faces":[6,11]}],"dimensioning":{"frame":{"origin":[1.4785344358051101e-16,-3.189904330281314e-16,12.536585365853659],"x":[1,0,0],"y":[0,1,0],"z":[0,0,1],"gauge":"orthogonal"},"bounds":[[-60,-32,-12.536585365853659],[60,32,15.463414634146341]],"holes":[],"patterns":[],"planes":[{"support":{"feature":"plane:0","faces":[0],"body":0,"at":[-60,0,0],"plane":true},"axis":0,"body":0},{"support":{"feature":"plane:1","faces":[1],"body":0,"at":[0,-32,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"plane:2","faces":[2],"body":0,"at":[0,0,-12.536585365853659],"plane":true},"axis":2,"body":0},{"support":{"feature":"plane:3","faces":[3],"body":0,"at":[0,32,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"plane:4.5.9","faces":[4,5,9],"body":0,"at":[0,0,-4.536585365853659],"plane":true},"axis":2,"body":0},{"support":{"feature":"plane:6","faces":[6],"body":0,"at":[0,-6.15,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"plane:7.12","faces":[7,12],"body":0,"at":[0,0,15.463414634146341],"plane":true},"axis":2,"body":0},{"support":{"feature":"plane:8","faces":[8],"body":0,"at":[0,-26.15,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"plane:10","faces":[10],"body":0,"at":[60,0,0],"plane":true},"axis":0,"body":0},{"support":{"feature":"plane:11","faces":[11],"body":0,"at":[0,6.15,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"plane:13","faces":[13],"body":0,"at":[0,26.15,0],"plane":true},"axis":1,"body":0}],"steps":{"axis":2,"heights":[{"feature":"step:5.9","faces":[5,9],"body":0,"at":[0,0,-4.536585365853659],"plane":true}],"shoulders":[{"support":{"feature":"shoulder:8:axis:1:station:-26150","faces":[8],"body":0,"at":[0,-26.15,0],"plane":true},"axis":1,"body":0},{"support":{"feature":"shoulder:13:axis:1:station:26150","faces":[13],"body":0,"at":[0,26.15,0],"plane":true},"axis":1,"body":0}]},"cartesian_envelope":true,"deferred":[{"id":"deferred:channels:6.11","faces":[6,11],"family":"channels"},{"id":"deferred:section_recesses:6.11","faces":[4,6,11],"family":"section_recesses"}],"datums":[],"round_axes":[],"specified":[],"policy":{"origins":["automatic","automatic","automatic"],"general_tolerance":true,"references":false}},"existing":[],"part":{}}
+{
+ "schema": 1,
+ "binding": {
+  "source_sha256": "98d00d922e3662dae24d88b4f3531fd652d32b75608ff035e04cdd2fb1970b86",
+  "face_count": 14,
+  "loader_version": 2,
+  "part": 0
+ },
+ "faces": [
+  {
+   "id": 0,
+   "kind": "plane",
+   "area": 1312.0000000000002,
+   "centroid": [
+    -60.0,
+    -0.0,
+    12.536585
+   ],
+   "direction": [
+    -1.0,
+    -0.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 1,
+   "kind": "plane",
+   "area": 960.0000000000001,
+   "centroid": [
+    0.0,
+    -32.0,
+    4.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 2,
+   "kind": "plane",
+   "area": 7680.000000000003,
+   "centroid": [
+    -0.0,
+    0.0,
+    0.0
+   ],
+   "direction": [
+    -0.0,
+    -0.0,
+    -1.0
+   ]
+  },
+  {
+   "id": 3,
+   "kind": "plane",
+   "area": 960.0000000000001,
+   "centroid": [
+    0.0,
+    32.0,
+    4.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "plane",
+   "area": 1476.0,
+   "centroid": [
+    -0.0,
+    -0.0,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 5,
+   "kind": "plane",
+   "area": 702.0000000000003,
+   "centroid": [
+    -0.0,
+    29.075,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 6,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    -0.0,
+    -6.15,
+    18.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "id": 7,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    -0.0,
+    -16.15,
+    28.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    0.0,
+    -26.15,
+    18.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 9,
+   "kind": "plane",
+   "area": 702.0000000000003,
+   "centroid": [
+    -0.0,
+    -29.075,
+    8.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 10,
+   "kind": "plane",
+   "area": 1312.0000000000002,
+   "centroid": [
+    60.0,
+    0.0,
+    12.536585
+   ],
+   "direction": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "id": 11,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    0.0,
+    6.15,
+    18.0
+   ],
+   "direction": [
+    -0.0,
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": 12,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    -0.0,
+    16.15,
+    28.0
+   ],
+   "direction": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": 13,
+   "kind": "plane",
+   "area": 2400.0000000000005,
+   "centroid": [
+    -0.0,
+    26.15,
+    18.0
+   ],
+   "direction": [
+    0.0,
+    1.0,
+    0.0
+   ]
+  }
+ ],
+ "features": [
+  {
+   "id": "through_steps:8.9",
+   "family": "through_steps",
+   "record": {
+    "axis": "x",
+    "length": 120.0,
+    "at": [
+     0.0,
+     -29.075,
+     18.0
+    ],
+    "section": [
+     [
+      -32.0,
+      8.0
+     ],
+     [
+      -26.15,
+      8.0
+     ],
+     [
+      -26.15,
+      28.0
+     ]
+    ],
+    "body_key": [
+     -60.0,
+     -32.0,
+     0.0,
+     60.0,
+     32.0,
+     28.0,
+     157440.0,
+     29504.0
+    ],
+    "endpoint_scopes": [
+     "solid",
+     "solid"
+    ]
+   },
+   "faces": [
+    8,
+    9
+   ]
+  },
+  {
+   "id": "through_steps:5.13",
+   "family": "through_steps",
+   "record": {
+    "axis": "x",
+    "length": 120.0,
+    "at": [
+     0.0,
+     29.075,
+     18.0
+    ],
+    "section": [
+     [
+      32.0,
+      8.0
+     ],
+     [
+      26.15,
+      8.0
+     ],
+     [
+      26.15,
+      28.0
+     ]
+    ],
+    "body_key": [
+     -60.0,
+     -32.0,
+     0.0,
+     60.0,
+     32.0,
+     28.0,
+     157440.0,
+     29504.0
+    ],
+    "endpoint_scopes": [
+     "solid",
+     "solid"
+    ]
+   },
+   "faces": [
+    5,
+    13
+   ]
+  },
+  {
+   "id": "plates:6.8",
+   "family": "plates",
+   "record": {
+    "axis": "y",
+    "lo": -26.15,
+    "hi": -6.15,
+    "u": 0.0,
+    "v": 18.0,
+    "body_key": [
+     -60.0,
+     -32.0,
+     0.0,
+     60.0,
+     32.0,
+     28.0,
+     157440.0,
+     29504.0
+    ]
+   },
+   "faces": [
+    6,
+    8
+   ]
+  },
+  {
+   "id": "plates:11.13",
+   "family": "plates",
+   "record": {
+    "axis": "y",
+    "lo": 6.15,
+    "hi": 26.15,
+    "u": 0.0,
+    "v": 18.0,
+    "body_key": [
+     -60.0,
+     -32.0,
+     0.0,
+     60.0,
+     32.0,
+     28.0,
+     157440.0,
+     29504.0
+    ]
+   },
+   "faces": [
+    11,
+    13
+   ]
+  },
+  {
+   "id": "channels:6.11",
+   "family": "channels",
+   "record": {
+    "width_axis": "y",
+    "long_axis": "x",
+    "width": 12.3,
+    "w_center": 0.0,
+    "lo": -60.0,
+    "hi": 60.0,
+    "d_lo": 8.0,
+    "d_hi": 28.0,
+    "open_sign": 1,
+    "body_key": [
+     -60.0,
+     -32.0,
+     0.0,
+     60.0,
+     32.0,
+     28.0,
+     157440.0,
+     29504.0
+    ]
+   },
+   "faces": [
+    6,
+    11
+   ]
+  },
+  {
+   "id": "section_recesses:6.11",
+   "family": "section_recesses",
+   "record": {
+    "index": 0,
+    "body": 0,
+    "geometry": {
+     "type": "section_recess",
+     "frame": {
+      "origin": [
+       0.0,
+       0.0,
+       18.0
+      ],
+      "run": [
+       -1.0,
+       0.0,
+       0.0
+      ],
+      "u": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "run_interval": [
+      -60.0,
+      60.0
+     ],
+     "profile": {
+      "closure": "open",
+      "boundary": [
+       {
+        "point": [
+         10.0,
+         -6.15
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         -10.0,
+         -6.15
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         -10.0,
+         6.15
+        ],
+        "bulge": 0.0
+       },
+       {
+        "point": [
+         10.0,
+         6.15
+        ],
+        "bulge": 0.0
+       }
+      ],
+      "opening": [
+       [
+        10.0,
+        6.15
+       ],
+       [
+        10.0,
+        -6.15
+       ]
+      ],
+      "material_side": "left"
+     },
+     "ends": {
+      "low": {
+       "condition": "open",
+       "surface": {
+        "type": "plane",
+        "gradient": [
+         0.0,
+         0.0
+        ]
+       }
+      },
+      "high": {
+       "condition": "open",
+       "surface": {
+        "type": "plane",
+        "gradient": [
+         0.0,
+         0.0
+        ]
+       }
+      }
+     }
+    },
+    "classification": {
+     "feature_kind": "channel",
+     "section_shape": "rectangular"
+    },
+    "evidence": {
+     "defining_faces": [
+      6,
+      11
+     ],
+     "constituent_faces": [
+      4,
+      6,
+      11
+     ]
+    }
+   },
+   "faces": [
+    6,
+    11
+   ]
+  }
+ ],
+ "dimensioning": {
+  "frame": {
+   "origin": [
+    1.4785344358051101e-16,
+    -3.189904330281314e-16,
+    12.536585365853659
+   ],
+   "x": [
+    1.0,
+    -0.0,
+    -0.0
+   ],
+   "y": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "z": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "gauge": "orthogonal"
+  },
+  "bounds": [
+   [
+    -60.0,
+    -32.0,
+    -12.536585365853659
+   ],
+   [
+    60.0,
+    32.0,
+    15.463414634146341
+   ]
+  ],
+  "holes": [],
+  "patterns": [],
+  "planes": [
+   {
+    "support": {
+     "feature": "plane:0",
+     "faces": [
+      0
+     ],
+     "body": 0,
+     "at": [
+      -60.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:1",
+     "faces": [
+      1
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -32.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:2",
+     "faces": [
+      2
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -12.536585365853659
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:3",
+     "faces": [
+      3
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      32.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:4.5.9",
+     "faces": [
+      4,
+      5,
+      9
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -4.536585365853659
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:6",
+     "faces": [
+      6
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -6.15,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:7.12",
+     "faces": [
+      7,
+      12
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      15.463414634146341
+     ],
+     "plane": true
+    },
+    "axis": 2,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:8",
+     "faces": [
+      8
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      -26.15,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:10",
+     "faces": [
+      10
+     ],
+     "body": 0,
+     "at": [
+      60.0,
+      0.0,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 0,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:11",
+     "faces": [
+      11
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      6.15,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   },
+   {
+    "support": {
+     "feature": "plane:13",
+     "faces": [
+      13
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      26.15,
+      0.0
+     ],
+     "plane": true
+    },
+    "axis": 1,
+    "body": 0
+   }
+  ],
+  "steps": {
+   "axis": 2,
+   "heights": [
+    {
+     "feature": "step:5.9",
+     "faces": [
+      5,
+      9
+     ],
+     "body": 0,
+     "at": [
+      0.0,
+      0.0,
+      -4.536585365853659
+     ],
+     "plane": true
+    }
+   ],
+   "shoulders": [
+    {
+     "support": {
+      "feature": "shoulder:8:axis:1:station:-26150",
+      "faces": [
+       8
+      ],
+      "body": 0,
+      "at": [
+       0.0,
+       -26.15,
+       0.0
+      ],
+      "plane": true
+     },
+     "axis": 1,
+     "body": 0
+    },
+    {
+     "support": {
+      "feature": "shoulder:13:axis:1:station:26150",
+      "faces": [
+       13
+      ],
+      "body": 0,
+      "at": [
+       0.0,
+       26.15,
+       0.0
+      ],
+      "plane": true
+     },
+     "axis": 1,
+     "body": 0
+    }
+   ]
+  },
+  "cartesian_envelope": true,
+  "deferred": [
+   {
+    "id": "deferred:channels:6.11",
+    "faces": [
+     6,
+     11
+    ],
+    "family": "channels"
+   },
+   {
+    "id": "deferred:section_recesses:6.11",
+    "faces": [
+     4,
+     6,
+     11
+    ],
+    "family": "section_recesses"
+   }
+  ],
+  "datums": [],
+  "round_axes": [],
+  "specified": [],
+  "policy": {
+   "origins": [
+    "automatic",
+    "automatic",
+    "automatic"
+   ],
+   "general_tolerance": true,
+   "references": false
+  }
+ },
+ "existing": [],
+ "part": {},
+ "process": {
+  "value": "machined",
+  "source": "answered"
+ },
+ "resume": {
+  "answers": {
+   "part.material": "Aluminium 6082-T6",
+   "part.general_tolerance": "ISO 2768-m",
+   "part.surface_finish": "Ra 3.2",
+   "part.coating": "None (as machined)",
+   "part.heat_treatment": "None",
+   "part.edges": "Break sharp edges 0.2 max",
+   "part.notes": [],
+   "datum.A": [
+    2
+   ],
+   "datum.B": [
+    6
+   ],
+   "datum.C": [
+    0
+   ],
+   "datum.A.flatness": "0.02",
+   "datum.B.control": "0.05",
+   "datum.C.control": "0.05",
+   "part.process": "machined"
+  }
+ },
+ "characteristics": [
+  {
+   "number": 1,
+   "entity": 1007,
+   "kind": "datum",
+   "type": "A",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 2,
+   "entity": 1009,
+   "kind": "datum",
+   "type": "B",
+   "faces": [
+    6
+   ]
+  },
+  {
+   "number": 3,
+   "entity": 1011,
+   "kind": "datum",
+   "type": "C",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 11,
+   "entity": 1013,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    13
+   ],
+   "reference": [
+    6
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 10,
+   "entity": 1017,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    11
+   ],
+   "reference": [
+    6
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 8,
+   "entity": 1021,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    8
+   ],
+   "reference": [
+    6
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 6,
+   "entity": 1025,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    10
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 12,
+   "entity": 1029,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    3
+   ],
+   "reference": [
+    1
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 4,
+   "entity": 1033,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    7,
+    12
+   ],
+   "reference": [
+    2
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 7,
+   "entity": 1037,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    5,
+    9
+   ],
+   "reference": [
+    2
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 13,
+   "entity": 1042,
+   "kind": "geometric_tolerance",
+   "type": "Flatness",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 9,
+   "entity": 1046,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    6
+   ]
+  },
+  {
+   "number": 5,
+   "entity": 1051,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 14,
+   "entity": 1151,
+   "kind": "surface_texture",
+   "type": "Ra",
+   "faces": []
+  }
+ ]
+}

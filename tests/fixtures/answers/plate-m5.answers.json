@@ -1,0 +1,28 @@
+{
+ "part.surface_finish": "Ra 3.2",
+ "datum.A": [
+  2
+ ],
+ "datum.A.flatness": "0.02",
+ "datum.B": [
+  1
+ ],
+ "datum.B.control": "0.05",
+ "datum.C": [
+  0
+ ],
+ "datum.C.control": "0.05",
+ "hole.function:hole_patterns.grid:6.7.8.10.11.13": "clearance:M6",
+ "hole.function:holes:12": "tapped:M5",
+ "hole.function:holes:9": "general",
+ "hole.position:hole_patterns.grid:6.7.8.10.11.13": "0.6",
+ "hole.position:holes:12": "0.25",
+ "part.coating": "None (as machined)",
+ "part.edges": "Break sharp edges 0.2 max",
+ "part.general_tolerance": "ISO 2768-m",
+ "part.heat_treatment": "None",
+ "part.locating": "position tolerances",
+ "part.material": "6082-T6",
+ "part.notes": [],
+ "part.process": "machined"
+}

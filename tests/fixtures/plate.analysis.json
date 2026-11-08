@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "binding": {
-  "source_sha256": "0336b397faae8d94757b1fb0c4a1eca152428559298c6da66c9134851667781e",
+  "source_sha256": "232649aa376691251020b78b4b3702801ed890dfe58750acce864ed3e280e936",
   "face_count": 14,
   "loader_version": 2,
   "part": 0
@@ -73,7 +73,7 @@
    "area": 5730.608429954676,
    "centroid": [
     -0.108793,
-    -0.0,
+    0.0,
     -5.0
    ],
    "direction": [
@@ -614,9 +614,9 @@
  "dimensioning": {
   "frame": {
    "origin": [
-    -0.10879282186618093,
-    3.0936010479400075e-16,
-    -9.768359037568029e-17
+    -0.10879282186618092,
+    3.252434552225078e-16,
+    -9.674542005980853e-17
    ],
    "x": [
     1.0,
@@ -987,5 +987,378 @@
   }
  },
  "existing": [],
- "part": {}
+ "part": {},
+ "process": {
+  "value": "machined",
+  "source": "answered"
+ },
+ "resume": {
+  "answers": {
+   "part.material": "Aluminium 6082-T6",
+   "part.general_tolerance": "ISO 2768-m",
+   "part.surface_finish": "Ra 3.2",
+   "part.coating": "None (as machined)",
+   "part.heat_treatment": "None",
+   "part.edges": "Break sharp edges 0.2 max",
+   "part.notes": [],
+   "part.locating": "position tolerances",
+   "hole.function:holes:9": "fit:H7",
+   "hole.function:holes:12": "general",
+   "hole.position:holes:12": "0.25",
+   "hole.function:hole_patterns.grid:6.7.8.10.11.13": "clearance:M6",
+   "hole.position:hole_patterns.grid:6.7.8.10.11.13": "0.6",
+   "datum.A": [
+    2
+   ],
+   "datum.B": [
+    1
+   ],
+   "datum.C": [
+    0
+   ],
+   "datum.A.flatness": "0.02",
+   "datum.B.control": "0.05",
+   "datum.C.control": "0.05",
+   "part.process": "machined"
+  }
+ },
+ "characteristics": [
+  {
+   "number": 1,
+   "entity": 1068,
+   "kind": "datum",
+   "type": "A",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 2,
+   "entity": 1070,
+   "kind": "datum",
+   "type": "B",
+   "faces": [
+    1
+   ]
+  },
+  {
+   "number": 3,
+   "entity": 1072,
+   "kind": "datum",
+   "type": "C",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 8,
+   "entity": 1074,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    11
+   ],
+   "reference": [
+    10
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     11
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 7,
+   "entity": 1079,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    10
+   ],
+   "reference": [
+    6
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     10
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 11,
+   "entity": 1084,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    13
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     13
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 12,
+   "entity": 1089,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    13
+   ],
+   "reference": [
+    1
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     13
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 9,
+   "entity": 1094,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    9
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     9
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 10,
+   "entity": 1100,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    6,
+    7,
+    8,
+    10,
+    11,
+    13
+   ],
+   "origin": "requirement",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     6,
+     7,
+     8,
+     10,
+     11,
+     13
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 15,
+   "entity": 1106,
+   "kind": "dimension",
+   "type": "Size_Diameter",
+   "faces": [
+    12
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     12
+    ],
+    "parameter": "bore.diameter"
+   }
+  },
+  {
+   "number": 16,
+   "entity": 1110,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    12
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     12
+    ],
+    "parameter": "location.length.x"
+   }
+  },
+  {
+   "number": 6,
+   "entity": 1114,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    5
+   ],
+   "reference": [
+    0
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 17,
+   "entity": 1118,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    12
+   ],
+   "reference": [
+    1
+   ],
+   "origin": "general_tolerance",
+   "source": {
+    "schema": 2,
+    "faces": "594d3e8151b36238ac74d36ddda68de045be3fb6c7c0ad62a9d66c353c72bdc5",
+    "support": [
+     12
+    ],
+    "parameter": "location.length.y"
+   }
+  },
+  {
+   "number": 20,
+   "entity": 1122,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    3
+   ],
+   "reference": [
+    1
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 4,
+   "entity": 1126,
+   "kind": "dimension",
+   "type": "Location_LinearDistance",
+   "faces": [
+    2
+   ],
+   "reference": [
+    4
+   ],
+   "origin": "general_tolerance"
+  },
+  {
+   "number": 13,
+   "entity": 1135,
+   "kind": "geometric_tolerance",
+   "type": "Position",
+   "faces": [
+    9
+   ]
+  },
+  {
+   "number": 14,
+   "entity": 1139,
+   "kind": "geometric_tolerance",
+   "type": "Position",
+   "faces": [
+    6,
+    7,
+    8,
+    10,
+    11,
+    13
+   ]
+  },
+  {
+   "number": 18,
+   "entity": 1143,
+   "kind": "geometric_tolerance",
+   "type": "Flatness",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 19,
+   "entity": 1147,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    1
+   ]
+  },
+  {
+   "number": 5,
+   "entity": 1152,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 21,
+   "entity": 1339,
+   "kind": "surface_texture",
+   "type": "Ra",
+   "faces": []
+  }
+ ]
 }

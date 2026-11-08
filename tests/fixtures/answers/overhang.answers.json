@@ -1,0 +1,22 @@
+{
+ "part.material": "Aluminium 6082-T6",
+ "part.general_tolerance": "ISO 2768-m",
+ "part.surface_finish": "Ra 3.2",
+ "part.coating": "None (as machined)",
+ "part.heat_treatment": "None",
+ "part.edges": "Break sharp edges 0.2 max",
+ "part.notes": [],
+ "datum.A": [
+  15
+ ],
+ "datum.B": [
+  11
+ ],
+ "datum.C": [
+  12
+ ],
+ "datum.A.flatness": "0.02",
+ "datum.B.control": "0.05",
+ "datum.C.control": "0.05",
+ "part.process": "machined"
+}
