@@ -413,7 +413,7 @@ struct Hole {
     bottom: String,
     exit_clear: Option<Option<f64>>,
     enlargements: Vec<(f64, f64, f64)>,
-    csink: bool,
+    csink: Value,
     thread: Option<Value>,
 }
 
@@ -598,7 +598,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
         bottom: bottom_kind.clone(),
         exit_clear: None,
         enlargements,
-        csink: false,
+        csink: Value::Null,
         thread: None,
     };
     let mut warnings = vec![];
@@ -637,7 +637,7 @@ fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Resu
             hole.thread = Some(json!({"spec": thread.spec, "major": r(thread.major), "pitch": thread.pitch, "top_z": r(top), "bottom_z": r(end)}));
         }
     }
-    hole.csink = truthy(record.get("csink")) && !chosen.reversed;
+    hole.csink = if !chosen.reversed && truthy(record.get("csink")) { record["csink"].clone() } else { Value::Null };
     Ok(Ok((name, hole, warnings, blocked)))
 }
 
@@ -678,6 +678,9 @@ fn hole_operations(holes: &[Hole]) -> Vec<Value> {
                 "centers": g.members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
                 "features": g.members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
             });
+            if g.members.iter().any(|h| !h.csink.is_null()) {
+                op["countersinks"] = json!(g.members.iter().map(|h| h.csink.clone()).collect::<Vec<_>>());
+            }
             if h.bottom == "through" {
                 op["exit_clear_mm"] = json!(h.exit_clear.flatten());
             }
@@ -1604,7 +1607,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         // just before, since a thread goes beyond the bore the part's mesh shows.
         ops.extend(thread_operations(holes));
         for h in holes {
-            if h.csink {
+            if !h.csink.is_null() {
                 trace.skip("process.countersink.not_cut", &h.feature, "countersink: not planned (chamfer it by hand)".into());
             }
         }
@@ -1628,6 +1631,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 "roughing" => "process.roughing",
                 "flats" => "process.flats",
                 "holes" => "process.holes",
+                "spot_drill" => "process.spot_drill",
                 "counterbore" => "process.counterbore",
                 "thread" => "process.thread",
                 "slot" => "process.slot",

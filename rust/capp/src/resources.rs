@@ -88,11 +88,11 @@ impl<'a> Library<'a> {
             let kind = tool["type"].as_str().unwrap_or("");
             let extra: &[&str] = match kind {
                 "end_mill" => &["flute_length", "plunge_mm_min", "stepdown_mm", "stepover_mm"],
-                "drill" => &["flute_length", "point_angle"],
+                "drill" | "spot_drill" => &["flute_length", "point_angle"],
                 // A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
                 "thread_mill" => &["tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"],
                 "chamfer_mill" => &["flute_length", "angle", "tip_diameter", "plunge_mm_min"],
-                other => return Err(format!("tool {name}: type must be one of end_mill, drill, thread_mill, chamfer_mill, not {other:?}")),
+                other => return Err(format!("tool {name}: type must be one of end_mill, drill, spot_drill, thread_mill, chamfer_mill, not {other:?}")),
             };
             let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
             if !missing.is_empty() {
@@ -160,6 +160,9 @@ impl<'a> Library<'a> {
     pub fn drill_depth(&self, op: &Value, stock_top: f64) -> Result<f64, String> {
         Ok(stock_top - num(op, "bottom_z")?
             + if op["bottom"] == "through" { self.breakthrough.max(0.) } else { 0. })
+    }
+    pub(crate) fn spot(&self, diameter: f64, angle: f64, reach: f64, csink_angle: f64) -> Option<&'a Value> {
+        self.pick("spot_drill", &[("diameter", diameter), ("angle", angle), ("reach", reach), ("csink_angle", csink_angle)])
     }
     pub fn drill(&self, diameter: f64, depth: f64) -> Option<&'a Value> {
         self.pick("drill", &[("diameter", diameter), ("depth", depth)])

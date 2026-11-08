@@ -269,3 +269,26 @@ as the peck decision. It is a planning warning threshold, not a universal drill 
 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
 coolant settings cannot faithfully describe their single-lip geometry and coolant needs.
+
+### Spot drilling
+
+`finish` inserts `spot_drill` groups after first settlement, before replaying any
+execution exclusions. Selection uses the same twist-drill selector as hole resolution.
+Each spot retains its centre, mouth Z, diameter, tip depth and feature ids; the adapter
+splits a group into drilling cycles by absolute tip Z, without changing tool. Pruning
+runs after each replayed exclusion, so later indices match the plan the engine saw;
+no refused spot is recreated.
+
+The public [Harvey guide](https://www.harveyperformance.com/in-the-loupe/choosing-spot-drill/)
+and [MSC application guide](https://www.mscdirect.com/resources/buying-guides/drills-countersinks)
+were read on 2026-11-08. Both advise a spot point angle equal to or greater than the
+following drill's, so the drill starts at its centre. Harvey also describes using the
+spot to chamfer a hole, and plunging a larger spot tool only to the required diameter.
+These support `process.spot_drill` and `tool.spot_drill` in the rulebase.
+
+We require full diameter coverage rather than falling back to an undersized spot.
+Depth is `(diameter / 2) / tan(point_angle / 2)`, measured to the tip. A countersink
+is finished only with full diameter coverage and angle agreement within 1 degree;
+otherwise it keeps its hand-finishing skip. The adapter uses no peck and a 0.2-second
+dwell for a clean spot/chamfer. `process.json` classifies feature families rather than
+operation kinds, so spot drilling needs no new feature-family case there.

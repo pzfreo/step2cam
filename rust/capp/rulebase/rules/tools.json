@@ -228,6 +228,44 @@
     "tool.max_pitch_mm": "inf"
    },
    "needed": "a thread mill whose pitch range includes {pitch} mm, under ⌀{maximum:down2}, with neck diameter under (cutter diameter + {neck_offset:down2}) mm and tooth height + neck length over {reach_min:up2} mm"
+  },
+  {
+   "id": "spot_drill",
+   "tool_type": "spot_drill",
+   "description": "The smallest spot drill covering the requested spot, with an angle at least the twist drill angle and sufficient point, flutes and stickout.",
+   "inputs": [
+    "diameter",
+    "angle",
+    "reach",
+    "csink_angle"
+   ],
+   "keep": [
+    {
+     "if": "tool.point_angle >= angle && tool.point_angle < 180",
+     "else_reject": "{tool.id}: point angle must be at least {angle}° and under 180°"
+    },
+    {
+     "if": "csink_angle == 0 || (tool.point_angle >= csink_angle - 1 && tool.point_angle <= csink_angle + 1)",
+     "else_reject": "{tool.id}: does not match the countersink angle within 1°"
+    },
+    {
+     "if": "tool.diameter >= diameter",
+     "else_reject": "{tool.id}: does not cover the ⌀{diameter} spot"
+    },
+    {
+     "if": "tool.flute_length >= reach + diameter / tool.diameter * tool.point_length + drilling_guard_mm",
+     "else_reject": "{tool.id}: flutes do not reach the spot tip from stock top"
+    },
+    {
+     "if": "tool.stickout >= reach + diameter / tool.diameter * tool.point_length + drilling_guard_mm",
+     "else_reject": "{tool.id}: stickout does not reach the spot tip from stock top"
+    }
+   ],
+   "prefer": {
+    "smallest": "tool.diameter",
+    "ties": "first"
+   },
+   "needed": "a spot drill of at least ⌀{diameter}, point angle at least {angle}° and under 180°, with flutes and stickout reaching {reach:up2} mm plus the spot point depth"
   }
  ]
 }

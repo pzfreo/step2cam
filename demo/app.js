@@ -144,6 +144,7 @@ function compressTimeline(m) {
 
 function operationName(op, setup, plan) {
   const where = plan.setups.length > 1 ? ` (${setup.id})` : "";
+  if (op.kind === "spot_drill") return "Spot drill" + where;
   if (op.kind === "facing") return "Facing" + where;
   if (op.kind === "roughing") return "Roughing" + where;
   if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
@@ -181,8 +182,9 @@ function readMoves(data, operations) {
 
   for (const program of data.programs) {
     const setup = data.plan.setups.find((s) => s.id === program.setup);
-    for (const move of program.moves) {
+    for (let move of program.moves) {
       const end = move.points[move.points.length - 1];
+      if (move.op?.includes("-spot_drill-")) move = { ...move, op: move.op.split("-spot_drill-")[0] + "-spot_drill" };
       const tool = toolById.get(move.tool) || null;
       const curve = move.curve === "line" ? "" : ` ${move.curve}`;
       const text = `${MOVE_WORDS[move.kind] || move.kind}${curve}  ${xyz(end)}${move.feed ? ` F${move.feed}` : ""}`;
@@ -730,7 +732,7 @@ function buildFeatureList(m) {
 }
 
 function shortName(op) {
-  const names = { facing: "Facing", roughing: "Roughing", flats: "Flats", wall_finish: "Walls", edge_chamfer: "Chamfer", slot: "Slot", notch: op.open ? "Notch" : "Slot", v_channel: "V", thread: op.spec, counterbore: "C'bore" };
+  const names = { spot_drill: "Spot drill", facing: "Facing", roughing: "Roughing", flats: "Flats", wall_finish: "Walls", edge_chamfer: "Chamfer", slot: "Slot", notch: op.open ? "Notch" : "Slot", v_channel: "V", thread: op.spec, counterbore: "C'bore" };
   return names[op.kind] || `⌀${op.diameter}`;
 }
 
