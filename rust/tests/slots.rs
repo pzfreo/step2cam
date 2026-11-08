@@ -11,7 +11,10 @@ fn fixture(path: &str) -> Value {
 fn process() -> Value {
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
-    step2cam::process(&analysis, &mesh, &fixture("demo/tools.json")).unwrap()
+    // The demo's tools on no particular machine: this is about planning, not the Carvera.
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    step2cam::process(&analysis, &mesh, &tools).unwrap()
 }
 /// The points of camlib's fed moves (not rapids) for which `keep` holds.
 fn fed_points(out: &Value, keep: &dyn Fn(&Value) -> bool) -> Vec<[f64; 3]> {

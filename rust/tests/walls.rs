@@ -14,8 +14,11 @@ fn fixture(path: &str) -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(path);
     serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
 }
+// The demo's tools on no particular machine: these tests are about planning, not the Carvera.
 fn tools() -> Value {
-    fixture("demo/tools.json")
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    tools
 }
 fn part(name: &str) -> (Value, Value) {
     (fixture(&format!("tests/fixtures/synthetic/{name}.analysis.json")), fixture(&format!("tests/fixtures/synthetic/{name}.mesh.json")))

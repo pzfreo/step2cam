@@ -274,6 +274,18 @@ on purpose.
 
 - There is no controller here: step2cam writes no G-code. `rapid_mm_min` is only for the page's
   time estimate.
+- `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
+  - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
+    why;
+  - `workholding`: a vise's `max_jaw_opening_mm`, so stock wider than it is flagged;
+  - `spindle.max_rpm`: faster cutting data run at that speed, the feeds scaled to match;
+  - `spindle.max_tool_diameter_mm`: a tool with a wider shank is never chosen;
+  - `tool_changer`: its `pockets` (a setup needing more tools is flagged), or `"kind": "manual"`.
+
+  Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
+  trace says so. The demo's machine is the **Makera Carvera**, from its published specifications:
+  360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
+  changer. So the demo leaves out its larger tools and bores the larger holes.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks

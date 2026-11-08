@@ -83,6 +83,13 @@
   "roughing_tool": {
    "type": "string",
    "description": "The id of the end mill for roughing; the largest end mill when absent or empty."
+  },
+  "machines": {
+   "type": "array",
+   "description": "The machines parts are cut on, and what they can do. The planner uses the first mill. The controller's limits stay in machine.",
+   "items": {
+    "$ref": "#/$defs/machine_capabilities"
+   }
   }
  },
  "patternProperties": {
@@ -674,6 +681,153 @@
      "additionalProperties": false
     }
    ]
+  },
+  "machine_capabilities": {
+   "type": "object",
+   "required": [
+    "id",
+    "kind"
+   ],
+   "additionalProperties": false,
+   "patternProperties": {
+    "^_": {}
+   },
+   "properties": {
+    "id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "name": {
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "mill",
+      "lathe"
+     ]
+    },
+    "axes": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "linear": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "x",
+         "y",
+         "z"
+        ]
+       }
+      },
+      "rotary": {
+       "type": "array",
+       "items": {
+        "type": "object"
+       }
+      },
+      "travel_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "x": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "y": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "z": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        }
+       }
+      }
+     }
+    },
+    "spindle": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "max_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "power_kw": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "taper": {
+       "type": "string"
+      },
+      "max_tool_diameter_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "max_bar_diameter_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "tool_changer": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "kind": {
+       "enum": [
+        "automatic",
+        "manual",
+        "turret"
+       ]
+      },
+      "pockets": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    },
+    "coolant": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "flood",
+       "mist",
+       "air",
+       "through_spindle"
+      ]
+     }
+    },
+    "workholding": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+       "kind": {
+        "enum": [
+         "vise",
+         "fixture",
+         "chuck",
+         "collet"
+        ]
+       },
+       "max_jaw_opening_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "max_diameter_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       }
+      }
+     }
+    }
+   }
   }
  }
 }

@@ -1,6 +1,17 @@
 {
  "_comment": "An example tool library for step2cam. Every number here is a placeholder: set the cutting data for your tools, material and machine. camlib has no defaults for these on purpose.",
  "rapid_mm_min": 5000,
+ "machines": [
+  {
+   "id": "mill", "name": "the example 3-axis mill", "kind": "mill",
+   "_comment": "Placeholder capabilities, like the rest of this file: not a real machine.",
+   "axes": {"linear": ["x", "y", "z"], "travel_mm": {"x": 400, "y": 300, "z": 200}},
+   "spindle": {"max_rpm": 24000, "taper": "ER25", "max_tool_diameter_mm": 16},
+   "tool_changer": {"kind": "automatic", "pockets": 24},
+   "coolant": ["flood"],
+   "workholding": [{"kind": "vise", "max_jaw_opening_mm": 150}]
+  }
+ ],
  "clearance_mm": 10,
  "retract_mm": 2,
  "breakthrough_mm": 1,

@@ -772,7 +772,7 @@ async function loadRules() {
   return rulesById;
 }
 
-const STAGES = { requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
+const STAGES = { machine: "Machine", requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
 
 function describeSource(src) {
   const what = src.kind === "standard" ? src.ref : src.kind === "practice" ? "recognised practice" : "step2cam's own judgement";
@@ -857,7 +857,8 @@ async function buildPlan(m) {
   for (const setup of plan.setups) {
     const lo = setup.stock.min, hi = setup.stock.max;
     head(`${setup.id} setup${ran.has(setup.id) ? "" : " · not run"}`);
-    fact(`Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
+    const onMachine = (plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
+    fact(`${onMachine ? `${escapeHtml(onMachine.says[0].toUpperCase() + onMachine.says.slice(1))}. ` : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const card = document.createElement("section");
