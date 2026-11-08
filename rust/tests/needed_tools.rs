@@ -1,7 +1,10 @@
 //! Missing-tool queries report resources without changing the plan's operations.
-mod common;
-use common::*;
 use serde_json::{Value, json};
+
+fn fixture(name: &str) -> Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures").join(name);
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
 
 fn library() -> Value { fixture("../../demo/tools.json") }
 fn simple(ops: Value) -> Value {
@@ -65,8 +68,9 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
         assert_eq!(matches.len(), 1);
         assert!(matches[0]["features"].as_array().unwrap().contains(&skip["feature"]));
     }
-    let group = skipped.iter().find(|s| s["feature"] == "holes:0").unwrap();
+    let group = skipped.iter().find(|s| s["feature"] == "holes:6").unwrap();
     let need = group["reason"].as_str().unwrap().rsplit_once(": needs ").unwrap().1;
+    assert_eq!(need, "a drill of ⌀6.55–6.60 with flutes of at least 12 mm (plus point length when drilling to full diameter), or an end mill under ⌀6.55 with flutes of at least 12 mm");
     let entry = plan["tools_needed"].as_array().unwrap().iter().find(|n| n["description"] == need).unwrap();
     assert!(entry["features"].as_array().unwrap().len() > 1, "{entry}");
     assert_eq!(out["log"].as_array().unwrap().iter().filter(|l| l.as_str().unwrap().starts_with("tools needed: ")).count(), 1);

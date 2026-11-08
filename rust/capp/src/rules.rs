@@ -196,7 +196,8 @@ pub fn eval(text: &str, lookup: &Lookup) -> Result<f64, String> {
 }
 
 /// Fills `{name}` in a template: numbers as messages show them (`{x}`), rounded first (`{x:r}`),
-/// or a field of the tool as the library wrote it (`{tool.x:raw}`, `{tool.id}`).
+/// conservatively to two decimals (`{x:up2}`, `{x:down2}`), or a field of the tool
+/// as the library wrote it (`{tool.x:raw}`, `{tool.id}`).
 pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, String> {
     let mut out = String::new();
     let mut rest = template;

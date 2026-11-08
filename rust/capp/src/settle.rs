@@ -226,6 +226,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 }
                 "flats" => match (has_rough, library.clearing("roughing")?) {
                     (true, Some(s)) => (Ok(s), "tool.flats.follow_roughing"),
+                    (true, None) => (Err(Some(format!("left out: it follows roughing, with the same end mill: needs {}", crate::needed::for_operation(op, top, &library, None)?.unwrap()))), "tool.flats.follow_roughing"),
                     _ => (Err(Some("left out: it follows roughing, with the same end mill".into())), "tool.flats.follow_roughing"),
                 },
                 "holes" => {
@@ -299,7 +300,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 }
                 Err(note) => {
                     let note = match note {
-                        Some(text) if matches!(rule, "tool.clearing" | "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.thread_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.edge_chamfer.chamfer_mill" | "feasibility.v_channel.needs_bit" | "feasibility.wall.needs_mill") => {
+                        Some(text) if !text.contains(": needs ") && matches!(rule, "tool.clearing" | "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.thread_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.edge_chamfer.chamfer_mill" | "feasibility.v_channel.needs_bit" | "feasibility.wall.needs_mill") => {
                             Some(match crate::needed::for_operation(op, top, &library, None)? {
                                 Some(need) => format!("{text}: needs {need}"),
                                 None => text,
