@@ -31,7 +31,6 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     let mut trace = Trace::take(plan);
     crate::machines::check_changer(plan, library, &mut trace);
     trace.store(plan);
-    crate::needed::chamfer_queries(plan, &Library::new(library)?)?;
     crate::needed::collect(plan);
     Ok(())
 }
@@ -177,7 +176,12 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
             let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
             for id in lost.iter().filter_map(Value::as_str) {
                 let edge = op["radius"].as_f64().map_or("edge chamfer".into(), |radius| format!("r{} edge round", show(radius)));
-                trace.skip("feasibility.chamfer.needs_wall", id, format!("{edge}: its wall keeps its roughing allowance, so it is not chamfered"));
+                let reason = if op["radius"].is_number() {
+                    format!("{edge}: its wall keeps its roughing allowance, so it is not chamfered")
+                } else {
+                    format!("{edge}: its wall keeps its roughing allowance, so the edge stays sharp (chamfer it by hand); leg {} mm", show(op["width"].as_f64().unwrap_or(0.)))
+                };
+                trace.skip("feasibility.chamfer.needs_wall", id, reason);
             }
             if op["boundaries"] != "all" {
                 return false;

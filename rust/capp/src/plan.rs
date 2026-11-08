@@ -1705,32 +1705,29 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                 if matches!(family, "chamfers" | "oriented_chamfers") {
                     let rec = &feature["record"];
                     let width = f(rec, "leg1")?;
-                    reason = if (width - f(rec, "leg2")?).abs() > LEVEL_EPS {
-                        "chamfer: unequal legs; only equal-leg 45° chamfers are planned".into()
+                    let cause = if (width - f(rec, "leg2")?).abs() > LEVEL_EPS {
+                        Some("chamfer: unequal legs; only equal-leg 45° chamfers are planned")
                     } else if (f(rec, "angle")? - 45.).abs() > 0.01 {
-                        "chamfer: angle is not 45°; needs a matching certified operation".into()
+                        Some("chamfer: angle is not 45°; needs a matching certified operation")
                     } else if triangles.is_none() {
-                        "chamfer: no mesh to establish a reachable top loop".into()
+                        Some("chamfer: no mesh to establish a reachable top loop")
                     } else if !reachable(feature, &faces, rows_of(rough_from))? {
-                        "chamfer: bottom or downward-facing edge is unreachable from the roughing setup".into()
+                        Some("chamfer: bottom or downward-facing edge is unreachable from the roughing setup")
                     } else if feature["faces"].as_array().is_some_and(|ids| !ids.is_empty() && ids.iter().all(|id| {
                         id.as_u64().and_then(|id| faces.get(&id)).is_some_and(|face| {
                             face["kind"] == "plane" && v3(&face["direction"]).is_ok_and(|n| rotate(rows_of(rough_from), n)[2].abs() < 0.01)
                         })
                     })) {
-                        "chamfer: vertical-edge chamfer; a top-down 90° chamfer mill cannot follow it".into()
+                        Some("chamfer: vertical-edge chamfer; a top-down 90° chamfer mill cannot follow it")
                     } else {
-                        format!("{reason}; leg {} mm", show(width))
+                        None
                     };
+                    if let Some(cause) = cause {
+                        reason = format!("{cause}, so the edge stays sharp (chamfer it by hand)");
+                    }
+                    reason.push_str(&format!("; leg {} mm", show(width)));
                 }
                 trace.skip(rule, id, reason);
-                if matches!(family, "chamfers" | "oriented_chamfers") {
-                    let rec = &feature["record"];
-                    let width = f(rec, "leg1")?;
-                    if width > LEVEL_EPS && (width-f(rec,"leg2")?).abs() <= LEVEL_EPS && (f(rec,"angle")?-45.).abs() <= 0.01 {
-                        trace.skipped.last_mut().unwrap()["chamfer_width"] = json!(width);
-                    }
-                }
             }
             other => return Err(format!("rulebase/rules/process.json: unknown action {other}")),
         }

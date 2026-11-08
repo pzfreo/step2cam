@@ -331,9 +331,9 @@
   },
   {
    "id": "process.chamfer.not_cut",
-   "version": 2,
+   "version": 3,
    "stage": "process",
-   "rationale": "Chamfers without a complete reachable equal-leg 45° top loop and a wall or bore at size stay out with their geometry reason.",
+   "rationale": "Chamfers without a complete reachable equal-leg 45° top loop and a wall or bore at size stay out with their geometry reason and a hand-chamfer instruction. Geometry refusals do not request tools.",
    "code": "plan.rs plan, modelled_edge_operations",
    "sources": [
     {
@@ -592,9 +592,9 @@
   },
   {
    "id": "feasibility.chamfer.needs_wall",
-   "version": 2,
+   "version": 3,
    "stage": "feasibility",
-   "rationale": "An outside chamfer is cut only if its wall is finished to size; otherwise the edge is not chamfered.",
+   "rationale": "An outside chamfer is cut only if its wall is finished to size; otherwise the edge stays sharp and a modelled chamfer is left for hand finishing.",
    "code": "settle.rs settle_with",
    "sources": [
     {

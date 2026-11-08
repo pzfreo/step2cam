@@ -105,23 +105,3 @@ pub(crate) fn collect(plan: &mut Value) {
     }
     plan["tools_needed"] = json!(needs);
 }
-
-/// A geometry refusal can also lack a covering cone. Keep both facts: loading the
-/// requested tool does not by itself make an unreachable loop machinable. Recompute
-/// the suffix when finishing again with another library, just as operation needs are.
-pub(crate) fn chamfer_queries(plan: &mut Value, library: &Library) -> Result<(), String> {
-    let mut trace = crate::trace::Trace::take(plan);
-    for skipped in &mut trace.skipped {
-        let Some(width) = skipped["chamfer_width"].as_f64() else { continue; };
-        let base = skipped["reason"].as_str().unwrap_or("").split(": needs ").next().unwrap_or("");
-        let reason = if library.chamfer_mill_in(width, f64::INFINITY, 0., f64::INFINITY).is_none() {
-            format!("{base}: needs {}", library.needed("chamfer_mill", &[("width", width)])?)
-        } else { base.into() };
-        if let Some(decision) = trace.decisions.iter_mut().find(|d| d["id"] == skipped["decision"]) {
-            decision["says"] = json!(reason);
-        }
-        skipped["reason"] = json!(reason);
-    }
-    trace.store(plan);
-    Ok(())
-}

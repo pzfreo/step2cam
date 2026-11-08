@@ -141,20 +141,55 @@ fn the_existing_chamfered_plate_cuts_with_sufficient_flute_reach() {
 }
 
 #[test]
-fn a_geometry_refusal_also_reports_a_missing_cone_and_refreshes_with_the_library() {
+fn a_geometry_refused_chamfer_does_not_request_a_tool() {
     let analysis = read("tests/fixtures/synthetic/stepped-plate-large-chamfer.analysis.json");
     let mut plan = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
-    let mut library = read("demo/tools.json");
-    capp::finish(&mut plan, &library, &[]).unwrap();
-    let reason =
-        plan["skipped"].as_array().unwrap().iter().find(|s| s["feature"].as_str().unwrap().starts_with("chamfers:")).unwrap()["reason"].as_str().unwrap();
-    assert!(reason.contains("no mesh") && reason.contains(": needs a 90° chamfer mill") && reason.contains("5.50 mm"), "{reason}");
-    library["machines"] = json!([]);
-    let cm = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "cm6").unwrap();
-    cm["diameter"] = json!(16.);
-    cm["flute_length"] = json!(10.);
-    capp::finish(&mut plan, &library, &[]).unwrap();
-    assert!(!plan["skipped"].to_string().contains(": needs "));
-    assert!(plan["skipped"].to_string().contains("no mesh"));
+    capp::finish(&mut plan, &read("demo/tools.json"), &[]).unwrap();
+    let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter().filter(|s| s["feature"].as_str().unwrap().starts_with("chamfers:")).collect();
+    assert_eq!(skipped.len(), 8);
+    for skip in skipped {
+        let reason = skip["reason"].as_str().unwrap();
+        assert!(reason.contains("no mesh") && reason.contains("leg 5.0 mm"), "{reason}");
+        assert!(reason.contains("so the edge stays sharp (chamfer it by hand)"), "{reason}");
+        assert!(!reason.contains(": needs "), "{reason}");
+        assert!(skip.get("chamfer_width").is_none());
+    }
     assert!(plan["tools_needed"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn geometry_causes_keep_the_hand_chamfer_instruction() {
+    let original = read("tests/fixtures/synthetic/stepped-plate-large-chamfer.analysis.json");
+    let mesh = read("tests/fixtures/synthetic/stepped-plate-large-chamfer.mesh.json");
+    let bottom = original["faces"].as_array().unwrap().iter().find(|f| f["kind"] == "plane" && f["direction"][2].as_f64().is_some_and(|z| z < -0.99)).unwrap()
+        ["id"]
+        .clone();
+    let vertical = original["faces"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["kind"] == "plane" && f["direction"][0].as_f64().is_some_and(|x| x.abs() > 0.99))
+        .unwrap()["id"]
+        .clone();
+    for cause in ["unequal legs", "angle is not 45°", "bottom or downward-facing", "vertical-edge chamfer"] {
+        let mut analysis = original.clone();
+        for feature in analysis["features"].as_array_mut().unwrap().iter_mut().filter(|f| f["family"] == "chamfers") {
+            match cause {
+                "unequal legs" => feature["record"]["leg2"] = json!(4.),
+                "angle is not 45°" => feature["record"]["angle"] = json!(30.),
+                "bottom or downward-facing" => feature["faces"] = json!([bottom]),
+                _ => feature["faces"] = json!([vertical]),
+            }
+        }
+        let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+        capp::finish(&mut plan, &read("demo/tools.json"), &[]).unwrap();
+        let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter().filter(|s| s["feature"].as_str().unwrap().starts_with("chamfers:")).collect();
+        assert_eq!(skipped.len(), 8, "{cause}");
+        for skip in skipped {
+            let reason = skip["reason"].as_str().unwrap();
+            assert!(reason.contains(cause) && reason.contains("so the edge stays sharp (chamfer it by hand)") && reason.contains("leg 5.0 mm"), "{reason}");
+            assert!(!reason.contains(": needs "), "{reason}");
+        }
+        assert!(plan["tools_needed"].as_array().unwrap().is_empty(), "{cause}");
+    }
 }

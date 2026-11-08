@@ -241,5 +241,6 @@ and fits the loop is selected. Camlib lowers that cone in width steps of at most
 Deburr breaks finished edges and also requires the width to fit its cone.
 Camlib measures chamfer flute reach from the job's stock top, including air above
 a lower flat. Such a chamfer can therefore need longer flutes than its local leg.
-Geometry refusals retain that reason and also name a missing full-width cone when
-the library has none; loading it does not resolve the geometry refusal.
+Geometry refusals explain the cause and leave the edge for hand chamfering. They
+do not request tools: a larger cone cannot resolve an unsupported loop. Missing-tool
+queries apply to planned operations whose geometry can be cut.

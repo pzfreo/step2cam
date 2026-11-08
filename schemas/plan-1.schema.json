@@ -65,11 +65,6 @@
      "decision": {
       "type": "string",
       "pattern": "^d-[0-9]+$"
-     },
-     "chamfer_width": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "description": "Equal 45° leg, retained so a geometry refusal can also name a missing full-width chamfer mill."
      }
     },
     "additionalProperties": false

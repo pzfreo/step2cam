@@ -42,7 +42,7 @@
    ],
    "then": {
     "skip": "process.chamfer.not_cut",
-    "reason": "chamfer: no complete reachable top loop with its wall or hole at size"
+    "reason": "chamfer: not part of a whole chamfered top loop with its wall or hole at size, so the edge stays sharp (chamfer it by hand)"
    }
   },
   {
