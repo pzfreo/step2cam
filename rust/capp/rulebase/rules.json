@@ -934,6 +934,56 @@
      "note": "https://github.com/stevecad/camlib/issues/122"
     }
    ]
+  },
+  {
+   "id": "process.spot_drill",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "code": "spots.rs; settle.rs; job.rs",
+   "data": [
+    "rules/tools.json#spot_drill",
+    "rules/sequence.json"
+   ],
+   "sources": [
+    {
+     "kind": "practice",
+     "ref": "Harvey Performance, Spot Drilling: The First Step to Precision Drilling",
+     "url": "https://www.harveyperformance.com/in-the-loupe/choosing-spot-drill/",
+     "note": "Read 2026-11-08: a larger point angle lets the centre engage first; equal angles are acceptable. Spot drills can chamfer hole mouths. Manufacturer replies recommend a larger tool plunged only to the desired drill diameter."
+    },
+    {
+     "kind": "practice",
+     "ref": "MSC Industrial Supply, Spotting & Step Drills, Countersinks & Center Reamers Technical Information",
+     "url": "https://www.mscdirect.com/resources/buying-guides/drills-countersinks",
+     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120° spots for 118° or 120° drills."
+    }
+   ]
+  },
+  {
+   "id": "tool.spot_drill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "code": "spots.rs; settle.rs; job.rs",
+   "data": [
+    "rules/tools.json#spot_drill",
+    "rules/sequence.json"
+   ],
+   "sources": [
+    {
+     "kind": "practice",
+     "ref": "Harvey Performance, Spot Drilling: The First Step to Precision Drilling",
+     "url": "https://www.harveyperformance.com/in-the-loupe/choosing-spot-drill/",
+     "note": "Read 2026-11-08: a larger point angle lets the centre engage first; equal angles are acceptable. Spot drills can chamfer hole mouths. Manufacturer replies recommend a larger tool plunged only to the desired drill diameter."
+    },
+    {
+     "kind": "practice",
+     "ref": "MSC Industrial Supply, Spotting & Step Drills, Countersinks & Center Reamers Technical Information",
+     "url": "https://www.mscdirect.com/resources/buying-guides/drills-countersinks",
+     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120° spots for 118° or 120° drills."
+    }
+   ]
   }
  ]
 }

@@ -30,11 +30,11 @@ fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     assert!(out["plan"]["warnings"].as_array().unwrap().is_empty(), "{}", out["plan"]["warnings"]);
     let ops = out["plan"]["setups"][0]["operations"].as_array().unwrap();
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "holes", "holes", "slot", "wall_finish", "edge_chamfer"]);
+    assert_eq!(kinds, ["facing", "roughing", "spot_drill", "holes", "holes", "slot", "wall_finish", "edge_chamfer"]);
     // Measured on its tori, the mesh is well inside camlib's 0.1 mm.
     assert!(ops[1]["surface_error_mm"].as_f64().unwrap() < 0.05);
 
-    let slot = &ops[4];
+    let slot = &ops[5];
     assert_eq!(slot["bottom"], "through");
     assert_eq!(slot["a"], serde_json::json!([84.0, 26.0]));
     assert_eq!(slot["b"], serde_json::json!([84.0, 48.0]));

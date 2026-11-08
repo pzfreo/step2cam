@@ -46,7 +46,7 @@ fn ties_go_as_before() {
 
 #[test]
 fn every_kind_of_operation_has_its_place() {
-    let order: Vec<usize> = ["facing", "roughing", "flats", "holes", "counterbore", "slot", "wall_finish", "edge_chamfer", "thread"].iter().map(|k| rank(k).unwrap()).collect();
+    let order: Vec<usize> = ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "slot", "wall_finish", "edge_chamfer", "thread"].iter().map(|k| rank(k).unwrap()).collect();
     assert!(order.windows(2).all(|w| w[0] < w[1]), "{order:?}");
     assert_eq!(rank("notch").unwrap(), rank("slot").unwrap());
     assert!(rank("knurl").is_err());

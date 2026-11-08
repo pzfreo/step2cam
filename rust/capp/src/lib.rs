@@ -5,6 +5,7 @@
 //! resources cannot cut, and what an execution engine refused, and names each operation's tool.
 pub mod machines;
 mod needed;
+mod spots;
 pub mod plan;
 pub mod reference;
 pub mod resources;

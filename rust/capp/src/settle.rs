@@ -17,13 +17,16 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
     settle(plan, library)?;
+    crate::spots::create(plan, &Library::new(library)?)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
         let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), &Library::new(library)?)?;
         exclude(plan, operation, &message)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
         settle(plan, library)?;
+        crate::spots::prune(plan, &Library::new(library)?, false)?;
     }
+    crate::spots::prune(plan, &Library::new(library)?, true)?;
     let mut trace = Trace::take(plan);
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
@@ -342,6 +345,11 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     (true, None) => (Err(Some(format!("left out: it follows roughing, with the same end mill: needs {}", crate::needed::for_operation(op, top, &library, None)?.unwrap()))), "tool.flats.follow_roughing"),
                     _ => (Err(Some("left out: it follows roughing, with the same end mill".into())), "tool.flats.follow_roughing"),
                 },
+                "spot_drill" => {
+                    let selected = op["spot_tool"].as_str().and_then(|name| library.data["tools"].as_array()?.iter().find(|t| id(t) == name));
+                    let need = crate::needed::for_operation(op, top, &library, None)?.ok_or("no spot-drill query")?;
+                    (selected.ok_or_else(|| Some(format!("no usable spot drill: needs {need}"))), "tool.spot_drill")
+                }
                 "holes" => {
                     let d = num(op, "diameter")?;
                     let depth = library.drill_depth(op, top)?;

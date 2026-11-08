@@ -30,7 +30,8 @@ fn published_symbols_and_measurement_conventions() {
         ("diameter", "end_mill", "DC"), ("diameter", "drill", "DC"),
         ("diameter", "thread_mill", "DC"), ("overall_length", "drill", "OAL"),
         ("shank_diameter", "end_mill", "DCONMS"), ("neck_diameter", "thread_mill", "DN"),
-        ("point_angle", "drill", "SIG"), ("flute_length", "end_mill", "APMX"),
+        ("point_angle", "drill", "SIG"), ("point_angle", "spot_drill", "SIG"),
+        ("flute_length", "spot_drill", "LCF"), ("flute_length", "end_mill", "APMX"),
         ("flute_length", "chamfer_mill", "APMX"), ("flute_length", "drill", "LCF"),
     ] {
         let row = rows.iter().find(|r| r["field"] == field && r["types"].as_array().unwrap().contains(&json!(kind))).unwrap();
