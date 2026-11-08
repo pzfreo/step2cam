@@ -36,7 +36,13 @@
       <button type="button" data-sample="stepped-plate.step">Complex plate</button>
     </div>
     <label class="open">Open STEP file<input id="file" type="file" accept=".step,.stp,.STEP,.STP"></label>
+    <details id="desktop-menu" class="desktop-only">
+      <summary aria-label="Page menu">☰ Menu</summary>
+      <div id="desktop-menu-content"></div>
+    </details>
   </header>
+  <div id="desktop-status" class="desktop-only" aria-label="Warnings, checks and story"></div>
+  <p id="desktop-story" class="desktop-only" hidden></p>
 
   <div id="banner" class="banner" hidden></div>
   <div id="phone-alerts" class="phone-only"></div>
@@ -54,6 +60,15 @@
   <dialog id="phone-menu" aria-label="Page menu"><button type="button" id="phone-menu-close">Close menu</button><div id="phone-menu-content"></div></dialog>
 
   <main class="panes">
+    <div id="desktop-splitter" class="desktop-only" role="separator" tabindex="0" aria-label="List panel height" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="70" aria-valuenow="30"></div>
+    <div class="desktop-tabs desktop-only">
+      <div role="tablist" aria-label="Features, plan and moves">
+        <button type="button" role="tab" id="desktop-tab-features" data-desktop-tab="features" aria-controls="features" aria-selected="true">Features</button>
+        <button type="button" role="tab" id="desktop-tab-plan" data-desktop-tab="plan" aria-controls="desktop-plan" aria-selected="false" tabindex="-1">Plan</button>
+        <button type="button" role="tab" id="desktop-tab-toolpaths" data-desktop-tab="toolpaths" aria-controls="desktop-moves" aria-selected="false" tabindex="-1">Moves</button>
+      </div>
+      <button type="button" id="desktop-expand" class="pane-size" aria-pressed="false">Expand</button>
+    </div>
     <div id="start" class="start">
       <div>
         <p class="scope"><b>An experiment, not CAM to run on a machine.</b> step2cam drafts a plan for simple parts and shows why it made each choice. It does not model workholding, tolerances or cutting forces, and every tool and feed is a placeholder. Have someone who knows machining check anything before it is cut.</p>

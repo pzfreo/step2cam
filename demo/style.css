@@ -274,3 +274,61 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .banner-warnings[open] > summary::after { content: " ▾"; }
 .banner-warning { display: block; width: 100%; text-align: left; color: inherit; background: none; border: 0; padding: 3px 0; cursor: pointer; font: inherit; }
 .operation-warning { display: block; margin: 2px 10px 4px 38px; padding: 0; border: 0; background: none; color: var(--warn); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+
+/* Desktop additions have no footprint in the phone layout. */
+.desktop-only { display: none; }
+@media (min-width: 701px) {
+  .app { gap: 6px; padding: 8px 12px; }
+  header { flex-wrap: nowrap; gap: 10px; min-height: 36px; }
+  header .meta { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  header > .views { flex: none; }
+  header .views button { min-height: 32px; padding: 0 10px; }
+  #desktop-menu { display: block; flex: none; }
+  #desktop-menu > summary { cursor: pointer; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 6px; }
+  #desktop-menu-content { position: absolute; top: 48px; right: 12px; width: min(480px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; z-index: 40; }
+  #desktop-menu-content .views { flex-wrap: wrap; }
+  #desktop-status { display: flex; position: relative; flex: none; gap: 6px; height: 36px; min-width: 0; }
+  #desktop-status > * { min-width: 0; }
+  #desktop-status #banner { flex: 1 1 0; height: 36px; padding: 7px 8px; white-space: nowrap; overflow: hidden; font-size: 12px; }
+  #desktop-status #banner .phone-banner-toggle { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #desktop-status #banner:has(.banner-warnings) > :not(.banner-warnings) { display: none; }
+  #desktop-status #banner:has(details[open]), #desktop-status #banner.phone-banner-open { position: absolute; top: 0; left: 0; right: 0; height: auto; max-height: 45vh; overflow-y: auto; white-space: pre-wrap; z-index: 25; }
+  #desktop-status #banner:has(details[open]) > :not(.banner-warnings) { display: block; }
+  #desktop-status #checks { flex: 0 1 230px; padding: 7px 8px; font-size: 12px; overflow: hidden; }
+  #desktop-status #checks-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #desktop-status #checks-summary > :not(.phone-only) { display: none; }
+  #desktop-status #checks-summary > .phone-only { display: inline; }
+  #desktop-status #checks[open] { position: absolute; top: 0; right: 0; left: 0; max-height: 45vh; overflow-y: auto; background: var(--panel); z-index: 26; }
+  #desktop-status #checks[open] #checks-summary { white-space: normal; }
+  #desktop-status #checks[open] #checks-summary > :not(.phone-only) { display: inline; }
+  #desktop-status #checks[open] #checks-summary > .phone-only { display: none; }
+  #desktop-status .story { flex: 0 0 auto; display: flex; gap: 4px; }
+  #desktop-status .story-step { padding: 4px 8px; gap: 5px; align-items: center; min-height: 36px; font-size: 12px; }
+  #desktop-status .story-n { width: 20px; height: 20px; font-size: 12px; }
+  #desktop-status .story-arrow, #desktop-status .story-who, #desktop-status .story-text { display: none; }
+  #desktop-story { display: block; position: absolute; top: 90px; left: 12px; right: 12px; margin: 0; padding: 12px; max-height: 35vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; z-index: 24; }
+  .panes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, var(--view-share, 70fr)) 10px 36px minmax(0, var(--panel-share, 30fr)); gap: 0 8px; }
+  .panes > .pane, .panes > .pane > .pane-body:not(.plan-pane) { display: contents; container-type: normal; }
+  .panes .pane-title, .panes .pane-rail { display: none; }
+  .panes .view { grid-row: 1; grid-column: 1; border: 1px solid var(--line); border-radius: 6px; }
+  .panes #gcode-view { grid-column: 2; }
+  .panes .view::after { content: "PART · recognised"; position: absolute; bottom: 8px; left: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
+  .panes #gcode-view::after { content: "TOOLPATHS · cutting"; }
+  .panes .view-tools { flex-wrap: wrap; right: 6px; }
+  #desktop-splitter { display: block; grid-row: 2; grid-column: 1 / -1; cursor: ns-resize; touch-action: none; position: relative; }
+  #desktop-splitter::after { content: ""; position: absolute; top: 4px; left: 40%; right: 40%; height: 2px; background: var(--line-strong); }
+  #desktop-splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .desktop-tabs { display: flex; grid-row: 3; grid-column: 1 / -1; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; padding: 2px 8px; }
+  .desktop-tabs [role="tablist"] { display: flex; gap: 4px; }
+  .desktop-tabs [role="tab"] { min-height: 30px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 5px; background: transparent; }
+  .desktop-tabs [aria-selected="true"] { background: var(--active); border-color: var(--accent); }
+  .panes #features, .panes .plan-pane, .panes .code-panel { grid-row: 4; grid-column: 1 / -1; width: auto; min-width: 0; min-height: 0; background: var(--panel); border: 1px solid var(--line); }
+  .panes .plan-pane { display: flex; }
+  /* Keep every list's box and scroll position, including moves linked from another tab. */
+  .panes:not([data-desktop-tab="features"]) #features,
+  .panes:not([data-desktop-tab="plan"]) .plan-pane,
+  .panes:not([data-desktop-tab="toolpaths"]) .code-panel { visibility: hidden; }
+  footer { flex-wrap: nowrap; gap: 10px; }
+  footer .scrub { flex: 3 1 0; }
+  footer .status { flex: 1 1 0; max-height: 54px; overflow-y: auto; }
+}
