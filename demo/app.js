@@ -909,11 +909,11 @@ function decisionItem(d, rules, compact = false) {
   return li;
 }
 
-// Use only the choices recorded by the planner, including an empty considered list
-// when there was a single candidate. Do not infer rejections from the tool library.
+// Use only recorded alternatives. An empty trace does not tell us which other
+// tools were considered; do not infer rejections from the tool library.
 function toolChoice(op, decisions, tools) {
   const choices = (op.because || []).map((id) => decisions.get(id))
-    .filter((d) => d?.stage === "tools" && Array.isArray(d.considered));
+    .filter((d) => d?.stage === "tools" && d.considered?.length);
   if (!choices.length) return null;
   const rows = new Map();
   for (const d of choices) {
