@@ -65,6 +65,11 @@
      "decision": {
       "type": "string",
       "pattern": "^d-[0-9]+$"
+     },
+     "chamfer_width": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Equal 45° leg, retained so a geometry refusal can also name a missing full-width chamfer mill."
      }
     },
     "additionalProperties": false
@@ -1635,13 +1640,12 @@
      "additionalProperties": false
     },
     {
-     "description": "Edge rounds on the top face, cut as a chamfer.",
+     "description": "Modelled equal-leg 45° top chamfers, or top edge rounds cut as a chamfer. radius is present only for rounds.",
      "type": "object",
      "required": [
       "kind",
       "needs_wall",
       "wall_features",
-      "radius",
       "width",
       "top_z",
       "outer",
@@ -1779,6 +1783,22 @@
        },
        "additionalProperties": false,
        "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+      },
+      "maximum_diameter": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "minimum": 0,
+       "description": "Conservative loop clearance for tool selection; null means no neighboring material limits the diameter."
+      },
+      "room": {
+       "type": [
+        "number",
+        "null"
+       ],
+       "minimum": 0,
+       "description": "Clear distance outside the loop; null when no neighboring material limits it."
       }
      },
      "additionalProperties": false

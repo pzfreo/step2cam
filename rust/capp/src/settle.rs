@@ -31,6 +31,7 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     let mut trace = Trace::take(plan);
     crate::machines::check_changer(plan, library, &mut trace);
     trace.store(plan);
+    crate::needed::chamfer_queries(plan, &Library::new(library)?)?;
     crate::needed::collect(plan);
     Ok(())
 }
@@ -173,10 +174,10 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
             if op["kind"] != "edge_chamfer" || op["needs_wall"].is_null() || walls.contains(&op["needs_wall"]) {
                 return true;
             }
-            let radius = op["radius"].as_f64().unwrap_or(0.);
             let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
             for id in lost.iter().filter_map(Value::as_str) {
-                trace.skip("feasibility.chamfer.needs_wall", id, format!("r{} edge round: its wall keeps its roughing allowance, so it is not chamfered", show(radius)));
+                let edge = op["radius"].as_f64().map_or("edge chamfer".into(), |radius| format!("r{} edge round", show(radius)));
+                trace.skip("feasibility.chamfer.needs_wall", id, format!("{edge}: its wall keeps its roughing allowance, so it is not chamfered"));
             }
             if op["boundaries"] != "all" {
                 return false;
@@ -287,9 +288,12 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     None => (library.clearing("roughing")?.ok_or(None), "tool.wall.roughing_mill"),
                 },
                 "edge_chamfer" => {
-                    let (width, radius) = (num(op, "width")?, num(op, "radius")?);
-                    considered = library.considered("chamfer_mill", &[("width", width)]);
-                    (library.chamfer_mill(width).ok_or_else(|| Some(format!("no 90° chamfer mill wide enough for the r{} edges, so they stay sharp", show(radius)))), "tool.edge_chamfer.chamfer_mill")
+                    let width = num(op, "width")?;
+                    let maximum = op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY);
+                    let room = op["room"].as_f64().unwrap_or(f64::INFINITY);
+                    let depth = top - num(op, "top_z")? + width + crate::resources::TIP_CLEARANCE;
+                    considered = library.considered("chamfer_mill", &[("width", width), ("maximum_diameter", maximum), ("depth", depth), ("room", room)]);
+                    (library.chamfer_mill_in(width, maximum, depth, room).ok_or_else(|| Some(format!("no 90° chamfer mill covers the whole {} mm chamfer with tip clearance, loop clearance and cutting-length reach; width passes cannot extend its cone", show(width)))), "tool.edge_chamfer.chamfer_mill")
                 }
                 _ => continue,
             };

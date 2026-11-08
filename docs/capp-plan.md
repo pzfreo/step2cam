@@ -230,3 +230,16 @@ Planned:
 - **Tapping** as an alternative to thread milling; camlib has a tapping operation.
 - **Surface finish and ISO 2768**, once a rule uses them.
 - **Optional:** an AP238 (STEP-NC) export; a second execution engine.
+
+Modelled equal-leg 45° top chamfers use `edge_chamfer`, with `width` as the leg and
+no `radius`. A whole outside loop needs its wall finished; hole and slot mouths
+need their bore or slot at size. Interrupted convex perimeters may bridge removed
+notches only when the mesh lies inside the bevel. Other edges stay out with a reason.
+The largest 90° chamfer mill that covers the full leg plus 0.5 mm tip clearance
+and fits the loop is selected. Camlib lowers that cone in width steps of at most
+1 mm; these passes split the load but cannot extend its conical cutting edge.
+Deburr breaks finished edges and also requires the width to fit its cone.
+Camlib measures chamfer flute reach from the job's stock top, including air above
+a lower flat. Such a chamfer can therefore need longer flutes than its local leg.
+Geometry refusals retain that reason and also name a missing full-width cone when
+the library has none; loading it does not resolve the geometry refusal.

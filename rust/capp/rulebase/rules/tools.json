@@ -126,9 +126,12 @@
   {
    "id": "chamfer_mill",
    "tool_type": "chamfer_mill",
-   "description": "The first 90° chamfer mill wide enough for the width with its tip clear of the edge.",
+   "description": "The largest 90° chamfer mill covering the whole width with its tip clear of the edge.",
    "inputs": [
-    "width"
+    "width",
+    "maximum_diameter",
+    "depth",
+    "room"
    ],
    "keep": [
     {
@@ -138,10 +141,23 @@
     {
      "if": "tool.diameter / 2 >= tool.tip_diameter / 2 + tip_clearance_mm + width",
      "else_reject": "{tool.id}: too small for a {width} mm chamfer with its tip clear of the edge"
+    },
+    {
+     "if": "tool.diameter <= maximum_diameter",
+     "else_reject": "{tool.id}: too wide for the loop clearance of ⌀{maximum_diameter}"
+    },
+    {
+     "if": "tool.flute_length > depth + 0.00016",
+     "else_reject": "{tool.id}: its flutes do not reach the chamfer from the stock top"
+    },
+    {
+     "if": "tool.diameter / 2 + tool.tip_diameter / 2 + tip_clearance_mm <= room",
+     "else_reject": "{tool.id}: its cone and axis offset exceed the {room} mm beside the loop"
     }
    ],
    "prefer": {
-    "first": true
+    "largest": "tool.diameter",
+    "ties": "first"
    },
    "let": [
     [

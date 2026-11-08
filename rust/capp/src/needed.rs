@@ -25,8 +25,20 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
         "notch" => mill("pocket_mill", &[("width", num(op, "width")?), ("depth", depth)])?,
         "facing" | "roughing" | "flats" | "wall_finish" => mill("largest_end_mill", &[])?,
         "edge_chamfer" => {
-            let query = library.needed("chamfer_mill", &[("width", num(op, "width")?)])?;
-            if required.is_some() { format!("{query}, with zero tip diameter and flutes of at least {} mm", reach(depth)) } else { query }
+            let width = num(op, "width")?;
+            let axial = top - num(op, "top_z")? + width + crate::resources::TIP_CLEARANCE;
+            let query = library.needed("chamfer_mill", &[("width", width), ("maximum_diameter", op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY)), ("depth", axial)])?;
+            if required.is_some() { format!("{query}, with zero tip diameter and flutes of at least {} mm", reach(depth)) } else {
+                let query = format!("{query}, with flutes of at least {:.2} mm", ((axial+0.00016)*100.).ceil()/100.);
+                let query = match op["room"].as_f64() {
+                    Some(room) => format!("{query}, with cutter radius + tip radius + 0.5 mm at most {} mm", crate::plan::show(room)),
+                    None => query,
+                };
+                match op["maximum_diameter"].as_f64() {
+                    Some(maximum) => format!("{query}, diameter at most {} mm for this loop", crate::plan::show(maximum)),
+                    None => query,
+                }
+            }
         },
         "v_channel" => format!("{} {long}", library.needed("v_bit", &[("angle", num(op, "angle")?)])?),
         "thread" => library.needed("thread_mill", &[("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?),
@@ -92,4 +104,24 @@ pub(crate) fn collect(plan: &mut Value) {
         add(&decision["says"], vec![], decision["subject"].as_str().map(String::from));
     }
     plan["tools_needed"] = json!(needs);
+}
+
+/// A geometry refusal can also lack a covering cone. Keep both facts: loading the
+/// requested tool does not by itself make an unreachable loop machinable. Recompute
+/// the suffix when finishing again with another library, just as operation needs are.
+pub(crate) fn chamfer_queries(plan: &mut Value, library: &Library) -> Result<(), String> {
+    let mut trace = crate::trace::Trace::take(plan);
+    for skipped in &mut trace.skipped {
+        let Some(width) = skipped["chamfer_width"].as_f64() else { continue; };
+        let base = skipped["reason"].as_str().unwrap_or("").split(": needs ").next().unwrap_or("");
+        let reason = if library.chamfer_mill_in(width, f64::INFINITY, 0., f64::INFINITY).is_none() {
+            format!("{base}: needs {}", library.needed("chamfer_mill", &[("width", width)])?)
+        } else { base.into() };
+        if let Some(decision) = trace.decisions.iter_mut().find(|d| d["id"] == skipped["decision"]) {
+            decision["says"] = json!(reason);
+        }
+        skipped["reason"] = json!(reason);
+    }
+    trace.store(plan);
+    Ok(())
 }

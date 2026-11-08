@@ -158,7 +158,10 @@ impl<'a> Library<'a> {
         self.pick("v_bit", &[("angle", angle)])
     }
     pub fn chamfer_mill(&self, width: f64) -> Option<&'a Value> {
-        self.pick("chamfer_mill", &[("width", width)])
+        self.chamfer_mill_in(width, f64::INFINITY, width + TIP_CLEARANCE, f64::INFINITY)
+    }
+    pub fn chamfer_mill_in(&self, width: f64, maximum_diameter: f64, depth: f64, room: f64) -> Option<&'a Value> {
+        self.pick("chamfer_mill", &[("width", width), ("maximum_diameter", maximum_diameter), ("depth", depth), ("room", room)])
     }
     /// What a selector made of every tool of its type, for the trace (`rules::considered`).
     pub fn considered(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Value> {

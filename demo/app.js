@@ -153,7 +153,7 @@ function operationName(op, setup, plan) {
   if (op.kind === "v_channel") return `V-channel, ${trim(op.width)} wide` + where;
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
-  if (op.kind === "edge_chamfer") return `${op.width} chamfer on r${op.radius} edges` + where;
+  if (op.kind === "edge_chamfer") return (op.radius == null ? `${op.width} mm 45° edge chamfer` : `${op.width} chamfer on r${op.radius} edges`) + where;
   return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
