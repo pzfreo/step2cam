@@ -203,9 +203,16 @@ fn hole_tool_selection_checks_stock_breakthrough_and_point_before_the_job() {
     assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "long4.2");
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "long4.2");
     let (ops, _, _) = posted(&plan, &library);
-    assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "drill4.2", "the short drill now goes to camlib");
-    assert!(of_kind(&ops, "bore").is_empty());
+    assert!(of_kind(&ops, "drilling").is_empty());
+    assert_eq!(of_kind(&ops, "bore").len(), 1);
+}
+
+#[test]
+fn a_short_drill_is_deferred_only_when_no_end_mill_can_bore() {
+    let plan = plan(&holes_only(&[down(0., 0., 4.2, 10., "through")]), None, &top_stock(2.)).unwrap();
+    let mut library = example_tools();
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "drill4.2");
+    library["tools"][0]["flute_length"] = json!(13.);
     let settled = finished(&plan, &library);
     let hole = settled["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes").unwrap();
     assert_eq!(hole["tool"], "drill4.2");

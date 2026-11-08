@@ -91,7 +91,7 @@ fn drill_selector_rejects_short_flutes_and_keeps_a_longer_equal_diameter() {
     let candidates = lib.considered("drill", &[("diameter", 5.), ("depth", 25.)]);
     assert!(candidates.iter().any(|c| c["candidate"] == "short"
         && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach 25.0 mm down") && s.contains("point"))), "{candidates:?}");
-    assert_eq!(lib.drill(5., 25.001).unwrap()["id"], "short", "when all are short, the normal first tie goes to camlib");
+    assert!(lib.drill(5., 25.001).is_none());
 }
 
 #[test]
@@ -110,7 +110,13 @@ fn only_pocket_and_drill_reach_conditions_are_deferred() {
     assert_eq!(marked, ["drill", "pocket_mill"]);
     let data = library(json!([mill("wide", 12.), mill("a6", 6.), mill("b6", 6.)]));
     let lib = Library::new(&data).unwrap();
-    assert_eq!(lib.pocket_mill(10., 60.).unwrap()["id"], "b6");
+    assert!(lib.pocket_mill(10., 60.).is_none(), "the selector API stays strict; resolution defers reach");
+    let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-60],"max":[20,20,0]}, "operations":[
+        {"kind":"notch", "width":10., "top_z":0., "floor_z":-60., "features":["pockets:0"]}
+    ]}]});
+    capp::finish(&mut plan, &data, &[]).unwrap();
+    assert_eq!(plan["setups"][0]["operations"][0]["tool"], "b6", "deferred resolution preserves the last-tie preference and rejects the wide mill");
+    assert!(plan["decisions"].as_array().unwrap().iter().any(|d| d["chosen"] == "b6" && d["says"].as_str().unwrap().contains("reach is left to camlib")));
     assert!(lib.pocket_mill(1., 60.).is_none());
     assert!(lib.considered("pocket_mill", &[("width", 10.), ("depth", 60.)]).iter().any(|c| c["candidate"] == "b6" && c["rejected"].as_str().unwrap().contains("flutes")));
 }

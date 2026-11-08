@@ -141,6 +141,18 @@ fn supplied_short_pocket_and_drill_choices_still_go_to_camlib() {
     let drill_id = drill["id"].clone();
     let diameter = drill["diameter"].clone();
     library["tools"].as_array_mut().unwrap().push(drill);
+    // Supplied short tools remain explicit choices even when a normal alternative qualifies.
+    let mut alternate = read("demo/tools.json")["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == "em1.5")
+        .unwrap()
+        .clone();
+    alternate["flute_length"] = json!(80.);
+    alternate["stickout"] = json!(90.);
+    alternate["overall_length"] = json!(130.);
+    library["tools"].as_array_mut().unwrap().push(alternate);
     library["decisions"] = json!([
         {"rule":"tool.notch.pocket_mill@1", "subject":"top:notch", "choice":"em6", "source":"agent:shop", "reason":"test supplied reach"},
         {"rule":"tool.hole.drill_or_bore@1", "subject":"top:holes", "choice":drill_id, "source":"agent:shop", "reason":"test supplied reach"}
@@ -205,4 +217,78 @@ fn mesh_blocked_roughing_does_not_withhold_the_pocket() {
             .any(|d| d["rule"] == "process.roughing.mesh_error@1")
     );
     assert_cut(&out);
+}
+
+#[test]
+fn short_drill_preserves_a_cuttable_bore_and_is_deferred_without_one() {
+    for can_bore in [true, false] {
+        let mut library = read("demo/tools.json");
+        library.as_object_mut().unwrap().remove("machines");
+        library["tools"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|t| t["id"] == "drill4.2" || (can_bore && t["id"] == "em3"));
+        let drill = library["tools"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|t| t["id"] == "drill4.2")
+            .unwrap();
+        drill["flute_length"] = json!(2.);
+        let out = step2cam::process(
+            &read("tests/fixtures/plate.analysis.json"),
+            &read("tests/fixtures/plate.mesh.json"),
+            &library,
+        )
+        .unwrap();
+        assert!(out["error"].is_null(), "{}", out["error"]);
+        if can_bore {
+            let setup = &out["plan"]["setups"][0];
+            let (index, hole) = setup["operations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .enumerate()
+                .find(|(_, o)| o["kind"] == "holes" && o["diameter"] == 4.2)
+                .expect("a usable bore must keep the hole");
+            assert_eq!(hole["tool"], "em3");
+            let operation = format!("{}-{}-holes", setup["id"].as_str().unwrap(), index + 1);
+            assert!(
+                out["programs"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["operations"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|o| o["id"] == operation)),
+                "the bore must be simulated and cut"
+            );
+        } else {
+            let refusal = out["plan"]["decisions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|d| {
+                    d["rule"] == "execution.refused@1"
+                        && d["outcome"] == "removed"
+                        && d["message"].as_str().is_some_and(|m| {
+                            m.contains("hole depth") && m.contains("exceeds the cutting length 2")
+                        })
+                })
+                .expect("camlib must judge the only available short drill");
+            assert!(
+                refusal["says"]
+                    .as_str()
+                    .unwrap()
+                    .contains("drill4.2's flutes are 2.0 mm")
+            );
+            assert!(
+                out["plan"]["tools_needed"]
+                    .as_array()
+                    .is_some_and(|ns| !ns.is_empty())
+            );
+        }
+    }
 }

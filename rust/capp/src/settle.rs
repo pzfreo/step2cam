@@ -433,7 +433,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                         considered = library.considered("bore_mill", &[("diameter", d)]);
                         considered.extend(drills);
                     }
-                    let tool = drilled.or_else(|| library.bore_mill(d)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
+                    let tool = drilled.or_else(|| library.bore_mill(d)).or_else(|| library.deferred_drill(d, depth)).ok_or_else(|| Some(format!("no drill of ⌀{} and no end mill small enough to bore it ({})", show(d), features())));
                     (tool, "tool.hole.drill_or_bore")
                 }
                 "counterbore" => {
@@ -463,7 +463,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     let width = num(op, "width")?;
                     let depth = num(op, "top_z")? - num(op, "floor_z")?;
                     considered = library.considered("pocket_mill", &[("width", width), ("depth", depth)]);
-                    let tool = library.pocket_mill(width, depth)
+                    let tool = library.pocket_mill(width, depth).or_else(|| library.deferred_pocket_mill(width, depth))
                         .ok_or_else(|| Some(format!("no end mill both narrower than the {} mm width and long enough ({})", show(width), features())));
                     (tool, "tool.notch.pocket_mill")
                 }

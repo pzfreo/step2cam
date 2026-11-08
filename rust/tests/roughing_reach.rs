@@ -114,7 +114,7 @@ fn boundary_and_partial_features_and_dependent_chamfers_use_the_capped_frame() {
     let mut plan = json!({"setups":[{"id":"side", "stock":{"min":[0,0,-30],"max":[20,20,10]}, "operations":[
         {"kind":"roughing", "top_z":10., "floor_z":-30., "web_mm":2.},
         {"kind":"flats", "floor_z":-30., "levels":[-5.,-1.,2.]},
-        {"kind":"holes", "diameter":3., "top_z":10., "bottom_z":-25., "centers":[[10.,10.]], "countersinks":[null], "features":["holes:0"]},
+        {"kind":"holes", "diameter":3., "bottom_z":-25., "features":["holes:0"]},
         {"kind":"v_channel", "on_flat":true, "top_z":-5., "root_z":-6., "features":["v_channels:0"]},
         {"kind":"wall_finish", "wall":"wall-1", "floor_z":-2., "on_flat":false},
         {"kind":"edge_chamfer", "needs_wall":"wall-1", "boundaries":"outer", "radius":0.5,
