@@ -72,7 +72,8 @@ and chamfers have directly comparable taxonomies; totals include their counts an
 parts (including parts with zero of both). Failed recognition is excluded from equality checks.
 
 Every recognised feature records `cut`, `left_out` with a grouped reason, `covered` by roughing,
-or `unaccounted` (e.g. a hole-pattern container). A feature referenced by a retained operation
+or `unaccounted`. `hole_patterns` features are always `unaccounted`: plan operations name the
+member holes, not the pattern. A feature referenced by a retained operation
 counts as cut, even if other operations also refer to it; cut takes precedence over covered,
 then left out. This measures the final plan's claims, not machining completeness or quality.
 Warnings and reasons retain their full text with numeric values replaced by `#`.

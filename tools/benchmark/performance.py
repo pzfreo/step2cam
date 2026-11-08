@@ -1,12 +1,30 @@
 """Optional retired-instruction measurements, separate from plan comparison data."""
 from pathlib import Path
+import os
 import re
+import signal
 import statistics
 import subprocess
 import sys
 import threading
 
 STAGES = ('analyse', 'mesh', 'process')
+
+
+def run_process(args, *, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout, cwd=None):
+    """Terminate the entire stage, including a time wrapper's child, on timeout."""
+    with subprocess.Popen(args, stdout=stdout, stderr=stderr, text=True, cwd=cwd,
+                          start_new_session=True) as process:
+        try:
+            output, diagnostics = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            output, diagnostics = process.communicate()
+            raise subprocess.TimeoutExpired(args, timeout, output=output, stderr=diagnostics) from None
+        return subprocess.CompletedProcess(args, process.returncode, output, diagnostics)
 
 
 def parse_instructions(stderr):
@@ -32,8 +50,7 @@ class InstructionMeter:
             # Some macOS sandboxes prohibit time's resource sysctls. Its own failure
             # must not turn a successful child into a benchmark error.
             try:
-                probe = subprocess.run(['/usr/bin/time', '-l', '/usr/bin/true'],
-                                       capture_output=True, text=True, timeout=10)
+                probe = run_process(['/usr/bin/time', '-l', '/usr/bin/true'], timeout=10)
                 self.enabled = probe.returncode == 0
                 if not self.enabled:
                     self.unavailable(probe.stderr.strip())

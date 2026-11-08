@@ -18,18 +18,33 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from common import family, summarise_part, totals
 from fetch import RemoteZip, extract
-from performance import InstructionMeter, STAGES, instruction_summary, strip_time_report
+from performance import InstructionMeter, STAGES, instruction_summary, strip_time_report, run_process
 
 REPO = HERE.parent.parent
 
 
 def command(args, stdout=None, timeout=600, check=True):
-    result = subprocess.run([str(a) for a in args], stdout=stdout or subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True, timeout=timeout, cwd=REPO)
+    result = run_process([str(a) for a in args], stdout=stdout or subprocess.PIPE,
+                         timeout=timeout, cwd=REPO)
     if check and result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
                            f'{result.stderr.strip()[-4000:]}')
     return result
+
+
+def portable_error(error, cache, repo=REPO, home=None):
+    """Remove host-specific roots and instrumentation wrappers from stored errors."""
+    text = str(error)
+    roots = {}
+    for root, label in ((cache, '<cache>'), (repo, '<repo>'),
+                        (Path.home() if home is None else home, '<home>')):
+        for path in (Path(root).absolute(), Path(root).resolve()):
+            roots.setdefault(str(path), label)
+    # Replace nested cache/repo roots before their common home directory.
+    for path in sorted(roots, key=len, reverse=True):
+        text = text.replace(path, roots[path])
+    text = re.sub(r"(['\"])/usr/bin/time\1,\s*(['\"])-l\2,?\s*", '', text)
+    return re.sub(r'/usr/bin/time\s+-l(?:\s+|$)', '', text).strip()
 
 
 def build_process():
@@ -44,12 +59,12 @@ def build_process():
     raise RuntimeError('Cargo did not report the process example executable')
 
 
-def measured_command(args, stage, counts, meter, stdout=None):
+def measured_command(args, stage, counts, meter, stdout=None, timeout=600):
     try:
-        result = command(meter.wrap([str(a) for a in args]), stdout=stdout, check=False)
-    except subprocess.TimeoutExpired:
+        result = command(meter.wrap([str(a) for a in args]), stdout=stdout, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired as exc:
         meter.unavailable('a stage timed out without an instruction count')
-        raise
+        raise RuntimeError(f'{stage} timed out after {exc.timeout:g} s') from None
     counts[stage] = meter.record(result.stderr)
     if result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
@@ -93,10 +108,10 @@ def run_part(part, z, cache, tools, fetch_lock, process, meter):
             measured_command([process, analysis_path, mesh_path, tools], 'process', counts, meter, stdout=out)
         output = json.loads((work / 'process.json').read_text())
         row['features'], row['warnings'] = summarise_part(analysis, output)
-        if output.get('error') or output.get('post_error'):
-            row['error'] = str(output.get('error') or output['post_error'])
+        if output.get('error'):
+            row['error'] = portable_error(output['error'], cache)
     except Exception as exc:
-        row['error'] = str(exc)
+        row['error'] = portable_error(exc, cache)
     return row, counts
 
 

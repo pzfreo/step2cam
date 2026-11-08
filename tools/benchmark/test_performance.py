@@ -39,7 +39,7 @@ class InstructionTests(unittest.TestCase):
         from types import SimpleNamespace
         result = SimpleNamespace(returncode=1, stderr='time: sysctl: Operation not permitted')
         with patch('performance.sys.platform', 'darwin'), patch('performance.Path.is_file', return_value=True), \
-                patch('performance.subprocess.run', return_value=result), redirect_stderr(io.StringIO()):
+                patch('performance.run_process', return_value=result), redirect_stderr(io.StringIO()):
             meter = InstructionMeter()
             self.assertFalse(meter.enabled)
             self.assertEqual(meter.wrap(['process']), ['process'])
@@ -48,7 +48,7 @@ class InstructionTests(unittest.TestCase):
         from types import SimpleNamespace
         from run import measured_command
         with patch('performance.sys.platform', 'darwin'), patch('performance.Path.is_file', return_value=True), \
-                patch('performance.subprocess.run', return_value=SimpleNamespace(returncode=0)):
+                patch('performance.run_process', return_value=SimpleNamespace(returncode=0)):
             meter = InstructionMeter()
         counts = dict.fromkeys(STAGES)
         result = SimpleNamespace(returncode=1, stderr='bad mesh\n 0.12 real 0.09 user 0.02 sys\n 987 instructions retired\n')
