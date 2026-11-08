@@ -914,6 +914,27 @@
      "note": "https://github.com/stevecad/camlib/issues/122"
     }
    ]
+  },
+  {
+   "id": "machine.clamping",
+   "version": 1,
+   "stage": "machine",
+   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. This is a planning heuristic, not a holding-force calculation. The 3.175 mm minimum is informed by SMW low-profile workholding; its published minimum applies to their Turret Grip, not arbitrary smooth jaws. With specified parallels the grip is jaw height minus parallels height. Without parallels position the jaws for the selected grip; no support geometry is assumed. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness.",
+   "code": "workholding.rs clamp; settle.rs cap_roughing",
+   "sources": [
+    {
+     "kind": "manufacturer",
+     "url": "https://saundersmachineworks.com/products/smw-turret-grip-1pc",
+     "note": "SMW Turret Grip: stock can be held with 0.125 inch (3.18 mm) above the parallels; specialized grip hardware."
+    },
+    {
+     "kind": "step2cam",
+     "note": "20% minimum and 50% maximum grip, 1 mm clearance, and square jaw sections are explicit conservative planning choices, not manufacturer recommendations."
+    }
+   ],
+   "data": [
+    "rules/workholding.json"
+   ]
   }
  ]
 }

@@ -49,7 +49,7 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
         assert!(rule["sources"].as_array().is_some_and(|s| !s.is_empty()), "{rule}");
         for data in rule["data"].as_array().into_iter().flatten().filter_map(Value::as_str) {
             let (file, selector) = data.split_once('#').unwrap_or((data, ""));
-            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json"].contains(&file), "{}: {data}", rule["id"]);
+            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json", "rules/workholding.json"].contains(&file), "{}: {data}", rule["id"]);
             if !selector.is_empty() {
                 assert!(selectors["selectors"].as_array().unwrap().iter().any(|s| s["id"] == selector), "{}: no selector {selector}", rule["id"]);
             }

@@ -16,6 +16,9 @@ use serde_json::{Value, json};
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
+    let mut trace = Trace::take(plan);
+    crate::machines::place(plan, library, &mut trace);
+    trace.store(plan);
     settle(plan, library)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
@@ -24,9 +27,6 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
         settle(plan, library)?;
     }
-    let mut trace = Trace::take(plan);
-    crate::machines::place(plan, library, &mut trace);
-    trace.store(plan);
     resolve(plan, library)?;
     let mut trace = Trace::take(plan);
     crate::machines::check_changer(plan, library, &mut trace);
@@ -103,26 +103,30 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
     let mut uncovered = vec![];
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
+        let jaw_floor = setup["clamping"]["jaw_top_z"].as_f64().map(|z| z + setup["clamping"]["clearance_mm"].as_f64().unwrap());
         let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
         let Some(rough) = ops.iter_mut().find(|o| o["kind"] == "roughing") else { continue; };
         // Minimal hand-written plans may have no geometry; there is no floor to cap there.
         let Some(top) = rough["top_z"].as_f64() else { continue; };
         let old = num(rough, "floor_z")?;
-        let floor = top - reach;
+        let floor = jaw_floor.map_or(top - reach, |z| z.max(top - reach));
+        let rule = if jaw_floor == Some(floor) { "machine.clamping" } else { REACH_RULE };
         if old >= floor { continue; }
         rough["floor_z"] = json!(floor);
         if let Some(web) = rough["web_mm"].as_f64() {
             rough["web_mm"] = json!(web + floor - old);
         }
-        let why = reach_reason(rough, mill)?;
-        let decision = trace.warn(REACH_RULE, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"));
+        let why = if rule == "machine.clamping" {
+            format!("side cutting stops at Z{}: jaw top plus {} mm clearance; the gripped stock and material below the jaws need a later setup", show(floor), show(crate::rules::workholding()["clearance_mm"].as_f64().unwrap()))
+        } else { reach_reason(rough, mill)? };
+        let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"));
         because(rough, [decision]);
         if let Some(depths) = depths.as_object() {
             for (id, depth) in depths {
                 if depth["floor_z"].as_f64().is_some_and(|z| z >= floor) { continue; }
                 let required = top - depth["floor_z"].as_f64().unwrap_or(old);
-                let need = needed_for_reach(rough, top, library, required)?;
-                uncovered.push((id.clone(), format!("{}: no operation of its own; {why}: needs {need}", depth["family"].as_str().unwrap_or("feature"))));
+                let need = if rule == REACH_RULE { format!(": needs {}", needed_for_reach(rough, top, library, required)?) } else { String::new() };
+                uncovered.push((rule.to_string(), id.clone(), format!("{}: no operation of its own; {why}{need}", depth["family"].as_str().unwrap_or("feature"))));
             }
         }
         // Use the original flats, before filtering, to recover the bands made by
@@ -137,12 +141,12 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
             let high = levels.iter().copied().filter(|z| *z > low).min_by(f64::total_cmp).unwrap_or(part_top);
             // Leave wholly unreachable bands to wall_refusal and the existing needs_wall handling.
             if high <= floor { continue; }
-            let need = needed_for_reach(wall, top, library, top - low)?;
+            let need = if rule == REACH_RULE { format!(": needs {}", needed_for_reach(wall, top, library, top - low)?) } else { String::new() };
             wall["floor_z"] = json!(floor);
             // It now stops in the roughed stock, above the flat it originally stood on.
             wall["on_flat"] = json!(false);
-            let d = trace.warn(REACH_RULE, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
-                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut: needs {need}", show(floor)));
+            let d = trace.warn(rule, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
+                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)));
             because(wall, [d]);
         }
         for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
@@ -150,7 +154,7 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
                 let before = levels.len();
                 levels.retain(|z| z.as_f64().is_some_and(|z| z >= floor));
                 if levels.len() != before {
-                    let d = trace.warn(REACH_RULE, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)));
+                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)));
                     because(op, [d]);
                 }
             }
@@ -163,10 +167,10 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
         }
     }
     if let Some(covered) = plan["covered_by_roughing"].as_array_mut() {
-        for (id, reason) in uncovered {
+        for (rule, id, reason) in uncovered {
             if !covered.contains(&json!(id)) { continue; }
             covered.retain(|f| f != &id);
-            let skipped = trace.skip(REACH_RULE, &id, reason);
+            let skipped = trace.skip(&rule, &id, reason);
             trace.supersede(&id, "covered", &skipped);
         }
     }
@@ -188,6 +192,9 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(
         return Ok(Some(("feasibility.wall.needs_mill", format!("no end mill to finish the wall with: needs {}", crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
     };
     if num(op, "floor_z")? < num(rough, "floor_z")? {
+        if setup["clamping"]["jaw_top_z"].as_f64().is_some_and(|z| num(op, "floor_z").is_ok_and(|floor| floor < z + setup["clamping"]["clearance_mm"].as_f64().unwrap())) {
+            return Ok(Some(("machine.clamping", "this wall band is below the jaw clearance cap; left for a later setup".into())));
+        }
         return Ok(Some((REACH_RULE, format!("{}; none of this wall band remains above the cleared stock", reach_reason(rough, mill)?))));
     }
     let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
@@ -246,6 +253,23 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
     cap_roughing(plan, &library, trace)?;
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
+        if let Some(cap) = setup["clamping"]["jaw_top_z"].as_f64().map(|z| z + setup["clamping"]["clearance_mm"].as_f64().unwrap()) {
+            let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
+            ops.retain(|op| {
+                let floor = match op["kind"].as_str().unwrap_or("") {
+                    "slot" | "notch" => op["floor_z"].as_f64(),
+                    "v_channel" => op["root_z"].as_f64(),
+                    _ => None,
+                };
+                if floor.is_none_or(|z| z >= cap) { return true; }
+                let reason = format!("{} below Z{} jaw clearance cap left for a later setup", op["kind"].as_str().unwrap_or("side cut"), show(cap));
+                trace.warn("machine.clamping", &setup_id, reason.clone());
+                for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+                    trace.skip("machine.clamping", feature, reason.clone());
+                }
+                false
+            });
+        }
         let view = setup.clone();
         let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
         let mut refused = vec![];

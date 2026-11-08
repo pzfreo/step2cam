@@ -108,7 +108,7 @@ pub fn because(op: &mut Value, ids: impl IntoIterator<Item = String>) {
 /// and data.
 pub fn rulebase() -> Value {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS]
+    let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS, crate::rules::WORKHOLDING]
         .into_iter()
         .chain(crate::reference::TABLES.iter().map(|(_, text)| *text));
     for text in files {

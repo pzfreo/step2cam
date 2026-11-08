@@ -199,8 +199,16 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
                 }
                 let (_, check) = producer.push_checked_motion(motion.clone(), DEFAULT_FRAME_LIMIT, &cancel)?;
                 if let Some(raw) = check {
-                    match binding.decode(&raw, producer.completed(), Some(&motion))?.check.motion_status() {
+                    let checked = binding.decode(&raw, producer.completed(), Some(&motion))?;
+                    match checked.check.motion_status() {
                         Some(Status::Violation) => {
+                            if let Check::Motion { report: Some(report), .. } = &checked.check {
+                                let contacts: Vec<String> = report.findings.iter().filter(|f| f.status == Status::Violation)
+                                    .map(|f| format!("{} ({:?}, {:?})", f.object_id, f.kind, f.part)).collect();
+                                if !contacts.is_empty() {
+                                    return Err(format!("camlib's fixture/scene check found a violation in {} at motion {}: {}", operation.id(), motion.id, contacts.join(", ")));
+                                }
+                            }
                             return Err(format!("camlib's stock-contact check found a violation in {} at motion {}", operation.id(), motion.id));
                         }
                         Some(Status::Uncertain) => uncertain += 1,

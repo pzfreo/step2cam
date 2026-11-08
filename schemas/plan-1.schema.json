@@ -285,6 +285,99 @@
     "machine": {
      "type": "string",
      "description": "The machine it is cut on, once capp::finish has run."
+    },
+    "clamping": {
+     "type": "object",
+     "required": [
+      "faces",
+      "grip_height_mm",
+      "jaw_top_z",
+      "clearance_mm",
+      "jaws",
+      "parallels",
+      "because"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "faces": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "stock.x.min",
+         "stock.x.max",
+         "stock.y.min",
+         "stock.y.max"
+        ]
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "grip_height_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "jaw_top_z": {
+       "type": "number"
+      },
+      "clearance_mm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "because": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "jaws": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "id",
+         "min",
+         "max"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "min": {
+          "$ref": "#/$defs/box/properties/min"
+         },
+         "max": {
+          "$ref": "#/$defs/box/properties/max"
+         }
+        }
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "parallels": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "id",
+         "min",
+         "max"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "min": {
+          "$ref": "#/$defs/box/properties/min"
+         },
+         "max": {
+          "$ref": "#/$defs/box/properties/max"
+         }
+        }
+       }
+      }
+     }
     }
    },
    "additionalProperties": false
@@ -724,7 +817,7 @@
       },
       "bottom": {
        "type": "string",
-       "description": "specify-core's bottom: through, flat, drill_point …"
+       "description": "specify-core's bottom: through, flat, drill_point \u2026"
       },
       "centers": {
        "type": "array",
