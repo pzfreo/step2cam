@@ -919,7 +919,7 @@ async function buildPlan(m) {
   fact(`${plural(plan.setups.length, "setup")} · ${plural(m.operations.size, "operation")} · ${plural(plan.skipped.length, "feature")} not cut · ${plural(plan.warnings.length, "warning")}`);
   m.planView = { rules, decisions, cards: new Map(), selected: null, full: false };
   for (const setup of plan.setups) {
-    host.insertAdjacentHTML("beforeend", `<h3 class="plan-setup">${escapeHtml(setup.id)} setup <span>${materialLabel}</span></h3>`);
+    host.insertAdjacentHTML("beforeend", `<h3 class="plan-setup" title="${materialLabel}">${escapeHtml(setup.id)} setup <span>${materialLabel}</span></h3>`);
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const warned = planWarnings(m).some((d) => op.because?.includes(d.id));
