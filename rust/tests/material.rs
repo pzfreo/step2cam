@@ -52,7 +52,7 @@ fn lower_facing(by: f64) -> impl Fn(&mut Value) {
 
 #[test]
 fn correct_parts_finish_without_a_definite_gouge() {
-    for part in ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered"] {
+    for part in ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered", "synthetic/square-slots"] {
         let material = &process(part)["programs"][0]["material"];
         assert_eq!(material["complete"], true, "{part}");
         assert_eq!(material["gouge"]["definite_cells"], 0, "{part}");
@@ -148,7 +148,8 @@ fn a_threaded_part_is_compared_right_through_before_its_threads() {
 #[test]
 fn a_misplaced_hole_is_found_on_a_threaded_part_wherever_it_is() {
     let manifest = threaded_job();
-    let holes = manifest["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "drilling" && o["centers_mm"].as_array().is_some_and(|c| c.len() > 1)).expect("a pattern of holes");
+    // Move the full-depth twist-drilled pattern, rather than its new shallow spot cycle.
+    let holes = manifest["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "drilling" && !o["id"].as_str().unwrap().contains("-spot_drill-") && o["centers_mm"].as_array().is_some_and(|c| c.len() > 1)).expect("a pattern of holes");
     for hole in 0..manifest["operations"][holes]["centers_mm"].as_array().unwrap().len() {
         let mut wrong = manifest.clone();
         let x = wrong["operations"][holes]["centers_mm"][hole][0].as_f64().unwrap();

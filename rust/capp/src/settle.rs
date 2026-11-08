@@ -21,13 +21,16 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
     settle(plan, library)?;
+    crate::spots::create(plan, &Library::new(library)?)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
         let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), &Library::new(library)?)?;
         exclude(plan, operation, &message)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
         settle(plan, library)?;
+        crate::spots::prune(plan, &Library::new(library)?, false)?;
     }
+    crate::spots::prune(plan, &Library::new(library)?, true)?;
     resolve(plan, library)?;
     let mut trace = Trace::take(plan);
     crate::clamping_history::check(plan, library, &mut trace);
@@ -390,6 +393,11 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     (true, None) => (Err(Some(format!("left out: it follows roughing, with the same end mill: needs {}", crate::needed::for_operation(op, top, &library, None)?.unwrap()))), "tool.flats.follow_roughing"),
                     _ => (Err(Some("left out: it follows roughing, with the same end mill".into())), "tool.flats.follow_roughing"),
                 },
+                "spot_drill" => {
+                    let selected = op["spot_tool"].as_str().and_then(|name| library.data["tools"].as_array()?.iter().find(|t| id(t) == name));
+                    let need = crate::needed::for_operation(op, top, &library, None)?.ok_or("no spot-drill query")?;
+                    (selected.ok_or_else(|| Some(format!("no usable spot drill: needs {need}"))), "tool.spot_drill")
+                }
                 "holes" => {
                     let d = num(op, "diameter")?;
                     let depth = library.drill_depth(op, top)?;
@@ -485,6 +493,18 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             let mut why = vec![decided];
             if let Some(name) = tool.as_str() {
                 let spec = library.data["tools"].as_array().and_then(|t| t.iter().find(|x| x["id"] == name)).ok_or("a chosen tool is not in the library")?;
+                // No dog-bone relief: neither analysis nor answers can request it today.
+                if kind == "notch" {
+                    let model = op["corner_radius"].as_f64().unwrap_or(0.);
+                    let radius = num(spec, "diameter")? / 2.;
+                    if radius > model + 1e-6 {
+                        let corners = op["inside_corners"].as_u64().unwrap_or(4);
+                        let shape = if model == 0. { "square inside corners" } else { "inside corners" };
+                        let model_note = if model == 0. { "the model has them sharp".to_string() } else { format!("the model has r{}", show(model)) };
+                        let feature_names = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", ");
+                        why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, show(radius))));
+                    }
+                }
                 let (mut technology, source) = technology(spec, group.as_deref());
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),

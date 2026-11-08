@@ -138,6 +138,11 @@
    "operation": null,
    "exact": false,
    "note": "the model's rounds are cut as 45° chamfers by a chamfer mill; ISO 14649-11 lists no chamfering operation for milling"
+  },
+  "spot_drill": {
+   "feature": "Round_hole",
+   "operation": "center_drilling",
+   "exact": true
   }
  }
 }

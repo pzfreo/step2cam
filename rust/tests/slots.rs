@@ -30,11 +30,11 @@ fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     assert!(out["plan"]["warnings"].as_array().unwrap().is_empty(), "{}", out["plan"]["warnings"]);
     let ops = out["plan"]["setups"][0]["operations"].as_array().unwrap();
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["facing", "roughing", "holes", "holes", "slot", "wall_finish", "edge_chamfer"]);
+    assert_eq!(kinds, ["facing", "roughing", "spot_drill", "holes", "holes", "slot", "wall_finish", "edge_chamfer"]);
     // Measured on its tori, the mesh is well inside camlib's 0.1 mm.
     assert!(ops[1]["surface_error_mm"].as_f64().unwrap() < 0.05);
 
-    let slot = &ops[4];
+    let slot = &ops[5];
     assert_eq!(slot["bottom"], "through");
     assert_eq!(slot["a"], serde_json::json!([84.0, 26.0]));
     assert_eq!(slot["b"], serde_json::json!([84.0, 48.0]));
@@ -129,4 +129,157 @@ fn nothing_is_covered_by_a_roughing_that_was_refused() {
         let decision = out["plan"]["decisions"].as_array().unwrap().iter().find(|d| d["subject"] == *feature && d["outcome"] == "covered").unwrap();
         assert_eq!(decision["superseded_by"], skipped["decision"]);
     }
+}
+
+fn rectangular_plan() -> (Value, Value) {
+    let analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    (analysis, plan)
+}
+
+#[test]
+fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations() {
+    let (analysis, plan) = rectangular_plan();
+    let ops: Vec<_> = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).filter(|o| o["kind"] == "notch").collect();
+    assert_eq!(ops.len(), 4, "{plan}");
+    let warnings = plan["warnings"].as_array().unwrap();
+    let extent = |op: &Value, k: usize| {
+        let values: Vec<_> = op["outer"].as_array().unwrap().iter().map(|p| p[k].as_f64().unwrap()).collect();
+        values.iter().copied().fold(f64::NEG_INFINITY, f64::max) - values.iter().copied().fold(f64::INFINITY, f64::min)
+    };
+    for (family, width, length, radius, tool, left, corners) in [
+        ("pockets", 10., 24., 0., "em8", 4., 4),
+        ("pockets", 8., 20., 3., "em6", 3., 4),
+        ("rectangular_blind_slots", 8., 26., 0., "em6", 3., 2),
+        ("pockets", 8., 30., 2., "em6", 3., 2),
+    ] {
+        let feature = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == family && f["record"]["width"] == width && (radius != 3. || f["record"]["corner_radius"] == 3.) && (radius != 2. || f["record"]["corner_radius"].is_null())).unwrap();
+        let id = feature["id"].as_str().unwrap();
+        let matches: Vec<_> = ops.iter().filter(|o| o["features"].as_array().unwrap().contains(&feature["id"])).collect();
+        assert_eq!(matches.len(), 1, "{id}");
+        let op = matches[0];
+        assert_eq!(op["tool"], tool, "{op}");
+        assert_eq!(op["corner_radius"], radius);
+        assert_eq!(op["inside_corners"], corners);
+        assert_eq!(op["open"], corners == 2);
+        assert!((extent(op, 0) - length).abs() < 1e-6, "{op}");
+        assert!((extent(op, 1) - width).abs() < 1e-6, "{op}");
+        let own_warnings: Vec<_> = warnings.iter().filter_map(Value::as_str).filter(|w| w.contains(id)).collect();
+        if radius < left {
+            assert_eq!(own_warnings.len(), 1, "{own_warnings:?}");
+            let warning = own_warnings[0];
+            let shape = if radius == 0. { "square inside corners" } else { "inside corners" };
+            assert!(warning.contains(&format!("its {corners} {shape} are left r{left:.1} by {tool}")), "{warning}");
+            let model = if radius == 0. { "the model has them sharp".to_string() } else { format!("the model has r{radius:.1}") };
+            assert!(warning.contains(&model));
+            let decision = plan["decisions"].as_array().unwrap().iter().find(|d| d["says"] == warning).unwrap();
+            assert_eq!(decision["rule"], "process.notch.corner_radius@1");
+            assert!(op["because"].as_array().unwrap().contains(&decision["id"]));
+        } else {
+            assert!(own_warnings.is_empty(), "{own_warnings:?}");
+            assert_eq!(op["outer"].as_array().unwrap().len(), 8);
+            assert_eq!(op["outer"].as_array().unwrap().iter().filter(|p| p[2].as_f64().unwrap() > 0.4).count(), 4);
+            for blend in analysis["features"].as_array().unwrap().iter().filter(|f| f["family"] == "blends") {
+                assert!(op["features"].as_array().unwrap().contains(&blend["id"]), "{blend}");
+            }
+        }
+        if radius == 2. {
+            let fillets: Vec<_> = analysis["features"].as_array().unwrap().iter().filter(|f| f["family"] == "fillets" && f["record"]["radius"] == 2.).collect();
+            assert_eq!(fillets.len(), 2);
+            for fillet in fillets {
+                assert!(op["features"].as_array().unwrap().contains(&fillet["id"]));
+            }
+        }
+        assert!(!plan["covered_by_roughing"].as_array().unwrap().contains(&feature["id"]));
+    }
+    for section in analysis["features"].as_array().unwrap().iter().filter(|f| f["family"] == "section_recesses") {
+        assert_eq!(ops.iter().filter(|o| o["features"].as_array().unwrap().contains(&section["id"])).count(), 1, "{section}");
+    }
+}
+
+#[test]
+fn stepped_slot_recovers_its_filleted_ends() {
+    let analysis = fixture("tests/fixtures/synthetic/stepped-plate.analysis.json");
+    let mesh = fixture("tests/fixtures/synthetic/stepped-plate.mesh.json");
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let op = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&serde_json::json!("slots:37.40.41.44")))).unwrap();
+    assert_eq!(op["width"], 6.);
+    assert_eq!(op["length"], 12.);
+    assert_eq!(op["corner_radius"], 1.2);
+    for id in ["fillets:38", "fillets:39", "fillets:42", "fillets:43"] {
+        assert!(op["features"].as_array().unwrap().contains(&serde_json::json!(id)));
+    }
+}
+
+#[test]
+fn radiused_recess_still_checks_for_material_inside_its_outline() {
+    let analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mut mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    let first = mesh["positions"].as_array().unwrap().len() / 3;
+    // A small horizontal patch above the r3 pocket's floor, well away from its corner walls.
+    mesh["positions"].as_array_mut().unwrap().extend([14., 11., 9., 16., 11., 9., 15., 13., 9.].map(|v| serde_json::json!(v)));
+    mesh["indices"].as_array_mut().unwrap().extend([first, first + 1, first + 2].map(|v| serde_json::json!(v)));
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let id = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == "pockets" && f["record"]["corner_radius"] == 3.).unwrap()["id"].clone();
+    assert!(!plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).any(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&id))), "{plan}");
+}
+
+#[test]
+fn a_cutter_larger_than_the_model_corner_warns_and_short_flutes_do_not_qualify() {
+    let (analysis, _) = rectangular_plan();
+    let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    let mut tools = fixture("demo/tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    let mut larger = tools["tools"].as_array().unwrap().iter().find(|t| t["id"] == "em6").unwrap().clone();
+    larger["id"] = "em7".into();
+    larger["diameter"] = 7.into();
+    tools["tools"].as_array_mut().unwrap().push(larger);
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    assert!(plan["warnings"].as_array().unwrap().iter().filter_map(Value::as_str).any(|w| w.contains("its 4 inside corners are left r3.5 by em7 (the model has r3.0)")), "{}", plan["warnings"]);
+    for tool in tools["tools"].as_array_mut().unwrap() {
+        if tool["id"] == "em7" { tool["flute_length"] = 1.into(); }
+    }
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &tools, &[]).unwrap();
+    assert!(!plan["warnings"].to_string().contains("by em7"));
+    let rounded = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["kind"] == "notch" && o["corner_radius"] == 3.).unwrap();
+    assert_eq!(rounded["tool"], "em6");
+}
+
+#[test]
+fn a_corner_pair_with_a_blocked_run_out_keeps_the_validated_interior_cut() {
+    let analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mut mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    let first = mesh["positions"].as_array().unwrap().len() / 3;
+    // Block the inferred left run-out, outside the record's original straight-wall box.
+    mesh["positions"].as_array_mut().unwrap().extend([-44., -18., 9., -42., -18., 9., -43., -16., 9.].map(|v| serde_json::json!(v)));
+    mesh["indices"].as_array_mut().unwrap().extend([first, first + 1, first + 2].map(|v| serde_json::json!(v)));
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let feature = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == "pockets" && f["record"]["width"] == 8. && f["record"]["corner_radius"].is_null()).unwrap();
+    let op = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&feature["id"]))).unwrap();
+    assert_eq!(op["kind"], "notch");
+    assert_eq!(op["length"], 23.);
+    assert_eq!(op["open"], false);
+    assert_eq!(op["corner_radius"], 0.);
+}
+
+#[test]
+fn recovered_open_corner_arcs_can_extend_into_the_run_out() {
+    let mut analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    // Like a wall record interrupted by another recess: only 1 mm of its straight
+    // interval remains. The closed r2 end still has room when run-out is included.
+    let feature = analysis["features"].as_array_mut().unwrap().iter_mut().find(|f| f["family"] == "pockets" && f["record"]["width"] == 8. && f["record"]["corner_radius"].is_null()).unwrap();
+    feature["record"]["lo"] = (-18.).into();
+    let id = feature["id"].clone();
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let op = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&id))).unwrap();
+    assert_eq!(op["corner_radius"], 2.);
+    assert_eq!(op["length"], 3.);
+    assert_eq!(op["open"], true);
 }

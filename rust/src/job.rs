@@ -33,7 +33,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     let (diameter, stickout) = (num(spec, "diameter")?, num(spec, "stickout")?);
     let gauge = stickout + num(spec, "holder_length")?;
     let radius = num(spec, "holder_diameter")? / 2.;
-    let drill = spec["type"] == "drill";
+    let drill = spec["type"] == "drill" || spec["type"] == "spot_drill";
     if spec["type"] == "thread_mill" {
         return Ok(json!({
             "id": name,
@@ -262,7 +262,7 @@ pub struct Job {
 
 /// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
 /// The operation kinds a plan holds, each of which `capp::resolve` gives a tool or a note.
-const KNOWN: [&str; 11] = ["facing", "roughing", "flats", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
+const KNOWN: [&str; 12] = ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
 
 /// The operation's tool, or else its note in the log and on to the next operation.
 macro_rules! tool_or_skip {
@@ -362,6 +362,35 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     });
                     cutting(&mut out, s, true)?;
                     out
+                }
+                "spot_drill" => {
+                    let spec = tool_or_skip!(tool, notes);
+                    let cut = cutting_data(spec, op);
+                    // A plan group can contain different mouth heights and spot diameters.
+                    // camlib has one absolute tip Z per drilling operation.
+                    let mut depths: Vec<(f64, Vec<Value>)> = vec![];
+                    for spot in op["spots"].as_array().ok_or("spot operation has no spots")? {
+                        let z = num(spot, "top_z")? - num(spot, "depth")?;
+                        if let Some((_, centers)) = depths.iter_mut().find(|(depth, _)| *depth == z) {
+                            centers.push(spot["center"].clone());
+                        } else {
+                            depths.push((z, vec![spot["center"].clone()]));
+                        }
+                    }
+                    for (i, (z, centers)) in depths.into_iter().enumerate() {
+                        let mut out = json!({
+                            "kind":"drilling", "id":format!("{op_id}-{}", i + 1), "tool":id(spec),
+                            "centers_mm":centers, "depth_z_mm":z, "depth_reference":"tip",
+                            "peck_mm":null, "peck_mode":"full_retract", "dwell_s":0.2,
+                            "retract_z_mm":retract, "chip_break_lift_mm":1.0, "reentry_clearance_mm":0.5,
+                            "allow_breakthrough_mm":0., "clearance_z_mm":clearance,
+                            "retract_feed_mm_min":num(&cut, "feed_mm_min")?,
+                        });
+                        cutting(&mut out, &cut, false)?;
+                        operations.push(out);
+                    }
+                    if !used.iter().any(|t| id(t) == id(spec)) { used.push(spec); }
+                    continue;
                 }
                 "holes" => {
                     let d = num(op, "diameter")?;
@@ -479,7 +508,6 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     if op["bottom"] == "through" {
                         floor = stock_bottom.max(floor - breakthrough);
                     }
-                    notes.push(format!("{op_id}: its inside corners stay r{}, the radius of {}", show(num(mill, "diameter")? / 2.), id(mill)));
                     let mut out = json!({
                         "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
                         "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,

@@ -7,6 +7,7 @@ pub mod machines;
 mod workholding;
 mod clamping_history;
 mod needed;
+mod spots;
 pub mod plan;
 pub mod reference;
 pub mod resources;

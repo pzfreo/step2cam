@@ -21,7 +21,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -37,7 +38,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -52,7 +54,8 @@
    "types": [
     "end_mill",
     "drill",
-    "thread_mill"
+    "thread_mill",
+    "spot_drill"
    ],
    "symbol": "DC",
    "unit": "mm",
@@ -81,7 +84,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": "OAL",
    "unit": "mm",
@@ -97,7 +101,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -113,7 +118,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -129,7 +135,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -145,7 +152,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -161,7 +169,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -177,7 +186,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -193,7 +203,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": "DCONMS",
    "unit": "mm",
@@ -209,7 +220,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -225,7 +237,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -241,7 +254,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -268,7 +282,8 @@
   {
    "field": "flute_length",
    "types": [
-    "drill"
+    "drill",
+    "spot_drill"
    ],
    "symbol": "LCF",
    "unit": "mm",
@@ -326,7 +341,8 @@
     "end_mill",
     "drill",
     "thread_mill",
-    "chamfer_mill"
+    "chamfer_mill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,
@@ -339,7 +355,8 @@
   {
    "field": "point_angle",
    "types": [
-    "drill"
+    "drill",
+    "spot_drill"
    ],
    "symbol": "SIG",
    "unit": "degree",
@@ -352,7 +369,8 @@
   {
    "field": "peck_mm",
    "types": [
-    "drill"
+    "drill",
+    "spot_drill"
    ],
    "symbol": null,
    "unit": null,

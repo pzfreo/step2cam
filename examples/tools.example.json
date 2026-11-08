@@ -52,6 +52,8 @@
    "diameter": 6.6, "flute_length": 63, "overall_length": 101, "point_angle": 118,
    "stickout": 70, "holder_length": 40, "holder_diameter": 20,
    "feed_mm_min": 180, "spindle_rpm": 2000, "coolant": "flood", "peck_mm": 4
-  }
+  },
+  {"id": "spot8", "type": "spot_drill", "number": 6, "diameter": 8, "flute_length": 10, "overall_length": 60, "point_angle": 120, "stickout": 25, "holder_length": 30, "holder_diameter": 25, "feed_mm_min": 120, "spindle_rpm": 3000, "coolant": "flood", "shank_diameter": 6, "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation. Reduced 6 mm shank on the 8 mm spot drill fits the demo Carvera collet."},
+  {"id": "spot16", "type": "spot_drill", "number": 7, "diameter": 16, "flute_length": 10, "overall_length": 60, "point_angle": 120, "stickout": 25, "holder_length": 30, "holder_diameter": 25, "feed_mm_min": 120, "spindle_rpm": 3000, "coolant": "flood", "shank_diameter": 16, "_comment": "Placeholder geometry and cutting data; not a manufacturer recommendation."}
  ]
 }
