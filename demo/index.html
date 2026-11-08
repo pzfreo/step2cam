@@ -22,6 +22,8 @@
 <div class="app">
   <header>
     <h1>STEP2CAM</h1>
+    <span id="phone-name" class="phone-only"></span>
+    <button type="button" id="phone-menu-button" class="phone-only" aria-expanded="false" aria-controls="phone-menu" aria-label="Open menu">☰</button>
     <div id="meta" class="meta"></div>
     <div class="views" role="group" aria-label="Camera, shared by both views">
       <button type="button" data-view="iso">Iso</button>
@@ -37,6 +39,7 @@
   </header>
 
   <div id="banner" class="banner" hidden></div>
+  <div id="phone-alerts" class="phone-only"></div>
   <section id="story" class="story" aria-label="How this part became a program" hidden>
     <button type="button" class="story-step" data-pane="features"><span class="story-n">1</span><span><span class="story-name">Recognise <span class="story-who">· specify-core</span></span><span id="story-features" class="story-text"></span></span></button>
     <span class="story-arrow" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h10M10 5l4 4-4 4"/></svg></span>
@@ -44,7 +47,11 @@
     <span class="story-arrow" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h10M10 5l4 4-4 4"/></svg></span>
     <button type="button" class="story-step" data-pane="toolpaths"><span class="story-n">3</span><span><span class="story-name">Make <span class="story-who">· camlib</span></span><span id="story-toolpaths" class="story-text"></span></span></button>
   </section>
+  <p id="phone-story" class="phone-only" hidden></p>
   <details id="checks" class="checks" hidden><summary id="checks-summary"></summary><div id="checks-detail"></div></details>
+
+  <div id="phone-view" class="phone-only"></div>
+  <dialog id="phone-menu" aria-label="Page menu"><button type="button" id="phone-menu-close">Close menu</button><div id="phone-menu-content"></div></dialog>
 
   <main class="panes">
     <div id="start" class="start">
@@ -64,6 +71,7 @@
       <div class="pane-title"><h2>1 · What the part is</h2><span>recognised features</span><button type="button" class="pane-size" data-pane="features" aria-pressed="false">Expand</button></div>
       <div class="pane-body">
         <div class="view"><div id="cad"></div></div>
+        <div id="phone-meta" class="phone-only"></div>
         <div id="features" class="side features"></div>
       </div>
     </section>
@@ -101,6 +109,11 @@
       <div id="segments" class="segments" role="group" aria-label="Operations, in program order"></div>
     </div>
     <div id="status" class="status" aria-live="off"></div>
+    <div class="phone-tabs phone-only" role="tablist" aria-label="Part, plan and toolpaths">
+      <button type="button" role="tab" id="tab-features" aria-controls="pane-features" aria-selected="true" data-tab="features">Part</button>
+      <button type="button" role="tab" id="tab-plan" aria-controls="pane-plan" aria-selected="false" data-tab="plan" tabindex="-1">Plan</button>
+      <button type="button" role="tab" id="tab-toolpaths" aria-controls="pane-toolpaths" aria-selected="false" data-tab="toolpaths" tabindex="-1">Toolpaths</button>
+    </div>
   </footer>
 
   <p class="about"><b>An experiment in explainable planning, not CAM to run on a machine:</b> it does not model workholding, tolerances or cutting forces, and every tool and feed is a placeholder. Runs in your browser: your file is not uploaded. Page views are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies, and nothing about your file. <a href="https://github.com/pzfreo/step2cam">step2cam</a> uses <a href="https://github.com/pzfreo/specify-core">specify-core</a>, <a href="https://github.com/stevecad/camlib">camlib</a> (<a href="licenses/camlib-LICENSE.txt">MIT</a>), <a href="https://github.com/bernhard-42/three-cad-viewer">three-cad-viewer</a> and <a href="https://threejs.org">three.js</a>.</p>

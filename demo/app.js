@@ -793,8 +793,9 @@ function decisionItem(d, rules) {
   const li = document.createElement("li");
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
+  const sourceTag = d.source && d.source !== "rule" ? ` <span class="tag" title="${escapeHtml(d.reason || "")}">chosen by ${escapeHtml(d.source.replace(/^agent:/, ""))}</span>` : "";
   const rejected = (d.considered || []).filter((c) => c.rejected);
-  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
+  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
     + `<span class="rule">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)} · ${escapeHtml(d.id)}</span>`
     + (rejected.length ? `<ul>${rejected.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "");
   if (rule) {
@@ -1304,6 +1305,21 @@ function setPlaying(on) {
 function showBanner(text) {
   $("banner").hidden = !text;
   $("banner").textContent = text || "";
+  $("banner").classList.remove("phone-banner-open");
+  if (text) addPhoneBannerToggle();
+}
+
+function addPhoneBannerToggle() {
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "phone-only phone-banner-toggle";
+  toggle.textContent = "⚠ " + $("banner").textContent;
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.addEventListener("click", () => {
+    const open = $("banner").classList.toggle("phone-banner-open");
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  $("banner").prepend(toggle);
 }
 
 // The check's result in words: the headline, and what it cannot see behind a toggle.
@@ -1319,6 +1335,12 @@ function showChecks(data) {
   if (checked.length) headline.push(`<span class="ok">✓ ${checked.map((p) => setupName(p.setup)).join(", ")}: compared with the part, no gouge found.</span>`);
   if (unchecked.length) headline.push(`<span class="unchecked">${unchecked.map((p) => setupName(p.setup)).join(", ")}: not compared with the part.</span>`);
   $("checks-summary").innerHTML = headline.join(" ");
+  const compact = document.createElement("span");
+  compact.className = "phone-only";
+  compact.textContent = checked.length
+    ? `✓ no gouge${unchecked.length ? ` · ${unchecked.length} unchecked` : ""}`
+    : "⚠ unchecked";
+  $("checks-summary").append(compact);
   const number = (x) => Math.round(x).toLocaleString("en-GB");
   const items = [];
   for (const p of checked) {
@@ -1372,6 +1394,7 @@ function linkWarning(el, m, d) {
 async function showWarnings(m, notes) {
   const host = $("banner"), warned = planWarnings(m);
   host.replaceChildren();
+  host.classList.remove("phone-banner-open");
   host.hidden = !warned.length && !notes.length && !m.data.error;
   if (m.data.error) {
     const error = document.createElement("div");
@@ -1381,7 +1404,10 @@ async function showWarnings(m, notes) {
   for (const text of notes) {
     const line = document.createElement("div"); line.textContent = text; host.append(line);
   }
-  if (!warned.length) return;
+  if (!warned.length) {
+    if (!host.hidden) addPhoneBannerToggle();
+    return;
+  }
   const rules = await loadRules();
   if (model !== m) return;
   const details = document.createElement("details"), summary = document.createElement("summary");
@@ -1404,6 +1430,7 @@ function show(data) {
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
+  $("phone-name").textContent = data.name.replace(/\.(step|stp)$/i, "");
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
   const notes = data.notice ? [data.notice] : [];
   const notCut = [...model.features.values()].filter((f) => f.notCut);
@@ -1414,13 +1441,17 @@ function show(data) {
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
   showWarnings(model, notes);
   showChecks(data);
+  app.classList.add("has-part");
   showPart(model);
   showToolpaths(model);
   buildFeatureList(model);
+  layoutPanes();
   buildTimeline(model);
   buildSaveButtons(model);
   buildPlan(model);
   showStory(model);
+  $("phone-story").hidden = true;
+  for (const step of document.querySelectorAll(".story-step")) step.removeAttribute("aria-expanded");
   $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
   paintToolpaths();
@@ -1462,7 +1493,10 @@ async function openFile(file) {
 }
 
 $("file").addEventListener("change", (event) => {
-  if (event.target.files[0]) openFile(event.target.files[0]);
+  if (event.target.files[0]) {
+    closePhoneMenu();
+    openFile(event.target.files[0]);
+  }
   event.target.value = "";
 });
 const app = document.querySelector(".app");
@@ -1523,6 +1557,83 @@ function setFocusQuiet(key) {
 const PANES = ["features", "plan", "toolpaths"];
 const NARROW = 1300;
 let expanded = null;
+// Move the existing controls and views, preserving handlers, state and desktop positions.
+const phone = window.matchMedia("(max-width: 700px)");
+const cameraButtons = document.querySelector("header > .views");
+const partView = $("cad").parentElement;
+const phoneMoves = new Map();
+function placePhone(el, destination) {
+  if (!phoneMoves.has(el)) {
+    const anchor = document.createComment("desktop position");
+    el.before(anchor);
+    phoneMoves.set(el, anchor);
+  }
+  destination.append(el);
+}
+function closePhoneMenu() {
+  $("phone-menu").close();
+  $("phone-menu-button").setAttribute("aria-expanded", "false");
+}
+$("phone-menu-button").addEventListener("click", () => {
+  $("phone-menu").showModal();
+  $("phone-menu-button").setAttribute("aria-expanded", "true");
+});
+$("phone-menu-close").addEventListener("click", closePhoneMenu);
+$("phone-menu").addEventListener("close", () => $("phone-menu-button").setAttribute("aria-expanded", "false"));
+$("phone-menu-content").addEventListener("click", (event) => {
+  if (event.target.closest("button")) closePhoneMenu();
+});
+$("phone-menu").addEventListener("click", (event) => {
+  if (event.target === $("phone-menu")) closePhoneMenu();
+});
+for (const tab of document.querySelectorAll("[data-tab]")) {
+  tab.addEventListener("click", () => expandPane(tab.dataset.tab));
+  tab.addEventListener("keydown", (event) => {
+    const index = PANES.indexOf(tab.dataset.tab);
+    const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
+    if (next === null) return;
+    event.preventDefault();
+    document.querySelector(`[data-tab="${PANES[next]}"]`).focus();
+    expandPane(PANES[next]);
+  });
+}
+function layoutPhone(open) {
+  if (phone.matches) {
+    for (const el of [...document.querySelectorAll("header > .views, header > label.open")]) {
+      if (el !== cameraButtons) placePhone(el, $("phone-menu-content"));
+    }
+    placePhone($("plan-save"), $("phone-menu-content"));
+    placePhone(document.querySelector(".about"), $("phone-menu-content"));
+    placePhone($("meta"), $("phone-meta"));
+    placePhone($("banner"), $("phone-alerts"));
+    placePhone($("checks"), $("phone-alerts"));
+    // The part stays above Part and Plan; Make uses the linked toolpath camera.
+    const view = open === "toolpaths" ? $("gcode-view") : partView;
+    for (const el of [partView, $("gcode-view")]) {
+      if (el !== view && phoneMoves.has(el)) phoneMoves.get(el).after(el);
+    }
+    placePhone(view, $("phone-view"));
+    placePhone(cameraButtons, $("phone-view"));
+    for (const pane of document.querySelectorAll(".pane")) {
+      pane.id = "pane-" + pane.dataset.pane;
+      pane.setAttribute("role", "tabpanel");
+      pane.setAttribute("aria-labelledby", "tab-" + pane.dataset.pane);
+    }
+    for (const tab of document.querySelectorAll("[data-tab]")) {
+      const selected = tab.dataset.tab === open;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    }
+  } else {
+    closePhoneMenu();
+    for (const [el, anchor] of phoneMoves) anchor.after(el);
+    for (const pane of document.querySelectorAll(".pane")) {
+      pane.removeAttribute("role");
+      pane.removeAttribute("aria-labelledby");
+    }
+    for (const step of document.querySelectorAll(".story-step")) step.removeAttribute("aria-expanded");
+  }
+}
 function layoutPanes() {
   const panes = document.querySelector(".panes");
   const single = window.innerWidth < NARROW;
@@ -1536,6 +1647,7 @@ function layoutPanes() {
     b.textContent = on ? "Restore" : "Expand";
   }
   for (const b of document.querySelectorAll(".story-step")) b.setAttribute("aria-pressed", String(b.dataset.pane === open));
+  layoutPhone(open || "features");
 }
 function expandPane(name) {
   expanded = name;
@@ -1545,7 +1657,16 @@ for (const b of document.querySelectorAll(".pane-size[data-pane]")) {
   b.addEventListener("click", () => expandPane(expanded === b.dataset.pane ? null : b.dataset.pane));
 }
 for (const b of document.querySelectorAll(".pane-rail, .story-step")) {
-  b.addEventListener("click", () => expandPane(b.classList.contains("story-step") && expanded === b.dataset.pane && window.innerWidth >= NARROW ? null : b.dataset.pane));
+  b.addEventListener("click", () => {
+    expandPane(b.classList.contains("story-step") && expanded === b.dataset.pane && window.innerWidth >= NARROW ? null : b.dataset.pane);
+    if (phone.matches && b.classList.contains("story-step")) {
+      const sentence = $("story-" + b.dataset.pane).textContent;
+      const hide = !$("phone-story").hidden && $("phone-story").textContent === sentence;
+      $("phone-story").textContent = sentence;
+      $("phone-story").hidden = hide;
+      for (const step of document.querySelectorAll(".story-step")) step.setAttribute("aria-expanded", String(step === b && !hide));
+    }
+  });
 }
 window.addEventListener("resize", layoutPanes);
 window.addEventListener("keydown", (event) => {

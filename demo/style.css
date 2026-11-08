@@ -207,12 +207,63 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .why > ol { margin: 6px 0; }
 .full-view { margin: 4px 0 2px; }
 .story-step[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
-/* A phone: the page scrolls, and the open pane takes most of the screen's height. */
+/* Phone controls have no footprint in the desktop layout. */
+.phone-only, #phone-menu { display: none; }
 @media (max-width: 700px) {
-  html, body { height: auto; }
-  .app { height: auto; overflow: visible; }
-  .panes { flex: none; height: 78vh; gap: 6px; }
-  .pane-rail { padding: 6px 0; }
+  .phone-only { display: block; }
+  html, body { height: 100%; }
+  .app { height: 100dvh; padding: 6px; gap: 6px; overflow: hidden; }
+  header { flex-wrap: nowrap; gap: 10px; min-height: 38px; }
+  h1 { font-size: 16px; }
+  #phone-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  #phone-menu-button, #phone-menu-close { min-height: 38px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); }
+  #phone-menu[open] { display: block; width: calc(100% - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; margin: auto; padding: 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); color: var(--text); }
+  #phone-menu::backdrop { background: #000a; }
+  #phone-menu-content { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  #phone-menu-content .views { flex-wrap: wrap; }
+  #phone-menu-content .about { font-size: 12px; }
+  #phone-alerts { flex: none; position: relative; display: flex; gap: 6px; min-width: 0; }
+  #banner { flex: 1; min-width: 0; padding: 6px 8px; max-height: none; height: 34px; overflow: hidden; white-space: nowrap; font-size: 12px; }
+  #banner:has(.banner-warnings) > :not(.banner-warnings) { display: none; }
+  #banner:has(details[open]), #banner.phone-banner-open { position: absolute; top: 0; left: 0; right: 0; height: auto; max-height: 45dvh; overflow-y: auto; z-index: 20; white-space: normal; }
+  #banner:has(details[open]) > :not(.banner-warnings) { display: block; }
+  .phone-banner-toggle { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #phone-meta { flex: none; padding: 6px; border-bottom: 1px solid var(--line); }
+  .banner-warning { white-space: normal; padding: 8px 0; }
+  #checks { flex: none; padding: 6px 8px; font-size: 12px; min-height: 34px; }
+  #checks-summary { list-style: none; white-space: nowrap; }
+  #checks-summary > :not(.phone-only) { display: none; }
+  #checks[open] { position: absolute; top: 0; right: 0; left: 0; z-index: 21; max-height: 45dvh; overflow-y: auto; }
+  #checks[open] #checks-summary > :not(.phone-only) { display: inline; white-space: normal; }
+  #checks[open] #checks-summary > .phone-only { display: none; }
+  .story { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .story-step { min-height: 36px; padding: 4px; gap: 4px; align-items: center; font-size: 12px; }
+  .story-n { width: 20px; height: 20px; font-size: 12px; }
+  .story-who, .story-text { display: none; }
+  #phone-story { flex: none; margin: 0; padding: 8px; max-height: 100px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+  #phone-view { position: relative; flex: 0 0 30dvh; min-height: 160px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
+  .app:not(.has-part) #phone-view { display: none; }
+  #phone-view > .view { position: absolute; inset: 0; }
+  #phone-view > .views { position: absolute; top: 6px; right: 6px; z-index: 6; display: flex; }
+  #phone-view > .views button { min-height: 30px; padding: 0 8px; font-size: 12px; background: #161b22d9; }
+  #gcode-view .view-tools { top: auto; bottom: 6px; left: 6px; gap: 3px; }
+  #gcode-view .view-tools button { padding: 0 6px; font-size: 11px; min-height: 32px; }
+  .panes { grid-template-columns: minmax(0, 1fr) !important; gap: 0; }
+  .pane.shrunk, .pane-rail, .pane-title { display: none !important; }
+  .pane-body:not(.plan-pane) > .side { flex: 1 1 0; width: 100%; border: 0; }
+  .pane-body > .view { display: none; }
+  #meta { flex: none; font-size: 12px; padding: 4px; }
+  footer { gap: 4px 8px; padding: 6px; display: grid; grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr); }
+  #play { min-width: 0; min-height: 38px; padding: 0 4px; font-size: 12px; }
+  .scrub { min-width: 0; }
+  .status { font-size: 10px; line-height: 14px; max-height: 42px; overflow-y: auto; }
+  .segments { overflow-x: auto; }
+  .segment { min-width: 22px; min-height: 16px; font-size: 9px; }
+  .phone-tabs { display: flex; grid-column: 1 / -1; gap: 4px; }
+  .phone-tabs button { flex: 1; min-height: 38px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); }
+  .phone-tabs [aria-selected="true"] { border-color: var(--accent); background: var(--active); }
+  .start { padding: 8px; overflow-y: auto; }
+  .start p { font-size: 13px; }
 }
 .start .scope { max-width: 640px; margin: 0 auto 18px; padding: 10px 14px; border: 1px solid var(--warn); border-radius: 8px; background: #2c2412; color: #ffd98a; font-size: 14px; text-align: left; }
 

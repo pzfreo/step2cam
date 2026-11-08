@@ -168,18 +168,18 @@ impl Proposal {
     }
 }
 
-/// Reuse resources.overrides; reject misspelled or unavailable setup IDs rather than
-/// silently ignoring a caller's proposed clamping. Individual proposals use clamp's checks.
-pub fn validate_overrides(plan: &Value, resources: &Value) -> Result<(), String> {
-    let Some(proposals) = resources["overrides"].get("clamping") else { return Ok(()); };
-    let proposals = proposals.as_object().ok_or("overrides.clamping must be an object keyed by setup ID")?;
-    for id in proposals.keys() {
-        if !plan["setups"].as_array().into_iter().flatten().any(|s| s["id"] == *id) {
-            return Err(format!("clamping override names absent setup {id}"));
+/// Validate a supplied proposal with the ordinary clamp path; refusal falls back to the rule.
+pub fn supplied_clamp(setup: &mut Value, vise: Option<&Value>, trace: &mut Trace) -> Option<String> {
+    let subject = setup["id"].as_str().unwrap_or("");
+    if let Some(n) = trace.supplied_for(RULE, subject, None) {
+        let choice = trace.supplied[n]["choice"].clone();
+        if let Some(reason) = clamp(setup, vise, Some(&choice), trace) {
+            trace.refuse(n, &reason);
+        } else {
+            let decision = setup["clamping"]["because"][0].as_str().unwrap().to_owned();
+            trace.accept(n, &decision);
+            return None;
         }
     }
-    if !proposals.is_empty() && crate::machines::mill(resources).is_none() {
-        return Err("clamping overrides require a mill with vise dimensions".into());
-    }
-    Ok(())
+    clamp(setup, vise, None, trace)
 }

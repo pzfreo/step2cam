@@ -188,6 +188,12 @@
     },
     "additionalProperties": false
    }
+  },
+  "supplied_decisions": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/supplied_decision"
+   }
   }
  },
  "additionalProperties": false,
@@ -841,7 +847,7 @@
       },
       "bottom": {
        "type": "string",
-       "description": "specify-core's bottom: through, flat, drill_point \u2026"
+       "description": "specify-core's bottom: through, flat, drill_point …"
       },
       "centers": {
        "type": "array",
@@ -2422,6 +2428,54 @@
      "type": "string",
      "pattern": "^d-[0-9]+$",
      "description": "A later decision that replaced this one."
+    },
+    "source": {
+     "type": "string",
+     "pattern": "^(rule|user|agent|agent:.+)$"
+    },
+    "reason": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": false
+  },
+  "supplied_decision": {
+   "type": "object",
+   "required": [
+    "rule",
+    "subject",
+    "choice",
+    "source",
+    "reason"
+   ],
+   "properties": {
+    "rule": {
+     "type": "string",
+     "pattern": "^[a-z_]+(\\.[a-z_]+)+(@[0-9]+)?$"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "operation": {
+     "type": "string"
+    },
+    "choice": {},
+    "source": {
+     "type": "string",
+     "pattern": "^(user|agent|agent:.+)$"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "accepted": {
+     "type": "boolean"
+    },
+    "refusal_reason": {
+     "type": "string"
+    },
+    "decision": {
+     "type": "string",
+     "pattern": "^d-[0-9]+$"
     }
    },
    "additionalProperties": false
