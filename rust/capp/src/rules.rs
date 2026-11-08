@@ -195,6 +195,16 @@ pub fn eval(text: &str, lookup: &Lookup) -> Result<f64, String> {
     Ok(v)
 }
 
+// Ignore binary floating-point noise at an exact hundredth (epsilon is in hundredths).
+// Use the same bounds for display and for deciding whether a drill interval is empty.
+const HUNDREDTH_EPSILON: f64 = 1e-6;
+fn up2(value: f64) -> f64 {
+    (value * 100. - HUNDREDTH_EPSILON).ceil() / 100. + 0.0
+}
+fn down2(value: f64) -> f64 {
+    (value * 100. + HUNDREDTH_EPSILON).floor() / 100. + 0.0
+}
+
 /// Fills `{name}` in a template: numbers as messages show them (`{x}`), rounded first (`{x:r}`),
 /// conservatively to two decimals (`{x:up2}`, `{x:down2}`), or a field of the tool
 /// as the library wrote it (`{tool.x:raw}`, `{tool.id}`).
@@ -213,8 +223,8 @@ pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, Str
                 v => v.to_string(),
             },
             (_, "r") => show(r(lookup(name)?)),
-            (_, "up2") => format!("{:.2}", (lookup(name)? * 100.).ceil() / 100.),
-            (_, "down2") => format!("{:.2}", (lookup(name)? * 100.).floor() / 100.),
+            (_, "up2") => format!("{:.2}", up2(lookup(name)?)),
+            (_, "down2") => format!("{:.2}", down2(lookup(name)?)),
             _ => show(lookup(name)?),
         };
         out.push_str(&text);
@@ -368,7 +378,7 @@ pub fn needed(selector: &str, inputs: &[(&str, f64)], params: &[(&str, f64)]) ->
     }
     // A narrow drill tolerance can leave no two-decimal size in the interval. In that
     // case request the exact hole diameter, which always meets a nonnegative tolerance.
-    let template = if selector == "drill" && (values["minimum"] * 100.).ceil() > (values["diameter"] * 100.).floor() {
+    let template = if selector == "drill" && up2(values["minimum"]) > down2(values["diameter"]) {
         &rule["needed_exact"]
     } else { &rule["needed"] };
     fill(template.as_str().ok_or("selector has no needed template")?, &Value::Null,

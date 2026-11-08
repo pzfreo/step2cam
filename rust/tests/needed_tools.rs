@@ -121,3 +121,31 @@ fn zero_drill_tolerance_requests_an_exact_size_instead_of_an_empty_rounded_range
     let lib = capp::resources::Library::new(&tools).unwrap();
     assert_eq!(lib.needed("drill", &[("diameter", 4.211)]).unwrap(), "a drill of ⌀4.211");
 }
+
+#[test]
+fn decimal_tool_bounds_ignore_binary_noise_without_losing_helix_clearance() {
+    let mut tools = library();
+    for (tolerance, expected) in [
+        (0.05, "a drill of ⌀5.05–5.10"),
+        (0.01, "a drill of ⌀5.09–5.10"),
+        (0.0, "a drill of ⌀5.10–5.10"),
+    ] {
+        tools["drill_tolerance_mm"] = json!(tolerance);
+        let lib = capp::resources::Library::new(&tools).unwrap();
+        assert_eq!(lib.needed("drill", &[("diameter", 5.1)]).unwrap(), expected);
+    }
+    let lib = capp::resources::Library::new(&tools).unwrap();
+    // The bore selector reserves 0.05 mm for helix room: 8.25 - 0.05 = 8.20.
+    assert_eq!(lib.needed("bore_mill", &[("diameter", 8.25)]).unwrap(), "an end mill under ⌀8.20");
+}
+
+#[test]
+fn decimal_bound_formatting_preserves_hundredths_and_rounds_real_fractions_outward() {
+    for value in [0.0, 5.1, 8.25, 4.1, 8.2, 10.2, 2.05, -2.05] {
+        let expected = format!("{value:.2}/{value:.2}");
+        assert_eq!(capp::rules::fill("{x:up2}/{x:down2}", &Value::Null, &|_| Ok(value)).unwrap(), expected);
+    }
+    for (value, expected) in [(5.101, "5.11/5.10"), (5.099, "5.10/5.09"), (-2.051, "-2.05/-2.06")] {
+        assert_eq!(capp::rules::fill("{x:up2}/{x:down2}", &Value::Null, &|_| Ok(value)).unwrap(), expected);
+    }
+}
