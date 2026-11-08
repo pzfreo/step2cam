@@ -178,7 +178,11 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     assert!(log.contains("corners stay r1.5, the radius of em3"), "{log}");
     assert!(log.contains("corners stay r3.0, the radius of em6"), "{log}");
     assert!(log.contains("vb60 is a 60.0° bit in a 61.9275° channel: its walls keep up to 0.034 mm"), "{log}");
-    assert!(out["plan"]["warnings"].as_array().unwrap().is_empty(), "{}", out["plan"]["warnings"]);
+    // These four holes exceed 5D; this is the only expected warning. The wall,
+    // notch and V-channel checks below still require the original cutting results.
+    assert_eq!(out["plan"]["warnings"], json!([
+        "top:holes [holes:17, holes:22, holes:30, holes:31], depth/D 6.0606060606060606: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
+    ]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
     assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap() < 500., "{material}");
