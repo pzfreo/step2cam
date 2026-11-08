@@ -78,6 +78,101 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
     Some(removed)
 }
 
+const REACH_RULE: &str = "process.roughing.reach";
+const REACH_MARGIN_MM: f64 = 1.;
+
+fn reach_reason(rough: &Value, mill: &Value) -> Result<String, String> {
+    Ok(format!("roughing reaches only Z{} ({} mm below the stock top, {}'s {} mm flutes, {} mm stickout, {} mm clearance)",
+        show(num(rough, "floor_z")?), show(num(rough, "top_z")? - num(rough, "floor_z")?),
+        id(mill), show(num(mill, "flute_length")?), show(num(mill, "stickout")?), show(REACH_MARGIN_MM)))
+}
+
+/// Both the flutes and the holder face must clear the stock by the reach margin.
+fn needed_for_reach(op: &Value, top: f64, library: &Library, depth: f64) -> Result<String, String> {
+    let required = depth + REACH_MARGIN_MM;
+    let need = crate::needed::for_operation(op, top, library, Some(required))?.ok_or("no reach query for operation")?;
+    Ok(format!("{need}, and stickout of at least {} mm", crate::needed::reach(required)))
+}
+
+/// Apply before any execution attempt, while the selected roughing tool is known. Repeating
+/// settlement leaves an already capped operation and its trace alone.
+fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Result<(), String> {
+    let Some(mill) = library.clearing("roughing")? else { return Ok(()); };
+    let reach = (num(mill, "flute_length")?.min(num(mill, "stickout")?) - REACH_MARGIN_MM).max(0.);
+    let depths = plan["roughing_feature_depths"].clone();
+    let mut uncovered = vec![];
+    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
+        let setup_id = setup["id"].as_str().unwrap_or("").to_string();
+        let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
+        let Some(rough) = ops.iter_mut().find(|o| o["kind"] == "roughing") else { continue; };
+        // Minimal hand-written plans may have no geometry; there is no floor to cap there.
+        let Some(top) = rough["top_z"].as_f64() else { continue; };
+        let old = num(rough, "floor_z")?;
+        let floor = top - reach;
+        if old >= floor { continue; }
+        rough["floor_z"] = json!(floor);
+        if let Some(web) = rough["web_mm"].as_f64() {
+            rough["web_mm"] = json!(web + floor - old);
+        }
+        let why = reach_reason(rough, mill)?;
+        let decision = trace.warn(REACH_RULE, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"));
+        because(rough, [decision]);
+        if let Some(depths) = depths.as_object() {
+            for (id, depth) in depths {
+                if depth["floor_z"].as_f64().is_some_and(|z| z >= floor) { continue; }
+                let required = top - depth["floor_z"].as_f64().unwrap_or(old);
+                let need = needed_for_reach(rough, top, library, required)?;
+                uncovered.push((id.clone(), format!("{}: no operation of its own; {why}: needs {need}", depth["family"].as_str().unwrap_or("feature"))));
+            }
+        }
+        // Use the original flats, before filtering, to recover the bands made by
+        // wall_operations. A crossing band can still finish its reachable upper section.
+        let part_top = rough["positions"].as_array().and_then(|p| p.iter().skip(2).step_by(3)
+            .filter_map(Value::as_f64).max_by(f64::total_cmp)).unwrap_or(top);
+        let levels: Vec<f64> = ops.iter().filter(|o| o["kind"] == "flats")
+            .flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64).collect();
+        for wall in ops.iter_mut().filter(|o| o["kind"] == "wall_finish") {
+            let low = num(wall, "floor_z")?;
+            if low >= floor { continue; }
+            let high = levels.iter().copied().filter(|z| *z > low).min_by(f64::total_cmp).unwrap_or(part_top);
+            // Leave wholly unreachable bands to wall_refusal and the existing needs_wall handling.
+            if high <= floor { continue; }
+            let need = needed_for_reach(wall, top, library, top - low)?;
+            wall["floor_z"] = json!(floor);
+            // It now stops in the roughed stock, above the flat it originally stood on.
+            wall["on_flat"] = json!(false);
+            let d = trace.warn(REACH_RULE, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
+                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut: needs {need}", show(floor)));
+            because(wall, [d]);
+        }
+        for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
+            if let Some(levels) = op["levels"].as_array_mut() {
+                let before = levels.len();
+                levels.retain(|z| z.as_f64().is_some_and(|z| z >= floor));
+                if levels.len() != before {
+                    let d = trace.warn(REACH_RULE, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)));
+                    because(op, [d]);
+                }
+            }
+            op["floor_z"] = json!(floor);
+        }
+        ops.retain(|o| o["kind"] != "flats" || o["levels"].as_array().is_some_and(|levels| !levels.is_empty()));
+        if reach == 0. {
+            let index = ops.iter().position(|o| o["kind"] == "roughing").unwrap();
+            setup["part_surface"] = ops.remove(index);
+        }
+    }
+    if let Some(covered) = plan["covered_by_roughing"].as_array_mut() {
+        for (id, reason) in uncovered {
+            if !covered.contains(&json!(id)) { continue; }
+            covered.retain(|f| f != &id);
+            let skipped = trace.skip(REACH_RULE, &id, reason);
+            trace.supersede(&id, "covered", &skipped);
+        }
+    }
+    Ok(())
+}
+
 /// Why this outside wall cannot be finished, if it cannot. A contour knows only its outline: it has
 /// to follow a roughing that cleared the stock beside the wall, with room for the cutter and for
 /// the allowance roughing leaves on whatever stands opposite.
@@ -92,6 +187,9 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(
     let Some(mill) = library.clearing("roughing")? else {
         return Ok(Some(("feasibility.wall.needs_mill", format!("no end mill to finish the wall with: needs {}", crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
     };
+    if num(op, "floor_z")? < num(rough, "floor_z")? {
+        return Ok(Some((REACH_RULE, format!("{}; none of this wall band remains above the cleared stock", reach_reason(rough, mill)?))));
+    }
     let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
     let needed = num(mill, "diameter")? + 2. * radial;
     let Some(room) = op["room"].as_f64().filter(|room| *room < needed) else { return Ok(None); };
@@ -107,6 +205,13 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(
 
 /// Why this V-channel cannot be cut, if it cannot.
 fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(&'static str, String)>, String> {
+    if op["on_flat"] == true {
+        let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+        if let Some(rough) = rough.filter(|rough| op["top_z"].as_f64().zip(rough["floor_z"].as_f64()).is_some_and(|(top, floor)| top < floor))
+            && let Some(mill) = library.clearing("roughing")? {
+            return Ok(Some((REACH_RULE, format!("the flat it is cut in is below the cleared stock; {}", reach_reason(rough, mill)?))));
+        }
+    }
     if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
         return Ok(Some(("feasibility.v_channel.needs_flat", "the flat it is cut in has not been cut, so it is not cut".into())));
     }
@@ -138,6 +243,7 @@ pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
 
 fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
     let library = Library::new(library_data)?;
+    cap_roughing(plan, &library, trace)?;
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         let view = setup.clone();

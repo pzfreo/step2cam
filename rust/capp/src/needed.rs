@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 /// Round reach upwards with a micron of clearance. This exceeds camlib's 16 × 1e-5 mm
 /// numerical guard in step2cam jobs, including when depth is an exact integer.
-fn reach(depth: f64) -> String {
+pub(crate) fn reach(depth: f64) -> String {
     format!("{:.0}", (depth + 0.001).ceil())
 }
 
