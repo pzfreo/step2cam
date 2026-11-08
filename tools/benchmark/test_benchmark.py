@@ -51,7 +51,15 @@ class CompareTests(unittest.TestCase):
         b['timing']['total_seconds'] = 20
         lines = []
         self.assertEqual(compare(a, b, lines.append), 0)
-        self.assertIn('No change (timings ignored).', lines)
+        self.assertIn('No change in plan data (performance does not affect the gate).', lines)
+
+    def test_instruction_changes_never_fail_gate(self):
+        a, b = self.report(), self.report()
+        a['instructions'] = {'parts': {'p': {'analyse': 100, 'mesh': 100, 'process': 100}}}
+        b['instructions'] = {'parts': {'p': {'analyse': 100, 'mesh': 100, 'process': 300}}}
+        lines = []
+        self.assertEqual(compare(a, b, lines.append), 0)
+        self.assertTrue(any(line.startswith('Instructions >20% p:') for line in lines))
 
     def test_fewer_cut_is_review_only(self):
         a = self.report()

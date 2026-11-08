@@ -8,7 +8,6 @@ import io
 import json
 from pathlib import Path
 import re
-import statistics
 import subprocess
 import sys
 import time
@@ -19,21 +18,46 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from common import family, summarise_part, totals
 from fetch import RemoteZip, extract
+from performance import InstructionMeter, STAGES, instruction_summary
 
 REPO = HERE.parent.parent
 
 
-def command(args, stdout=None, timeout=600):
+def command(args, stdout=None, timeout=600, check=True):
     result = subprocess.run([str(a) for a in args], stdout=stdout or subprocess.PIPE,
                             stderr=subprocess.PIPE, text=True, timeout=timeout, cwd=REPO)
-    if result.returncode:
+    if check and result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
                            f'{result.stderr.strip()[-4000:]}')
     return result
 
 
-def run_part(part, z, cache, tools, fetch_lock):
-    start = time.monotonic()
+def build_process():
+    result = command(['cargo', 'build', '--release', '--manifest-path', REPO / 'rust/Cargo.toml',
+                      '--example', 'process', '--message-format=json'], timeout=1800)
+    for line in result.stdout.splitlines():
+        artifact = json.loads(line)
+        if (artifact.get('reason') == 'compiler-artifact' and
+                artifact.get('target', {}).get('name') == 'process' and
+                'example' in artifact['target']['kind'] and artifact.get('executable')):
+            return Path(artifact['executable']).resolve()
+    raise RuntimeError('Cargo did not report the process example executable')
+
+
+def measured_command(args, stage, counts, meter, stdout=None):
+    try:
+        result = command(meter.wrap([str(a) for a in args]), stdout=stdout, check=False)
+    except subprocess.TimeoutExpired:
+        meter.unavailable('a stage timed out without an instruction count')
+        raise
+    counts[stage] = meter.record(result.stderr)
+    if result.returncode:
+        raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
+                           f'{result.stderr.strip()[-4000:]}')
+
+
+def run_part(part, z, cache, tools, fetch_lock, process, meter):
+    counts = dict.fromkeys(STAGES)
     row = {'part': part, 'labels': [], 'label_counts': {}, 'recognised_counts': {},
            'features': [], 'warnings': [], 'error': None, 'labels_complete': False,
            'recognition_complete': False}
@@ -58,23 +82,22 @@ def run_part(part, z, cache, tools, fetch_lock):
         work = cache / 'runs' / part
         work.mkdir(parents=True, exist_ok=True)
         analysis_path, mesh_path = work / 'analysis.json', work / 'mesh.json'
-        command(['specify-core', 'analyse', '-o', analysis_path, step])
+        measured_command(['specify-core', 'analyse', '-o', analysis_path, step], 'analyse', counts, meter)
         analysis = json.loads(analysis_path.read_text())
         row['recognised_counts'] = dict(Counter(f['family'] for f in analysis['features']))
         row['recognition_complete'] = True
         row['features'] = [{'id': f['id'], 'family': f['family'], 'outcome': 'unaccounted'}
                            for f in sorted(analysis['features'], key=lambda f: f['id'])]
-        command(['specify-core', 'mesh', '-o', mesh_path, step])
+        measured_command(['specify-core', 'mesh', '-o', mesh_path, step], 'mesh', counts, meter)
         with (work / 'process.json').open('w') as out:
-            command(['cargo', 'run', '--release', '--quiet', '--manifest-path', REPO / 'rust/Cargo.toml',
-                     '--example', 'process', '--', analysis_path, mesh_path, tools], stdout=out)
+            measured_command([process, analysis_path, mesh_path, tools], 'process', counts, meter, stdout=out)
         output = json.loads((work / 'process.json').read_text())
         row['features'], row['warnings'] = summarise_part(analysis, output)
         if output.get('error') or output.get('post_error'):
             row['error'] = str(output.get('error') or output['post_error'])
     except Exception as exc:
         row['error'] = str(exc)
-    return row, round(time.monotonic() - start, 6)
+    return row, counts
 
 
 def main():
@@ -100,27 +123,27 @@ def main():
     tools = args.tools.resolve()
     # Build once before workers, avoiding concurrent initial Cargo builds.
     print("Building release process example...", file=sys.stderr)
-    command(['cargo', 'build', '--release', '--manifest-path', REPO / 'rust/Cargo.toml', '--example', 'process'], timeout=1800)
+    process = build_process()
+    meter = InstructionMeter()
     import threading
     lock = threading.Lock()
     wall_start = time.monotonic()
     remote = None if args.zip else RemoteZip(cache=cache)
     source = args.zip or io.BufferedReader(remote, buffer_size=1 << 20)
-    rows, seconds = [], {}
+    rows, instructions = [], {}
     with zipfile.ZipFile(source) as z, ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = [pool.submit(run_part, part, z, cache, tools, lock) for part in parts]
+        futures = [pool.submit(run_part, part, z, cache, tools, lock, process, meter) for part in parts]
         for future in as_completed(futures):
-            row, elapsed = future.result()
+            row, counts = future.result()
             rows.append(row)
-            seconds[row['part']] = elapsed
-            print(f"{len(rows)}/{len(parts)} {row['part']}: {row['error'] or 'ok'} ({elapsed:.1f}s)", file=sys.stderr)
-    report = {'schema_version': 1, 'data': {
+            instructions[row['part']] = counts
+            print(f"{len(rows)}/{len(parts)} {row['part']}: {row['error'] or 'ok'}", file=sys.stderr)
+    report = {'schema_version': 2, 'data': {
         'dataset': 'doi:10.5281/zenodo.21653081',
         'tools_sha256': hashlib.sha256(tools.read_bytes()).hexdigest(),
         'parts': sorted(rows, key=lambda p: p['part']), 'totals': totals(rows)},
-        'timing': {'parts_seconds': seconds, 'total_seconds': round(sum(seconds.values()), 6),
-                   'median_seconds': statistics.median(seconds.values()),
-                   'wall_seconds': round(time.monotonic() - wall_start, 6)}}
+        'instructions': {'parts': instructions, 'stages': instruction_summary(instructions)},
+        'timing': {'wall_seconds': round(time.monotonic() - wall_start, 6)}}
     if remote:
         report['fetch'] = {'range_requests': remote.requests, 'bytes_received': remote.bytes}
     args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')

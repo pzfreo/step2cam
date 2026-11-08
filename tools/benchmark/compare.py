@@ -8,6 +8,7 @@ import sys
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from common import normalise
+from performance import compare_instructions
 
 
 def compare(before, after, emit=print):
@@ -49,7 +50,8 @@ def compare(before, after, emit=print):
             failed = True
             emit(f'NEW ERROR {part}: {y["error"]}')
     if not changed:
-        emit('No change (timings ignored).')
+        emit('No change in plan data (performance does not affect the gate).')
+    compare_instructions(before, after, emit)
     return int(failed)
 
 

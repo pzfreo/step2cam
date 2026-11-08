@@ -27,7 +27,9 @@ python3 -m unittest discover tools/benchmark
 
 Always use `python3 -I` for code that reads dataset files. The runner imports only its own
 sibling modules explicitly. It builds the release `process` example once, then runs
-`specify-core analyse`, `specify-core mesh` and `cargo run --release --example process` per part.
+`specify-core analyse`, `specify-core mesh` and the built `process` executable directly per part.
+The executable path comes from Cargo's JSON artifact output, respecting `CARGO_TARGET_DIR`
+and Cargo target-directory configuration. Workers never invoke Cargo.
 Default parallelism is four parts (`--jobs N`); the tool library defaults to `demo/tools.json`
 (`--tools PATH`). Each per-part subprocess has a ten-minute timeout; the initial build allows thirty minutes. Errors are retained per part;
 the runner writes the report before exiting nonzero if any part failed.
@@ -43,11 +45,22 @@ record URL; recognition and planning always run again. The first remote run read
 of ZIP metadata before the selected members. Delete the cache to force a complete refetch. Use a fresh cache
 to verify remote fetching, for example `--limit 3 --cache /tmp/mp10k-remote`.
 
-The development machine takes about a minute for 100 parts after the initial Rust build; allow
-several minutes on slower machines or networks. A cold release build can exceed ten minutes. The report records per-part seconds, their sum and median, and wall time. Timings include
-fetching and worker lock waits, but exclude the initial build; the sum is not wall time with
-parallel jobs. `data` is the deterministic comparison payload, sorted by part and key with no
-timestamps. Variable measurements live separately in `timing` and `fetch`.
+Allow several minutes for 100 parts after the initial Rust build; CPU and network performance
+vary. A cold release build can exceed ten minutes. One overall `timing.wall_seconds` records
+the run, including fetching and excluding the initial build and instrumentation probe.
+
+On macOS each stage (`analyse`, `mesh`, `process`) runs under `/usr/bin/time -l`. Its
+`instructions retired` line supplies per-part, per-stage counts in `instructions.parts`.
+`instructions.stages` contains totals, medians and measurement coverage for each stage.
+A total is null unless every part has a count; the median uses available counts, or null
+if none are available. Unattempted stages, non-macOS hosts and missing counters record null.
+The runner warns once on stderr when counts are unavailable. It probes time first: macOS
+sandboxes can deny its resource sysctls, making time itself fail even when the child succeeds;
+in that case the binaries run directly and all counters are null.
+
+`data` is the deterministic comparison payload, sorted by part and key with no timestamps.
+Variable measurements live separately in `instructions`, `timing` and `fetch`. Performance
+is information only, with no performance target or automatic failure threshold.
 
 ## Interpretation and refresh
 
@@ -68,8 +81,12 @@ Known limit: pockets, slots and notches cannot be matched face by face: the data
 give no face IDs. That would require labelled geometry/face correspondence in the dataset,
 or reconstructing and geometrically matching each labelled feature to Specify's faces.
 
-The comparison ignores timing, prints family totals/deltas, changed reasons, and changed parts
-with before/after data. Fewer cuts are highlighted for review, but do not fail the gate.
+The comparison prints family totals/deltas, changed reasons, and changed parts with before/after
+data. It also prints instruction-total deltas per stage and lists common parts whose summed
+three-stage count changed by strictly more than 20% in either direction. Incomplete counts
+are not compared as whole-part totals; a change from zero to a positive count is listed.
+Old reports without instruction measurements remain readable. Performance and wall time
+never affect the exit status. Fewer cuts are highlighted for review, but do not fail the gate.
 Only a newly failing part or a new error on a previously failing part exits 1; existing errors
 and resolved errors exit 0. Added/removed parts are shown and should be reviewed for sample
 compatibility. Invalid input reports are command errors.
@@ -77,5 +94,7 @@ compatibility. Invalid input reports are command errors.
 To refresh the baseline, use the unchanged 100-part sample and `demo/tools.json`, run to a file
 outside the repo, compare against the existing baseline, review all differences, then copy the
 validated report to `tools/benchmark/baseline.json` and commit it. Keep the baseline paired with
-the planner commit it measures; the tool library SHA-256 is recorded in the report. The first
-baseline reproduces `_ref/first-run-report.txt`; fixture GD&T updates do not affect these parts.
+the planner commit it measures; the tool library SHA-256 is recorded in the report. The original
+baseline reproduced `_ref/first-run-report.txt`. The current baseline includes main's Carvera
+machine and its 6.35 mm shank limit, so larger tools from that first run cannot be chosen.
+Fixture GD&T updates do not affect these dataset parts.
