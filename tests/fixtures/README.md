@@ -3,7 +3,9 @@
 Every part has its STEP file, specify-core's analysis of it (`*.analysis.json`) and, where a test
 needs one, its mesh (`*.mesh.json`).
 
-Each STEP file carries GD&T as AP242 PMI, written into it by `specify-core write` from the answers
+Each STEP file except `synthetic/stepped-plate-large-chamfer.step` and
+`synthetic/stepped-plate-chamfer-mouths.step` (plain geometry from `stepped_plate.py`, added
+for #47) carries GD&T as AP242 PMI, written into it by `specify-core write` from the answers
 in `answers/`:
 - the part's material (Aluminium 6082-T6; `plate-m5` keeps its earlier `6082-T6`), process,
   general tolerance (ISO 2768-m), surface finish and edge break;
