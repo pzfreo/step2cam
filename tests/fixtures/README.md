@@ -33,8 +33,11 @@ STEP file and analyse the result again:
 specify-core analyse -o plain.analysis.json plain.step
 specify-core write -o part.step --accept-defaults plain.step plain.analysis.json answers/part.answers.json
 specify-core analyse -o part.analysis.json part.step
-specify-core mesh -o part.mesh.json part.step
 ```
+
+Write the mesh with the specify-core WebAssembly release the site ships (`SPECIFY_VERSION` in
+`demo/build.sh`), not the command-line tool: they triangulate some curved faces differently, and
+`tests/specify-link.sh` checks every frozen analysis and mesh against that release.
 
 The plain geometry of the specify-core and Thompson Labs parts is in those projects;
 `stepped_plate.py` writes the stepped plates' again.
