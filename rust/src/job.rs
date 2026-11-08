@@ -50,12 +50,24 @@ fn assembly(spec: &Value) -> Result<Value, String> {
         }));
     }
     if spec["type"] == "chamfer_mill" {
+        let angle = num(spec, "angle")?.to_radians();
+        let tip = num(spec, "tip_diameter")?;
+        let flute_length = num(spec, "flute_length")?;
+        let cone_height = (diameter / 2. - tip / 2.) / (angle / 2.).tan();
+        // Match camlib's cone calculation when nominal equality differs only by
+        // floating-point roundoff. Keep genuinely short flutes for camlib to reject.
+        let tolerance = 16. * f64::EPSILON * flute_length.abs().max(1.);
+        let cutting_length = if cone_height.is_finite() && (cone_height - flute_length).abs() <= tolerance {
+            flute_length.max(cone_height)
+        } else {
+            flute_length
+        };
         return Ok(json!({
             "id": name,
             "cutter": {
                 "id": name, "name": name,
-                "shape": {"kind": "chamfer", "included_angle_rad": num(spec, "angle")?.to_radians(), "tip_diameter_mm": num(spec, "tip_diameter")?},
-                "diameter_mm": diameter, "cutting_length_mm": num(spec, "flute_length")?, "overall_length_mm": num(spec, "overall_length")?,
+                "shape": {"kind": "chamfer", "included_angle_rad": angle, "tip_diameter_mm": tip},
+                "diameter_mm": diameter, "cutting_length_mm": cutting_length, "overall_length_mm": num(spec, "overall_length")?,
                 "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
                 "flutes": 3, "center_cutting": true, "material": "carbide", "neck": null,
             },
@@ -668,4 +680,35 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         jobs.push(Job { setup: setup_id.to_string(), manifest, notes });
     }
     Ok((jobs, log))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chamfer_cone_height_accepts_nominal_equality_without_extending_short_flutes() {
+        let mut spec = json!({
+            "id": "cm12", "type": "chamfer_mill", "diameter": 12.,
+            "tip_diameter": 2.5, "angle": 90., "flute_length": 4.75,
+            "overall_length": 70., "stickout": 15.,
+            "holder_length": 76.2, "holder_diameter": 50.,
+        });
+        let cutter = |spec: &Value| -> camlib::tool::Cutter {
+            serde_json::from_value(assembly(spec).unwrap()["cutter"].clone()).unwrap()
+        };
+        let equal = cutter(&spec);
+        assert!(equal.prepare().is_ok(), "nominal cone-height flutes must be accepted");
+        assert_eq!(spec["flute_length"], 4.75, "catalogue input must remain unchanged");
+
+        spec["flute_length"] = json!(4.74);
+        let short = cutter(&spec);
+        assert_eq!(short.cutting_length_mm, 4.74);
+        assert_eq!(short.prepare().err().unwrap(), "cutting length does not contain the complete tool tip geometry");
+
+        spec["flute_length"] = json!(6.);
+        let longer = cutter(&spec);
+        assert_eq!(longer.cutting_length_mm, 6.);
+        assert!(longer.prepare().is_ok());
+    }
 }
