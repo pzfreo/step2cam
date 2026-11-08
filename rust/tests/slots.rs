@@ -146,7 +146,7 @@ fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations()
     let (analysis, plan) = rectangular_plan();
     let ops: Vec<_> = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).filter(|o| o["kind"] == "notch").collect();
     assert_eq!(ops.len(), 4, "{plan}");
-    let warnings = plan["warnings"].as_array().unwrap();
+    let warnings = plan["decisions"].as_array().unwrap();
     let extent = |op: &Value, k: usize| {
         let values: Vec<_> = op["outer"].as_array().unwrap().iter().map(|p| p[k].as_f64().unwrap()).collect();
         values.iter().copied().fold(f64::NEG_INFINITY, f64::max) - values.iter().copied().fold(f64::INFINITY, f64::min)
@@ -168,13 +168,13 @@ fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations()
         assert_eq!(op["open"], corners == 2);
         assert!((extent(op, 0) - length).abs() < 1e-6, "{op}");
         assert!((extent(op, 1) - width).abs() < 1e-6, "{op}");
-        let own_warnings: Vec<_> = warnings.iter().filter_map(Value::as_str).filter(|w| w.contains(id)).collect();
+        let own_warnings: Vec<_> = warnings.iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none() && d["features"].as_array().is_some_and(|fs| fs.contains(&feature["id"]))).map(|d| d["says"].as_str().unwrap()).collect();
         if radius < left {
             assert_eq!(own_warnings.len(), 1, "{own_warnings:?}");
             let warning = own_warnings[0];
             let shape = if radius == 0. { "square inside corners" } else { "inside corners" };
-            assert!(warning.contains(&format!("its {corners} {shape} are left r{left:.1} by {tool}")), "{warning}");
-            let model = if radius == 0. { "the model has them sharp".to_string() } else { format!("the model has r{radius:.1}") };
+            assert!(warning.contains(&format!("its {corners} {shape} are left r{left} by {tool}")), "{warning}");
+            let model = if radius == 0. { "the model has them sharp".to_string() } else { format!("the model has r{radius}") };
             assert!(warning.contains(&model));
             let decision = plan["decisions"].as_array().unwrap().iter().find(|d| d["says"] == warning).unwrap();
             assert_eq!(decision["rule"], "process.notch.corner_radius@1");
@@ -240,7 +240,7 @@ fn a_cutter_larger_than_the_model_corner_warns_and_short_flutes_do_not_qualify()
     tools["tools"].as_array_mut().unwrap().push(larger);
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     capp::finish(&mut plan, &tools, &[]).unwrap();
-    assert!(plan["warnings"].as_array().unwrap().iter().filter_map(Value::as_str).any(|w| w.contains("its 4 inside corners are left r3.5 by em7 (the model has r3.0)")), "{}", plan["warnings"]);
+    assert!(plan["warnings"].as_array().unwrap().iter().filter_map(Value::as_str).any(|w| w.contains("its 4 inside corners are left r3.5 by em7 (the model has r3)")), "{}", plan["warnings"]);
     for tool in tools["tools"].as_array_mut().unwrap() {
         if tool["id"] == "em7" { tool["flute_length"] = 1.into(); }
     }
