@@ -61,8 +61,15 @@ impl Trace {
         for n in 0..self.supplied.len() {
             if self.supplied[n].get("accepted").is_none() {
                 let rule = self.supplied[n]["rule"].as_str().unwrap();
-                let reason = if rule == "machine.clamping" || supported(rule) { "subject or operation matches no decision" } else { "rule is not suppliable this round (clearing uses roughing_tool/facing_tool; spot drills are not suppliable)" };
-                self.refuse(n, reason);
+                let unavailable = self.decisions.iter().rev().find(|d| d["subject"] == self.supplied[n]["subject"] && d["stage"] == "feasibility");
+                let reason = if supported(rule) && let Some(d) = unavailable {
+                    format!("operation unavailable: {}", d["says"].as_str().unwrap_or("failed feasibility checks"))
+                } else if rule == "machine.clamping" || supported(rule) {
+                    "subject or operation matches no decision".into()
+                } else {
+                    "rule is not suppliable this round (clearing uses roughing_tool/facing_tool; spot drills are not suppliable)".into()
+                };
+                self.refuse(n, &reason);
             }
         }
     }

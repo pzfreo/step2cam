@@ -434,3 +434,12 @@ or refusal warning ID), and `refusal_reason` when refused. Copy this list to a f
 plan before calling `finish` to replay choices without asking again. Stored status fields
 are recomputed. For the same rule ID, subject and optional operation, the last entry wins;
 precedence is stored plan, deprecated clamping, then explicit `resources.decisions`.
+
+Spot creation and pruning use the validated supplied hole tool: boring mills are not spotted,
+and a drill's diameter and point angle set its spotting requirements. Since spot groups precede
+holes, numbered hole choices are matched against a consistent finished layout. If several layouts
+use the same number of supplied choices, or no consistent layout exists, indexed hole choices
+are refused with a numbering reason; the rules then choose the layout. A consistent layout
+that uses more of the supplied choices takes precedence. Execution exclusions still only prune
+spot features; surviving features may be regrouped for the actual drills, and a refused spot
+is never recreated.
