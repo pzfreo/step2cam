@@ -28,22 +28,22 @@
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -66,12 +66,12 @@
           {
             "family": "pockets",
             "id": "pockets:17.18.19.21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:17.18.19.21.22.23.24.25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -86,12 +86,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -139,6 +139,9 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -256,8 +259,11 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -284,22 +290,22 @@
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -336,12 +342,12 @@
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -356,7 +362,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -401,8 +407,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm"
         ]
@@ -529,7 +536,7 @@
             "family": "plates",
             "id": "plates:6.14",
             "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
           },
           {
             "family": "step_levels",
@@ -621,9 +628,11 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy",
           "top:holes [holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
         ]
@@ -654,22 +663,22 @@
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:36",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:37",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -680,22 +689,22 @@
           {
             "family": "fillets",
             "id": "fillets:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -715,12 +724,12 @@
           {
             "family": "pockets",
             "id": "pockets:29.30.31.33",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:7.8.9.11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -730,7 +739,7 @@
           {
             "family": "section_recesses",
             "id": "section_recesses:29.30.31.33.34.35.36.37",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -750,12 +759,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:31",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -765,12 +774,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:7",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -822,6 +831,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -935,6 +946,8 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -957,22 +970,22 @@
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -989,17 +1002,17 @@
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -1040,8 +1053,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -1053,42 +1067,42 @@
           {
             "family": "blends",
             "id": "blends:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:31",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:32",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:33",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -1129,27 +1143,27 @@
           {
             "family": "pockets",
             "id": "pockets:26.27.28.29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:7.8.9.11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:26.27.28.29.31.32.33.34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:7.8.9.11.12.13.14.15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -1164,17 +1178,17 @@
           {
             "family": "step_levels",
             "id": "step_levels:27",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:8",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -1244,22 +1258,22 @@
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -1315,12 +1329,12 @@
           {
             "family": "pockets",
             "id": "pockets:14.15.16.18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:14.15.16.18.19.20.21.22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -1335,12 +1349,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -1419,7 +1433,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -1542,6 +1556,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -1659,6 +1675,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -1689,22 +1707,22 @@
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "hole_patterns",
@@ -1750,17 +1768,17 @@
           {
             "family": "pockets",
             "id": "pockets:9.10.11.13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -1822,8 +1840,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -1975,7 +1994,8 @@
           {
             "family": "plates",
             "id": "plates:7.13",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
           }
         ],
         "label_counts": {
@@ -2012,7 +2032,10 @@
           "plates": 1
         },
         "recognition_complete": true,
-        "warnings": []
+        "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut"
+        ]
       },
       {
         "error": null,
@@ -2040,22 +2063,22 @@
           {
             "family": "blends",
             "id": "blends:33",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:36",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -2081,7 +2104,7 @@
           {
             "family": "pockets",
             "id": "pockets:28.29.30.32",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -2096,7 +2119,7 @@
           {
             "family": "section_recesses",
             "id": "section_recesses:28.29.30.32.33.34.35.36",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -2121,12 +2144,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:32",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -2186,26 +2209,22 @@
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -2267,14 +2286,12 @@
           {
             "family": "pockets",
             "id": "pockets:15.16.17.19",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:15.16.17.19.20.21.22.23",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -2285,14 +2302,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:19",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -2363,9 +2378,10 @@
         "recognition_complete": true,
         "warnings": [
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
+          "pockets:###, step_levels:#, step_levels:#, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
@@ -2860,26 +2876,22 @@
           {
             "family": "blends",
             "id": "blends:13",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -2901,26 +2913,22 @@
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:8.9.10.12.13.14.15.16",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -2958,8 +2966,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
       {
@@ -3195,42 +3204,42 @@
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:32",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:33",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -3262,22 +3271,22 @@
           {
             "family": "pockets",
             "id": "pockets:18.19.20.22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:27.28.29.31",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:18.19.20.22.23.24.25.26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:27.28.29.31.32.33.34.35",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -3297,22 +3306,22 @@
           {
             "family": "step_levels",
             "id": "step_levels:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:31",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -3359,8 +3368,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -3468,6 +3477,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -3498,7 +3509,7 @@
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -3513,7 +3524,7 @@
           {
             "family": "fillets",
             "id": "fillets:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -3688,6 +3699,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -3729,8 +3742,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -3759,6 +3772,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -3893,22 +3908,22 @@
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -3925,22 +3940,22 @@
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -3961,32 +3976,32 @@
           {
             "family": "pockets",
             "id": "pockets:17.18.19.20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:17.18.19.20.22.23.24.25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:10",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -3996,7 +4011,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:8",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -4048,8 +4063,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -4061,32 +4076,27 @@
           {
             "family": "channels",
             "id": "channels:7.8",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "fillets",
             "id": "fillets:17",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "holes",
@@ -4098,19 +4108,17 @@
             "family": "plates",
             "id": "plates:4.8",
             "outcome": "left_out",
-            "reason": "plates: no operation of its own; roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance): needs an end mill with flutes of at least # mm, and stickout of at least # mm"
+            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
           },
           {
             "family": "step_levels",
             "id": "step_levels:10",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "step_levels",
             "id": "step_levels:13",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           }
         ],
         "label_counts": {
@@ -4143,14 +4151,13 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
       {
@@ -4159,42 +4166,42 @@
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:36",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:37",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -4210,32 +4217,32 @@
           {
             "family": "fillets",
             "id": "fillets:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:27",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:42",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:43",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -4261,17 +4268,17 @@
           {
             "family": "pockets",
             "id": "pockets:11.12.13.14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:20.21.22.24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:29.30.31.32",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
@@ -4281,22 +4288,22 @@
           {
             "family": "section_recesses",
             "id": "section_recesses:11.12.13.14.16.17.18.19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:29.30.31.32.34.35.36.37",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -4385,42 +4392,42 @@
           {
             "family": "blends",
             "id": "blends:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -4431,17 +4438,17 @@
           {
             "family": "fillets",
             "id": "fillets:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:30",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:16.17.18.20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
@@ -4451,27 +4458,27 @@
           {
             "family": "pockets",
             "id": "pockets:7.8.9.11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:16.17.18.20.21.22.23.24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:7.8.9.11.12.13.14.15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -4481,12 +4488,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:7",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -4536,22 +4543,22 @@
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
@@ -4607,12 +4614,12 @@
           {
             "family": "pockets",
             "id": "pockets:16.17.18.19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:16.17.18.19.21.22.23.24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -4622,12 +4629,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -4684,6 +4691,9 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -4781,50 +4791,42 @@
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:32",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:33",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -4900,26 +4902,22 @@
           {
             "family": "pockets",
             "id": "pockets:18.19.20.21",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:27.28.29.31",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:18.19.20.21.23.24.25.26",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:27.28.29.31.32.33.34.35",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -4942,14 +4940,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:27",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:29",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -5033,10 +5029,13 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
         ]
       },
@@ -5046,22 +5045,22 @@
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -5118,17 +5117,17 @@
           {
             "family": "pockets",
             "id": "pockets:9.10.11.13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:9.10.11.13.14.15.16.17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -5138,7 +5137,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -5386,12 +5385,12 @@
           {
             "family": "fillets",
             "id": "fillets:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
@@ -5628,6 +5627,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -5637,22 +5638,22 @@
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:27",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
@@ -5682,22 +5683,22 @@
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -5730,17 +5731,17 @@
           {
             "family": "pockets",
             "id": "pockets:12.15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:20.21.22.23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:20.21.22.23.25.26.27.28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -5750,12 +5751,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -5824,8 +5825,10 @@
         "recognition_complete": true,
         "warnings": [
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
+          "pockets:###, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
+          "pockets:#, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm"
@@ -5847,22 +5850,22 @@
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -5879,7 +5882,7 @@
           {
             "family": "pockets",
             "id": "pockets:14.15.16.18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -5889,12 +5892,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -5943,6 +5946,7 @@
         "recognition_complete": true,
         "warnings": [
           "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
@@ -5958,22 +5962,22 @@
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:27",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -6057,12 +6061,12 @@
           {
             "family": "pockets",
             "id": "pockets:21.22.23.24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:21.22.23.24.26.27.28.29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -6326,8 +6330,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
@@ -6494,8 +6498,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -6602,8 +6606,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -6757,22 +6761,22 @@
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "channels",
@@ -6793,12 +6797,12 @@
           {
             "family": "pockets",
             "id": "pockets:14.15.16.18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:14.15.16.18.19.20.21.22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -6813,12 +6817,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -7191,12 +7195,12 @@
           {
             "family": "fillets",
             "id": "fillets:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "hole_patterns",
@@ -7231,7 +7235,7 @@
             "family": "plates",
             "id": "plates:0.10.22",
             "outcome": "left_out",
-            "reason": "plates: no operation of its own; roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance): needs an end mill with flutes of at least # mm, and stickout of at least # mm"
+            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
           },
           {
             "family": "pockets",
@@ -7322,8 +7326,10 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -7417,6 +7423,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -7427,42 +7435,42 @@
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:30",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:31",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -7477,32 +7485,32 @@
           {
             "family": "pockets",
             "id": "pockets:10.11.12.14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:23.24.25.26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:10.11.12.14.15.16.17.18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:23.24.25.26.28.29.30.31",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:10",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -7548,6 +7556,9 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -7559,22 +7570,22 @@
           {
             "family": "blends",
             "id": "blends:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -7617,12 +7628,12 @@
           {
             "family": "pockets",
             "id": "pockets:13.14.15.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:13.14.15.16.18.19.20.21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -8005,22 +8016,22 @@
           {
             "family": "blends",
             "id": "blends:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -8048,17 +8059,17 @@
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:8.9.10.12.13.14.15.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -8068,7 +8079,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -8123,22 +8134,22 @@
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -8158,12 +8169,12 @@
           {
             "family": "fillets",
             "id": "fillets:32",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:33",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -8194,12 +8205,12 @@
           {
             "family": "pockets",
             "id": "pockets:14.15.16.17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:14.15.16.17.19.20.21.22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -8266,8 +8277,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -8319,22 +8330,22 @@
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -8359,7 +8370,7 @@
           {
             "family": "pockets",
             "id": "pockets:9.10.11.13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -8369,12 +8380,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:10",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:13",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -8433,8 +8444,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -8474,6 +8486,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -8489,22 +8503,22 @@
           {
             "family": "fillets",
             "id": "fillets:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -8515,17 +8529,17 @@
           {
             "family": "pockets",
             "id": "pockets:7.8.9.11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:7",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -8558,8 +8572,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -8685,12 +8699,12 @@
           {
             "family": "fillets",
             "id": "fillets:12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -8773,6 +8787,7 @@
         "recognition_complete": true,
         "warnings": [
           "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
+          "pockets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
@@ -8869,22 +8884,22 @@
           {
             "family": "blends",
             "id": "blends:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -8901,22 +8916,22 @@
           {
             "family": "pockets",
             "id": "pockets:8.9.10.12",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:8.9.10.12.13.14.15.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:10",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:8",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -8948,8 +8963,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut"
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut"
         ]
       },
       {
@@ -9202,22 +9217,22 @@
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:22",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "hole_patterns",
@@ -9252,12 +9267,12 @@
             "family": "plates",
             "id": "plates:4.11",
             "outcome": "left_out",
-            "reason": "plates: no operation of its own; roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance): needs an end mill with flutes of at least # mm, and stickout of at least # mm"
+            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
           },
           {
             "family": "pockets",
             "id": "pockets:14.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
@@ -9350,8 +9365,9 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -9418,8 +9434,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -9430,12 +9446,12 @@
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -9477,12 +9493,12 @@
           {
             "family": "section_recesses",
             "id": "section_recesses:0.9",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:11.14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -9542,8 +9558,10 @@
         "recognition_complete": true,
         "warnings": [
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
+          "pockets:#, section_recesses:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm"
         ]
@@ -9723,6 +9741,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
@@ -9794,6 +9814,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -9961,8 +9983,11 @@
         "recognition_complete": true,
         "warnings": [
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
@@ -10174,8 +10199,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -10297,8 +10323,8 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -10787,8 +10813,10 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth",
           "top:holes [holes:#, holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
         ]
@@ -10809,22 +10837,22 @@
           {
             "family": "fillets",
             "id": "fillets:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "hole_patterns",
@@ -10929,8 +10957,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -10943,22 +10971,22 @@
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -10981,22 +11009,22 @@
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -11012,32 +11040,32 @@
           {
             "family": "pockets",
             "id": "pockets:18.19.20.21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:9.10.11.13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:18.19.20.21.23.24.25.26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:11",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -11047,7 +11075,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:9",
-            "outcome": "covered"
+            "outcome": "cut"
           }
         ],
         "label_counts": {
@@ -11101,6 +11129,8 @@
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
+          "pockets:###, step_levels:#, step_levels:#, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)",
+          "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
@@ -11203,8 +11233,8 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm",
-          "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm"
         ]
       },
@@ -11214,22 +11244,22 @@
           {
             "family": "blends",
             "id": "blends:17",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
@@ -11254,22 +11284,22 @@
           {
             "family": "pockets",
             "id": "pockets:12.13.14.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:12.13.14.16.17.18.19.20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:13",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -11317,6 +11347,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -11445,7 +11477,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)",
           "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut",
-          "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock",
+          "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup",
           "top:holes [holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
           "top:holes [holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
           "top:holes [holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
@@ -11561,12 +11593,12 @@
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:15",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
@@ -11615,6 +11647,9 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "pockets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -11743,22 +11778,22 @@
           {
             "family": "blends",
             "id": "blends:18",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:19",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:20",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "blends",
             "id": "blends:21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "chamfers",
@@ -11779,22 +11814,22 @@
           {
             "family": "fillets",
             "id": "fillets:27",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:28",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:29",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "fillets",
             "id": "fillets:30",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "holes",
@@ -11809,17 +11844,17 @@
           {
             "family": "pockets",
             "id": "pockets:13.14.15.16",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "pockets",
             "id": "pockets:22.23.24.26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:13.14.15.16.18.19.20.21",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -11829,12 +11864,12 @@
           {
             "family": "step_levels",
             "id": "step_levels:23",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
             "id": "step_levels:26",
-            "outcome": "covered"
+            "outcome": "cut"
           },
           {
             "family": "step_levels",
@@ -11887,6 +11922,8 @@
         },
         "recognition_complete": true,
         "warnings": [
+          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
+          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -11934,7 +11971,7 @@
         ]
       }
     ],
-    "tools_sha256": "5ab27d90913b05a7d492eebb301dc6e79560e26e5994a7b4049c668aa5020b94",
+    "tools_sha256": "8cd4368f3eb070a5d9551b2503cc2ed63f09c13287461672c080b2932c101124",
     "totals": {
       "errors": {},
       "holes_and_chamfers_parts_equal": 98,
@@ -11947,53 +11984,51 @@
       },
       "left_out_reasons": {
         "blends": {
-          "no operation of its own, and roughing was refused": 36
+          "no operation of its own, and roughing was refused": 20
         },
         "chamfers": {
           "chamfer: not part of a whole chamfered top loop with its wall or hole at size, so the edge stays sharp (chamfer it by hand); leg # mm": 187
         },
         "channels": {
-          "no operation of its own, and roughing was refused": 4
+          "no operation of its own, and roughing was refused": 3
         },
         "fillets": {
-          "no operation of its own, and roughing was refused": 22
+          "no operation of its own, and roughing was refused": 18
         },
         "holes": {
           "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm": 122,
           "part material above its opening from top: a three-axis tool cannot reach it": 3
         },
         "plates": {
-          "no operation of its own, and roughing was refused": 1,
-          "plates: no operation of its own; roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance): needs an end mill with flutes of at least # mm, and stickout of at least # mm": 3
-        },
-        "pockets": {
-          "no operation of its own, and roughing was refused": 4
+          "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup": 5
         },
         "section_recesses": {
-          "no operation of its own, and roughing was refused": 10
+          "no operation of its own, and roughing was refused": 6
         },
         "step_levels": {
-          "no operation of its own, and roughing was refused": 30
+          "no operation of its own, and roughing was refused": 22
         }
       },
       "outcomes": {
         "blends": {
-          "covered": 172,
-          "left_out": 36
+          "covered": 64,
+          "cut": 124,
+          "left_out": 20
         },
         "chamfers": {
           "left_out": 187
         },
         "channels": {
-          "covered": 20,
-          "left_out": 4
+          "covered": 21,
+          "left_out": 3
         },
         "cylindrical_profiles": {
           "covered": 1
         },
         "fillets": {
-          "covered": 192,
-          "left_out": 22
+          "covered": 122,
+          "cut": 74,
+          "left_out": 18
         },
         "hole_patterns": {
           "unaccounted": 15
@@ -12003,25 +12038,23 @@
           "left_out": 125
         },
         "plates": {
-          "covered": 1,
-          "left_out": 4
+          "left_out": 5
         },
         "pockets": {
-          "covered": 40,
-          "cut": 21,
-          "left_out": 4
+          "cut": 65
         },
         "section_recesses": {
-          "covered": 52,
-          "left_out": 10
+          "covered": 23,
+          "cut": 33,
+          "left_out": 6
         },
         "slots": {
           "cut": 1
         },
         "step_levels": {
-          "covered": 196,
-          "cut": 2,
-          "left_out": 30
+          "covered": 136,
+          "cut": 70,
+          "left_out": 22
         }
       },
       "parts": 100,
@@ -12056,14 +12089,24 @@
       "warnings": {
         "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance": 16,
         "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)": 6,
-        "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm": 71,
-        "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut": 77,
-        "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 22,
-        "setup top: outside wall above Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); none of this wall band remains above the cleared stock": 6,
+        "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm": 49,
+        "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut": 45,
+        "pockets:###, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)": 3,
+        "pockets:###, step_levels:#, step_levels:#, blends:#, blends:#, blends:#, blends:#, section_recesses:#######: its # inside corners are left r# by em# (the model has r#)": 4,
+        "pockets:###, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)": 6,
+        "pockets:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)": 1,
+        "pockets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)": 2,
+        "pockets:#, section_recesses:#: its # square inside corners are left r# by em# (the model has them sharp)": 1,
+        "pockets:#, step_levels:#, step_levels:#, fillets:#, fillets:#, fillets:#, fillets:#: its # inside corners are left r# by em# (the model has r#)": 1,
+        "pockets:#: its # square inside corners are left r# by em# (the model has them sharp)": 10,
+        "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut": 55,
+        "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 17,
+        "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup": 6,
+        "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut": 45,
         "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm": 91,
-        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 7,
+        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 5,
         "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy": 2,
-        "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 170,
+        "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 175,
         "top:holes [holes:#, holes:#, holes:#, holes:#, holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks": 1,
         "top:holes [holes:#, holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks": 1,
         "top:holes [holes:#], depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks": 7
@@ -12073,529 +12116,529 @@
   "instructions": {
     "parts": {
       "featured_part_00036": {
-        "analyse": 4758432507,
-        "mesh": 383042942,
-        "process": 13431368705
+        "analyse": 4756877617,
+        "mesh": 382795528,
+        "process": 12943842058
       },
       "featured_part_00165": {
-        "analyse": 1525575514,
-        "mesh": 403845443,
-        "process": 41844918670
+        "analyse": 1524877975,
+        "mesh": 405753587,
+        "process": 41752154473
       },
       "featured_part_00222": {
-        "analyse": 1538405979,
-        "mesh": 431587447,
-        "process": 18537461848
+        "analyse": 1527018237,
+        "mesh": 423117573,
+        "process": 17603271224
       },
       "featured_part_00396": {
-        "analyse": 2173412194,
-        "mesh": 513001898,
-        "process": 4794659930
+        "analyse": 2170378414,
+        "mesh": 513383984,
+        "process": 4566424492
       },
       "featured_part_00411": {
-        "analyse": 8416510420,
-        "mesh": 448471378,
-        "process": 23527896973
+        "analyse": 8413006772,
+        "mesh": 448982525,
+        "process": 23240781085
       },
       "featured_part_00466": {
-        "analyse": 1413868022,
-        "mesh": 410652634,
-        "process": 19585758140
+        "analyse": 1413362615,
+        "mesh": 409730875,
+        "process": 18440945429
       },
       "featured_part_00518": {
-        "analyse": 1340053897,
-        "mesh": 375211567,
-        "process": 17936077854
+        "analyse": 1331493892,
+        "mesh": 375371623,
+        "process": 19412195553
       },
       "featured_part_00530": {
-        "analyse": 10966065619,
-        "mesh": 463114512,
-        "process": 25894498250
+        "analyse": 10954406445,
+        "mesh": 469718245,
+        "process": 29650081309
       },
       "featured_part_00539": {
-        "analyse": 5881935631,
-        "mesh": 423292994,
-        "process": 30930997308
+        "analyse": 5870930065,
+        "mesh": 421888556,
+        "process": 34178225466
       },
       "featured_part_00558": {
-        "analyse": 1276305343,
-        "mesh": 415012864,
-        "process": 39035954604
+        "analyse": 1291779281,
+        "mesh": 429590670,
+        "process": 36730740417
       },
       "featured_part_00633": {
-        "analyse": 1837967594,
-        "mesh": 408747454,
-        "process": 16140853300
+        "analyse": 1828918867,
+        "mesh": 399459354,
+        "process": 15481626621
       },
       "featured_part_00807": {
-        "analyse": 1594247507,
-        "mesh": 467014801,
-        "process": 50864689505
+        "analyse": 1593488066,
+        "mesh": 466523108,
+        "process": 44279101336
       },
       "featured_part_01169": {
-        "analyse": 1861802829,
-        "mesh": 346918498,
-        "process": 10811270256
+        "analyse": 1857375988,
+        "mesh": 345968567,
+        "process": 12015034888
       },
       "featured_part_01614": {
-        "analyse": 626289169,
-        "mesh": 318329344,
-        "process": 6429302168
+        "analyse": 621756186,
+        "mesh": 309202912,
+        "process": 6262729075
       },
       "featured_part_01746": {
-        "analyse": 6797312425,
-        "mesh": 423224928,
-        "process": 13816845739
+        "analyse": 6795495701,
+        "mesh": 421719814,
+        "process": 15800560431
       },
       "featured_part_01861": {
-        "analyse": 5976099760,
-        "mesh": 469989265,
-        "process": 5950133691
+        "analyse": 5971640227,
+        "mesh": 460477420,
+        "process": 7017364375
       },
       "featured_part_01906": {
-        "analyse": 960805984,
-        "mesh": 403526496,
-        "process": 20342390703
+        "analyse": 958835642,
+        "mesh": 403587968,
+        "process": 22062073434
       },
       "featured_part_02017": {
-        "analyse": 1683116900,
-        "mesh": 467927264,
-        "process": 26112098190
+        "analyse": 1676120186,
+        "mesh": 457977010,
+        "process": 28520465397
       },
       "featured_part_02212": {
-        "analyse": 3311416852,
-        "mesh": 484070056,
-        "process": 24162075589
+        "analyse": 3311127000,
+        "mesh": 481143083,
+        "process": 26133815718
       },
       "featured_part_02270": {
-        "analyse": 1189976339,
-        "mesh": 390465272,
-        "process": 43360966985
+        "analyse": 1189654467,
+        "mesh": 388803970,
+        "process": 47736680283
       },
       "featured_part_02517": {
-        "analyse": 4725333063,
-        "mesh": 358116763,
-        "process": 4888756893
+        "analyse": 4727623496,
+        "mesh": 355769099,
+        "process": 14460128652
       },
       "featured_part_03074": {
-        "analyse": 3977113492,
-        "mesh": 541897477,
-        "process": 64611026113
+        "analyse": 3964440730,
+        "mesh": 529127559,
+        "process": 68261022283
       },
       "featured_part_03166": {
-        "analyse": 9802037010,
-        "mesh": 425107485,
-        "process": 17422250143
+        "analyse": 9766249814,
+        "mesh": 422386692,
+        "process": 20677596899
       },
       "featured_part_03199": {
-        "analyse": 1410012453,
-        "mesh": 404686395,
-        "process": 26129832507
+        "analyse": 1404677957,
+        "mesh": 402029694,
+        "process": 24181288051
       },
       "featured_part_03248": {
-        "analyse": 1745135305,
-        "mesh": 418570360,
-        "process": 39906369357
+        "analyse": 1747876192,
+        "mesh": 417434437,
+        "process": 43832239949
       },
       "featured_part_03487": {
-        "analyse": 949916555,
-        "mesh": 347072697,
-        "process": 12432214630
+        "analyse": 948931311,
+        "mesh": 346861875,
+        "process": 12161641246
       },
       "featured_part_03557": {
-        "analyse": 597568408,
-        "mesh": 321462385,
-        "process": 8463050664
+        "analyse": 594671013,
+        "mesh": 321527126,
+        "process": 9088677252
       },
       "featured_part_03743": {
-        "analyse": 1091266888,
-        "mesh": 331069721,
-        "process": 8952036512
+        "analyse": 1080636214,
+        "mesh": 329144080,
+        "process": 8203964262
       },
       "featured_part_03944": {
-        "analyse": 1231343049,
-        "mesh": 402620438,
-        "process": 47808903937
+        "analyse": 1231496874,
+        "mesh": 404326904,
+        "process": 52567271583
       },
       "featured_part_04074": {
-        "analyse": 7754366489,
-        "mesh": 446024600,
-        "process": 26339848598
+        "analyse": 7754598620,
+        "mesh": 447607574,
+        "process": 26099276820
       },
       "featured_part_04111": {
-        "analyse": 1099349296,
-        "mesh": 354548931,
-        "process": 3977712848
+        "analyse": 1097873031,
+        "mesh": 356786743,
+        "process": 27406382817
       },
       "featured_part_04168": {
-        "analyse": 11716059496,
-        "mesh": 528987067,
-        "process": 16885028894
+        "analyse": 11722500936,
+        "mesh": 528113455,
+        "process": 20306984678
       },
       "featured_part_04267": {
-        "analyse": 13294328925,
-        "mesh": 416348385,
-        "process": 19706174835
+        "analyse": 13270341008,
+        "mesh": 405956355,
+        "process": 23057297202
       },
       "featured_part_04301": {
-        "analyse": 7856278282,
-        "mesh": 422039551,
-        "process": 14567114341
+        "analyse": 7853076691,
+        "mesh": 421490696,
+        "process": 14762239853
       },
       "featured_part_04343": {
-        "analyse": 2304394312,
-        "mesh": 379101598,
-        "process": 18831338619
+        "analyse": 2296690341,
+        "mesh": 381306453,
+        "process": 20501043813
       },
       "featured_part_04365": {
-        "analyse": 13726032965,
-        "mesh": 514580555,
-        "process": 6766721533
+        "analyse": 13705036986,
+        "mesh": 513987516,
+        "process": 7366000928
       },
       "featured_part_04381": {
-        "analyse": 7537024005,
-        "mesh": 461001213,
-        "process": 37864381479
+        "analyse": 7535520084,
+        "mesh": 460979400,
+        "process": 41249812105
       },
       "featured_part_04561": {
-        "analyse": 1189666500,
-        "mesh": 388124393,
-        "process": 5492065509
+        "analyse": 1189077469,
+        "mesh": 392455207,
+        "process": 5344510588
       },
       "featured_part_04785": {
-        "analyse": 913567492,
-        "mesh": 330260177,
-        "process": 10620283562
+        "analyse": 912007981,
+        "mesh": 330268192,
+        "process": 11676306082
       },
       "featured_part_04989": {
-        "analyse": 2383295188,
-        "mesh": 380486193,
-        "process": 23732956779
+        "analyse": 2382137462,
+        "mesh": 380420377,
+        "process": 26597376675
       },
       "featured_part_05321": {
-        "analyse": 1339249202,
-        "mesh": 451125748,
-        "process": 36640163441
+        "analyse": 1337211276,
+        "mesh": 451086941,
+        "process": 39073768444
       },
       "featured_part_05431": {
-        "analyse": 746677836,
-        "mesh": 342752762,
-        "process": 9565942341
+        "analyse": 746977970,
+        "mesh": 342049093,
+        "process": 8961892218
       },
       "featured_part_05548": {
-        "analyse": 5693996471,
-        "mesh": 535360878,
-        "process": 30159057098
+        "analyse": 5691591996,
+        "mesh": 532473291,
+        "process": 32842196185
       },
       "featured_part_05677": {
-        "analyse": 1627039245,
-        "mesh": 392439246,
-        "process": 30331037893
+        "analyse": 1615659788,
+        "mesh": 391919645,
+        "process": 34650032248
       },
       "featured_part_05774": {
-        "analyse": 4329400094,
-        "mesh": 513081810,
-        "process": 56838814063
+        "analyse": 4323228544,
+        "mesh": 512166378,
+        "process": 62894986971
       },
       "featured_part_05938": {
-        "analyse": 980033672,
-        "mesh": 333631819,
-        "process": 12640241309
+        "analyse": 982372292,
+        "mesh": 347656286,
+        "process": 14192069719
       },
       "featured_part_06236": {
-        "analyse": 1524872107,
-        "mesh": 422415223,
-        "process": 24124293367
+        "analyse": 1524233931,
+        "mesh": 421057743,
+        "process": 26356370277
       },
       "featured_part_06455": {
-        "analyse": 602751410,
-        "mesh": 310918769,
-        "process": 11066571749
+        "analyse": 599602069,
+        "mesh": 310863291,
+        "process": 12572368566
       },
       "featured_part_06488": {
-        "analyse": 2237245578,
-        "mesh": 395329102,
-        "process": 18135053446
+        "analyse": 2234178474,
+        "mesh": 394018864,
+        "process": 17145944787
       },
       "featured_part_06632": {
-        "analyse": 1397012723,
-        "mesh": 443424719,
-        "process": 29269589024
+        "analyse": 1385664040,
+        "mesh": 435195905,
+        "process": 27295656486
       },
       "featured_part_06887": {
-        "analyse": 2271212398,
-        "mesh": 386139160,
-        "process": 4312528113
+        "analyse": 2268332825,
+        "mesh": 386451650,
+        "process": 4052033058
       },
       "featured_part_06952": {
-        "analyse": 4589051247,
-        "mesh": 377413308,
-        "process": 24018951769
+        "analyse": 4583467190,
+        "mesh": 369033021,
+        "process": 27309071580
       },
       "featured_part_07030": {
-        "analyse": 849617842,
-        "mesh": 362474276,
-        "process": 22785400599
+        "analyse": 852751299,
+        "mesh": 361847086,
+        "process": 24906598312
       },
       "featured_part_07118": {
-        "analyse": 1349453779,
-        "mesh": 458827411,
-        "process": 52393731135
+        "analyse": 1347918910,
+        "mesh": 460455955,
+        "process": 56907353993
       },
       "featured_part_07147": {
-        "analyse": 681709011,
-        "mesh": 337122090,
-        "process": 27224172871
+        "analyse": 682360918,
+        "mesh": 337586698,
+        "process": 30241941053
       },
       "featured_part_07312": {
-        "analyse": 1628523677,
-        "mesh": 425148444,
-        "process": 60083606705
+        "analyse": 1626510509,
+        "mesh": 427627985,
+        "process": 60638321125
       },
       "featured_part_07379": {
-        "analyse": 1212279934,
-        "mesh": 413089559,
-        "process": 28471153766
+        "analyse": 1205057065,
+        "mesh": 411235845,
+        "process": 19746031284
       },
       "featured_part_07380": {
-        "analyse": 8656510613,
-        "mesh": 409904021,
-        "process": 16911214856
+        "analyse": 8638065555,
+        "mesh": 401684743,
+        "process": 23187308889
       },
       "featured_part_07384": {
-        "analyse": 3195352805,
-        "mesh": 449692202,
-        "process": 32005449139
+        "analyse": 3184156399,
+        "mesh": 446910998,
+        "process": 35058414142
       },
       "featured_part_07584": {
-        "analyse": 469841319,
-        "mesh": 295858721,
-        "process": 5848732884
+        "analyse": 461670278,
+        "mesh": 301214958,
+        "process": 6519846299
       },
       "featured_part_07588": {
-        "analyse": 750506100,
-        "mesh": 323806127,
-        "process": 9650813363
+        "analyse": 743215716,
+        "mesh": 322508151,
+        "process": 10998265532
       },
       "featured_part_07774": {
-        "analyse": 1910767136,
-        "mesh": 352437316,
-        "process": 4837686126
+        "analyse": 1908665603,
+        "mesh": 352068220,
+        "process": 5127040495
       },
       "featured_part_07812": {
-        "analyse": 674582427,
-        "mesh": 314702052,
-        "process": 18002020022
+        "analyse": 674458183,
+        "mesh": 318230893,
+        "process": 19851291920
       },
       "featured_part_07923": {
-        "analyse": 5589129543,
-        "mesh": 393539743,
-        "process": 10730549628
+        "analyse": 5585199811,
+        "mesh": 392129026,
+        "process": 11826319358
       },
       "featured_part_08116": {
-        "analyse": 3835683432,
-        "mesh": 438571359,
-        "process": 21102000105
+        "analyse": 3835213529,
+        "mesh": 441757790,
+        "process": 21181258093
       },
       "featured_part_08204": {
-        "analyse": 3844116651,
-        "mesh": 466879827,
-        "process": 18938550678
+        "analyse": 3844727190,
+        "mesh": 466299221,
+        "process": 20142835967
       },
       "featured_part_08221": {
-        "analyse": 483788131,
-        "mesh": 299606836,
-        "process": 3942240413
+        "analyse": 476403386,
+        "mesh": 298357303,
+        "process": 3736578003
       },
       "featured_part_08336": {
-        "analyse": 1729652157,
-        "mesh": 374700776,
-        "process": 16194670053
+        "analyse": 1728250335,
+        "mesh": 376917803,
+        "process": 17658239195
       },
       "featured_part_08413": {
-        "analyse": 1098402221,
-        "mesh": 386954960,
-        "process": 27397895576
+        "analyse": 1094807326,
+        "mesh": 385987953,
+        "process": 29549496854
       },
       "featured_part_08595": {
-        "analyse": 1307207794,
-        "mesh": 412158026,
-        "process": 44352962130
+        "analyse": 1308627268,
+        "mesh": 412600933,
+        "process": 48710596092
       },
       "featured_part_08784": {
-        "analyse": 740821153,
-        "mesh": 331713146,
-        "process": 12033691282
+        "analyse": 730888792,
+        "mesh": 332143782,
+        "process": 13333061194
       },
       "featured_part_08841": {
-        "analyse": 5832283336,
-        "mesh": 334587860,
-        "process": 4641017461
+        "analyse": 5827534965,
+        "mesh": 334565606,
+        "process": 5069046697
       },
       "featured_part_08987": {
-        "analyse": 1819648245,
-        "mesh": 331464147,
-        "process": 8712317809
+        "analyse": 1819929058,
+        "mesh": 332634853,
+        "process": 9561868407
       },
       "featured_part_09125": {
-        "analyse": 1044940366,
-        "mesh": 382963144,
-        "process": 25506313218
+        "analyse": 1041796431,
+        "mesh": 381838751,
+        "process": 28056923900
       },
       "featured_part_09158": {
-        "analyse": 645175118,
-        "mesh": 325821924,
-        "process": 9179533784
+        "analyse": 636095205,
+        "mesh": 327217971,
+        "process": 10161693438
       },
       "featured_part_09263": {
-        "analyse": 3020710189,
-        "mesh": 472274386,
-        "process": 20750528290
+        "analyse": 3022032453,
+        "mesh": 463449531,
+        "process": 21643939343
       },
       "featured_part_09270": {
-        "analyse": 1073766100,
-        "mesh": 384625735,
-        "process": 10655288851
+        "analyse": 1074151122,
+        "mesh": 389014373,
+        "process": 10524404907
       },
       "featured_part_09336": {
-        "analyse": 1869377719,
-        "mesh": 450202737,
-        "process": 41912028330
+        "analyse": 1857814418,
+        "mesh": 446106456,
+        "process": 43697858364
       },
       "featured_part_09364": {
-        "analyse": 1714342386,
-        "mesh": 409717389,
-        "process": 24988112532
+        "analyse": 1709038763,
+        "mesh": 407764862,
+        "process": 26623164181
       },
       "featured_part_09390": {
-        "analyse": 1305853006,
-        "mesh": 436016605,
-        "process": 33486038733
+        "analyse": 1295950246,
+        "mesh": 433536306,
+        "process": 32251940642
       },
       "featured_part_09449": {
-        "analyse": 716589823,
-        "mesh": 320504362,
-        "process": 6186760302
+        "analyse": 714990706,
+        "mesh": 319245027,
+        "process": 6169369020
       },
       "featured_part_09497": {
-        "analyse": 1770747509,
-        "mesh": 491950461,
-        "process": 90772702855
+        "analyse": 1764933851,
+        "mesh": 490450722,
+        "process": 98097657595
       },
       "featured_part_09510": {
-        "analyse": 992696265,
-        "mesh": 379406707,
-        "process": 43317796542
+        "analyse": 982803610,
+        "mesh": 372412136,
+        "process": 46937811266
       },
       "featured_part_09615": {
-        "analyse": 3029180296,
-        "mesh": 440208917,
-        "process": 17720822156
+        "analyse": 3026339229,
+        "mesh": 437766835,
+        "process": 18488767928
       },
       "featured_part_09750": {
-        "analyse": 734142652,
-        "mesh": 352908682,
-        "process": 12885593783
+        "analyse": 727462636,
+        "mesh": 344365813,
+        "process": 14052368453
       },
       "featured_part_09871": {
-        "analyse": 897313045,
-        "mesh": 375080419,
-        "process": 10467506935
+        "analyse": 897980741,
+        "mesh": 374585186,
+        "process": 10853417543
       },
       "featured_part_10091": {
-        "analyse": 2028238336,
-        "mesh": 367720893,
-        "process": 16385491399
+        "analyse": 2020858985,
+        "mesh": 365994911,
+        "process": 17773302009
       },
       "featured_part_10124": {
-        "analyse": 4769719280,
-        "mesh": 520097435,
-        "process": 5673373010
+        "analyse": 4769070057,
+        "mesh": 519248630,
+        "process": 5359666946
       },
       "featured_part_10255": {
-        "analyse": 3544819785,
-        "mesh": 440363642,
-        "process": 5244421124
+        "analyse": 3535239394,
+        "mesh": 440334435,
+        "process": 5271683853
       },
       "featured_part_10267": {
-        "analyse": 2466858897,
-        "mesh": 465182655,
-        "process": 24510455232
+        "analyse": 2467121074,
+        "mesh": 465598316,
+        "process": 27571478885
       },
       "featured_part_10351": {
-        "analyse": 6317849136,
-        "mesh": 399596637,
-        "process": 19420475286
+        "analyse": 6317544699,
+        "mesh": 399952629,
+        "process": 22121587250
       },
       "featured_part_10420": {
-        "analyse": 1564173030,
-        "mesh": 390606936,
-        "process": 12087860761
+        "analyse": 1565424289,
+        "mesh": 390141679,
+        "process": 12625256177
       },
       "featured_part_10653": {
-        "analyse": 5288732090,
-        "mesh": 416766019,
-        "process": 15642044425
+        "analyse": 5285997624,
+        "mesh": 416099569,
+        "process": 15460042373
       },
       "featured_part_10809": {
-        "analyse": 1380313199,
-        "mesh": 419876319,
-        "process": 5700450969
+        "analyse": 1371356342,
+        "mesh": 412456731,
+        "process": 6065412325
       },
       "featured_part_10816": {
-        "analyse": 816151322,
-        "mesh": 343119150,
-        "process": 12689629617
+        "analyse": 805858433,
+        "mesh": 340127682,
+        "process": 14062762103
       },
       "featured_part_10987": {
-        "analyse": 766345018,
-        "mesh": 330428374,
-        "process": 12288949478
+        "analyse": 762447954,
+        "mesh": 322195399,
+        "process": 12060775151
       },
       "featured_part_11012": {
-        "analyse": 905835647,
-        "mesh": 339735926,
-        "process": 11877454794
+        "analyse": 897260691,
+        "mesh": 340159571,
+        "process": 12771899593
       },
       "featured_part_11053": {
-        "analyse": 471590722,
-        "mesh": 297327928,
-        "process": 8341491251
+        "analyse": 471279587,
+        "mesh": 297770074,
+        "process": 9314208589
       },
       "featured_part_11096": {
-        "analyse": 7049338960,
-        "mesh": 440963246,
-        "process": 17128747142
+        "analyse": 7037268851,
+        "mesh": 440378597,
+        "process": 18697756267
       },
       "featured_part_11360": {
-        "analyse": 871377571,
-        "mesh": 321276955,
-        "process": 12864256141
+        "analyse": 873280844,
+        "mesh": 321206029,
+        "process": 14814916300
       }
     },
     "stages": {
       "analyse": {
         "measured_parts": 100,
-        "median": 1627781461.0,
+        "median": 1621085148.5,
         "parts": 100,
-        "total": 292488286414
+        "total": 292044338578
       },
       "mesh": {
         "measured_parts": 100,
-        "median": 403073467.0,
+        "median": 400818686.0,
         "parts": 100,
-        "total": 40151568467
+        "total": 40031331937
       },
       "process": {
         "measured_parts": 100,
-        "median": 17828450005.0,
+        "median": 19579113418.5,
         "parts": 100,
-        "total": 2129954533315
+        "total": 2284457342646
       }
     }
   },
   "schema_version": 2,
   "timing": {
-    "wall_seconds": 130.499935
+    "wall_seconds": 39.221431
   }
 }
