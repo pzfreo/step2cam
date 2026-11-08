@@ -96,6 +96,10 @@ fn the_plates_job_is_python_s_job() {
     python["run"] = Value::Null;
     // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
     mine["verification"]["material"] = python["verification"]["material"].clone();
+    // Deliberate change from Python: both plate drills are below 3D and now make
+    // one plunge. Change only the expected pecks; compare every other manifest field.
+    python["operations"][2]["peck_mm"] = Value::Null;
+    python["operations"][3]["peck_mm"] = Value::Null;
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -107,8 +111,9 @@ fn the_plates_job_runs_in_camlib() {
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
     // camlib #104 simplifies the roughing layer shadows: 1,565 moves instead of 1,922.
-    // Facing, the three hole groups and wall finishing retain their tools and move counts.
-    assert_eq!(&ends[..5], [53, 1618, 1635, 1713, 1751]);
+    // The shallow drills now make one plunge: 5 and 24 moves instead of 17 and 78.
+    // Facing, roughing and the bore retain their move counts (53, 1565 and 38).
+    assert_eq!(&ends[..5], [53, 1618, 1623, 1647, 1685]);
     assert_eq!(ends.len(), 6); // the wall finish
     assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[5]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
@@ -138,6 +143,10 @@ fn a_tapped_holes_job_is_python_s_job() {
     python["run"] = Value::Null;
     // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
     mine["verification"]["material"] = python["verification"]["material"].clone();
+    // Deliberate change from Python: both plate drills are below 3D and now make
+    // one plunge. Change only the expected pecks; compare every other manifest field.
+    python["operations"][2]["peck_mm"] = Value::Null;
+    python["operations"][3]["peck_mm"] = Value::Null;
     same(&mine, &python, "manifest").unwrap();
 }
 
