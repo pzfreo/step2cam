@@ -877,8 +877,6 @@ async function loadRules() {
   return rulesById;
 }
 
-const STAGES = { machine: "Machine", requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
-
 function describeSource(src) {
   const what = src.kind === "standard" ? src.ref : src.kind === "practice" ? "recognised practice" : "step2cam's own judgement";
   const via = src.via ? ` (${src.via})` : "";
@@ -891,38 +889,54 @@ function decisionItem(d, rules, compact = false) {
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
   const sourceTag = d.source && d.source !== "rule" ? ` <span class="tag" title="${escapeHtml(d.reason || "")}">chosen by ${escapeHtml(d.source.replace(/^agent:/, ""))}</span>` : "";
-  const rejected = (d.considered || []).filter((c) => c.rejected);
-  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
-    + `<span class="rule">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)} · ${escapeHtml(d.id)}</span>`
-    + (rejected.length ? `<ul>${rejected.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "");
-  if (rule) {
-    const more = document.createElement("details");
-    more.className = "rule-detail";
-    more.innerHTML = `<summary>The rule</summary><p>${escapeHtml(rule.rationale)}</p>`
-      + `<p>Source: ${rule.sources.map((s) => escapeHtml(describeSource(s))).join("; ")}</p>`
-      + (rule.data ? `<p>Kept as data in ${rule.data.map(escapeHtml).join(", ")}</p>` : "")
-      + `<p>Applied in ${escapeHtml(rule.code)}</p>`;
-    li.append(more);
-  }
-  if (compact) {
-    li.title = d.id;
-    if (d.superseded_by) {
-      const tag = li.querySelector(".says .tag:last-child");
-      tag.textContent = "replaced";
-      tag.title = `Replaced by ${d.superseded_by}`;
-    }
-    const says = li.querySelector(".says"), more = li.querySelector(".rule-detail");
-    const label = document.createElement("span");
-    label.className = "rule";
-    label.textContent = d.rule;
-    if (more) {
-      const summary = more.querySelector("summary");
-      summary.replaceChildren(says, label);
-      summary.insertAdjacentHTML("beforeend", '<span class="rule-arrow" aria-hidden="true">▸</span>');
-      li.replaceChildren(more);
-    } else li.replaceChildren(says, label);
-  }
+  const says = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced</span>` : ""}</span>`;
+  const more = document.createElement("details");
+  more.className = "rule-detail";
+  const statement = rule?.statement || rule?.name || rule?.rationale;
+  const uses = (model?.data.plan.decisions || []).filter((x) => x.rule === d.rule).length;
+  const considered = d.considered || [];
+  more.innerHTML = `<summary>${compact ? `${says}<span class="rule-arrow" aria-hidden="true">▸</span>` : "The rule"}</summary>`
+    + (rule ? `<p>${escapeHtml(statement)}</p>`
+      + (statement !== rule.rationale ? `<p>${escapeHtml(rule.rationale)}</p>` : "")
+      + `<p>Source: ${rule.sources.map((s) => escapeHtml(describeSource(s))).join("; ")}</p>` : "<p>Rule text unavailable.</p>")
+    + (considered.length ? `${d.stage === "setup" ? "<p>Setups turned down</p>" : ""}<ul>${considered.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "")
+    + `<details class="rule-developers"><summary>for developers</summary><p class="rule">${escapeHtml(d.rule)}</p>`
+    + (rule ? `<p>Applied in ${escapeHtml(rule.code)}</p>`
+      + (rule.data ? `<p>Kept as data in ${rule.data.map(escapeHtml).join(", ")}</p>` : "") : "")
+    + `<p>In this plan: ${uses} ${uses === 1 ? "decision" : "decisions"}</p></details>`;
+  if (!compact) li.innerHTML = says;
+  li.append(more);
   return li;
+}
+
+// Use only the choices recorded by the planner, including an empty considered list
+// when there was a single candidate. Do not infer rejections from the tool library.
+function toolChoice(op, decisions, tools) {
+  const choices = (op.because || []).map((id) => decisions.get(id))
+    .filter((d) => d?.stage === "tools" && Array.isArray(d.considered));
+  if (!choices.length) return null;
+  const rows = new Map();
+  for (const d of choices) {
+    if (typeof d.chosen === "string") rows.set(d.chosen, { chosen: true, reason: d.says || "chosen" });
+    for (const c of d.considered) {
+      if (!rows.get(c.candidate)?.chosen) rows.set(c.candidate, { chosen: false, reason: c.rejected });
+    }
+  }
+  if (!rows.size) return null;
+  const section = document.createElement("section");
+  section.innerHTML = "<h3>Tool choice</h3>";
+  const list = document.createElement("ul");
+  list.className = "tool-choice";
+  for (const [id, choice] of rows) {
+    const tool = tools.find((t) => t.id === id);
+    const size = [tool?.diameter != null ? `⌀${tool.diameter}` : null,
+      tool?.flute_length != null ? `flutes ${tool.flute_length} mm` : null].filter(Boolean).join(", ");
+    const line = document.createElement("li");
+    line.innerHTML = `<span aria-label="${choice.chosen ? "Chosen" : "Rejected"}">${choice.chosen ? "✓" : "✗"}</span> <span>${escapeHtml(id)}${size ? ` <span class="tool-size">${escapeHtml(size)}</span>` : ""}</span> <span>${escapeHtml(choice.reason)}</span>`;
+    list.append(line);
+  }
+  section.append(list);
+  return section;
 }
 
 function whyList(ids, decisions, rules, label = "Why") {
@@ -967,15 +981,14 @@ async function buildPlan(m) {
   const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
   const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
   const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
-  showPlanList();
-  host.insertAdjacentHTML("beforeend", `<details class="plan-lead"><summary>A draft to check · how to read this ▸</summary><p>A draft to check, not a plan to run. What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Select an operation to see its decisions; Full view shows the tools it considered and the rules themselves.</p></details>`);
+  host.insertAdjacentHTML("beforeend", `<details class="plan-lead"><summary>A draft to check · how to read this ▸</summary><p>A draft to check, not a plan to run. What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Select an operation to see its tool choice and decisions; open a Why line to read the rule and its source.</p></details>`);
   const material = plan.material || {};
   const from = material.override ? "the tool library's override" : material.specified ? "Specify" : null;
   const materialLabel = `${material.used ? `${escapeHtml(material.used)} (from ${escapeHtml(from || "plan")})` : "material not given"}${material.iso513 ? ` · ISO 513 ${escapeHtml(material.iso513)}` : material.used ? " · no ISO 513 group" : ""}`;
   const materialWhy = (plan.decisions || []).filter((d) => d.rule.startsWith("requirement.material.group@")).map((d) => d.id);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   fact(`${plural(plan.setups.length, "setup")} · ${plural(m.operations.size, "operation")} · ${plural(plan.skipped.length, "feature")} not cut · ${plural(plan.warnings.length, "warning")}`);
-  m.planView = { rules, decisions, cards: new Map(), selected: null, full: false };
+  m.planView = { rules, decisions, cards: new Map(), selected: null };
   for (const setup of plan.setups) {
     host.insertAdjacentHTML("beforeend", `<h3 class="plan-setup" title="${materialLabel}">${escapeHtml(setup.id)} setup <span>${materialLabel}</span></h3>`);
     setup.operations.forEach((op, n) => {
@@ -1034,15 +1047,6 @@ async function buildPlan(m) {
   applyFocus(false);
 }
 
-function showPlanList() {
-  $("plan-detail").hidden = true;
-  $("plan-body").hidden = false;
-  if (model?.planView) {
-    model.planView.full = false;
-    updatePlanSelection();
-  }
-}
-
 // One compact detail node moves below its row on phones and beside the list on desktop.
 const planPhone = matchMedia("(max-width: 700px)");
 planPhone.addEventListener("change", () => updatePlanSelection());
@@ -1076,6 +1080,8 @@ function updatePlanSelection() {
       linkWarning(note, m, d);
       detail.append(note);
     }
+    const choice = toolChoice(o, view.decisions, m.data.tools);
+    if (choice) detail.append(choice);
     detail.insertAdjacentHTML("beforeend", "<h3>Why</h3>");
     const list = document.createElement("ul");
     list.className = "compact-decisions";
@@ -1095,10 +1101,6 @@ function updatePlanSelection() {
       ["Cutting data", describeTechnology(tech)],
     ]));
     detail.append(metadata);
-    const full = document.createElement("button");
-    full.type = "button"; full.className = "full-view"; full.textContent = "Full view: tools considered and the rules";
-    full.addEventListener("click", () => showDetail(m, setup, o, n, key));
-    detail.append(full);
     for (const [id, card] of view.cards) {
       card.classList.toggle("is-selected", id === key);
       card.firstChild.setAttribute("aria-expanded", String(id === key));
@@ -1106,7 +1108,6 @@ function updatePlanSelection() {
   }
   const parent = planPhone.matches ? view.cards.get(key) : $("plan-body").parentElement;
   if (detail.parentElement !== parent) parent.append(detail);
-  detail.hidden = view.full;
 }
 
 // Decisions that say the same by the same rule (one per hole, say), folded into one with a count.
@@ -1117,62 +1118,6 @@ function folded(ds) {
     if (same) same.times = (same.times || 1) + 1; else out.push({ ...d });
   }
   return out;
-}
-
-// The fuller view of one operation: each decision behind it, the tools it weighed, and the rules.
-async function showDetail(m, setup, op, n, key) {
-  const host = $("plan-detail"), rules = await loadRules();
-  const plan = m.data.plan, o = m.operations.get(key);
-  const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
-  const uses = new Map();
-  for (const d of plan.decisions || []) uses.set(d.rule, (uses.get(d.rule) || 0) + 1);
-  if (model !== m) return;
-  m.planView.full = true;
-  $("plan-selected").hidden = true;
-  host.replaceChildren();
-  const back = document.createElement("button");
-  back.type = "button"; back.className = "detail-back"; back.textContent = "Back to the plan";
-  back.addEventListener("click", () => { showPlanList(); $("plan-body").querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus(); });
-  host.append(back);
-  host.insertAdjacentHTML("beforeend", `<h2 class="detail-title"><span class="swatch" style="background:${o?.color || UNPLANNED}"></span>${escapeHtml(o?.name || op.kind)}</h2><p class="plan-fact" style="color:var(--muted)">${escapeHtml(setup.id)} setup · step ${n + 1} of ${setup.operations.length}</p>`);
-  const iso = op.iso14649;
-  host.append(facts([
-    ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
-    ["Cutting data", describeTechnology(op.technology)],
-    ["Features", op.features?.length ? escapeHtml(op.features.map((id) => m.features.get(id)?.name || "feature").join(", ")) : null],
-    ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.exact ? "" : ' <span class="tag">closest</span>'}${iso.note ? `<br><span style="color:var(--muted)">${escapeHtml(iso.note)}</span>` : ""}` : null],
-    ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
-  ]));
-  const found = folded((op.because || []).map((id) => decisions.get(id)).filter(Boolean));
-  host.insertAdjacentHTML("beforeend", `<h3>Why</h3>`);
-  const list = document.createElement("ol");
-  list.className = "detail-decisions";
-  found.forEach((d, i) => {
-    const li = document.createElement("li");
-    const considered = d.considered || [];
-    const chosen = typeof d.chosen === "string" ? d.chosen : null;
-    li.innerHTML = `<span class="n">${i + 1}</span><div><div${d.superseded_by ? ' style="text-decoration:line-through;color:var(--muted)"' : ""}>${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}</div><div class="rule-id" style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)}</div>`
-      + (considered.length && d.stage === "tools" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Tools considered</span>${chosen ? `<span class="who chosen">${escapeHtml(chosen)}</span><span>chosen</span>` : ""}${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
-      + (considered.length && d.stage === "setup" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Setups turned down</span>${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
-      + (considered.length && !["tools", "setup"].includes(d.stage) ? `<div class="considered">${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
-      + `</div>`;
-    list.append(li);
-  });
-  host.append(list);
-  const cited = [...new Set(found.map((d) => d.rule))];
-  host.insertAdjacentHTML("beforeend", `<h3>The rules</h3>`);
-  for (const id of cited) {
-    const rule = rules.get(id);
-    const card = document.createElement("section");
-    card.className = "rule-card";
-    card.innerHTML = `<div><b>${escapeHtml(rule ? STAGES[rule.stage] || rule.stage : "Rule")}</b> <span class="rule-id">${escapeHtml(id)}</span></div>`
-      + (rule ? `<p>${escapeHtml(rule.rationale)}</p><dl><dt>Source</dt><dd>${rule.sources.map((x) => escapeHtml(describeSource(x))).join("; ")}</dd>${rule.data ? `<dt>Kept as data</dt><dd>${rule.data.map(escapeHtml).join(", ")}</dd>` : ""}<dt>Applied in</dt><dd>${escapeHtml(rule.code)}</dd><dt>In this plan</dt><dd>${uses.get(id)} ${uses.get(id) === 1 ? "decision" : "decisions"}</dd></dl>` : "");
-    host.append(card);
-  }
-  $("plan-body").hidden = true;
-  host.hidden = false;
-  host.scrollTop = 0;
-  back.focus();
 }
 
 // The three steps above the panes, in numbers for this part.
@@ -1320,7 +1265,6 @@ function setFocus(key) {
 function setPin(key, scroll = true) {
   pinKey = key;
   focusKey = null;
-  if (model?.planView) showPlanList();
   applyFocus(scroll);
 }
 
@@ -1856,7 +1800,7 @@ desktopPanels[1].id = "desktop-plan";
 desktopPanels[2].id = "desktop-moves";
 let desktopTab = "features";
 let panelShare = 40;
-// Opening a detail in a list (an operation's Why, Full view's sections) brings it into view: the
+// Opening a detail in a list (a Why rule or its developer details) brings it into view: the
 // lists are short scrolling panels, and it would otherwise open below their visible edge.
 document.addEventListener("toggle", (event) => {
   const opened = event.target;
