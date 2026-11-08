@@ -55,6 +55,8 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
     let out = step2cam::process(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &tools).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let plan = &out["plan"];
+    let validator = jsonschema::validator_for(&fixture("../../schemas/plan-1.schema.json")).unwrap();
+    assert!(validator.is_valid(plan), "the process plan with nonempty tools_needed must match its schema");
     let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter()
         .filter(|s| s["reason"].as_str().unwrap().contains("depth") && s["reason"].as_str().unwrap().contains("exceeds the cutting length")).collect();
     assert!(skipped.len() >= 8, "{}", plan["skipped"]);
