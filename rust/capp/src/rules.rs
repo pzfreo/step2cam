@@ -366,6 +366,11 @@ pub fn needed(selector: &str, inputs: &[(&str, f64)], params: &[(&str, f64)]) ->
         let value = eval(expr, &|n| values.get(n).copied().ok_or_else(|| format!("no value {n}")))?;
         values.insert(pair[0].as_str().ok_or("bad selector value")?.into(), value);
     }
-    fill(rule["needed"].as_str().ok_or("selector has no needed template")?, &Value::Null,
+    // A narrow drill tolerance can leave no two-decimal size in the interval. In that
+    // case request the exact hole diameter, which always meets a nonnegative tolerance.
+    let template = if selector == "drill" && (values["minimum"] * 100.).ceil() > (values["diameter"] * 100.).floor() {
+        &rule["needed_exact"]
+    } else { &rule["needed"] };
+    fill(template.as_str().ok_or("selector has no needed template")?, &Value::Null,
         &|n| values.get(n).copied().ok_or_else(|| format!("no value {n}")))
 }

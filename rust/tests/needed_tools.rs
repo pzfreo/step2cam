@@ -111,3 +111,11 @@ fn v_channel_and_chamfer_reach_refusals_name_suitable_bits() {
         assert!(plan["skipped"][0]["reason"].as_str().unwrap().ends_with(&format!(": needs {expected}")));
     }
 }
+
+#[test]
+fn zero_drill_tolerance_requests_an_exact_size_instead_of_an_empty_rounded_range() {
+    let mut tools = library();
+    tools["drill_tolerance_mm"] = json!(0);
+    let lib = capp::resources::Library::new(&tools).unwrap();
+    assert_eq!(lib.needed("drill", &[("diameter", 4.211)]).unwrap(), "a drill of ⌀4.211");
+}

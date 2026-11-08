@@ -42,7 +42,8 @@
      "diameter - drill_tolerance_mm"
     ]
    ],
-   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2}"
+   "needed": "a drill of ⌀{minimum:up2}–{diameter:down2}",
+   "needed_exact": "a drill of ⌀{diameter}"
   },
   {
    "id": "bore_mill",
