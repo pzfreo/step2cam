@@ -1022,7 +1022,7 @@ function updatePlanSelection() {
     const list = document.createElement("ul");
     list.className = "compact-decisions";
     for (const d of folded((o.because || []).map((id) => view.decisions.get(id)).filter(Boolean))) {
-      list.append(decisionItem(d.outcome === "warning" ? { ...d, says: warningText(m, d, true) } : d, view.rules, true));
+      list.append(decisionItem(d, view.rules, true));
     }
     detail.append(list);
     const metadata = document.createElement("details");
