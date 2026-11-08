@@ -103,8 +103,9 @@ step in the bar to open it. On a wider screen, **Expand** does the same.
 
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
-toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2 (`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`): **placeholder tools and cutting data, not
-for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
+toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
+(`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`):
+**placeholder tools and cutting data, not for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 
@@ -308,7 +309,7 @@ on purpose.
   - `tool_changer`: its `pockets` (a setup needing more tools is flagged), or `"kind": "manual"`.
 
   Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
-  trace says so. The demo's machine is the **Makera Carvera**, from its published specifications:
+  trace says so. The demo's default machine is the **Makera Carvera**, from its published specifications:
   360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
   changer. So the demo leaves out its larger tools and bores the larger holes.
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
