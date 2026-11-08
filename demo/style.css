@@ -324,9 +324,10 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
   .desktop-tabs [aria-selected="true"] { background: var(--active); border-color: var(--accent); }
   .panes #features, .panes .plan-pane, .panes .code-panel { grid-row: 4; grid-column: 1 / -1; width: auto; min-width: 0; min-height: 0; background: var(--panel); border: 1px solid var(--line); }
   .panes .plan-pane { display: flex; }
+  /* Keep every list's box and scroll position, including moves linked from another tab. */
   .panes:not([data-desktop-tab="features"]) #features,
   .panes:not([data-desktop-tab="plan"]) .plan-pane,
-  .panes:not([data-desktop-tab="toolpaths"]) .code-panel { display: none; }
+  .panes:not([data-desktop-tab="toolpaths"]) .code-panel { visibility: hidden; }
   footer { flex-wrap: nowrap; gap: 10px; }
   footer .scrub { flex: 3 1 0; }
   footer .status { flex: 1 1 0; max-height: 54px; overflow-y: auto; }
