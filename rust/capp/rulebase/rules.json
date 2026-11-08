@@ -14,6 +14,7 @@
   },
   {
    "id": "requirement.thread.unknown_size",
+   "warning_label": "thread size not recognised",
    "version": 1,
    "stage": "requirements",
    "rationale": "A tapped answer is threaded only for an ISO 261 coarse size this table lists, or a size with an explicit pitch (M10x1.25); an explicit pitch is taken as given, not checked against ISO 261's fine pitches.",
@@ -28,6 +29,7 @@
   },
   {
    "id": "requirement.thread.unreadable_depth",
+   "warning_label": "thread depth not readable",
    "version": 1,
    "stage": "requirements",
    "rationale": "A tapped answer whose full-thread depth cannot be read is not threaded.",
@@ -40,6 +42,7 @@
   },
   {
    "id": "requirement.thread.no_feature",
+   "warning_label": "thread feature missing",
    "version": 1,
    "stage": "requirements",
    "rationale": "A tapped answer for a feature the part no longer has is not threaded.",
@@ -52,6 +55,7 @@
   },
   {
    "id": "requirement.thread.no_size",
+   "warning_label": "thread size missing",
    "version": 1,
    "stage": "requirements",
    "rationale": "A thread the file marks without a size is not threaded: answer it in Specify.",
@@ -64,6 +68,7 @@
   },
   {
    "id": "requirement.thread.too_deep",
+   "warning_label": "thread deeper than hole",
    "version": 1,
    "stage": "requirements",
    "rationale": "A blind thread deeper than its hole is not threaded. The full-thread depth is the one asked for, else specify-core's default: the drill depth less three pitches, rounded down to 0.5 mm, at least one pitch.",
@@ -301,6 +306,7 @@
   },
   {
    "id": "process.wall_finish.not_upright",
+   "warning_label": "outside walls keep allowance",
    "version": 1,
    "stage": "process",
    "rationale": "An outside wall that is not upright planes and cylinders keeps its roughing allowance.",
@@ -394,6 +400,7 @@
   },
   {
    "id": "process.hole.short_of_far_face",
+   "warning_label": "holes stop short of far face",
    "version": 1,
    "stage": "process",
    "rationale": "A through hole that ends short of the part's far face may have something between (a counterbore or chamfer at the far end, a shoulder) that is not planned.",
@@ -463,6 +470,7 @@
   },
   {
    "id": "process.no_mesh_checks",
+   "warning_label": "hole approaches unchecked",
    "version": 1,
    "stage": "process",
    "rationale": "Without the mesh, hole approaches and what lies beyond through holes are not checked against the part.",
@@ -490,6 +498,7 @@
   },
   {
    "id": "feasibility.wall.needs_roughing",
+   "warning_label": "walls need roughing",
    "version": 1,
    "stage": "feasibility",
    "rationale": "A contour knows only its outline: a wall is finished only after roughing has cleared the stock beside it.",
@@ -502,6 +511,7 @@
   },
   {
    "id": "feasibility.wall.needs_flat",
+   "warning_label": "walls need finished flats",
    "version": 1,
    "stage": "feasibility",
    "rationale": "A wall standing on a flat is finished only if that flat is cut.",
@@ -514,6 +524,7 @@
   },
   {
    "id": "feasibility.wall.needs_mill",
+   "warning_label": "walls need an end mill",
    "version": 1,
    "stage": "feasibility",
    "rationale": "A wall is finished with roughing's end mill; with none it is not finished.",
@@ -526,6 +537,7 @@
   },
   {
    "id": "feasibility.wall.room",
+   "warning_label": "outside walls too narrow to finish",
    "version": 1,
    "stage": "feasibility",
    "rationale": "The room beside a wall must take the end mill and the roughing allowance on whatever stands opposite: the library's radial_allowance_mm (0.3 mm by default) or twice the mesh's error, whichever is more.",
@@ -538,6 +550,7 @@
   },
   {
    "id": "feasibility.v_channel.needs_flat",
+   "warning_label": "V-channels need finished flats",
    "version": 1,
    "stage": "feasibility",
    "rationale": "A V-channel cut in a flat is cut only if that flat is cut.",
@@ -550,6 +563,7 @@
   },
   {
    "id": "feasibility.v_channel.needs_bit",
+   "warning_label": "V-channels need a V-bit",
    "version": 1,
    "stage": "feasibility",
    "rationale": "A V-channel needs a sharp V-bit no wider than its angle.",
@@ -565,6 +579,7 @@
   },
   {
    "id": "feasibility.v_channel.needs_stepdown",
+   "warning_label": "V-bit stepdown missing",
    "version": 1,
    "stage": "feasibility",
    "rationale": "The V-bit must state its stepdown.",
@@ -577,6 +592,7 @@
   },
   {
    "id": "feasibility.v_channel.room",
+   "warning_label": "V-channels lack tool clearance",
    "version": 1,
    "stage": "feasibility",
    "rationale": "The room beside a V-channel must take the bit's half-width beyond the channel's.",
@@ -733,6 +749,7 @@
   },
   {
    "id": "process.notch.corner_radius",
+   "warning_label": "corner radii larger than the model",
    "version": 1,
    "stage": "process",
    "rationale": "A rectangular recess keeps the model outline. If the chosen cutter radius exceeds the model corner radius, report the larger inside corner radii as a plan deviation; no corner relief is requested by today's analysis or answers.",
@@ -801,6 +818,7 @@
   },
   {
    "id": "execution.refused",
+   "warning_label": "operations refused",
    "version": 1,
    "stage": "execution",
    "rationale": "An operation the execution engine refuses is left out, its features say why, and the plan is finished again without it.",
@@ -838,6 +856,7 @@
   },
   {
    "id": "machine.travel",
+   "warning_label": "setup exceeds machine travel",
    "version": 1,
    "stage": "machine",
    "rationale": "A setup whose stock is larger than the mill's travel in x, y or z is not cut, and its features say why.",
@@ -851,6 +870,7 @@
   },
   {
    "id": "machine.workholding",
+   "warning_label": "stock wider than vise",
    "version": 1,
    "stage": "machine",
    "rationale": "Stock wider at its narrowest than the vise opens is flagged: it must be held another way.",
@@ -890,6 +910,7 @@
   },
   {
    "id": "machine.tool_changer.pockets",
+   "warning_label": "tool changer capacity exceeded",
    "version": 1,
    "stage": "machine",
    "rationale": "A setup that needs more tools than the changer holds is flagged: tools must be swapped part-way.",
@@ -903,6 +924,7 @@
   },
   {
    "id": "machine.tool_changer.manual",
+   "warning_label": "manual tool changes",
    "version": 1,
    "stage": "machine",
    "rationale": "On a manual tool changer every tool change is by hand: the setup's tool count is said.",
@@ -916,6 +938,7 @@
   },
   {
    "id": "process.hole.peck_by_depth",
+   "warning_label": "deep holes pecked",
    "version": 2,
    "stage": "tools",
    "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration. Above the reference deep-hole threshold (5D), warn and trace the hole identity and ratio: pilot plus deep-hole drilling is not planned, so full-retract pecking remains the fallback.",
@@ -933,6 +956,7 @@
   },
   {
    "id": "process.roughing.reach",
+   "warning_label": "stock beyond tool reach",
    "version": 1,
    "stage": "process",
    "rationale": "Stopgap for stevecad/camlib#122: each roughing layer is checked against depth below the stock top. Cap at min(flute length, stickout) minus 1 mm, clearing numerical guards and keeping the flute end and holder face above stock. Relax the flute limit to holder clearance once camlib checks per-layer cutting depth. Features must be fully reached; needed-tool queries include this margin in both flute length and stickout. Flats below the cap and wholly unreachable wall bands are left out; crossing wall bands are finished down to the cap, warning of the allowance left below. Dependent chamfers follow missing walls and V-channels on uncleared flats are left out.",
@@ -946,6 +970,7 @@
   },
   {
    "id": "machine.clamping",
+   "warning_label": "vise clamping limits",
    "version": 1,
    "stage": "machine",
    "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without parallels_height_mm, raise stock on parallels or similar so the jaws grip only the chosen height; that support is not modeled or checked, so through cuts are not checked against it. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",

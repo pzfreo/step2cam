@@ -1480,7 +1480,10 @@
        "description": "Model inside corner radius; zero means sharp."
       },
       "inside_corners": {
-       "enum": [2, 4],
+       "enum": [
+        2,
+        4
+       ],
        "description": "Two for an edge-open recess, four for a closed one."
       },
       "outer": {
@@ -2398,6 +2401,22 @@
     },
     "message": {
      "type": "string"
+    },
+    "depth_diameter_ratio": {
+     "type": "number",
+     "description": "Unrounded drilling depth divided by drill diameter."
+    },
+    "radius": {
+     "type": "number",
+     "description": "Corner radius left by the tool, in mm."
+    },
+    "model_radius": {
+     "type": "number",
+     "description": "Corner radius in the model, in mm."
+    },
+    "corners": {
+     "type": "integer",
+     "minimum": 0
     },
     "superseded_by": {
      "type": "string",

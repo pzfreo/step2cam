@@ -31,7 +31,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         if given.is_some() { return Some("clamping override cannot be validated without vise jaw width, height and opening".into()); }
         trace.decide(RULE, &id, "skipped", "vise jaw width, height or opening absent: clamping check and fixture scene skipped; no dimensions assumed", Value::Null);
         if let Some(opening) = opening.filter(|v| across > *v) {
-            trace.warn("machine.workholding", &id, format!("setup {id}: the stock is {} mm across at its narrowest, wider than the vise opens ({} mm): hold it another way", show(across), show(opening)));
+            trace.warn("machine.workholding", &id, format!("setup {id}: the stock is {} mm across at its narrowest, wider than the vise opens ({} mm): hold it another way", show(across), show(opening)), json!({}));
         }
         return None;
     };

@@ -18,7 +18,7 @@ fn check(schema: &str, what: &str, doc: &Value) {
 
 #[test]
 fn tool_libraries_match_the_resources_schema() {
-    for path in ["demo/tools.json", "examples/tools.example.json"] {
+    for path in ["demo/tools.json", "examples/tools.example.json", "libraries/haas-vf2.json"] {
         check("schemas/resources-1.schema.json", path, &read(path));
     }
 }
@@ -58,5 +58,19 @@ fn a_mistyped_tool_field_is_caught() {
     let mut library = read("demo/tools.json");
     library["tools"][0]["stepdwon_mm"] = serde_json::json!(4);
     let validator = jsonschema::validator_for(&read("schemas/resources-1.schema.json")).unwrap();
+    assert!(!validator.is_valid(&library));
+}
+
+#[test]
+fn controller_metadata_is_optional_and_machine_typos_are_rejected() {
+    let mut library = read("libraries/haas-vf2.json");
+    let validator = jsonschema::validator_for(&read("schemas/resources-1.schema.json")).unwrap();
+    assert!(validator.is_valid(&library));
+    library["machines"][0].as_object_mut().unwrap().remove("controller");
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["controller"] = serde_json::json!(42);
+    assert!(!validator.is_valid(&library));
+    library["machines"][0]["controller"] = serde_json::json!("haas_ngc");
+    library["machines"][0]["controler"] = serde_json::json!("haas_ngc");
     assert!(!validator.is_valid(&library));
 }
