@@ -30,7 +30,7 @@ sibling modules explicitly. It builds the release `process` example once, then r
 `specify-core analyse`, `specify-core mesh` and the built `process` executable directly per part.
 The executable path comes from Cargo's JSON artifact output, respecting `CARGO_TARGET_DIR`
 and Cargo target-directory configuration. Workers never invoke Cargo.
-Default parallelism is four parts (`--jobs N`); the tool library defaults to `demo/tools.json`
+Default parallelism is four parts (`--jobs N`); the tool library defaults to `tools/benchmark/tools.json`
 (`--tools PATH`). Each per-part subprocess has a ten-minute timeout; the initial build allows thirty minutes. Errors are retained per part;
 the runner writes the report before exiting nonzero if any part failed.
 
@@ -79,7 +79,8 @@ Warnings and reasons retain their full text with numeric values replaced by `#`.
 The current planner can retain `covered_by_roughing` entries after a machine travel check
 removes all operations from a setup. This benchmark preserves those claims; an increased
 covered count is not evidence that roughing ran. Check the setup travel warnings. This is a
-planner limitation exposed by the new baseline, not corrected by benchmark accounting.
+planner limitation tracked in issue #67, not corrected by benchmark accounting. The benchmark
+machine is sized to avoid these travel rejections in the fixed sample.
 
 Known limit: pockets, slots and notches cannot be matched face by face: the dataset's details
 give no face IDs. That would require labelled geometry/face correspondence in the dataset,
@@ -95,11 +96,29 @@ Only a newly failing part or a new error on a previously failing part exits 1; e
 and resolved errors exit 0. Added/removed parts are shown and should be reviewed for sample
 compatibility. Invalid input reports are command errors.
 
-To refresh the baseline, use the unchanged 100-part sample and `demo/tools.json`, run to a file
-outside the repo, compare against the existing baseline, review all differences, then copy the
-validated report to `tools/benchmark/baseline.json` and commit it. Keep the baseline paired with
-the planner commit it measures; the tool library SHA-256 is recorded in the report. The original
-baseline reproduced `_ref/first-run-report.txt`. The current baseline includes main's Carvera
-machine, its travel envelope and its 6.35 mm shank limit, so oversized setups and larger
-tools from that first run cannot be chosen.
-Fixture GD&T updates do not affect these dataset parts.
+The benchmark owns `tools/benchmark/tools.json` so the demo's Carvera travel and shank limits
+do not dominate results for MachinePlan-10K's 200–500 mm steel blocks. Its tools, cutting data,
+clearances and all other non-machine settings are copied from `demo/tools.json` and remain
+placeholders. Its single machine is a placeholder generic 3-axis vertical machining centre:
+1000 × 600 × 600 mm travel, 12,000 rpm, 25 mm shank capacity, 24 automatic tool pockets and
+flood coolant. A placeholder vise opens to 600 mm to avoid excluding these blocks by size.
+The spindle cap can scale feeds for tools whose copied cutting data exceed 12,000 rpm.
+
+This library is an independent benchmark input. Changing it changes the baseline; the report
+records its SHA-256, and comparisons flag a changed library. `--tools PATH` can override it,
+including `--tools demo/tools.json` when evaluating the demo machine specifically.
+
+With the prerequisites above installed, the maintainer can regenerate all 100 parts and the
+committed baseline, including instruction measurements outside the sandbox, with one command
+from the repository root:
+
+```sh
+python3 -I tools/benchmark/run.py --out tools/benchmark/baseline.json
+```
+
+It uses the benchmark library, HTTP ranges and the external cache by default. For a local
+archive, append `--zip /path/MachinePlan-10K.zip`. Before refreshing, retain the old baseline
+outside the repo (or compare against its Git version), review all differences, and commit the
+validated replacement. For exploratory runs continue to use an output under `/tmp`.
+Keep the baseline paired with the planner commit and library it measures. The original baseline
+reproduced `_ref/first-run-report.txt`; fixture GD&T updates do not affect these dataset parts.

@@ -105,7 +105,7 @@ def main():
     parser.add_argument('--zip', type=Path, help='use a local dataset ZIP instead of HTTP ranges')
     parser.add_argument('--cache', type=Path, default=Path.home() / '.cache/step2cam-benchmark')
     parser.add_argument('--out', type=Path, required=True)
-    parser.add_argument('--tools', type=Path, default=REPO / 'demo/tools.json')
+    parser.add_argument('--tools', type=Path, default=HERE / 'tools.json')
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--limit', type=int, help='run the first N sample entries (remote smoke check)')
     args = parser.parse_args()
