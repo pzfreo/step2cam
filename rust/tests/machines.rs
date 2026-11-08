@@ -77,12 +77,44 @@ fn more_tools_than_pockets_is_flagged() {
 #[test]
 fn stock_larger_than_the_travel_is_not_cut() {
     let mut library = read("demo/tools.json");
+    let normal = finished("synthetic/stepped-plate", &library);
+    let covered = normal["covered_by_roughing"].as_array().unwrap();
+    assert!(!covered.is_empty(), "the normal plan must cover features by roughing");
     library["machines"][0]["axes"]["travel_mm"] = json!({"x": 80, "y": 240, "z": 140});
     let plan = finished("synthetic/stepped-plate", &library);
     let top = plan["setups"].as_array().unwrap().iter().find(|s| s["id"] == "top").unwrap();
     assert!(top["operations"].as_array().unwrap().is_empty());
     assert!(plan["warnings"].to_string().contains("does not fit"), "{}", plan["warnings"]);
     assert!(plan["skipped"].as_array().unwrap().iter().any(|s| s["reason"].as_str().unwrap().contains("travel")));
+    assert_eq!(plan["covered_by_roughing"], json!([]));
+    let setup_reason = plan["warnings"].as_array().unwrap().iter().filter_map(Value::as_str).find_map(|w| w.strip_prefix("setup top is not cut: ")).unwrap();
+    for feature in covered {
+        let skipped = plan["skipped"].as_array().unwrap().iter().find(|s| s["feature"] == *feature && s["reason"].as_str().unwrap().contains("travel")).unwrap_or_else(|| panic!("{feature} must be skipped for travel"));
+        assert_eq!(skipped["reason"], format!("not cut: {setup_reason}"));
+        let earlier = decisions(&plan, "process.covered_by_roughing@");
+        let decision = earlier.iter().find(|d| d["subject"] == *feature && d["outcome"] == "covered").unwrap();
+        assert_eq!(decision["superseded_by"], skipped["decision"]);
+    }
+}
+
+/// Losing one roughing setup must not invalidate coverage while another roughing survives.
+#[test]
+fn coverage_remains_when_another_setup_keeps_roughing() {
+    let mut library = read("demo/tools.json");
+    library["machines"][0]["axes"]["travel_mm"] = json!({"x": 80, "y": 240, "z": 140});
+    let setup = |id: &str, width: u32| json!({
+        "id": id, "stock": {"min": [0, 0, 0], "max": [width, 50, 10]},
+        "operations": [{"kind": "roughing", "features": []}],
+    });
+    // A surviving roughing counts regardless of setup order.
+    for setups in [json!([setup("top", 100), setup("bottom", 50)]), json!([setup("bottom", 50), setup("top", 100)])] {
+        let mut plan = json!({"setups": setups, "covered_by_roughing": ["fillets:1"]});
+        let mut trace = capp::trace::Trace::default();
+        capp::machines::place(&mut plan, &library, &mut trace);
+        assert_eq!(plan["covered_by_roughing"], json!(["fillets:1"]));
+        assert!(trace.skipped.is_empty());
+        assert_eq!(ops(&plan).len(), 1);
+    }
 }
 
 /// With no machine described, nothing is checked, and the trace says so.
