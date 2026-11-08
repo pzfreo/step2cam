@@ -1678,7 +1678,15 @@ const desktopPanels = [$("features"), document.querySelector(".plan-pane"), docu
 desktopPanels[1].id = "desktop-plan";
 desktopPanels[2].id = "desktop-moves";
 let desktopTab = "features";
-let panelShare = 30;
+let panelShare = 40;
+// Opening a detail in a list (an operation's Why, Full view's sections) brings it into view: the
+// lists are short scrolling panels, and it would otherwise open below their visible edge.
+document.addEventListener("toggle", (event) => {
+  const opened = event.target;
+  if (opened instanceof HTMLDetailsElement && opened.open && opened.closest(".panes")) {
+    opened.scrollIntoView({ block: "nearest" });
+  }
+}, true);
 let panelBeforeExpand = null;
 try {
   const saved = Number(localStorage.getItem("step2cam.desktop-panel-percent"));
