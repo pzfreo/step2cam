@@ -126,8 +126,8 @@ fn alias_constraints_and_required_fields_match_the_primary_fields() {
             pair[symbol] = json!(1);
             pair[field] = json!(999);
             assert!(normalize(&json!({"tools": [pair]})).unwrap_err().contains(&format!("and {symbol}")));
-            let required = variant["allOf"].as_array().unwrap().iter().any(|c| c["anyOf"][0]["required"][0] == field);
-            if required {
+            // The library requires every mapped dimension except the optional shank.
+            if field != "shank_diameter" {
                 let mut missing = tool.clone();
                 missing.as_object_mut().unwrap().remove(symbol);
                 assert!(!validator.is_valid(&json!({"tools": [missing]})), "{field}: required");
