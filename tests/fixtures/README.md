@@ -24,6 +24,7 @@ tolerances yet (issues #40–#42).
 | `spindle.step` | specify-core's test part `spindle.step` |
 | `mounting-plate.step` | Thompson Labs' `mounting-plate.step`, MIT (`mounting-plate.LICENSE`) |
 | `synthetic/stepped-plate*.step` | `synthetic/stepped_plate.py` |
+| `synthetic/square-slots.step` | `synthetic/square_slots.py`; no GD&T answers needed (geometry and corner-deviation tests) |
 | `synthetic/walls/*.step` | made for the wall tests (`rust/tests/walls.rs`) |
 
 To change a part's GD&T, or after regenerating its geometry, write the answers into the plain
