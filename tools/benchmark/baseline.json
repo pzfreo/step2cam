@@ -61,7 +61,7 @@
             "family": "holes",
             "id": "holes:27",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -139,7 +139,7 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -167,7 +167,7 @@
             "family": "holes",
             "id": "holes:20",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -178,7 +178,7 @@
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -256,12 +256,12 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
-          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #"
+          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #: needs an end mill with flutes of at least # mm"
         ]
       },
       {
@@ -331,13 +331,13 @@
             "family": "holes",
             "id": "holes:26",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:27",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -413,8 +413,8 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -992,13 +992,13 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -1058,8 +1058,8 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -1347,13 +1347,13 @@
             "family": "holes",
             "id": "holes:31",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:33",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -1472,8 +1472,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -1513,7 +1513,7 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -1524,7 +1524,7 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -1593,8 +1593,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -1643,13 +1643,13 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -1710,8 +1710,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
@@ -1766,37 +1766,37 @@
             "family": "holes",
             "id": "holes:18",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:20",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:21",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:22",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -1873,8 +1873,8 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -2320,7 +2320,7 @@
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -2341,7 +2341,7 @@
             "family": "holes",
             "id": "holes:33",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -2443,8 +2443,8 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
@@ -2472,19 +2472,19 @@
             "family": "holes",
             "id": "holes:10",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:8",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:9",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -2523,7 +2523,7 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -2588,13 +2588,13 @@
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:26",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -2605,7 +2605,7 @@
             "family": "holes",
             "id": "holes:29",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -2690,9 +2690,9 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -2861,13 +2861,13 @@
             "family": "holes",
             "id": "holes:11",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:13",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -2878,7 +2878,7 @@
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "section_recesses",
@@ -2944,9 +2944,9 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -3153,31 +3153,31 @@
             "family": "holes",
             "id": "holes:37",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:38",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:39",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:40",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:41",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "section_recesses",
@@ -3299,7 +3299,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -3664,19 +3664,19 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -3755,9 +3755,9 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -3940,7 +3940,7 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -3951,7 +3951,7 @@
             "family": "holes",
             "id": "holes:20",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -4027,8 +4027,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -4096,7 +4096,7 @@
             "family": "holes",
             "id": "holes:30",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -4193,9 +4193,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
-          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #"
+          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #: needs an end mill with flutes of at least # mm"
         ]
       },
       {
@@ -4235,7 +4235,7 @@
             "family": "holes",
             "id": "holes:18",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "plates",
@@ -4290,7 +4290,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
@@ -4402,7 +4402,7 @@
             "family": "holes",
             "id": "holes:46",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -4539,7 +4539,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -4907,7 +4907,7 @@
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "section_recesses",
@@ -4959,7 +4959,7 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -5288,25 +5288,25 @@
             "family": "holes",
             "id": "holes:22",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -5399,7 +5399,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -5433,13 +5433,13 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:15",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -5502,9 +5502,9 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
       {
@@ -5704,7 +5704,7 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -5715,7 +5715,7 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -5770,8 +5770,8 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -5930,19 +5930,19 @@
             "family": "holes",
             "id": "holes:44",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:45",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:47",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -6051,9 +6051,9 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -6100,13 +6100,13 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:26",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -6183,8 +6183,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -6279,13 +6279,13 @@
             "family": "holes",
             "id": "holes:39",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:40",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -6410,8 +6410,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -6496,7 +6496,7 @@
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -6508,13 +6508,13 @@
             "family": "holes",
             "id": "holes:22",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -6588,9 +6588,9 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -6693,7 +6693,7 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -6754,7 +6754,7 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
         ]
       },
@@ -6787,7 +6787,7 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -6803,7 +6803,7 @@
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -6860,10 +6860,10 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
-          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #"
+          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #: needs an end mill with flutes of at least # mm"
         ]
       },
       {
@@ -7048,7 +7048,7 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -7140,7 +7140,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -7163,13 +7163,13 @@
             "family": "holes",
             "id": "holes:11",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:12",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -7213,8 +7213,8 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -7254,13 +7254,13 @@
             "family": "holes",
             "id": "holes:13",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -7271,13 +7271,13 @@
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -7345,9 +7345,9 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -7376,7 +7376,7 @@
             "family": "holes",
             "id": "holes:12",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -7414,7 +7414,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -7478,25 +7478,25 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:26",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "plates",
@@ -7598,7 +7598,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -7885,13 +7885,13 @@
             "family": "holes",
             "id": "holes:28",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:29",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -7978,8 +7978,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -8344,7 +8344,7 @@
             "family": "holes",
             "id": "holes:21",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -8420,7 +8420,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -8503,7 +8503,7 @@
             "family": "holes",
             "id": "holes:40",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -8595,7 +8595,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -8849,7 +8849,7 @@
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -8901,7 +8901,7 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -8941,19 +8941,19 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:15",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -9006,7 +9006,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -9041,19 +9041,19 @@
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:15",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -9120,9 +9120,9 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -9157,7 +9157,7 @@
             "family": "holes",
             "id": "holes:13",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -9205,7 +9205,7 @@
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -9595,25 +9595,25 @@
             "family": "holes",
             "id": "holes:32",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:33",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:34",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:35",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "plates",
@@ -9726,7 +9726,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -9791,7 +9791,7 @@
         "recognition_complete": true,
         "warnings": [
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
-          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #"
+          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #: needs an end mill with flutes of at least # mm"
         ]
       },
       {
@@ -9818,13 +9818,13 @@
             "family": "holes",
             "id": "holes:19",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:21",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -9919,8 +9919,8 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -9936,31 +9936,31 @@
             "family": "holes",
             "id": "holes:10",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:6",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:7",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:8",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:9",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -9997,7 +9997,7 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -10030,7 +10030,7 @@
             "family": "holes",
             "id": "holes:13",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
@@ -10041,13 +10041,13 @@
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:17",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -10098,9 +10098,9 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
           "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec"
@@ -10221,31 +10221,31 @@
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:28",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:29",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -10338,11 +10338,11 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -10382,19 +10382,19 @@
             "family": "holes",
             "id": "holes:13",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:14",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:15",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -10445,7 +10445,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -10570,13 +10570,13 @@
             "family": "holes",
             "id": "holes:7",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:9",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           }
         ],
         "label_counts": {
@@ -10606,8 +10606,8 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -10718,7 +10718,7 @@
             "family": "holes",
             "id": "holes:16",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "section_recesses",
@@ -10770,7 +10770,7 @@
         "recognition_complete": true,
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -10963,7 +10963,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
+          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
       {
@@ -11171,7 +11171,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
+          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
       {
@@ -11222,31 +11222,31 @@
             "family": "holes",
             "id": "holes:22",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:23",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:24",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:25",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "holes",
             "id": "holes:26",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -11320,8 +11320,8 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -11404,7 +11404,7 @@
             "family": "holes",
             "id": "holes:31",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "pockets",
@@ -11507,7 +11507,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -11560,7 +11560,7 @@
             "family": "holes",
             "id": "holes:20",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "step_levels",
@@ -11614,7 +11614,7 @@
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -12055,7 +12055,7 @@
             "family": "holes",
             "id": "holes:15",
             "outcome": "left_out",
-            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #"
+            "reason": "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm"
           },
           {
             "family": "section_recesses",
@@ -12109,7 +12109,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
+          "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm",
           "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
@@ -12380,8 +12380,8 @@
           "no operation of its own, and roughing was refused": 160
         },
         "holes": {
-          "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #": 119,
-          "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #": 3,
+          "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm": 119,
+          "left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm": 3,
           "part material above its opening from top: a three-axis tool cannot reach it": 3
         },
         "plates": {
@@ -12477,542 +12477,542 @@
       "warnings": {
         "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance": 16,
         "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 174,
-        "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #": 88,
-        "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #": 3,
-        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 5,
-        "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #": 66,
-        "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy": 4,
+        "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm": 88,
+        "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #: needs a drill of \u2300#\u2013# with flutes of at least # mm (plus point length when drilling to full diameter), or an end mill under \u2300# with flutes of at least # mm": 3,
+        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 6,
+        "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #": 67,
+        "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy": 2,
         "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 46,
-        "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #": 4
+        "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #: needs an end mill with flutes of at least # mm": 4
       }
     }
   },
   "instructions": {
     "parts": {
       "featured_part_00036": {
-        "analyse": 4758793099,
-        "mesh": 385250010,
-        "process": 13376398751
+        "analyse": 4764117905,
+        "mesh": 383711216,
+        "process": 13461685030
       },
       "featured_part_00165": {
-        "analyse": 1527880044,
-        "mesh": 410403864,
-        "process": 41796044870
+        "analyse": 1528317048,
+        "mesh": 403818875,
+        "process": 41826274333
       },
       "featured_part_00222": {
-        "analyse": 1528532628,
-        "mesh": 432765498,
-        "process": 5216830258
+        "analyse": 1528388363,
+        "mesh": 423605557,
+        "process": 5457926269
       },
       "featured_part_00396": {
-        "analyse": 2180564242,
-        "mesh": 523146893,
-        "process": 4808803090
+        "analyse": 2184221598,
+        "mesh": 513963231,
+        "process": 4688926854
       },
       "featured_part_00411": {
-        "analyse": 8426015038,
-        "mesh": 450226538,
-        "process": 23527578334
+        "analyse": 8426225102,
+        "mesh": 450125278,
+        "process": 23550791389
       },
       "featured_part_00466": {
-        "analyse": 1418420723,
-        "mesh": 410375036,
-        "process": 19535934033
+        "analyse": 1415029370,
+        "mesh": 411029007,
+        "process": 19521049098
       },
       "featured_part_00518": {
-        "analyse": 1332387960,
-        "mesh": 375839835,
-        "process": 5679842945
+        "analyse": 1334060579,
+        "mesh": 375930267,
+        "process": 5657754933
       },
       "featured_part_00530": {
-        "analyse": 10979045952,
-        "mesh": 464271489,
-        "process": 4854065790
+        "analyse": 10990812753,
+        "mesh": 464300586,
+        "process": 4963538844
       },
       "featured_part_00539": {
-        "analyse": 5885571982,
-        "mesh": 430038128,
-        "process": 4398115204
+        "analyse": 5881042696,
+        "mesh": 424247768,
+        "process": 4297535979
       },
       "featured_part_00558": {
-        "analyse": 1279826843,
-        "mesh": 414838558,
-        "process": 39064848692
+        "analyse": 1281060557,
+        "mesh": 414571567,
+        "process": 39078330650
       },
       "featured_part_00633": {
-        "analyse": 1835229440,
-        "mesh": 403413657,
-        "process": 16141978204
+        "analyse": 1836945232,
+        "mesh": 400885084,
+        "process": 16143683006
       },
       "featured_part_00807": {
-        "analyse": 1605933370,
-        "mesh": 467563996,
-        "process": 51038982146
+        "analyse": 1596754956,
+        "mesh": 468104840,
+        "process": 50974141776
       },
       "featured_part_01169": {
-        "analyse": 1879381139,
-        "mesh": 347680749,
-        "process": 3065044946
+        "analyse": 1900357554,
+        "mesh": 348454294,
+        "process": 3098837574
       },
       "featured_part_01614": {
-        "analyse": 622255677,
-        "mesh": 314015277,
-        "process": 6427952356
+        "analyse": 625164846,
+        "mesh": 312173902,
+        "process": 6433708749
       },
       "featured_part_01746": {
-        "analyse": 6806146714,
-        "mesh": 423256461,
-        "process": 3378143326
+        "analyse": 6809640464,
+        "mesh": 422144583,
+        "process": 3703413661
       },
       "featured_part_01861": {
-        "analyse": 5992910927,
-        "mesh": 464236577,
-        "process": 5988454533
+        "analyse": 5985344229,
+        "mesh": 462658515,
+        "process": 7111633140
       },
       "featured_part_01906": {
-        "analyse": 962664815,
-        "mesh": 405159718,
-        "process": 5554332684
+        "analyse": 963294502,
+        "mesh": 403260336,
+        "process": 5727164184
       },
       "featured_part_02017": {
-        "analyse": 1681939778,
-        "mesh": 459533815,
-        "process": 7037504317
+        "analyse": 1681648129,
+        "mesh": 463981973,
+        "process": 7387383093
       },
       "featured_part_02212": {
-        "analyse": 3313868288,
-        "mesh": 483831571,
-        "process": 4427023399
+        "analyse": 3323843398,
+        "mesh": 482198499,
+        "process": 4661991975
       },
       "featured_part_02270": {
-        "analyse": 1198107397,
-        "mesh": 389031277,
-        "process": 6963706497
+        "analyse": 1192131359,
+        "mesh": 389579125,
+        "process": 6641354333
       },
       "featured_part_02517": {
-        "analyse": 4744251838,
-        "mesh": 357464478,
-        "process": 4831148771
+        "analyse": 4758819805,
+        "mesh": 363549247,
+        "process": 4846897063
       },
       "featured_part_03074": {
-        "analyse": 3970548075,
-        "mesh": 528348280,
-        "process": 8523863763
+        "analyse": 3979817803,
+        "mesh": 530562174,
+        "process": 8920307175
       },
       "featured_part_03166": {
-        "analyse": 9793329445,
-        "mesh": 431442048,
-        "process": 2971604988
+        "analyse": 9789428938,
+        "mesh": 425388481,
+        "process": 3205712353
       },
       "featured_part_03199": {
-        "analyse": 1407057998,
-        "mesh": 403800315,
-        "process": 26054021270
+        "analyse": 1416326396,
+        "mesh": 403559885,
+        "process": 26115306275
       },
       "featured_part_03248": {
-        "analyse": 1750893801,
-        "mesh": 419070561,
-        "process": 7087016950
+        "analyse": 1752105991,
+        "mesh": 418342681,
+        "process": 7048933478
       },
       "featured_part_03487": {
-        "analyse": 951774036,
-        "mesh": 348733704,
-        "process": 12436781380
+        "analyse": 949443929,
+        "mesh": 348449458,
+        "process": 12450202109
       },
       "featured_part_03557": {
-        "analyse": 597876382,
-        "mesh": 331281531,
-        "process": 2937358045
+        "analyse": 603432003,
+        "mesh": 322114624,
+        "process": 2938132686
       },
       "featured_part_03743": {
-        "analyse": 1091231367,
-        "mesh": 331271316,
-        "process": 8956608696
+        "analyse": 1082104958,
+        "mesh": 329657172,
+        "process": 8946267721
       },
       "featured_part_03944": {
-        "analyse": 1232848509,
-        "mesh": 403667955,
-        "process": 6587274376
+        "analyse": 1233447318,
+        "mesh": 405139961,
+        "process": 6695361971
       },
       "featured_part_04074": {
-        "analyse": 7760377876,
-        "mesh": 446854115,
-        "process": 26326881088
+        "analyse": 7762185042,
+        "mesh": 448050916,
+        "process": 26315636026
       },
       "featured_part_04111": {
-        "analyse": 1100210434,
-        "mesh": 355204903,
-        "process": 3568889806
+        "analyse": 1100644249,
+        "mesh": 355789822,
+        "process": 3437736054
       },
       "featured_part_04168": {
-        "analyse": 11736034794,
-        "mesh": 528831348,
-        "process": 4921912196
+        "analyse": 11740665112,
+        "mesh": 536777988,
+        "process": 4829502327
       },
       "featured_part_04267": {
-        "analyse": 13293402072,
-        "mesh": 414671876,
-        "process": 4460124373
+        "analyse": 13286050542,
+        "mesh": 406690053,
+        "process": 4317357097
       },
       "featured_part_04301": {
-        "analyse": 7860990874,
-        "mesh": 421667496,
-        "process": 14569334999
+        "analyse": 7863772101,
+        "mesh": 422845122,
+        "process": 14616846284
       },
       "featured_part_04343": {
-        "analyse": 2300196417,
-        "mesh": 383555277,
-        "process": 6130201653
+        "analyse": 2298294407,
+        "mesh": 386065458,
+        "process": 6270773680
       },
       "featured_part_04365": {
-        "analyse": 13746746650,
-        "mesh": 522577208,
-        "process": 6632150316
+        "analyse": 13725757407,
+        "mesh": 523250250,
+        "process": 6637511044
       },
       "featured_part_04381": {
-        "analyse": 7549059889,
-        "mesh": 462486334,
-        "process": 5684916414
+        "analyse": 7542261026,
+        "mesh": 460661486,
+        "process": 5669084704
       },
       "featured_part_04561": {
-        "analyse": 1190931959,
-        "mesh": 391752844,
-        "process": 4801375458
+        "analyse": 1192105533,
+        "mesh": 389363705,
+        "process": 5600050990
       },
       "featured_part_04785": {
-        "analyse": 941797411,
-        "mesh": 330683170,
-        "process": 3623127792
+        "analyse": 914664785,
+        "mesh": 340004292,
+        "process": 3899182620
       },
       "featured_part_04989": {
-        "analyse": 2395844156,
-        "mesh": 381306338,
-        "process": 5258517688
+        "analyse": 2383584344,
+        "mesh": 381301492,
+        "process": 5115915462
       },
       "featured_part_05321": {
-        "analyse": 1342912418,
-        "mesh": 453005657,
-        "process": 7184143570
+        "analyse": 1337262900,
+        "mesh": 451053331,
+        "process": 7614708750
       },
       "featured_part_05431": {
-        "analyse": 752365649,
-        "mesh": 343930591,
-        "process": 9561563362
+        "analyse": 748073964,
+        "mesh": 344980947,
+        "process": 9572021659
       },
       "featured_part_05548": {
-        "analyse": 5704472249,
-        "mesh": 534581743,
-        "process": 7846899395
+        "analyse": 5695104233,
+        "mesh": 534773023,
+        "process": 7516252019
       },
       "featured_part_05677": {
-        "analyse": 1619923356,
-        "mesh": 394220555,
-        "process": 4347186773
+        "analyse": 1616337568,
+        "mesh": 393649884,
+        "process": 4480640605
       },
       "featured_part_05774": {
-        "analyse": 4334171093,
-        "mesh": 517524852,
-        "process": 5708687618
+        "analyse": 4338654907,
+        "mesh": 512257567,
+        "process": 5601809433
       },
       "featured_part_05938": {
-        "analyse": 980881340,
-        "mesh": 336240561,
-        "process": 2992960572
+        "analyse": 978641966,
+        "mesh": 337179824,
+        "process": 2927630952
       },
       "featured_part_06236": {
-        "analyse": 1528714591,
-        "mesh": 422191678,
-        "process": 4135645378
+        "analyse": 1525721926,
+        "mesh": 425141605,
+        "process": 4156031006
       },
       "featured_part_06455": {
-        "analyse": 597481448,
-        "mesh": 312336415,
-        "process": 2890498861
+        "analyse": 599551070,
+        "mesh": 314404050,
+        "process": 2934067128
       },
       "featured_part_06488": {
-        "analyse": 2235954700,
-        "mesh": 399429435,
-        "process": 18184842339
+        "analyse": 2238169889,
+        "mesh": 393398840,
+        "process": 18183200262
       },
       "featured_part_06632": {
-        "analyse": 1389937343,
-        "mesh": 439773279,
-        "process": 29237656220
+        "analyse": 1396943375,
+        "mesh": 451702183,
+        "process": 29264515091
       },
       "featured_part_06887": {
-        "analyse": 2271576507,
-        "mesh": 387207374,
-        "process": 3851392873
+        "analyse": 2271473354,
+        "mesh": 390604511,
+        "process": 4111411776
       },
       "featured_part_06952": {
-        "analyse": 4587467359,
-        "mesh": 374983149,
-        "process": 3845862057
+        "analyse": 4592854310,
+        "mesh": 368373071,
+        "process": 4023141714
       },
       "featured_part_07030": {
-        "analyse": 851880903,
-        "mesh": 364201793,
-        "process": 2870690411
+        "analyse": 854238922,
+        "mesh": 362056633,
+        "process": 2934981187
       },
       "featured_part_07118": {
-        "analyse": 1349334342,
-        "mesh": 468381075,
-        "process": 8905872928
+        "analyse": 1350551386,
+        "mesh": 459630831,
+        "process": 8864706456
       },
       "featured_part_07147": {
-        "analyse": 684524075,
-        "mesh": 337378194,
-        "process": 5182841210
+        "analyse": 682939779,
+        "mesh": 339411465,
+        "process": 5107882773
       },
       "featured_part_07312": {
-        "analyse": 1630454091,
-        "mesh": 426674725,
-        "process": 8811166003
+        "analyse": 1631147405,
+        "mesh": 427091500,
+        "process": 8287999657
       },
       "featured_part_07379": {
-        "analyse": 1207176340,
-        "mesh": 412552019,
-        "process": 28449887359
+        "analyse": 1215601307,
+        "mesh": 415763980,
+        "process": 28493334996
       },
       "featured_part_07380": {
-        "analyse": 8649918786,
-        "mesh": 410217370,
-        "process": 16914514504
+        "analyse": 8665282861,
+        "mesh": 405835037,
+        "process": 16914249024
       },
       "featured_part_07384": {
-        "analyse": 3188195289,
-        "mesh": 446792444,
-        "process": 5698426315
+        "analyse": 3192515995,
+        "mesh": 450683607,
+        "process": 5262869606
       },
       "featured_part_07584": {
-        "analyse": 463679991,
-        "mesh": 296517163,
-        "process": 1877802960
+        "analyse": 462769913,
+        "mesh": 301226503,
+        "process": 1882957966
       },
       "featured_part_07588": {
-        "analyse": 754273727,
-        "mesh": 333874441,
-        "process": 1834695958
+        "analyse": 745165086,
+        "mesh": 323935622,
+        "process": 1810545118
       },
       "featured_part_07774": {
-        "analyse": 1913028183,
-        "mesh": 354985368,
-        "process": 3404639030
+        "analyse": 1917858374,
+        "mesh": 357695673,
+        "process": 3266469413
       },
       "featured_part_07812": {
-        "analyse": 676146826,
-        "mesh": 315322516,
-        "process": 2247068112
+        "analyse": 676623139,
+        "mesh": 315215535,
+        "process": 2363452917
       },
       "featured_part_07923": {
-        "analyse": 5591474908,
-        "mesh": 401735440,
-        "process": 4296352589
+        "analyse": 5592319631,
+        "mesh": 394440192,
+        "process": 4052377409
       },
       "featured_part_08116": {
-        "analyse": 3839422915,
-        "mesh": 439223558,
-        "process": 3441201926
+        "analyse": 3846302015,
+        "mesh": 440416911,
+        "process": 3478688102
       },
       "featured_part_08204": {
-        "analyse": 3855563994,
-        "mesh": 469696347,
-        "process": 4604457095
+        "analyse": 3852288449,
+        "mesh": 469582909,
+        "process": 4611560945
       },
       "featured_part_08221": {
-        "analyse": 481549970,
-        "mesh": 303333970,
-        "process": 3923031205
+        "analyse": 484580189,
+        "mesh": 310607194,
+        "process": 3931659448
       },
       "featured_part_08336": {
-        "analyse": 1733013096,
-        "mesh": 374833257,
-        "process": 4743706900
+        "analyse": 1733928999,
+        "mesh": 374015012,
+        "process": 4517610866
       },
       "featured_part_08413": {
-        "analyse": 1098503121,
-        "mesh": 388200650,
-        "process": 5473171169
+        "analyse": 1096822136,
+        "mesh": 387473935,
+        "process": 5404250176
       },
       "featured_part_08595": {
-        "analyse": 1309575798,
-        "mesh": 414045575,
-        "process": 5801332144
+        "analyse": 1311998104,
+        "mesh": 413048216,
+        "process": 5888666564
       },
       "featured_part_08784": {
-        "analyse": 732693779,
-        "mesh": 332242825,
-        "process": 3443183073
+        "analyse": 731852023,
+        "mesh": 333057901,
+        "process": 3352741918
       },
       "featured_part_08841": {
-        "analyse": 5832748413,
-        "mesh": 334783067,
-        "process": 2825820218
+        "analyse": 5837673785,
+        "mesh": 335579003,
+        "process": 2733816952
       },
       "featured_part_08987": {
-        "analyse": 1822110433,
-        "mesh": 331935899,
-        "process": 3484504393
+        "analyse": 1824676558,
+        "mesh": 331837093,
+        "process": 3566112847
       },
       "featured_part_09125": {
-        "analyse": 1043211336,
-        "mesh": 383077506,
-        "process": 5356742720
+        "analyse": 1043049109,
+        "mesh": 384610552,
+        "process": 5516125653
       },
       "featured_part_09158": {
-        "analyse": 633021524,
-        "mesh": 324882723,
-        "process": 3346580321
+        "analyse": 636510484,
+        "mesh": 325332231,
+        "process": 3097715243
       },
       "featured_part_09263": {
-        "analyse": 3021251338,
-        "mesh": 472785089,
-        "process": 5243184861
+        "analyse": 3024676796,
+        "mesh": 466577082,
+        "process": 5230606473
       },
       "featured_part_09270": {
-        "analyse": 1082751241,
-        "mesh": 385352782,
-        "process": 10595897913
+        "analyse": 1082263234,
+        "mesh": 386984846,
+        "process": 10581017809
       },
       "featured_part_09336": {
-        "analyse": 1863430611,
-        "mesh": 444219712,
-        "process": 12072385805
+        "analyse": 1860479608,
+        "mesh": 443432391,
+        "process": 12030767544
       },
       "featured_part_09364": {
-        "analyse": 1712264740,
-        "mesh": 409003652,
-        "process": 6438103384
+        "analyse": 1706028009,
+        "mesh": 410714196,
+        "process": 7046754933
       },
       "featured_part_09390": {
-        "analyse": 1297727217,
-        "mesh": 434781886,
-        "process": 33451676692
+        "analyse": 1297854749,
+        "mesh": 436106490,
+        "process": 33482828878
       },
       "featured_part_09449": {
-        "analyse": 718258217,
-        "mesh": 319668611,
-        "process": 6202297791
+        "analyse": 713502561,
+        "mesh": 320247898,
+        "process": 6186742443
       },
       "featured_part_09497": {
-        "analyse": 1769960268,
-        "mesh": 493213485,
-        "process": 9289986631
+        "analyse": 1769016521,
+        "mesh": 492691610,
+        "process": 9441836220
       },
       "featured_part_09510": {
-        "analyse": 989406866,
-        "mesh": 374582053,
-        "process": 7675158648
+        "analyse": 994732013,
+        "mesh": 375129982,
+        "process": 7417849846
       },
       "featured_part_09615": {
-        "analyse": 3035629698,
-        "mesh": 447371827,
-        "process": 5817631823
+        "analyse": 3039640265,
+        "mesh": 439668847,
+        "process": 5809099572
       },
       "featured_part_09750": {
-        "analyse": 726229297,
-        "mesh": 345821489,
-        "process": 4215168232
+        "analyse": 725396659,
+        "mesh": 344970121,
+        "process": 4207740562
       },
       "featured_part_09871": {
-        "analyse": 900514229,
-        "mesh": 376191083,
-        "process": 4240273832
+        "analyse": 899569263,
+        "mesh": 374799978,
+        "process": 4322760948
       },
       "featured_part_10091": {
-        "analyse": 2032237864,
-        "mesh": 374361453,
-        "process": 5637679822
+        "analyse": 2023114098,
+        "mesh": 367223938,
+        "process": 5227029488
       },
       "featured_part_10124": {
-        "analyse": 4784291130,
-        "mesh": 524994395,
-        "process": 5955540159
+        "analyse": 4775564423,
+        "mesh": 520077812,
+        "process": 5624225278
       },
       "featured_part_10255": {
-        "analyse": 3549551506,
-        "mesh": 442707635,
-        "process": 5486309411
+        "analyse": 3540541004,
+        "mesh": 441797552,
+        "process": 5561159697
       },
       "featured_part_10267": {
-        "analyse": 2473648249,
-        "mesh": 466703661,
-        "process": 5060969593
+        "analyse": 2470824588,
+        "mesh": 467804029,
+        "process": 5052509467
       },
       "featured_part_10351": {
-        "analyse": 6325730870,
-        "mesh": 400025870,
-        "process": 4982397671
+        "analyse": 6319152273,
+        "mesh": 401719947,
+        "process": 4769037136
       },
       "featured_part_10420": {
-        "analyse": 1573300909,
-        "mesh": 400934200,
-        "process": 5808761513
+        "analyse": 1571166417,
+        "mesh": 391820216,
+        "process": 5835584965
       },
       "featured_part_10653": {
-        "analyse": 5302658523,
-        "mesh": 415124029,
-        "process": 15607452493
+        "analyse": 5323403480,
+        "mesh": 417296639,
+        "process": 15648059446
       },
       "featured_part_10809": {
-        "analyse": 1374100727,
-        "mesh": 413461465,
-        "process": 4423201730
+        "analyse": 1377802238,
+        "mesh": 414179407,
+        "process": 4543665196
       },
       "featured_part_10816": {
-        "analyse": 815237478,
-        "mesh": 340394732,
-        "process": 3395059076
+        "analyse": 807198719,
+        "mesh": 342007849,
+        "process": 3465770384
       },
       "featured_part_10987": {
-        "analyse": 764591749,
-        "mesh": 323677744,
-        "process": 12302858855
+        "analyse": 754874431,
+        "mesh": 323802314,
+        "process": 12282112812
       },
       "featured_part_11012": {
-        "analyse": 910121844,
-        "mesh": 343181265,
-        "process": 4678548343
+        "analyse": 898514238,
+        "mesh": 341451489,
+        "process": 4746359916
       },
       "featured_part_11053": {
-        "analyse": 471599124,
-        "mesh": 297842651,
-        "process": 1903903261
+        "analyse": 471143104,
+        "mesh": 297882687,
+        "process": 2164467351
       },
       "featured_part_11096": {
-        "analyse": 7055902077,
-        "mesh": 441555207,
-        "process": 17111946446
+        "analyse": 7058725031,
+        "mesh": 440989675,
+        "process": 17114287934
       },
       "featured_part_11360": {
-        "analyse": 873958480,
-        "mesh": 322281149,
-        "process": 3185610421
+        "analyse": 874783785,
+        "mesh": 323172516,
+        "process": 3104135424
       }
     },
     "stages": {
       "analyse": {
         "measured_parts": 100,
-        "median": 1625188723.5,
+        "median": 1623742486.5,
         "parts": 100,
-        "total": 292742594184
+        "total": 292728764947
       },
       "mesh": {
         "measured_parts": 100,
-        "median": 403540806.0,
+        "median": 402490141.5,
         "parts": 100,
-        "total": 40240100383
+        "total": 40174924652
       },
       "process": {
         "measured_parts": 100,
-        "median": 5520321047.5,
+        "median": 5538642675.0,
         "parts": 100,
-        "total": 876151726364
+        "total": 878886457342
       }
     }
   },
   "schema_version": 2,
   "timing": {
-    "wall_seconds": 47.557539
+    "wall_seconds": 68.299918
   }
 }
