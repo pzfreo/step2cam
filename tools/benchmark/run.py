@@ -70,8 +70,8 @@ def run_part(part, z, cache, tools, fetch_lock):
                      '--example', 'process', '--', analysis_path, mesh_path, tools], stdout=out)
         output = json.loads((work / 'process.json').read_text())
         row['features'], row['warnings'] = summarise_part(analysis, output)
-        if output.get('error'):
-            row['error'] = str(output['error'])
+        if output.get('error') or output.get('post_error'):
+            row['error'] = str(output.get('error') or output['post_error'])
     except Exception as exc:
         row['error'] = str(exc)
     return row, round(time.monotonic() - start, 6)
