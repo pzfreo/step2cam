@@ -44,6 +44,26 @@ class InstructionTests(unittest.TestCase):
             self.assertFalse(meter.enabled)
             self.assertEqual(meter.wrap(['process']), ['process'])
 
+    def test_failed_stage_keeps_count_but_not_resource_text_in_error(self):
+        from types import SimpleNamespace
+        from run import measured_command
+        with patch('performance.sys.platform', 'darwin'), patch('performance.Path.is_file', return_value=True), \
+                patch('performance.subprocess.run', return_value=SimpleNamespace(returncode=0)):
+            meter = InstructionMeter()
+        counts = dict.fromkeys(STAGES)
+        result = SimpleNamespace(returncode=1, stderr='bad mesh\n 0.12 real 0.09 user 0.02 sys\n 987 instructions retired\n')
+        with patch('run.command', return_value=result) as command:
+            with self.assertRaises(RuntimeError) as raised:
+                measured_command(['specify-core', 'mesh'], 'mesh', counts, meter)
+        self.assertEqual(counts['mesh'], 987)
+        self.assertEqual(str(raised.exception), 'specify-core exited 1: bad mesh')
+        self.assertEqual(command.call_args.args[0][:2], ['/usr/bin/time', '-l'])
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            meter.record('')
+            meter.record('')
+        self.assertEqual(stderr.getvalue().count('Retired instructions unavailable'), 1)
+
     def test_cargo_artifact_selects_executable_in_custom_target_directory(self):
         from types import SimpleNamespace
         from run import build_process
