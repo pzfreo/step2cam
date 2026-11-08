@@ -3,11 +3,24 @@
 import initSpecify, { IntentEngine } from "./specify/specify_core_wasm.js";
 import initCam, { process } from "./step2cam/step2cam.js";
 
-const ready = Promise.all([initSpecify(), initCam(), fetch("tools.json").then((r) => r.text())]);
+const ready = Promise.all([initSpecify(), initCam()]);
+const libraries = new Map();
+function loadLibrary(url) {
+  if (!libraries.has(url)) {
+    libraries.set(url, fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`Could not load ${url}: ${response.status} ${response.statusText}`);
+      return response.text();
+    }).catch((error) => {
+      libraries.delete(url); // A failed fetch can be retried on the next plan.
+      throw error;
+    }));
+  }
+  return libraries.get(url);
+}
 
-self.onmessage = async ({ data: { id, name, bytes } }) => {
+self.onmessage = async ({ data: { id, name, bytes, library } }) => {
   try {
-    const [, , toolsText] = await ready;
+    const [, toolsText] = await Promise.all([ready, loadLibrary(library.file)]);
     const tools = JSON.parse(toolsText);
     const input = new Uint8Array(bytes);
     // An assembly opens at its largest part.
@@ -25,7 +38,7 @@ self.onmessage = async ({ data: { id, name, bytes } }) => {
     const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), toolsText));
     self.postMessage({
       id,
-      data: { name, notice, analysis, mesh, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
+      data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
     });
   } catch (error) {
     self.postMessage({ id, error: String(error?.message ?? error) });
