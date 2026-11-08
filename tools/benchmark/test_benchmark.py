@@ -24,6 +24,7 @@ class AccountingTests(unittest.TestCase):
     def test_normalise(self):
         self.assertEqual(normalise('depth 12.5 below Z-3; 2e-05 mm; top-12-wall'),
                          'depth # below Z-#; # mm; top-#-wall')
+        self.assertEqual(normalise('allowance .5 and -.25 mm'), 'allowance # and -# mm')
         self.assertEqual(normalise('no roughing was run'), 'no roughing was run')
 
     def test_outcomes(self):

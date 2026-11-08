@@ -16,7 +16,7 @@ def family(group):
 
 def normalise(reason):
     # Keep signs/punctuation: only numeric values (including exponents) are grouped.
-    return re.sub(r'\d+(?:\.\d*)?(?:[eE][+-]?\d+)?', '#', str(reason))
+    return re.sub(r'(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?', '#', str(reason))
 
 
 def summarise_part(analysis, output):
