@@ -913,23 +913,25 @@ function decisionItem(d, rules, compact = false) {
   return li;
 }
 
-// Use only recorded alternatives. An empty trace does not tell us which other
-// tools were considered; do not infer rejections from the tool library.
+// Show current recorded tool choices, even without alternatives. Do not infer
+// rejections from the library or treat cutting-data source labels as tool ids.
 function toolChoice(op, decisions, tools) {
   const choices = (op.because || []).map((id) => decisions.get(id))
-    .filter((d) => d?.stage === "tools" && d.considered?.length);
+    .filter((d) => d?.stage === "tools" && !d.superseded_by
+      && (d.considered?.length || (typeof d.chosen === "string" && d.chosen === op.tool)));
   if (!choices.length) return null;
   const rows = new Map();
   for (const d of choices) {
+    const considered = d.considered || [];
     if (typeof d.chosen === "string") {
-      const others = d.considered.filter((c) => c.candidate !== d.chosen);
+      const others = considered.filter((c) => c.candidate !== d.chosen);
       const preference = ["the largest", "the smallest", "the first in the library"].find((p) =>
         others.some((c) => c.rejected === `qualifies, but ${d.chosen} is preferred (${p})`));
       const only = others.length && others.every((c) => c.rejected?.trim() && !c.rejected.startsWith("qualifies, but"));
       const reason = preference ? `${preference} that qualifies` : only ? "the only one that qualifies" : d.says || "chosen";
       rows.set(d.chosen, { chosen: true, reason });
     }
-    for (const c of d.considered) {
+    for (const c of considered) {
       if (!rows.get(c.candidate)?.chosen) rows.set(c.candidate, { chosen: false, reason: c.rejected });
     }
   }
