@@ -71,7 +71,7 @@ fn check(plan: &Value, part: &str) {
         let (id, version) = d["rule"].as_str().unwrap().split_once('@').unwrap();
         assert_eq!(versions.get(id).copied(), Some(version.parse().unwrap()), "{part}: {d}");
     }
-    let warned: Vec<&str> = plan["decisions"].as_array().unwrap().iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).map(|d| d["says"].as_str().unwrap()).collect();
+    let warned: Vec<&str> = plan["decisions"].as_array().unwrap().iter().filter(|d| d["outcome"] == "warning").map(|d| d["says"].as_str().unwrap()).collect();
     let warnings: Vec<&str> = plan["warnings"].as_array().unwrap().iter().map(|w| w.as_str().unwrap()).collect();
     assert_eq!(warned, warnings, "{part}: each warning, in order, is a decision");
     for s in plan["skipped"].as_array().unwrap() {
@@ -214,17 +214,4 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
             assert!(!says.contains("r3.0"), "{says}");
         }
     }
-}
-
-#[test]
-fn superseded_warnings_do_not_remain_in_the_string_list() {
-    let mut trace = capp::trace::Trace::default();
-    trace.warn("process.notch.corner_radius", "top:notch", "old warning".into(), serde_json::json!({"features": ["pockets:1"]}));
-    let current = trace.warn("process.notch.corner_radius", "top:notch", "current warning".into(), serde_json::json!({"features": ["pockets:1"]}));
-    trace.supersede("top:notch", "warning", &current);
-    let mut plan = serde_json::json!({});
-    trace.store(&mut plan);
-    assert_eq!(plan["warnings"], serde_json::json!(["current warning"]));
-    assert_eq!(plan["decisions"].as_array().unwrap().len(), 2);
-    assert_eq!(plan["decisions"][0]["superseded_by"], current);
 }

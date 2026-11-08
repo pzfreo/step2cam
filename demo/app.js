@@ -1334,7 +1334,7 @@ function warningOperations(m, d) {
 }
 
 function warningText(m, d, brief = false) {
-  let text = d.says;
+  let text = d.says.replace("no source-admitted entry/route for component 0; choose a smaller radius or another entry strategy", "camlib found no way for that tool to enter it");
   if (brief && d.depth_diameter_ratio != null) text = `${Number(d.depth_diameter_ratio).toFixed(1)} × diameter deep: full-retract pecks`;
   else if (brief && d.radius != null) text = `Inside corners left r${trim(d.radius)} (${d.model_radius ? `model r${trim(d.model_radius)}` : "sharp in the model"})`;
   // Older subject-specific warnings still include their subject in the prose.
@@ -1344,7 +1344,11 @@ function warningText(m, d, brief = false) {
   if (d.rule.startsWith("execution.refused@")) text = text.replaceAll(d.subject, "This operation");
   if (brief) return text;
   const ops = warningOperations(m, d);
-  const names = ops.length ? ops.map((o) => o.name + (o.features?.length > 1 ? ` ×${o.features.length}` : ""))
+  const names = ops.length ? ops.map((o) => {
+    const family = m.features.get(o.features?.[0])?.family;
+    const count = family ? o.features.filter((id) => m.features.get(id)?.family === family).length : 0;
+    return o.name + (count > 1 ? ` ×${count}` : "");
+  })
     : (d.features || []).map((id) => m.features.get(id)?.name).filter(Boolean);
   return names.length ? `${[...new Set(names)].join(", ")}: ${text}` : text;
 }
@@ -1392,7 +1396,10 @@ function show(data) {
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
   const notes = data.notice ? [data.notice] : [];
   const notCut = [...model.features.values()].filter((f) => f.notCut);
-  if (notCut.length) notes.push(`Not cut to size: ${notCut.length} recognised features (${[...new Set(notCut.map((f) => f.name))].join(", ")}) too narrow for the largest end mill. No smaller tool is planned for them.`);
+  if (notCut.length) {
+    const names = [...new Set(notCut.map((f) => f.name.split(",")[0].toLowerCase()))].join(", ");
+    notes.push(`Not cut to size: ${notCut.length} recognised ${notCut.length === 1 ? "feature" : "features"} (${names}) too narrow for the largest end mill. No smaller tool is planned for them.`);
+  }
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
   showWarnings(model, notes);
   showChecks(data);

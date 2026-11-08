@@ -48,9 +48,7 @@ impl Trace {
     }
 
     /// Puts the trace back into the plan.
-    pub fn store(mut self, plan: &mut Value) {
-        self.warnings = self.decisions.iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none())
-            .filter_map(|d| d["says"].as_str().map(String::from)).collect();
+    pub fn store(self, plan: &mut Value) {
         plan["decisions"] = json!(self.decisions);
         plan["warnings"] = json!(self.warnings);
         plan["skipped"] = json!(self.skipped);
