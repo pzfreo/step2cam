@@ -347,8 +347,45 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             op["tool_note"] = note;
             because(op, why);
         }
+        block_chamfers_without_openings(setup, trace);
     }
     Ok(())
+}
+
+/// Resolve every opening first, then gate its mouth chamfer on the actual result.
+/// Feature ids survive operation grouping, renumbering and execution exclusions.
+/// A combined round-as-chamfer operation is conservatively blocked as a whole.
+fn block_chamfers_without_openings(setup: &mut Value, trace: &mut Trace) {
+    let view = setup["operations"].as_array().cloned().unwrap_or_default();
+    let subject = format!("{}:edge_chamfer", setup["id"].as_str().unwrap_or(""));
+    for op in setup["operations"].as_array_mut().into_iter().flatten().filter(|o| o["kind"] == "edge_chamfer") {
+        let blocked = op["needs_openings"].as_array().into_iter().flatten().find_map(|feature| {
+            let opening = view.iter().find(|o| matches!(o["kind"].as_str(), Some("holes" | "slot"))
+                && o["features"].as_array().is_some_and(|f| f.contains(feature)));
+            if opening.is_some_and(|o| o["tool"].is_string()) { return None; }
+            let why = opening.and_then(|o| o["tool_note"].as_str())
+                .or_else(|| trace.skipped.iter().find(|s| s["feature"] == *feature).and_then(|s| s["reason"].as_str()))
+                .unwrap_or("its hole or slot operation was left out");
+            Some((feature.clone(), why.to_owned()))
+        });
+        let Some((feature, why)) = blocked else { continue; };
+        let reason = format!("mouth chamfer: required opening {} is not cut, so the edge stays sharp (chamfer it by hand)", feature.as_str().unwrap_or(""));
+        let note = match op["tool_note"].as_str().filter(|_| op["tool"].is_null()) {
+            Some(own) => format!("{reason}: {}; {own}", why.split(": needs ").next().unwrap_or(&why)),
+            None => format!("{reason}: {why}"),
+        };
+        let decided = trace.decide("feasibility.chamfer.needs_opening", &subject, "none", &note, json!({"chosen": null, "features": [feature]}));
+        for decision in &mut trace.decisions {
+            if decision["rule"].as_str().is_some_and(|r| r.starts_with("tool.edge_chamfer.chamfer_mill@"))
+                && op["because"].as_array().is_some_and(|ids| ids.contains(&decision["id"])) {
+                decision["superseded_by"] = json!(decided);
+            }
+        }
+        op["tool"] = Value::Null;
+        op["tool_note"] = json!(note);
+        if let Some(object) = op.as_object_mut() { object.remove("technology"); }
+        because(op, [decided]);
+    }
 }
 
 /// The cutting data a tool's operations use: its own, with what it states for the material's ISO

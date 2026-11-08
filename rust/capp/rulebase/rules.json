@@ -603,6 +603,18 @@
    ]
   },
   {
+   "id": "feasibility.chamfer.needs_opening",
+   "version": 1,
+   "stage": "feasibility",
+   "rationale": "A mouth chamfer runs only after every hole or slot it depends on has a tool. A combined round-as-chamfer operation is blocked as a whole if any opening cannot be cut.",
+   "code": "settle.rs block_chamfers_without_openings",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
    "id": "tool.clearing",
    "version": 1,
    "stage": "tools",

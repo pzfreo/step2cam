@@ -1794,6 +1794,13 @@
        ],
        "minimum": 0,
        "description": "Clear distance outside the loop; null when no neighboring material limits it."
+      },
+      "needs_openings": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "Hole or slot feature ids whose operations must be present and tooled before this chamfer can run."
       }
      },
      "additionalProperties": false

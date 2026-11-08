@@ -97,8 +97,7 @@ fn the_largest_covering_mill_cuts_a_large_chamfer_in_passes_without_gouging() {
     assert_eq!(program["material"]["gouge"]["definite_cells"], 0, "{}", program["material"]);
 }
 
-#[test]
-fn slot_and_recognised_hole_mouths_are_cut_at_size() {
+fn mouth_part() -> (Value, Value) {
     let mut analysis = read("tests/fixtures/synthetic/stepped-plate-chamfer-mouths.analysis.json");
     let mesh = read("tests/fixtures/synthetic/stepped-plate-chamfer-mouths.mesh.json");
     // This specify-core release reports the slot's planar chamfers but omits the hole's
@@ -112,6 +111,12 @@ fn slot_and_recognised_hole_mouths_are_cut_at_size() {
     let hole = analysis["features"].as_array_mut().unwrap().iter_mut().find(|f| f["family"] == "holes").unwrap();
     hole["record"]["location"][2] = json!(12.);
     hole["record"]["depth"] = json!(12.);
+    (analysis, mesh)
+}
+
+#[test]
+fn slot_and_recognised_hole_mouths_are_cut_at_size() {
+    let (analysis, mesh) = mouth_part();
     let out = step2cam::process(&analysis, &mesh, &read("demo/tools.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ops = chamfers(&out);
@@ -192,4 +197,73 @@ fn geometry_causes_keep_the_hand_chamfer_instruction() {
         }
         assert!(plan["tools_needed"].as_array().unwrap().is_empty(), "{cause}");
     }
+}
+
+fn emitted_chamfers(plan: &Value, library: &Value) -> usize {
+    let (jobs, _) = step2cam::job::jobs(plan, library).unwrap();
+    jobs.iter().flat_map(|j| j.manifest["operations"].as_array().unwrap()).filter(|o| o["kind"] == "chamfer").count()
+}
+
+#[test]
+fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() {
+    let (analysis, mesh) = mouth_part();
+    let mut library = read("demo/tools.json");
+    library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "cm6");
+    library["tools"][0]["tip_diameter"] = json!(0.);
+    assert!(capp::resources::Library::new(&library).unwrap().chamfer_mill(1.).is_some());
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &library, &[]).unwrap();
+    let out = json!({"plan": plan});
+    let ops = chamfers(&out);
+    assert_eq!(ops.len(), 2);
+    for op in ops {
+        assert!(op["tool"].is_null(), "{op}");
+        let reason = op["tool_note"].as_str().unwrap();
+        assert!(reason.contains("required opening") && reason.contains("is not cut") && reason.contains(": needs "), "{reason}");
+        assert_eq!(op["needs_openings"].as_array().unwrap().len(), 1);
+    }
+    assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
+    let mut restored = out["plan"].clone();
+    let full = read("demo/tools.json");
+    capp::finish(&mut restored, &full, &[]).unwrap();
+    assert_eq!(emitted_chamfers(&restored, &full), 2);
+}
+
+#[test]
+fn a_refused_opening_blocks_only_its_modelled_mouth_chamfer() {
+    let (analysis, mesh) = mouth_part();
+    let library = read("demo/tools.json");
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &library, &[]).unwrap();
+    let top = &plan["setups"][0];
+    let number = top["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "holes").unwrap() + 1;
+    let hole = top["operations"][number - 1]["features"][0].clone();
+    let operation = format!("top-{number}-holes");
+    capp::finish(&mut plan, &library, &[json!({"operation":operation,"message":"opening refused by execution"})]).unwrap();
+    let out = json!({"plan":plan});
+    let ops = chamfers(&out);
+    assert_eq!(ops.len(), 2);
+    let blocked = ops.iter().find(|o| o["needs_openings"].as_array().unwrap().contains(&hole)).unwrap();
+    assert!(blocked["tool"].is_null());
+    assert!(blocked["tool_note"].as_str().unwrap().contains("opening refused by execution"));
+    assert_eq!(ops.iter().filter(|o| o["tool"] == "cm6").count(), 1);
+    assert_eq!(emitted_chamfers(&out["plan"], &library), 1);
+}
+
+#[test]
+fn round_as_chamfer_mouths_also_require_opening_tools() {
+    let analysis = read("tests/fixtures/mounting-plate.analysis.json");
+    let mesh = read("tests/fixtures/mounting-plate.mesh.json");
+    let mut library = read("demo/tools.json");
+    library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "cm6");
+    library["tools"][0]["tip_diameter"] = json!(0.);
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    capp::finish(&mut plan, &library, &[]).unwrap();
+    let out = json!({"plan":plan});
+    let ops = chamfers(&out);
+    assert_eq!(ops.len(), 1);
+    assert!(!ops[0]["needs_openings"].as_array().unwrap().is_empty());
+    assert!(ops[0]["tool"].is_null());
+    assert!(ops[0]["tool_note"].as_str().unwrap().contains("required opening"));
+    assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
 }

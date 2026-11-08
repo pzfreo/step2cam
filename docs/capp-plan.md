@@ -244,3 +244,8 @@ a lower flat. Such a chamfer can therefore need longer flutes than its local leg
 Geometry refusals explain the cause and leave the edge for hand chamfering. They
 do not request tools: a larger cone cannot resolve an unsupported loop. Missing-tool
 queries apply to planned operations whose geometry can be cut.
+
+Mouth chamfers record their required hole/slot features in `needs_openings`. After
+tool resolution, an absent or tool-less opening blocks its chamfer and supplies the
+reason. A combined round-as-chamfer operation is conservatively blocked as a whole
+if any required opening cannot be cut.
