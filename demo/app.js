@@ -886,7 +886,7 @@ function describeSource(src) {
   return `${what}${note}${via}`;
 }
 
-function decisionItem(d, rules) {
+function decisionItem(d, rules, compact = false) {
   const li = document.createElement("li");
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
@@ -903,6 +903,24 @@ function decisionItem(d, rules) {
       + (rule.data ? `<p>Kept as data in ${rule.data.map(escapeHtml).join(", ")}</p>` : "")
       + `<p>Applied in ${escapeHtml(rule.code)}</p>`;
     li.append(more);
+  }
+  if (compact) {
+    li.title = d.id;
+    if (d.superseded_by) {
+      const tag = li.querySelector(".says .tag:last-child");
+      tag.textContent = "replaced";
+      tag.title = `Replaced by ${d.superseded_by}`;
+    }
+    const says = li.querySelector(".says"), more = li.querySelector(".rule-detail");
+    const label = document.createElement("span");
+    label.className = "rule";
+    label.textContent = d.rule;
+    if (more) {
+      const summary = more.querySelector("summary");
+      summary.replaceChildren(says, label);
+      summary.insertAdjacentHTML("beforeend", '<span class="rule-arrow" aria-hidden="true">▸</span>');
+      li.replaceChildren(more);
+    } else li.replaceChildren(says, label);
   }
   return li;
 }
@@ -943,66 +961,38 @@ function describeTechnology(t) {
 async function buildPlan(m) {
   const host = $("plan-body");
   host.replaceChildren();
+  $("plan-selected")?.remove();
   const plan = m.data.plan, rules = await loadRules();
   if (model !== m) return;  // another part was opened meanwhile
   const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
   const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
   const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
   showPlanList();
-  host.insertAdjacentHTML("beforeend", `<p class="plan-fact plan-lead"><b>A draft to check, not a plan to run.</b> What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Open an operation to see its decisions; <b>Full view</b> shows the tools it considered and the rules themselves.</p>`);
-
-  head("Part");
+  host.insertAdjacentHTML("beforeend", `<details class="plan-lead"><summary>A draft to check · how to read this ▸</summary><p>A draft to check, not a plan to run. What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Select an operation to see its decisions; Full view shows the tools it considered and the rules themselves.</p></details>`);
   const material = plan.material || {};
   const from = material.override ? "the tool library's override" : material.specified ? "Specify" : null;
-  fact(`<b>Material:</b> ${material.used ? `${escapeHtml(material.used)} (from ${from})` : "not given"}${material.iso513 ? ` <span class="tag">ISO 513 group ${escapeHtml(material.iso513)}</span>` : material.used ? ' <span class="tag warn">no ISO 513 group</span>' : ""}`);
+  const materialLabel = `${material.used ? `${escapeHtml(material.used)} (from ${escapeHtml(from || "plan")})` : "material not given"}${material.iso513 ? ` · ISO 513 ${escapeHtml(material.iso513)}` : material.used ? " · no ISO 513 group" : ""}`;
   const materialWhy = (plan.decisions || []).filter((d) => d.rule.startsWith("requirement.material.group@")).map((d) => d.id);
-  if (materialWhy.length) host.append(whyList(materialWhy, decisions, rules));
-  const ran = new Set(m.data.programs.map((p) => p.setup));
-  fact(`<b>${plan.setups.length} ${plan.setups.length === 1 ? "setup" : "setups"}</b>, ${[...m.operations.values()].length} operations, ${plan.skipped.length} features not cut, ${plan.warnings.length} warnings.`);
-
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  fact(`${plural(plan.setups.length, "setup")} · ${plural(m.operations.size, "operation")} · ${plural(plan.skipped.length, "feature")} not cut · ${plural(plan.warnings.length, "warning")}`);
+  m.planView = { rules, decisions, cards: new Map(), selected: null, full: false };
   for (const setup of plan.setups) {
-    const lo = setup.stock.min, hi = setup.stock.max;
-    head(`${setup.id} setup${ran.has(setup.id) ? "" : " · not run"}`);
-    const onMachine = (plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
-    fact(`${onMachine ? `${escapeHtml(onMachine.says[0].toUpperCase() + onMachine.says.slice(1))}. ` : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
+    host.insertAdjacentHTML("beforeend", `<h3 class="plan-setup" title="${materialLabel}">${escapeHtml(setup.id)} setup <span>${materialLabel}</span></h3>`);
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
+      const warned = planWarnings(m).some((d) => op.because?.includes(d.id));
       const card = document.createElement("section");
-      card.className = `plan-op${o && o.time ? "" : " unused"}`;
-      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not run</span>'}</span>`, key);
+      card.className = `plan-op${o?.time ? "" : " unused"}`;
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)}</span><span class="op-meta">${escapeHtml(op.tool || "no tool")}</span><span class="op-time">${o?.time ? describeTime(o.time) : "not run"}</span><span class="op-warning">${warned ? "⚠" : ""}</span>`, key);
+      headBtn.title = `${o?.name || op.kind} · ${setup.id} setup · ${op.tool || "no tool"}${warned ? " · warning" : ""}`;
+      headBtn.setAttribute("aria-expanded", "false");
+      headBtn.setAttribute("aria-controls", "plan-selected");
       card.append(headBtn);
-      for (const d of planWarnings(m).filter((d) => op.because?.includes(d.id))) {
-        const note = document.createElement("button");
-        note.type = "button"; note.className = "operation-warning";
-        note.textContent = warningText(m, d, true);
-        linkWarning(note, m, d);
-        card.append(note);
-      }
-      const iso = op.iso14649;
-      const open = document.createElement("details");
-      open.className = "why";
-      open.innerHTML = `<summary>Why</summary>`;
-      headBtn.addEventListener("click", () => { open.open = pinKey === key; });
-      card.append(open);
-      open.append(facts([
-        ["Tool", op.tool ? escapeHtml(op.tool) : `<span class="tag warn">none</span> ${escapeHtml(op.tool_note || "")}`],
-        ["Cutting data", describeTechnology(op.technology)],
-        ["Features", op.features?.length ? escapeHtml(op.features.map((id) => m.features.get(id)?.name || "feature").join(", ")) : null],
-        ["ISO 14649", iso ? `${escapeHtml(iso.operation || "no operation")} on ${escapeHtml(iso.feature)}${iso.bottom_condition ? `, ${escapeHtml(iso.bottom_condition)}` : ""}${iso.exact ? "" : ' <span class="tag">closest</span>'}` : null],
-        ["Time", o && o.time ? `${describeTime(o.time)} est.` : null],
-      ]));
-      if (op.because?.length) {
-        const list = document.createElement("ol");
-        for (const d of folded(op.because.map((id) => decisions.get(id)).filter(Boolean))) list.append(decisionItem(d, rules));
-        open.append(list);
-      }
-      const full = document.createElement("button");
-      full.type = "button"; full.className = "full-view"; full.textContent = "Full view: tools considered and the rules";
-      full.addEventListener("click", () => showDetail(m, setup, op, n, key));
-      open.append(full);
+      m.planView.cards.set(key, card);
       host.append(card);
     });
   }
+  if (materialWhy.length) host.append(whyList(materialWhy, decisions, rules, "Material"));
 
   // What was refused by camlib, not cut, or needs a look: each with the rule behind it.
   const refused = (plan.decisions || []).filter((d) => d.rule.startsWith("execution.refused@") && d.outcome === "removed");
@@ -1040,12 +1030,83 @@ async function buildPlan(m) {
     }
   }
 
+  updatePlanSelection();
   applyFocus(false);
 }
 
 function showPlanList() {
   $("plan-detail").hidden = true;
   $("plan-body").hidden = false;
+  if (model?.planView) {
+    model.planView.full = false;
+    updatePlanSelection();
+  }
+}
+
+// One compact detail node moves below its row on phones and beside the list on desktop.
+const planPhone = matchMedia("(max-width: 700px)");
+planPhone.addEventListener("change", () => updatePlanSelection());
+function updatePlanSelection() {
+  const m = model, view = m?.planView;
+  if (!view) return;
+  const featureOp = m.features.get(pinKey)?.operations[0];
+  const current = (playing || time > 0) ? m.lines[currentLine()]?.op : null;
+  const key = m.operations.has(pinKey) ? pinKey : featureOp || current || m.operations.keys().next().value;
+  const o = m.operations.get(key);
+  if (!o) return;
+  let detail = $("plan-selected");
+  if (!detail) {
+    detail = document.createElement("div");
+    detail.id = "plan-selected";
+    detail.className = "plan-selected";
+  }
+  if (view.selected !== key || detail.dataset.operation !== key) {
+    view.selected = key;
+    detail.dataset.operation = key;
+    detail.replaceChildren();
+    const n = o.setup.operations.findIndex((op, i) => `${o.setup.id}-${i + 1}-${op.kind}` === key);
+    detail.insertAdjacentHTML("beforeend", `<h2>${n + 1}. ${escapeHtml(o.name)} · ${escapeHtml(o.tool || "no tool")} · ${o.time ? describeTime(o.time) : "not run"}</h2>`);
+    const tech = o.technology;
+    const cutting = tech ? [tech.spindle_rpm != null ? `${tech.spindle_rpm} rpm` : null, tech.feed_mm_min != null ? `F${tech.feed_mm_min}` : null, tech.plunge_mm_min != null ? `plunge ${tech.plunge_mm_min}` : null, tech.stepdown_mm != null ? `↓${tech.stepdown_mm}` : null, tech.stepover_mm != null ? `↔${tech.stepover_mm}` : null].filter(Boolean).join(" · ") : "";
+    detail.insertAdjacentHTML("beforeend", `<p class="plan-cutting" title="${escapeHtml(tech?.source || o.tool_note || "")}">${escapeHtml(o.tool || o.tool_note || "no tool")}${cutting ? ` · ${escapeHtml(cutting)}` : ""}</p>`);
+    for (const d of planWarnings(m).filter((d) => o.because?.includes(d.id))) {
+      const note = document.createElement("button");
+      note.type = "button"; note.className = "operation-warning";
+      note.textContent = `⚠ ${warningText(m, d, true)}`;
+      linkWarning(note, m, d);
+      detail.append(note);
+    }
+    detail.insertAdjacentHTML("beforeend", "<h3>Why</h3>");
+    const list = document.createElement("ul");
+    list.className = "compact-decisions";
+    for (const d of folded((o.because || []).map((id) => view.decisions.get(id)).filter(Boolean))) {
+      list.append(decisionItem(d, view.rules, true));
+    }
+    detail.append(list);
+    const metadata = document.createElement("details");
+    metadata.className = "operation-metadata";
+    metadata.innerHTML = "<summary>Features, setup and ISO 14649 ▸</summary>";
+    const setup = o.setup, lo = setup.stock.min, hi = setup.stock.max;
+    const onMachine = (m.data.plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
+    metadata.append(facts([
+      ["Setup", `${escapeHtml(setup.id)}${m.data.programs.some((p) => p.setup === setup.id) ? "" : " · not run"}. ${onMachine ? escapeHtml(onMachine.says) + ". " : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`],
+      ["Features", o.features?.length ? escapeHtml(o.features.map((id) => m.features.get(id)?.name || id).join(", ")) : "Whole part"],
+      ["ISO 14649", o.iso14649 ? `${escapeHtml(o.iso14649.operation || "no operation")} on ${escapeHtml(o.iso14649.feature)}${o.iso14649.bottom_condition ? `, ${escapeHtml(o.iso14649.bottom_condition)}` : ""}${o.iso14649.exact ? "" : " · closest"}${o.iso14649.note ? ` · ${escapeHtml(o.iso14649.note)}` : ""}` : null],
+      ["Cutting data", describeTechnology(tech)],
+    ]));
+    detail.append(metadata);
+    const full = document.createElement("button");
+    full.type = "button"; full.className = "full-view"; full.textContent = "Full view: tools considered and the rules";
+    full.addEventListener("click", () => showDetail(m, setup, o, n, key));
+    detail.append(full);
+    for (const [id, card] of view.cards) {
+      card.classList.toggle("is-selected", id === key);
+      card.firstChild.setAttribute("aria-expanded", String(id === key));
+    }
+  }
+  const parent = planPhone.matches ? view.cards.get(key) : $("plan-body").parentElement;
+  if (detail.parentElement !== parent) parent.append(detail);
+  detail.hidden = view.full;
 }
 
 // Decisions that say the same by the same rule (one per hole, say), folded into one with a count.
@@ -1065,6 +1126,9 @@ async function showDetail(m, setup, op, n, key) {
   const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
   const uses = new Map();
   for (const d of plan.decisions || []) uses.set(d.rule, (uses.get(d.rule) || 0) + 1);
+  if (model !== m) return;
+  m.planView.full = true;
+  $("plan-selected").hidden = true;
   host.replaceChildren();
   const back = document.createElement("button");
   back.type = "button"; back.className = "detail-back"; back.textContent = "Back to the plan";
@@ -1090,6 +1154,7 @@ async function showDetail(m, setup, op, n, key) {
     li.innerHTML = `<span class="n">${i + 1}</span><div><div${d.superseded_by ? ' style="text-decoration:line-through;color:var(--muted)"' : ""}>${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}</div><div class="rule-id" style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)}</div>`
       + (considered.length && d.stage === "tools" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Tools considered</span>${chosen ? `<span class="who chosen">${escapeHtml(chosen)}</span><span>chosen</span>` : ""}${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
       + (considered.length && d.stage === "setup" ? `<div class="considered"><span style="grid-column:1/-1;color:var(--muted);font-size:12px">Setups turned down</span>${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
+      + (considered.length && !["tools", "setup"].includes(d.stage) ? `<div class="considered">${considered.map((c) => `<span class="who">${escapeHtml(c.candidate)}</span><span>${escapeHtml(c.rejected)}</span>`).join("")}</div>` : "")
       + `</div>`;
     list.append(li);
   });
@@ -1252,10 +1317,11 @@ function setFocus(key) {
   applyFocus(true);
 }
 
-function setPin(key) {
+function setPin(key, scroll = true) {
   pinKey = key;
   focusKey = null;
-  applyFocus(true);
+  if (model?.planView) showPlanList();
+  applyFocus(scroll);
 }
 
 function linesOf(key) {
@@ -1343,6 +1409,7 @@ function seek(t) {
 }
 
 function drawPlayhead() {
+  updatePlanSelection();
   $("scrub").value = model.total ? Math.round(time / model.total * 1000) : 0;
   for (const el of document.querySelectorAll(".segment")) {
     const f = Math.max(0, Math.min(1, (time - el.dataset.start) / el.dataset.span));
@@ -1469,6 +1536,9 @@ function warningOperations(m, d) {
 function warningText(m, d, brief = false) {
   let text = d.says.replace("no source-admitted entry/route for component 0; choose a smaller radius or another entry strategy", "camlib found no way for that tool to enter it");
   if (brief && d.depth_diameter_ratio != null) text = `${Number(d.depth_diameter_ratio).toFixed(1)} × diameter deep: full-retract pecks`;
+  else if (brief && d.rule.startsWith("machine.clamping@") && d.jaw_cap_z != null) text = d.subject.endsWith(":roughing")
+    ? `side cutting stops at Z${trim(d.jaw_cap_z)} (jaws)`
+    : `below Z${trim(d.jaw_cap_z)} jaw clearance: left for a later setup`;
   else if (brief && d.radius != null) text = `Inside corners left r${trim(d.radius)} (${d.model_radius ? `model r${trim(d.model_radius)}` : "sharp in the model"})`;
   // Older subject-specific warnings still include their subject in the prose.
   for (const id of d.features || []) {
@@ -1513,7 +1583,7 @@ async function showWarnings(m, notes) {
   const details = document.createElement("details"), summary = document.createElement("summary");
   details.className = "banner-warnings";
   const labels = [...new Set(warned.map((d) => rules.get(d.rule)?.warning_label || "plan needs checking"))];
-  summary.textContent = `⚠ ${warned.length} warnings: ${labels.join(" · ")}`;
+  summary.textContent = `⚠ ${warned.length} ${warned.length === 1 ? "warning" : "warnings"}: ${labels.join(" · ")}`;
   details.append(summary);
   for (const d of warned) {
     const line = document.createElement("button");
@@ -1580,6 +1650,17 @@ function markMachine() {
   }
 }
 markMachine();
+// Read controller labels from the same libraries the worker plans with.
+for (const entry of machines) {
+  fetch(entry.file).then((response) => {
+    if (!response.ok) throw new Error("Machine library unavailable");
+    return response.json();
+  }).then((library) => {
+    const controller = library.machines?.[0]?.controller;
+    const label = ({ haas_ngc: "Haas NGC" })[controller] || (controller ? controller.replaceAll("_", " ") : "none");
+    document.querySelector(`[data-machine="${entry.machine}"] .tag`).textContent = label;
+  }).catch(() => { /* Leave the unavailable label until the library can be loaded. */ });
+}
 for (const button of document.querySelectorAll("[data-machine]")) {
   button.addEventListener("click", () => {
     const next = machines.find((m) => m.machine === button.dataset.machine);
@@ -1650,6 +1731,7 @@ $("code").addEventListener("click", (event) => {
   if (!row) return;
   const line = model.lines[Number(row.dataset.line)];
   if (line.last >= line.first) { setPlaying(false); seek(model.segments[line.last].end); }
+  if (model.operations.has(line.op)) setPin(line.op, false);
 });
 $("code").addEventListener("pointermove", (event) => {
   const row = event.target.closest("[data-line]");

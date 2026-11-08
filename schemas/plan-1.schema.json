@@ -2408,6 +2408,10 @@
     "message": {
      "type": "string"
     },
+    "jaw_cap_z": {
+     "type": "number",
+     "description": "Side-cutting jaw clearance cap in setup coordinates, in mm."
+    },
     "depth_diameter_ratio": {
      "type": "number",
      "description": "Unrounded drilling depth divided by drill diameter."
