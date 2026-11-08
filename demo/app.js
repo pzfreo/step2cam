@@ -686,6 +686,7 @@ function buildFeatureList(m) {
       select.type = "button"; select.className = className; select.innerHTML = html;
     }
     if (keyAlso) select.dataset.keyAlso = keyAlso;
+    if (members?.length > 1) select.dataset.members = JSON.stringify(members);
     const description = [name, count != null ? `×${count}` : null, detail, time].filter(Boolean).join(", ");
     select.title = description;
     select.setAttribute("aria-label", description);
@@ -720,6 +721,11 @@ function buildFeatureList(m) {
       }
       line.append(toggle);
       entry.append(chips);
+    } else {
+      const space = document.createElement("span");
+      space.className = "feature-toggle-space";
+      space.setAttribute("aria-hidden", "true");
+      line.append(space);
     }
     host.append(entry);
   };
@@ -728,11 +734,11 @@ function buildFeatureList(m) {
   if (holes.length) head("Features");
   for (const op of holes) {
     const slot = op.kind === "slot" || op.kind === "notch" || op.kind === "v_channel", edges = op.kind === "edge_chamfer";
-    const count = op.features.length;
+    const count = slot || edges ? 1 : op.features.length;
     const tool = [...m.segments].find((s) => s.op === op.id)?.tool;
     const what = op.kind === "notch" ? `to size, corners r${tool ? trim(tool.diameter / 2) : "?"}` : op.kind === "v_channel" ? `${tool ? `${tool.angle}° ${tool.id}` : "V-bit"}, to the root` : slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
     compactRow({ name: op.name, color: op.color, count, time: op.time ? describeTime(op.time) : "not run",
-      detail: what, key: op.id, keyAlso: count === 1 ? op.features[0] : null, members: op.features });
+      detail: what, key: op.id, keyAlso: count === 1 ? op.features[0] : null, members: count > 1 ? op.features : null });
   }
   // Recognised, with no operation of their own: like ones together, what was not cut first.
   const others = [...m.features.values()].filter((f) => !f.operations.length);
@@ -1198,8 +1204,10 @@ function linesOf(key) {
 function applyFocus(scroll) {
   if (!model) return;
   const key = activeFocus();
-  for (const el of document.querySelectorAll("[data-key]")) {
-    const matches = (target) => target && (el.dataset.key === target || el.dataset.keyAlso === target || model.operations.get(target)?.features?.includes(el.dataset.key));
+  for (const el of document.querySelectorAll("[data-key], [data-members]")) {
+    const matches = (target) => target && (el.dataset.key === target || el.dataset.keyAlso === target
+      || (el.dataset.members && JSON.parse(el.dataset.members).includes(target))
+      || model.operations.get(target)?.features?.includes(el.dataset.key));
     const on = matches(key);
     el.classList.toggle("is-lit", Boolean(on));
     el.classList.toggle("is-pinned", Boolean(matches(pinKey)));
