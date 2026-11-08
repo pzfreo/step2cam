@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 pub const RULES: &str = include_str!("../rulebase/rules.json");
 
 /// (version, stage) of each rule, by id.
-fn rules() -> &'static HashMap<String, (u64, String)> {
+pub(crate) fn rules() -> &'static HashMap<String, (u64, String)> {
     static RULES_BY_ID: OnceLock<HashMap<String, (u64, String)>> = OnceLock::new();
     RULES_BY_ID.get_or_init(|| {
         let doc: Value = serde_json::from_str(RULES).expect("rulebase/rules.json is JSON");
@@ -35,6 +35,7 @@ pub struct Trace {
     pub decisions: Vec<Value>,
     pub warnings: Vec<String>,
     pub skipped: Vec<Value>,
+    pub supplied: Vec<Value>,
 }
 
 impl Trace {
@@ -44,11 +45,12 @@ impl Trace {
         let mut list = |key: &str| plan.get_mut(key).and_then(Value::as_array_mut).map(std::mem::take).unwrap_or_default();
         let (decisions, skipped) = (list("decisions"), list("skipped"));
         let warnings = list("warnings").into_iter().filter_map(|w| w.as_str().map(String::from)).collect();
-        Self { decisions, warnings, skipped }
+        Self { decisions, warnings, skipped, supplied: plan["supplied_decisions"].as_array().cloned().unwrap_or_default() }
     }
 
     /// Puts the trace back into the plan.
     pub fn store(self, plan: &mut Value) {
+        plan["supplied_decisions"] = json!(self.supplied);
         plan["decisions"] = json!(self.decisions);
         plan["warnings"] = json!(self.warnings);
         plan["skipped"] = json!(self.skipped);
@@ -62,7 +64,7 @@ impl Trace {
         let id = format!("d-{}", self.decisions.len() + 1);
         let mut decision = json!({
             "id": id, "stage": stage, "rule": format!("{rule}@{version}"), "subject": subject,
-            "outcome": outcome, "says": says,
+            "outcome": outcome, "says": says, "source": "rule",
         });
         if let (Some(out), Some(more)) = (decision.as_object_mut(), detail.as_object()) {
             out.extend(more.clone());

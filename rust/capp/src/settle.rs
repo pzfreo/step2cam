@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
-    crate::workholding::validate_overrides(plan, library)?;
+    crate::supplied::load(plan, library)?;
     let mut trace = Trace::take(plan);
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
@@ -35,6 +35,7 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     let mut trace = Trace::take(plan);
     crate::clamping_history::check(plan, library, &mut trace);
     crate::machines::check_changer(plan, library, &mut trace);
+    trace.refuse_unused();
     trace.store(plan);
     crate::needed::collect(plan);
     Ok(())
@@ -375,13 +376,13 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
         let top = view["stock"]["max"][2].as_f64().ok_or("bad stock")?;
         let has_rough = view["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "roughing"));
-        for op in setup["operations"].as_array_mut().ok_or("setup has no operations")? {
+        for (index, op) in setup["operations"].as_array_mut().ok_or("setup has no operations")?.iter_mut().enumerate() {
             let kind = op["kind"].as_str().unwrap_or("").to_string();
             let features = || op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", ");
             // The tool, or why there is none (None: nothing to say); the rule; the candidates
             // turned down, and why.
             let mut considered: Vec<Value> = vec![];
-            let (chosen, rule): (Result<&Value, Option<String>>, &str) = match kind.as_str() {
+            let (mut chosen, rule): (Result<&Value, Option<String>>, &str) = match kind.as_str() {
                 "facing" | "roughing" => {
                     if library.data.get(format!("{kind}_tool")).and_then(Value::as_str).is_none_or(str::is_empty) {
                         considered = library.considered("largest_end_mill", &[]);
@@ -465,6 +466,23 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 _ => continue,
             };
             let subject = format!("{setup_id}:{kind}");
+            let operation = format!("{setup_id}-{}-{kind}", index + 1);
+            let mut supplied = None;
+            if view["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == kind).count() > 1
+                && let Some(n) = trace.supplied_for(rule, &subject, None) {
+                trace.refuse(n, "subject matches more than one operation; name operation explicitly");
+            }
+            if let Some(n) = trace.supplied_for(rule, &subject, Some(&operation))
+                && crate::supplied::supported(rule) {
+                    match library.supplied_tool(op, top, &trace.supplied[n]["choice"]) {
+                        Ok((tool, candidates)) => {
+                            considered = candidates;
+                            chosen = Ok(tool);
+                            supplied = Some(n);
+                        }
+                        Err(reason) => trace.refuse(n, &reason),
+                    }
+            }
             let (tool, note, decided) = match chosen {
                 Ok(tool) => {
                     let says = format!("{} cuts it", id(tool));
@@ -486,6 +504,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     (Value::Null, json!(note), decided)
                 }
             };
+            if let Some(n) = supplied { trace.accept(n, &decided); }
             let tool_type = tool.as_str().and_then(|t| library.data["tools"].as_array()?.iter().find(|x| x["id"] == t)?["type"].as_str());
             if let Some(names) = crate::reference::iso14649(op, tool_type) {
                 op["iso14649"] = names;

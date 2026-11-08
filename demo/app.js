@@ -793,8 +793,9 @@ function decisionItem(d, rules) {
   const li = document.createElement("li");
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
   const rule = rules.get(d.rule);
+  const sourceTag = d.source && d.source !== "rule" ? ` <span class="tag" title="${escapeHtml(d.reason || "")}">chosen by ${escapeHtml(d.source.replace(/^agent:/, ""))}</span>` : "";
   const rejected = (d.considered || []).filter((c) => c.rejected);
-  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
+  li.innerHTML = `<span class="says">${escapeHtml(d.says)}${sourceTag}${d.times ? ` <span class="tag">× ${d.times}</span>` : ""}${d.superseded_by ? ` <span class="tag">replaced by ${escapeHtml(d.superseded_by)}</span>` : ""}</span>`
     + `<span class="rule">${escapeHtml(STAGES[d.stage] || d.stage)} · ${escapeHtml(d.rule)} · ${escapeHtml(d.id)}</span>`
     + (rejected.length ? `<ul>${rejected.map((c) => `<li>${escapeHtml(c.candidate)}: ${escapeHtml(c.rejected)}</li>`).join("")}</ul>` : "");
   if (rule) {

@@ -48,7 +48,7 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             .iter()
             .filter_map(|(axis, d)| limit(axis).filter(|t| d > t).map(|t| format!("{} mm in {axis} against {} mm of travel", show(r(*d)), show(t))))
             .collect();
-        let clamping_failure = if over.is_empty() { crate::workholding::clamp(setup, vise, resources["overrides"]["clamping"].get(&setup_id), trace) } else { None };
+        let clamping_failure = if over.is_empty() { crate::workholding::supplied_clamp(setup, vise, trace) } else { None };
         if !over.is_empty() || clamping_failure.is_some() {
             let turned = limit("x").zip(limit("y")).is_some_and(|(tx, ty)| dy <= tx && dx <= ty && dz <= limit("z").unwrap_or(f64::INFINITY));
             let hint = if turned { "; turned 90° it would fit, which this plan does not do" } else { "" };

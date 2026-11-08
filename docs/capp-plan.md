@@ -88,18 +88,20 @@ fraction of stock height, or the part top plus side-cut clearance. When parallel
 grip above the maximum, the trace gives that maximum in mm and calls for taller parallels;
 a grip below the minimum calls for shorter parallels.
 
-Clamping proposals use the existing resources override path. For example, with 20 mm jaws:
+Clamping proposals use supplied decisions. For example, with 20 mm jaws:
 
 ```json
-{"overrides":{"clamping":{"top":{"axis":"x","grip_height_mm":3.5,"parallels_height_mm":16.5}}}}
+{"decisions":[{"rule":"machine.clamping","subject":"top","choice":{"axis":"x","grip_height_mm":3.5,"parallels_height_mm":16.5},"source":"user","reason":"shop fixture"}]}
 ```
 
 `axis` selects the setup stock's X or Y min/max face pair, and `grip_height_mm` is required.
 If `parallels_height_mm` is omitted it inherits the vise value; explicit null disables modeled
 parallels. A specified/inherited height must agree with the given grip and jaw height.
 Proposals pass the same opening, grip and part-clearance checks as chosen clamping and are
-traced with outcome `given`. Invalid proposals are refused, never replaced by a chosen grip;
-unknown/absent setup IDs are errors. A proposal needs complete vise dimensions.
+traced with outcome `given`. Invalid proposals are refused with their reason and the rule
+chooses clamping instead. Absent setup IDs are traced refusals. A proposal needs complete vise
+dimensions. `resources.overrides.clamping` is deprecated but still translated to supplied
+decisions with source `user` and a reason identifying the deprecated field.
 
 Later jobs still start from fresh stock (camlib#121), but their grip bands are audited now.
 After caps, exclusions and tool resolution, each later setup's two stock-face contact bands
@@ -394,3 +396,41 @@ For an enlarged countersink (larger than the following drill), the reviewer-appr
 spot-and-chamfer rule uses the countersink angle alone, matched within 1 degree. The
 selector receives a zero minimum angle for this query. Ordinary spots still require
 a point angle at least as large as the following twist drill's.
+
+### Supplied decisions
+
+`resources.decisions` is an array of `{rule, subject, choice, source, reason}` objects.
+`rule` accepts the trace rule ID with or without `@version`; the installed rule validates it.
+`subject` is exactly the trace subject. Sources are `user`, `agent`, or `agent:<name>`
+(for example `agent:shop`); `reason` explains the caller's choice.
+
+This round supports tool IDs for `tool.hole.drill_or_bore`, `tool.counterbore.bore_mill`,
+`tool.slot.bore_mill`, `tool.notch.pocket_mill`, `tool.thread_mill`,
+`tool.v_channel.v_bit`, and `tool.edge_chamfer.chamfer_mill`, plus the clamping object above.
+Hole choices may be drills or boring end mills. Every tool passes the same selector keep
+conditions and inputs as the rule. Clearing and follow-roughing tools, spot drills, setup
+order, and all other decisions are not suppliable this round; clearing still uses
+`roughing_tool` and `facing_tool`.
+
+When several operations share a subject such as `top:holes`, include `operation` with the
+execution name from the finished plan, for example `top-5-holes`. Ambiguous subjects are
+refused. A tool example (use the actual operation number in your plan):
+
+```json
+{"decisions":[{"rule":"tool.hole.drill_or_bore","subject":"top:holes","operation":"top-5-holes","choice":"drill4.2","source":"agent:shop","reason":"reserved drill available"}]}
+```
+
+Malformed entries (including unknown rule IDs and invalid sources) return an error from
+`finish`. Unacceptable choices, unsupported rules and unmatched subjects are refused:
+`requirement.supplied_refused` records the reason and a warning states that the rule's own
+choice is used. Rejection never bypasses the rule's ordinary feasibility checks.
+
+Every new trace decision has `source: "rule"` by default; an accepted supplied decision
+carries its source and reason. The page shows a source tag with the reason in its title.
+Older saved traces without `source` remain schema-compatible.
+
+The plan stores `supplied_decisions`, each with `accepted`, `decision` (the accepted decision
+or refusal warning ID), and `refusal_reason` when refused. Copy this list to a freshly planned
+plan before calling `finish` to replay choices without asking again. Stored status fields
+are recomputed. For the same rule ID, subject and optional operation, the last entry wins;
+precedence is stored plan, deprecated clamping, then explicit `resources.decisions`.

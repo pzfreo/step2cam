@@ -35,6 +35,8 @@ This means:
 
 1. **Supplied decisions (#58).** One mechanism for any decision to come from outside, checked
    against the rules, recorded with its source and reason, and stored in the plan.
+   The first implementation accepts selector-based operation tools and per-setup clamping
+   through `resources.decisions`; see [the plan contract](capp-plan.md#supplied-decisions).
 2. **Agent tools (#59).** specify-core, the planner and camlib behind one command-line and MCP
    interface, JSON in and out: analyse, answer, plan, simulate, benchmark, and post once camlib
    can post from Rust (stevecad/camlib#120).

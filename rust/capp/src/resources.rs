@@ -187,6 +187,47 @@ impl<'a> Library<'a> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::considered(selector, &self.tools, &inputs.iter().copied().collect(), &params).unwrap_or_else(|e| panic!("{e}"))
     }
+    /// Run the ordinary selector over exactly one supplied tool, with the operation's inputs.
+    pub(crate) fn supplied_tool(&self, op: &Value, top: f64, choice: &Value) -> Result<(&'a Value, Vec<Value>), String> {
+        let name = choice.as_str().ok_or("tool choice must be a tool id string")?;
+        let tool = self.tools.iter().copied().find(|t| id(t) == name).ok_or_else(|| {
+            self.too_big.iter().find(|(t, _)| id(t) == name).map(|(_, why)| why.clone()).unwrap_or_else(|| format!("{name} is not in the library"))
+        })?;
+        let (selector, inputs) = match op["kind"].as_str().unwrap_or("") {
+            "holes" if tool["type"] == "drill" => ("drill", vec![("diameter", num(op, "diameter")?), ("depth", self.drill_depth(op, top)?)]),
+            "holes" | "counterbore" => ("bore_mill", vec![("diameter", num(op, "diameter")?)]),
+            "slot" => ("bore_mill", vec![("diameter", num(op, "width")?)]),
+            "notch" => ("pocket_mill", vec![("width", num(op, "width")?), ("depth", num(op, "top_z")? - num(op, "floor_z")?)]),
+            "thread" => ("thread_mill", vec![("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?), ("pitch", num(op, "pitch")?), ("stock_top", top), ("bottom_z", num(op, "bottom_z")?)]),
+            "v_channel" => ("v_bit", vec![("angle", num(op, "angle")?)]),
+            "edge_chamfer" => ("chamfer_mill", vec![("width", num(op, "width")?), ("maximum_diameter", op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY)), ("depth", top - num(op, "top_z")? + num(op, "width")? + TIP_CLEARANCE), ("room", op["room"].as_f64().unwrap_or(f64::INFINITY))]),
+            _ => return Err("tool decision is not suppliable this round".into()),
+        };
+        let mut single = Self::new(self.data)?;
+        single.tools = vec![tool];
+        let (kept, why) = single.select(selector, &inputs)?;
+        let kept = kept.ok_or_else(|| why.first().map(|(_, reason)| reason.clone()).unwrap_or_else(|| format!("{name}: wrong tool type or selector keep conditions reject it")))?;
+        let mut queries = vec![(selector, inputs)];
+        if op["kind"] == "holes" {
+            queries.push(if selector == "drill" { ("bore_mill", vec![("diameter", num(op, "diameter")?)]) }
+                else { ("drill", vec![("diameter", num(op, "diameter")?), ("depth", self.drill_depth(op, top)?)]) });
+        }
+        let mut considered = vec![];
+        for (selector, inputs) in queries {
+            let mut candidates = self.considered(selector, &inputs);
+            if let Some(preferred) = self.select(selector, &inputs)?.0 {
+                candidates.push(serde_json::json!({"candidate": id(preferred), "rejected": "qualifies, but supplied choice is used"}));
+            }
+            for mut candidate in candidates {
+                if candidate["candidate"] == name { continue; }
+                if candidate["rejected"].as_str().is_some_and(|s| s.starts_with("qualifies, but")) {
+                    candidate["rejected"] = serde_json::json!("qualifies, but supplied choice is used");
+                }
+                considered.push(candidate);
+            }
+        }
+        Ok((kept, considered))
+    }
     /// The thread mill for this thread operation, and why the others were turned down.
     pub fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
         let inputs = [

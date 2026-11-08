@@ -1000,6 +1000,18 @@
      "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120° spots for 118° or 120° drills."
     }
    ]
+  },
+  {
+   "id": "requirement.supplied_refused",
+   "version": 1,
+   "stage": "requirements",
+   "rationale": "Supplied choices must pass the same checks as ruled choices. Refuse unacceptable or unsupported choices and use the rule choice.",
+   "code": "supplied.rs",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
   }
  ]
 }
