@@ -109,7 +109,15 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             programs.clear();
             break;
         };
-        exclusions.push(json!({"operation": operation, "message": failure.message}));
+        let mut parts = operation.splitn(3, '-');
+        let setup_id = parts.next().unwrap_or("");
+        let index = parts.next().and_then(|n| n.parse::<usize>().ok()).and_then(|n| n.checked_sub(1));
+        let refused_op = plan["setups"].as_array().and_then(|ss| ss.iter().find(|s| s["id"] == setup_id))
+            .and_then(|s| index.and_then(|i| s["operations"].get(i)));
+        let tool = refused_op.map(|op| op["tool"].clone()).unwrap_or(Value::Null);
+        let selection = plan["decisions"].as_array().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
+            && refused_op.is_some_and(|op| op["because"].as_array().is_some_and(|ids| ids.contains(&d["id"]))))).cloned();
+        exclusions.push(json!({"operation": operation, "message": failure.message, "tool": tool, "selection": selection}));
     }
     let needs: Vec<&str> = plan["tools_needed"].as_array().into_iter().flatten()
         .filter_map(|n| n["description"].as_str()).collect();

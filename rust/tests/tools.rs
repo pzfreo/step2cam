@@ -203,15 +203,16 @@ fn hole_tool_selection_checks_stock_breakthrough_and_point_before_the_job() {
     assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "long4.2");
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "long4.2");
     let (ops, _, _) = posted(&plan, &library);
-    assert!(of_kind(&ops, "drilling").is_empty());
-    assert_eq!(of_kind(&ops, "bore").len(), 1);
+    assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "drill4.2", "the short drill now goes to camlib");
+    assert!(of_kind(&ops, "bore").is_empty());
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "drill4.2");
     let settled = finished(&plan, &library);
     let hole = settled["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes").unwrap();
-    assert!(hole["tool"].is_null());
-    assert!(hole["tool_note"].as_str().unwrap().contains("with flutes of at least 13.01 mm plus point length"));
+    assert_eq!(hole["tool"], "drill4.2");
+    assert!(hole["tool_note"].is_null());
+    assert!(settled["decisions"].as_array().unwrap().iter().any(|d| d["says"].as_str().is_some_and(|s| s.contains("reach is left to camlib"))));
     let (ops, _, _) = posted(&plan, &library);
-    assert!(ops.is_empty());
+    assert_eq!(of_kind(&ops, "drilling")[0]["tool"], "drill4.2");
 }
 
 #[test]

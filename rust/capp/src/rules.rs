@@ -248,6 +248,17 @@ pub type Rejection = (String, String);
 /// The tool a selector prefers among those that qualify, and why each other one was turned down
 /// (where the selector has words for that), in library order.
 pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+    select_with_reach(selector, tools, inputs, params, false)
+}
+
+/// Keep the normal preference; only defer explicitly marked reach conditions if necessary.
+pub(crate) fn select_for_camlib<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+    let normal = select(selector, tools, inputs, params)?;
+    if normal.0.is_some() { return Ok(normal); }
+    Ok((select_with_reach(selector, tools, inputs, params, true)?.0, normal.1))
+}
+
+fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>, defer_reach: bool) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
     let rule = tools_rule(selector)?;
     let wanted = rule["tool_type"].as_str().ok_or_else(|| format!("selector {selector} has no tool_type"))?;
     let defaults = &rule["defaults"];
@@ -280,6 +291,7 @@ pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f6
         }
         let mut ok = true;
         for condition in rule["keep"].as_array().into_iter().flatten() {
+            if defer_reach && condition["reach"] == true { continue; }
             let lookup = |n: &str| lookup_in(&values, n);
             if eval(condition["if"].as_str().unwrap_or(""), &lookup)? == 0. {
                 if let Some(template) = condition["else_reject"].as_str() {

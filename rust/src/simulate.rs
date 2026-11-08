@@ -150,6 +150,32 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
     Ok(Some(MaterialComparison { report: *report, sweep_proof }))
 }
 
+/// Describe camlib's evidence; this does not decide whether any assembly part collides.
+fn stock_contact_reason(report: &camlib::stock_contact::Report, tool: &camlib::tool::ToolAssembly) -> Option<String> {
+    use camlib::verification::ToolPart;
+    let contacts: Vec<String> = report.findings.iter().filter(|c| c.finding.status == Status::Violation).map(|c| {
+        let f = &c.finding;
+        let part = match f.part { Some(ToolPart::Cutter) => "flutes", Some(ToolPart::Neck) => "neck", Some(ToolPart::Shank) => "shank", Some(ToolPart::Holder) => "holder", None => "tool assembly" };
+        let section = f.holder_section.map(|n| format!(" section {n}")).unwrap_or_default();
+        let point = c.contact_point_mm.or_else(|| f.witness.as_ref().map(|w| w.tip_mm));
+        let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{:.1}", p[0], p[1], p[2])).unwrap_or_default();
+        let mut text = format!("{}'s {part}{section} hits the stock{at} in {}", tool.id, report.operation);
+        if matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank))
+            && let Some(w) = &f.witness {
+                let reach = (report.stock.max_mm[2] - w.tip_mm[2] + 1.).ceil();
+                text.push_str(&format!(": needs an end mill of ⌀{} with stickout of at least {reach:.0} mm", tool.cutter.diameter_mm));
+                if f.part == Some(ToolPart::Holder) {
+                    let holder = f.holder_section.and_then(|n| tool.holders.get(n));
+                    if let Some(h) = holder {
+                        text.push_str(&format!(", or a narrower holder than the current ⌀{} mm", 2. * h.radius_min_mm.max(h.radius_max_mm)));
+                    }
+                }
+        }
+        text
+    }).collect();
+    (!contacts.is_empty()).then(|| format!("camlib refused {}: {}", report.operation, contacts.join("; ")))
+}
+
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
@@ -202,6 +228,10 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
                     let checked = binding.decode(&raw, producer.completed(), Some(&motion))?;
                     match checked.check.motion_status() {
                         Some(Status::Violation) => {
+                            if let Check::Motion { stock_contact: Some(report), .. } = &checked.check
+                                && let Some(reason) = stock_contact_reason(report, tool) {
+                                return Err(reason);
+                            }
                             if let Check::Motion { report: Some(report), .. } = &checked.check {
                                 let contacts: Vec<String> = report.findings.iter().filter(|f| f.status == Status::Violation)
                                     .map(|f| format!("{} ({:?}, {:?})", f.object_id, f.kind, f.part)).collect();
@@ -234,4 +264,40 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
     Ok(Run { moves, operations, uncertain, material, sweep_proof })
+}
+
+#[cfg(test)]
+mod contact_wording_tests {
+    use super::*;
+    use camlib::{stock_contact::{ContactFinding, Report}, verification::{Finding, FindingKind, ToolPart, Witness}};
+    use serde_json::json;
+
+    #[test]
+    fn relays_assembly_part_section_and_camlib_position() {
+        let tool = serde_json::from_value(json!({"id":"em6", "cutter":{"id":"em6", "shape":{"kind":"flat"}, "diameter_mm":6., "cutting_length_mm":80., "overall_length_mm":100., "shank_diameter_mm":6., "flutes":2, "center_cutting":true}, "stickout_mm":90., "gauge_length_mm":120., "holders":[{"z_min_mm":90., "z_max_mm":120., "radius_min_mm":20., "radius_max_mm":20.}]})).unwrap();
+        let mut report = Report {
+            algorithm: "continuous_stock_contact_v1".into(),
+            stock: camlib::stock::StockSpec { version:1, units:"mm".into(), min_mm:[0.,0.,-70.], max_mm:[60.,40.,0.], cell_size_mm:1., max_cells:10000 },
+            pre_generation:0, options_sha256:String::new(), tool_sha256:String::new(), motion_sha256:String::new(), motion_id:1,
+            operation:"top-3-notch".into(), tool:"em6".into(), scope:String::new(), status:Status::Violation, fully_examined:true,
+            findings:vec![ContactFinding {
+                finding:Finding {status:Status::Violation, kind:FindingKind::StockContact, object_id:"stock".into(), part:Some(ToolPart::Holder), holder_section:Some(0), fraction_interval:[0.,1.],
+                    witness:Some(Witness {fraction:0.5, tip_mm:[1.,2.,-64.2], section_height_mm:Some(90.), margin_lower_mm:0.1}), detail:"camlib evidence".into()},
+                cell_range:[0,0,1,1], solid_lower_mm:0., possible_upper_mm:0., contact_point_mm:Some([3.,4.,-1.])
+            }], stats:Default::default(), numerical_policy:String::new()
+        };
+        let text = stock_contact_reason(&report, &tool).unwrap();
+        assert!(text.contains("em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0 in top-3-notch"), "{text}");
+        assert!(text.contains(": needs an end mill of ⌀6 with stickout of at least 66 mm, or a narrower holder than the current ⌀40 mm"), "{text}");
+        for (part, name) in [(ToolPart::Shank,"shank"), (ToolPart::Neck,"neck"), (ToolPart::Cutter,"flutes")] {
+            report.findings[0].finding.part = Some(part);
+            report.findings[0].finding.holder_section = None;
+            report.findings[0].contact_point_mm = None;
+            let text = stock_contact_reason(&report, &tool).unwrap();
+            assert!(text.contains(&format!("em6's {name} hits the stock at X1.0 Y2.0 Z-64.2")), "{text}");
+            assert_eq!(text.contains(": needs "), part == ToolPart::Shank);
+        }
+        report.findings[0].finding.status = Status::Uncertain;
+        assert!(stock_contact_reason(&report, &tool).is_none());
+    }
 }

@@ -91,5 +91,26 @@ fn drill_selector_rejects_short_flutes_and_keeps_a_longer_equal_diameter() {
     let candidates = lib.considered("drill", &[("diameter", 5.), ("depth", 25.)]);
     assert!(candidates.iter().any(|c| c["candidate"] == "short"
         && c["rejected"].as_str().is_some_and(|s| s.contains("flutes do not reach 25.0 mm down") && s.contains("point"))), "{candidates:?}");
-    assert!(lib.drill(5., 25.001).is_none());
+    assert_eq!(lib.drill(5., 25.001).unwrap()["id"], "short", "when all are short, the normal first tie goes to camlib");
+}
+
+#[test]
+fn only_pocket_and_drill_reach_conditions_are_deferred() {
+    let rules: Value = serde_json::from_str(include_str!("../capp/rulebase/rules/tools.json")).unwrap();
+    let mut marked = vec![];
+    for selector in rules["selectors"].as_array().unwrap() {
+        for keep in selector["keep"].as_array().unwrap() {
+            if let Some(flag) = keep.get("reach") {
+                assert_eq!(flag, true);
+                assert!(keep["if"].as_str().unwrap().starts_with("tool.flute_length >="));
+                marked.push(selector["id"].as_str().unwrap());
+            }
+        }
+    }
+    assert_eq!(marked, ["drill", "pocket_mill"]);
+    let data = library(json!([mill("wide", 12.), mill("a6", 6.), mill("b6", 6.)]));
+    let lib = Library::new(&data).unwrap();
+    assert_eq!(lib.pocket_mill(10., 60.).unwrap()["id"], "b6");
+    assert!(lib.pocket_mill(1., 60.).is_none());
+    assert!(lib.considered("pocket_mill", &[("width", 10.), ("depth", 60.)]).iter().any(|c| c["candidate"] == "b6" && c["rejected"].as_str().unwrap().contains("flutes")));
 }
