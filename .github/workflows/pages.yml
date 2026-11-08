@@ -16,8 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup target add wasm32-unknown-unknown
-      # GitHub downloads time out now and then: try three times.
-      - run: npm install -g wasm-pack@0.15.1 || (sleep 30 && npm install -g wasm-pack@0.15.1) || (sleep 60 && npm install -g wasm-pack@0.15.1)
+      - name: wasm-pack, wasm-bindgen and wasm-opt, through GitHub's API
+        run: .github/install-wasm-tools.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: demo/build.sh
         env:
           GH_TOKEN: ${{ github.token }}
