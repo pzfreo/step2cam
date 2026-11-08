@@ -889,7 +889,7 @@
    "id": "process.hole.peck_by_depth",
    "version": 1,
    "stage": "tools",
-   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because through-tool coolant is not represented.",
+   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration.",
    "code": "reference.rs drilling; settle.rs tools",
    "sources": [
     {
@@ -898,7 +898,7 @@
     },
     {
      "kind": "step2cam",
-     "note": "Conservative constant increment and full retract without a through-tool coolant capability."
+     "note": "Conservative constant increment and full retract without a per-drill through-tool coolant declaration."
     }
    ]
   }

@@ -246,7 +246,7 @@ including requested breakthrough, excluding point allowance. Both Haas and Hanni
 the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
 Tool’s published ranges. Applying it as a constant across materials is a conservative starting
 policy, not a universal manufacturer value. Full retract is used at intermediate and greater depths because the
-library has no through-tool coolant capability, required by Haas's high-speed chip-break
+tool schema has no through-tool coolant declaration, required by Haas's high-speed chip-break
 guidance. A positive tool `peck_mm` caps the rule increment; zero or absent means no cap,
 and shallow holes still use one plunge. The settled operation's `technology` carries these
 camlib options and its trace cites `process.hole.peck_by_depth`.
