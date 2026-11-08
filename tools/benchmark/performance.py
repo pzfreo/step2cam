@@ -14,6 +14,15 @@ def parse_instructions(stderr):
     return int(match.group(1)) if match else None
 
 
+def strip_time_report(stderr):
+    # time -l appends its real/user/sys header and resource counters after the
+    # child's diagnostics. None of these variable measurements belongs in errors.
+    header = re.search(r'^\s*\S+\s+real\s+\S+\s+user\s+\S+\s+sys\s*$', stderr, re.M)
+    if header:
+        return stderr[:header.start()].rstrip()
+    return re.sub(r'^\s*\d+\s+instructions retired\s*$', '', stderr, flags=re.M).rstrip()
+
+
 class InstructionMeter:
     def __init__(self):
         self._lock = threading.Lock()

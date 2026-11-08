@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from performance import (InstructionMeter, STAGES, compare_instructions,
-                         instruction_summary, parse_instructions)
+                         instruction_summary, parse_instructions, strip_time_report)
 
 
 class InstructionTests(unittest.TestCase):
@@ -21,6 +21,7 @@ class InstructionTests(unittest.TestCase):
            123456789  cycles elapsed
 '''
         self.assertEqual(parse_instructions(stderr), 987654321)
+        self.assertEqual(strip_time_report(stderr), 'application diagnostic: analysis complete')
         self.assertEqual(parse_instructions('0 instructions retired\n'), 0)
         self.assertIsNone(parse_instructions('987 cycles elapsed\n'))
         self.assertIsNone(parse_instructions('diagnostic: 987 instructions retired\n'))

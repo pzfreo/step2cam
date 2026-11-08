@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from common import family, summarise_part, totals
 from fetch import RemoteZip, extract
-from performance import InstructionMeter, STAGES, instruction_summary
+from performance import InstructionMeter, STAGES, instruction_summary, strip_time_report
 
 REPO = HERE.parent.parent
 
@@ -53,7 +53,7 @@ def measured_command(args, stage, counts, meter, stdout=None):
     counts[stage] = meter.record(result.stderr)
     if result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} exited {result.returncode}: '
-                           f'{result.stderr.strip()[-4000:]}')
+                           f'{strip_time_report(result.stderr)[-4000:]}')
 
 
 def run_part(part, z, cache, tools, fetch_lock, process, meter):
