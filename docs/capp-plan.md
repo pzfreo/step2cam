@@ -249,7 +249,12 @@ policy, not a universal manufacturer value. Full retract is used at intermediate
 tool schema has no through-tool coolant declaration, required by Haas's high-speed chip-break
 guidance. A positive tool `peck_mm` caps the rule increment; zero or absent means no cap,
 and shallow holes still use one plunge. The settled operation's `technology` carries these
-camlib options and its trace cites `process.hole.peck_by_depth`.
+camlib options and its trace cites `process.hole.peck_by_depth`. Above the reference's 5×D
+threshold, the plan also warns with the hole feature IDs and depth/D ratio that deep-hole
+drilling (pilot plus deep-hole drill) is not planned, so full-retract pecks are used. The warning
+is linked to the operation in its trace. At or below 5×D this warning is absent; the threshold
+uses the same stock-top depth (including requested breakthrough) and selected drill diameter
+as the peck decision. It is a planning warning threshold, not a universal drill capability limit.
 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
 coolant settings cannot faithfully describe their single-lip geometry and coolant needs.

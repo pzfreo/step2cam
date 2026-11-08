@@ -887,9 +887,9 @@
   },
   {
    "id": "process.hole.peck_by_depth",
-   "version": 1,
+   "version": 2,
    "stage": "tools",
-   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration.",
+   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration. Above the reference deep-hole threshold (5D), warn and trace the hole identity and ratio: pilot plus deep-hole drilling is not planned, so full-retract pecking remains the fallback.",
    "code": "reference.rs drilling; settle.rs tools",
    "sources": [
     {

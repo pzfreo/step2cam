@@ -210,3 +210,34 @@ fn hole_tool_selection_checks_stock_breakthrough_and_point_before_the_job() {
     let (ops, _, _) = posted(&plan, &library);
     assert!(ops.is_empty());
 }
+
+#[test]
+fn deep_drilled_holes_warn_only_above_five_diameters_and_link_the_trace() {
+    let mut library = example_tools();
+    let drill = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "drill4.2").unwrap();
+    drill["flute_length"] = json!(60);
+    drill["overall_length"] = json!(100);
+    drill["stickout"] = json!(70);
+    for depth in [20.99, 21., 21.01, 25.2] {
+        let original = plan(&holes_only(&[down(0., 0., 4.2, depth, "flat")]), None, &top_stock(0.)).unwrap();
+        let plan = finished(&original, &library);
+        let warnings: Vec<_> = list(&plan["warnings"]).iter().filter_map(Value::as_str)
+            .filter(|s| s.contains("deep-hole drilling")).collect();
+        if depth <= 21. {
+            assert!(warnings.is_empty(), "depth {depth}: {warnings:?}");
+        } else {
+            assert_eq!(warnings.len(), 1, "depth {depth}: {warnings:?}");
+            let warning = warnings[0];
+            assert!(warning.contains("holes:0"), "{warning}");
+            assert!(warning.contains(&format!("depth/D {}", depth / 4.2)), "{warning}");
+            assert!(warning.contains("deep-hole drilling (pilot plus deep-hole drill) is not planned"), "{warning}");
+            assert!(warning.contains("drilled with full-retract pecks"), "{warning}");
+            let decision = list(&plan["decisions"]).iter().find(|d| d["outcome"] == "warning" && d["says"] == warning).unwrap();
+            assert_eq!(decision["rule"], "process.hole.peck_by_depth@2");
+            let op = list(&plan["setups"][0]["operations"]).iter().find(|o| o["kind"] == "holes").unwrap();
+            assert!(list(&op["because"]).contains(&decision["id"]));
+            assert_eq!(op["technology"]["peck_mode"], "full_retract");
+            assert_eq!(op["technology"]["peck_mm"], 2.1);
+        }
+    }
+}

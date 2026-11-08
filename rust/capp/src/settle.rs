@@ -335,7 +335,14 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
                 }
                 if kind == "holes" && spec["type"] == "drill" {
-                    let cycle = crate::reference::drilling(library.drill_depth(op, top)?, num(spec, "diameter")?, spec);
+                    let depth = library.drill_depth(op, top)?;
+                    let diameter = num(spec, "diameter")?;
+                    let cycle = crate::reference::drilling(depth, diameter, spec);
+                    if let Some(ratio) = crate::reference::deep_drilling_ratio(depth, diameter) {
+                        why.push(trace.warn("process.hole.peck_by_depth", &subject, format!(
+                            "{subject} [{}], depth/D {ratio}: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
+                            op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))));
+                    }
                     why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
                         "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
                         json!({"chosen": cycle})));

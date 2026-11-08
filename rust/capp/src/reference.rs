@@ -101,13 +101,23 @@ pub fn iso513_group(material: &str) -> Option<(String, String)> {
     None
 }
 
+fn drilling_parameters() -> &'static Value {
+    static DATA: OnceLock<Value> = OnceLock::new();
+    &DATA.get_or_init(|| table("drilling.json"))["parameters"]
+}
+
+/// Depth/D only for holes beyond the reference's deep-hole warning threshold.
+/// Use the same stock-top depth and drill diameter as the peck decision.
+pub fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
+    (depth > drilling_parameters()["deep_hole_above_d"].as_f64().unwrap() * diameter)
+        .then_some(depth / diameter)
+}
+
 /// Default drilling cycle for conventional drills. Depth includes stock above the feature
 /// and requested breakthrough; point height is a reach allowance, not the hole's depth.
 /// A positive library peck is a cap only when the rule calls for pecking; zero/absent is no cap.
 pub fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
-    static DATA: OnceLock<Value> = OnceLock::new();
-    let data = DATA.get_or_init(|| table("drilling.json"));
-    let p = &data["parameters"];
+    let p = drilling_parameters();
     let peck = if depth <= p["no_peck_through_d"].as_f64().unwrap() * diameter {
         None
     } else {
