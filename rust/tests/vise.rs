@@ -36,6 +36,14 @@ fn plate_jobs_have_clamping_and_camlib_clears_the_fixtures() {
             let rough = ops.iter().find(|o| o["kind"] == "roughing").unwrap();
             assert_eq!(rough["web_mm"], 4.8);
             assert_eq!(rough["floor_z"], -14.2);
+            // Top setup caps carry the limit; the front setup's grip-history audit is not a cap.
+            let jaw_warnings: Vec<_> = list(&plan["decisions"]).iter().filter(|d| d["rule"] == "machine.clamping@1" && d["outcome"] == "warning"
+                && d["subject"].as_str().is_some_and(|s| s == "top" || s.starts_with("top:"))).collect();
+            assert!(jaw_warnings.iter().any(|d| d["subject"] == "top:roughing"));
+            assert!(jaw_warnings.iter().any(|d| d["subject"] == "top"));
+            for warning in jaw_warnings {
+                assert_eq!(warning["jaw_cap_z"], -14.2, "{}", warning["says"]);
+            }
             let slot = ops.iter().find(|o| o["kind"] == "slot").unwrap();
             assert_eq!(slot["floor_z"], -19., "the enclosed slot does not reach a jaw");
             for notch in ops.iter().filter(|o| o["kind"] == "notch" && o["open"] == true) {
