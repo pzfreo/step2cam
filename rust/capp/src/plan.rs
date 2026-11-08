@@ -1113,9 +1113,11 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
         }
         let (depth, mut side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
         let mut radius = record["corner_radius"].as_f64().unwrap_or(0.).max(0.);
-        // Some slot records swap length and depth and report only the straight side-wall
-        // interval. Four matching concave quarter-rounds recover the true ends and radius.
-        if radius == 0. && feature["family"] == "slots" && open == 0. {
+        let mut side_open = if side_axis == depth_axis { open } else { 0. };
+        // Some records report only the straight side-wall interval. Four matching concave
+        // quarter-rounds recover a closed recess; a pair recovers its closed end and implies
+        // an opening at the other end, which the mesh/run-out check must confirm.
+        if radius == 0. && ["slots", "pockets"].contains(&feature["family"].as_str().unwrap_or("")) && side_open == 0. {
             let mut corners = vec![];
             for other in cx.all_features {
                 let rec = &other["record"];
@@ -1128,15 +1130,24 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
                 let high = (p[side_axis] - (side.1 + rad * std::f64::consts::FRAC_1_SQRT_2)).abs() < 0.002;
                 if near_width && (low || high) { corners.push((rad, p[w] > w_center, high)); }
             }
-            if corners.len() == 4 && corners.iter().all(|c| (c.0-corners[0].0).abs() < LEVEL_EPS)
-                && [false,true].into_iter().all(|w| [false,true].into_iter().all(|l| corners.iter().filter(|c| c.1==w && c.2==l).count()==1)) {
+            let same_radius = !corners.is_empty() && corners.iter().all(|c| (c.0-corners[0].0).abs() < LEVEL_EPS);
+            let pair_at = |end| [false, true].into_iter().all(|w| corners.iter().filter(|c| c.1 == w && c.2 == end).count() == 1);
+            if same_radius && corners.len() == 4 && pair_at(false) && pair_at(true) {
                 radius = corners[0].0;
-                side = (side.0-radius,side.1+radius);
+                side = (side.0-radius, side.1+radius);
+            } else if same_radius && corners.len() == 2 && (pair_at(false) || pair_at(true)) {
+                radius = corners[0].0;
+                if pair_at(false) {
+                    side.0 -= radius;
+                    side_open = 1.;
+                } else {
+                    side.1 += radius;
+                    side_open = -1.;
+                }
             }
         }
-        // A pocket opening along the tool has no side to run out of.
-        let run_out = if side_axis == depth_axis { width / 2. + 1. } else { 0. };
-        let side_ends = (side.0 - if open < 0. { run_out } else { 0. }, side.1 + if open > 0. { run_out } else { 0. });
+        let run_out = if side_open != 0. { width / 2. + 1. } else { 0. };
+        let side_ends = (side.0 - if side_open < 0. { run_out } else { 0. }, side.1 + if side_open > 0. { run_out } else { 0. });
         let model = |width_at: f64, side_at: f64, depth_at: f64| {
             let mut p = [0.; 3];
             p[w] = width_at;
@@ -1186,8 +1197,8 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
             }
         }
         return Ok(Some((name, json!({
-            "kind": "notch", "width": r(width), "length": r(side.1 - side.0), "open": open != 0. && run_out > 0.,
-            "outer": rounded_rectangle(lo, hi, radius), "corner_radius": r(radius), "inside_corners": if open != 0. && run_out > 0. { 2 } else { 4 },
+            "kind": "notch", "width": r(width), "length": r(side.1 - side.0), "open": side_open != 0.,
+            "outer": rounded_rectangle(lo, hi, radius), "corner_radius": r(radius), "inside_corners": if side_open != 0. { 2 } else { 4 },
             "top_z": r(part_top), "floor_z": r(if through { part } else { floor }), "wall_top": r(top), "bottom": if through { "through" } else { "blind" },
             "features": features,
         }))));

@@ -143,7 +143,7 @@ fn rectangular_plan() -> (Value, Value) {
 fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations() {
     let (analysis, plan) = rectangular_plan();
     let ops: Vec<_> = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).filter(|o| o["kind"] == "notch").collect();
-    assert_eq!(ops.len(), 3, "{plan}");
+    assert_eq!(ops.len(), 4, "{plan}");
     let warnings = plan["warnings"].as_array().unwrap();
     let extent = |op: &Value, k: usize| {
         let values: Vec<_> = op["outer"].as_array().unwrap().iter().map(|p| p[k].as_f64().unwrap()).collect();
@@ -153,8 +153,9 @@ fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations()
         ("pockets", 10., 24., 0., "em8", 4., 4),
         ("pockets", 8., 20., 3., "em6", 3., 4),
         ("rectangular_blind_slots", 8., 26., 0., "em6", 3., 2),
+        ("pockets", 8., 30., 2., "em6", 3., 2),
     ] {
-        let feature = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == family && f["record"]["width"] == width).unwrap();
+        let feature = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == family && f["record"]["width"] == width && (radius != 3. || f["record"]["corner_radius"] == 3.) && (radius != 2. || f["record"]["corner_radius"].is_null())).unwrap();
         let id = feature["id"].as_str().unwrap();
         let matches: Vec<_> = ops.iter().filter(|o| o["features"].as_array().unwrap().contains(&feature["id"])).collect();
         assert_eq!(matches.len(), 1, "{id}");
@@ -169,8 +170,10 @@ fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations()
         if radius < left {
             assert_eq!(own_warnings.len(), 1, "{own_warnings:?}");
             let warning = own_warnings[0];
-            assert!(warning.contains(&format!("its {corners} square inside corners are left r{left:.1} by {tool}")), "{warning}");
-            assert!(warning.contains("the model has them sharp"));
+            let shape = if radius == 0. { "square inside corners" } else { "inside corners" };
+            assert!(warning.contains(&format!("its {corners} {shape} are left r{left:.1} by {tool}")), "{warning}");
+            let model = if radius == 0. { "the model has them sharp".to_string() } else { format!("the model has r{radius:.1}") };
+            assert!(warning.contains(&model));
             let decision = plan["decisions"].as_array().unwrap().iter().find(|d| d["says"] == warning).unwrap();
             assert_eq!(decision["rule"], "process.notch.corner_radius@1");
             assert!(op["because"].as_array().unwrap().contains(&decision["id"]));
@@ -180,6 +183,13 @@ fn rectangular_recesses_have_their_own_operations_and_report_corner_deviations()
             assert_eq!(op["outer"].as_array().unwrap().iter().filter(|p| p[2].as_f64().unwrap() > 0.4).count(), 4);
             for blend in analysis["features"].as_array().unwrap().iter().filter(|f| f["family"] == "blends") {
                 assert!(op["features"].as_array().unwrap().contains(&blend["id"]), "{blend}");
+            }
+        }
+        if radius == 2. {
+            let fillets: Vec<_> = analysis["features"].as_array().unwrap().iter().filter(|f| f["family"] == "fillets" && f["record"]["radius"] == 2.).collect();
+            assert_eq!(fillets.len(), 2);
+            for fillet in fillets {
+                assert!(op["features"].as_array().unwrap().contains(&fillet["id"]));
             }
         }
         assert!(!plan["covered_by_roughing"].as_array().unwrap().contains(&feature["id"]));
