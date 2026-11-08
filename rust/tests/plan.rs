@@ -372,8 +372,9 @@ fn not_an_analysis() {
     assert!(plan(&json!({"hello": 1}), None, &Default::default()).is_err());
 }
 
-/// FromStep's round trip: tests/fixtures/plate-m5.analysis.json is specify-core's analysis of the
-/// plate after specify_core.api wrote `hole.function:holes:12 = tapped:M5` into its STEP file.
+/// FromStep's round trip: tests/fixtures/plate-m5.analysis.json is specify-core's analysis of
+/// tests/fixtures/plate-m5.step, the plate after specify-core wrote `hole.function:holes:12 =
+/// tapped:M5` into it (tests/fixtures/answers/plate-m5.answers.json).
 #[test]
 fn a_thread_written_by_specify_is_milled() {
     let plan = no_mesh(&fixture("plate-m5.analysis.json"), &Default::default());

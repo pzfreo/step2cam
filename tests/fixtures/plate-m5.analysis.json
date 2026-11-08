@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "binding": {
-  "source_sha256": "07d6be7deaf27afcd777bb49b73a80b3fa86d4a19f286fa27b224bff70991e98",
+  "source_sha256": "a080e942c9286971fc9f4a77c2c973e98ece16ee435ec3587963df7278a0a25c",
   "face_count": 14,
   "loader_version": 2,
   "part": 0
@@ -988,21 +988,25 @@
  },
  "existing": [],
  "part": {},
+ "process": {
+  "value": "machined",
+  "source": "answered"
+ },
  "resume": {
   "answers": {
    "part.surface_finish": "Ra 3.2",
    "datum.A": [
     2
    ],
-   "datum.A.flatness": "none",
+   "datum.A.flatness": "0.02",
    "datum.B": [
     1
    ],
-   "datum.B.control": "none",
+   "datum.B.control": "0.05",
    "datum.C": [
     0
    ],
-   "datum.C.control": "none",
+   "datum.C.control": "0.05",
    "hole.function:hole_patterns.grid:6.7.8.10.11.13": "clearance:M6",
    "hole.function:holes:12": "tapped:M5",
    "hole.function:holes:9": "general",
@@ -1014,7 +1018,8 @@
    "part.heat_treatment": "None",
    "part.locating": "position tolerances",
    "part.material": "6082-T6",
-   "part.notes": []
+   "part.notes": [],
+   "part.process": "machined"
   }
  },
  "characteristics": [
@@ -1046,7 +1051,7 @@
    ]
   },
   {
-   "number": 7,
+   "number": 8,
    "entity": 1074,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1067,7 +1072,7 @@
    }
   },
   {
-   "number": 6,
+   "number": 7,
    "entity": 1079,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1088,7 +1093,7 @@
    }
   },
   {
-   "number": 15,
+   "number": 16,
    "entity": 1084,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1109,7 +1114,7 @@
    }
   },
   {
-   "number": 10,
+   "number": 11,
    "entity": 1089,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1140,7 +1145,7 @@
    }
   },
   {
-   "number": 14,
+   "number": 15,
    "entity": 1094,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1173,7 +1178,7 @@
    }
   },
   {
-   "number": 8,
+   "number": 9,
    "entity": 1099,
    "kind": "dimension",
    "type": "Size_Diameter",
@@ -1201,7 +1206,7 @@
    }
   },
   {
-   "number": 9,
+   "number": 10,
    "entity": 1105,
    "kind": "dimension",
    "type": "Size_Diameter",
@@ -1219,7 +1224,7 @@
    }
   },
   {
-   "number": 11,
+   "number": 12,
    "entity": 1109,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1240,7 +1245,7 @@
    }
   },
   {
-   "number": 5,
+   "number": 6,
    "entity": 1113,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1253,7 +1258,7 @@
    "origin": "general_tolerance"
   },
   {
-   "number": 12,
+   "number": 13,
    "entity": 1117,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1274,7 +1279,7 @@
    }
   },
   {
-   "number": 18,
+   "number": 21,
    "entity": 1121,
    "kind": "dimension",
    "type": "Location_LinearDistance",
@@ -1300,7 +1305,7 @@
    "origin": "general_tolerance"
   },
   {
-   "number": 16,
+   "number": 17,
    "entity": 1134,
    "kind": "geometric_tolerance",
    "type": "Position",
@@ -1309,7 +1314,7 @@
    ]
   },
   {
-   "number": 13,
+   "number": 14,
    "entity": 1138,
    "kind": "geometric_tolerance",
    "type": "Position",
@@ -1324,14 +1329,41 @@
   },
   {
    "number": 19,
-   "entity": 1351,
+   "entity": 1142,
+   "kind": "geometric_tolerance",
+   "type": "Flatness",
+   "faces": [
+    2
+   ]
+  },
+  {
+   "number": 20,
+   "entity": 1146,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    1
+   ]
+  },
+  {
+   "number": 5,
+   "entity": 1151,
+   "kind": "geometric_tolerance",
+   "type": "Perpendicularity",
+   "faces": [
+    0
+   ]
+  },
+  {
+   "number": 22,
+   "entity": 1368,
    "kind": "surface_texture",
    "type": "Ra",
    "faces": []
   },
   {
-   "number": 17,
-   "entity": 1146,
+   "number": 18,
+   "entity": 1157,
    "kind": "thread",
    "type": "Internal",
    "faces": [
