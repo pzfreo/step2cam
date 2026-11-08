@@ -161,8 +161,7 @@
           {
             "family": "fillets",
             "id": "fillets:19",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           },
           {
             "family": "holes",
@@ -199,8 +198,7 @@
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "left_out",
-            "reason": "no operation of its own, and roughing was refused"
+            "outcome": "covered"
           }
         ],
         "label_counts": {
@@ -258,13 +256,12 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec",
+          "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #"
         ]
       },
       {
@@ -463,47 +460,56 @@
           {
             "family": "channels",
             "id": "channels:13.14",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:21",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:22",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:23",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:24",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:30",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:31",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:32",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:33",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "holes",
@@ -533,17 +539,20 @@
           {
             "family": "plates",
             "id": "plates:6.14",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:17",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:20",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           }
         ],
         "label_counts": {
@@ -622,7 +631,11 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance"
+          "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
         ]
       },
       {
@@ -4956,42 +4969,50 @@
           {
             "family": "blends",
             "id": "blends:23",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:24",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:25",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:26",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:32",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:33",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:34",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "blends",
             "id": "blends:35",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "chamfers",
@@ -5020,12 +5041,14 @@
           {
             "family": "channels",
             "id": "channels:15.16",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "fillets",
             "id": "fillets:14",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "hole_patterns",
@@ -5065,47 +5088,56 @@
           {
             "family": "pockets",
             "id": "pockets:18.19.20.21",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "pockets",
             "id": "pockets:27.28.29.31",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:18.19.20.21.23.24.25.26",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "section_recesses",
             "id": "section_recesses:27.28.29.31.32.33.34.35",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:11",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:15",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:16",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:27",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           },
           {
             "family": "step_levels",
             "id": "step_levels:29",
-            "outcome": "covered"
+            "outcome": "left_out",
+            "reason": "no operation of its own, and roughing was refused"
           }
         ],
         "label_counts": {
@@ -5188,7 +5220,12 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance"
+          "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
+          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
         ]
       },
       {
@@ -5467,7 +5504,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
+          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
       {
@@ -6375,7 +6412,7 @@
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
           "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #",
-          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
+          "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #"
         ]
       },
       {
@@ -6965,7 +7002,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: constructed region failed topology validation: component #, boundary #: ring # needs at least three points; boundary prefixes [[[#, #"
+          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
         ]
       },
       {
@@ -10926,7 +10963,7 @@
         "warnings": [
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
         ]
       },
       {
@@ -11134,7 +11171,7 @@
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
           "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished",
-          "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth"
+          "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy"
         ]
       },
       {
@@ -12328,19 +12365,19 @@
       },
       "left_out_reasons": {
         "blends": {
-          "no operation of its own, and roughing was refused": 152
+          "no operation of its own, and roughing was refused": 160
         },
         "chamfers": {
           "chamfer: no operation cuts it, so the edge stays sharp (chamfer it by hand)": 187
         },
         "channels": {
-          "no operation of its own, and roughing was refused": 18
+          "no operation of its own, and roughing was refused": 20
         },
         "cylindrical_profiles": {
           "no operation of its own, and roughing was refused": 1
         },
         "fillets": {
-          "no operation of its own, and roughing was refused": 152
+          "no operation of its own, and roughing was refused": 160
         },
         "holes": {
           "left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #": 119,
@@ -12348,36 +12385,36 @@
           "part material above its opening from top: a three-axis tool cannot reach it": 3
         },
         "plates": {
-          "no operation of its own, and roughing was refused": 3
+          "no operation of its own, and roughing was refused": 4
         },
         "pockets": {
-          "no operation of its own, and roughing was refused": 30
+          "no operation of its own, and roughing was refused": 32
         },
         "section_recesses": {
-          "no operation of its own, and roughing was refused": 48
+          "no operation of its own, and roughing was refused": 50
         },
         "step_levels": {
-          "no operation of its own, and roughing was refused": 166
+          "no operation of its own, and roughing was refused": 172
         }
       },
       "outcomes": {
         "blends": {
-          "covered": 56,
-          "left_out": 152
+          "covered": 48,
+          "left_out": 160
         },
         "chamfers": {
           "left_out": 187
         },
         "channels": {
-          "covered": 6,
-          "left_out": 18
+          "covered": 4,
+          "left_out": 20
         },
         "cylindrical_profiles": {
           "left_out": 1
         },
         "fillets": {
-          "covered": 62,
-          "left_out": 152
+          "covered": 54,
+          "left_out": 160
         },
         "hole_patterns": {
           "unaccounted": 15
@@ -12387,25 +12424,25 @@
           "left_out": 125
         },
         "plates": {
-          "covered": 2,
-          "left_out": 3
+          "covered": 1,
+          "left_out": 4
         },
         "pockets": {
-          "covered": 14,
+          "covered": 12,
           "cut": 21,
-          "left_out": 30
+          "left_out": 32
         },
         "section_recesses": {
-          "covered": 14,
-          "left_out": 48
+          "covered": 12,
+          "left_out": 50
         },
         "slots": {
           "cut": 1
         },
         "step_levels": {
-          "covered": 60,
+          "covered": 54,
           "cut": 2,
-          "left_out": 166
+          "left_out": 172
         }
       },
       "parts": 100,
@@ -12439,544 +12476,543 @@
       },
       "warnings": {
         "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance": 16,
-        "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 171,
+        "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 174,
         "top-#-holes left out: setup top: invalid bore parameters: bore depth # below the stock top exceeds the cutting length #": 88,
         "top-#-holes left out: setup top: invalid drilling parameters: hole depth # below the stock top exceeds the cutting length #": 3,
-        "top-#-roughing left out: setup top: constructed region failed topology validation: component #, boundary #: ring # needs at least three points; boundary prefixes [[[#, #": 1,
-        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 6,
+        "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 5,
         "top-#-roughing left out: setup top: invalid pocket parameters: stepdown_mm # exceeds the cutting length #": 66,
-        "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy": 1,
-        "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 43,
-        "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #": 3
+        "top-#-roughing left out: setup top: no source-admitted entry/route for component #; choose a smaller radius or another entry strategy": 4,
+        "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 46,
+        "top-#-wall_finish left out: setup top: invalid contour parameters: contour depth # below the stock top exceeds the cutting length #": 4
       }
     }
   },
   "instructions": {
     "parts": {
       "featured_part_00036": {
-        "analyse": 4764413078,
-        "mesh": 384297571,
-        "process": 13683140649
+        "analyse": 4758793099,
+        "mesh": 385250010,
+        "process": 13376398751
       },
       "featured_part_00165": {
-        "analyse": 1531357528,
-        "mesh": 405284862,
-        "process": 6548885570
+        "analyse": 1527880044,
+        "mesh": 410403864,
+        "process": 41796044870
       },
       "featured_part_00222": {
-        "analyse": 1527502014,
-        "mesh": 424055657,
-        "process": 5976170123
+        "analyse": 1528532628,
+        "mesh": 432765498,
+        "process": 5216830258
       },
       "featured_part_00396": {
-        "analyse": 2172182842,
-        "mesh": 516438286,
-        "process": 11331981136
+        "analyse": 2180564242,
+        "mesh": 523146893,
+        "process": 4808803090
       },
       "featured_part_00411": {
-        "analyse": 8419775243,
-        "mesh": 452457515,
-        "process": 26554420005
+        "analyse": 8426015038,
+        "mesh": 450226538,
+        "process": 23527578334
       },
       "featured_part_00466": {
-        "analyse": 1417435925,
-        "mesh": 412953290,
-        "process": 23576166750
+        "analyse": 1418420723,
+        "mesh": 410375036,
+        "process": 19535934033
       },
       "featured_part_00518": {
-        "analyse": 1340414039,
-        "mesh": 379174624,
-        "process": 5917983600
+        "analyse": 1332387960,
+        "mesh": 375839835,
+        "process": 5679842945
       },
       "featured_part_00530": {
-        "analyse": 10962410272,
-        "mesh": 463776198,
-        "process": 5692686793
+        "analyse": 10979045952,
+        "mesh": 464271489,
+        "process": 4854065790
       },
       "featured_part_00539": {
-        "analyse": 5870897772,
-        "mesh": 422507403,
-        "process": 5168680741
+        "analyse": 5885571982,
+        "mesh": 430038128,
+        "process": 4398115204
       },
       "featured_part_00558": {
-        "analyse": 1280357027,
-        "mesh": 414286257,
-        "process": 46083320792
+        "analyse": 1279826843,
+        "mesh": 414838558,
+        "process": 39064848692
       },
       "featured_part_00633": {
-        "analyse": 1830172015,
-        "mesh": 398379919,
-        "process": 16539172078
+        "analyse": 1835229440,
+        "mesh": 403413657,
+        "process": 16141978204
       },
       "featured_part_00807": {
-        "analyse": 1595315619,
-        "mesh": 468335239,
-        "process": 44825078244
+        "analyse": 1605933370,
+        "mesh": 467563996,
+        "process": 51038982146
       },
       "featured_part_01169": {
-        "analyse": 1862506262,
-        "mesh": 346958099,
-        "process": 2830089326
+        "analyse": 1879381139,
+        "mesh": 347680749,
+        "process": 3065044946
       },
       "featured_part_01614": {
-        "analyse": 620358783,
-        "mesh": 310415269,
-        "process": 3264980049
+        "analyse": 622255677,
+        "mesh": 314015277,
+        "process": 6427952356
       },
       "featured_part_01746": {
-        "analyse": 6800263343,
-        "mesh": 425816615,
-        "process": 3270019848
+        "analyse": 6806146714,
+        "mesh": 423256461,
+        "process": 3378143326
       },
       "featured_part_01861": {
-        "analyse": 5973672946,
-        "mesh": 461596654,
-        "process": 9080225513
+        "analyse": 5992910927,
+        "mesh": 464236577,
+        "process": 5988454533
       },
       "featured_part_01906": {
-        "analyse": 963362197,
-        "mesh": 405045031,
-        "process": 7001984782
+        "analyse": 962664815,
+        "mesh": 405159718,
+        "process": 5554332684
       },
       "featured_part_02017": {
-        "analyse": 1676093075,
-        "mesh": 459690378,
-        "process": 7247260966
+        "analyse": 1681939778,
+        "mesh": 459533815,
+        "process": 7037504317
       },
       "featured_part_02212": {
-        "analyse": 3319863260,
-        "mesh": 483668208,
-        "process": 5390107508
+        "analyse": 3313868288,
+        "mesh": 483831571,
+        "process": 4427023399
       },
       "featured_part_02270": {
-        "analyse": 1188997053,
-        "mesh": 389418583,
-        "process": 7842550454
+        "analyse": 1198107397,
+        "mesh": 389031277,
+        "process": 6963706497
       },
       "featured_part_02517": {
-        "analyse": 4721969207,
-        "mesh": 356807299,
-        "process": 5150725652
+        "analyse": 4744251838,
+        "mesh": 357464478,
+        "process": 4831148771
       },
       "featured_part_03074": {
-        "analyse": 3967230565,
-        "mesh": 530210643,
-        "process": 10940819472
+        "analyse": 3970548075,
+        "mesh": 528348280,
+        "process": 8523863763
       },
       "featured_part_03166": {
-        "analyse": 9772555186,
-        "mesh": 424390891,
-        "process": 3258333871
+        "analyse": 9793329445,
+        "mesh": 431442048,
+        "process": 2971604988
       },
       "featured_part_03199": {
-        "analyse": 1405820857,
-        "mesh": 402302593,
-        "process": 31412087685
+        "analyse": 1407057998,
+        "mesh": 403800315,
+        "process": 26054021270
       },
       "featured_part_03248": {
-        "analyse": 1745168380,
-        "mesh": 419296395,
-        "process": 8220265158
+        "analyse": 1750893801,
+        "mesh": 419070561,
+        "process": 7087016950
       },
       "featured_part_03487": {
-        "analyse": 949459261,
-        "mesh": 347825493,
-        "process": 13014722877
+        "analyse": 951774036,
+        "mesh": 348733704,
+        "process": 12436781380
       },
       "featured_part_03557": {
-        "analyse": 594874653,
-        "mesh": 321415830,
-        "process": 3039447375
+        "analyse": 597876382,
+        "mesh": 331281531,
+        "process": 2937358045
       },
       "featured_part_03743": {
-        "analyse": 1081290066,
-        "mesh": 329406034,
-        "process": 9483717960
+        "analyse": 1091231367,
+        "mesh": 331271316,
+        "process": 8956608696
       },
       "featured_part_03944": {
-        "analyse": 1234271589,
-        "mesh": 406697435,
-        "process": 7125060022
+        "analyse": 1232848509,
+        "mesh": 403667955,
+        "process": 6587274376
       },
       "featured_part_04074": {
-        "analyse": 7755753179,
-        "mesh": 446513700,
-        "process": 28469543791
+        "analyse": 7760377876,
+        "mesh": 446854115,
+        "process": 26326881088
       },
       "featured_part_04111": {
-        "analyse": 1097726477,
-        "mesh": 353546288,
-        "process": 3846230324
+        "analyse": 1100210434,
+        "mesh": 355204903,
+        "process": 3568889806
       },
       "featured_part_04168": {
-        "analyse": 11713652852,
-        "mesh": 528433210,
-        "process": 5189256090
+        "analyse": 11736034794,
+        "mesh": 528831348,
+        "process": 4921912196
       },
       "featured_part_04267": {
-        "analyse": 13276653272,
-        "mesh": 407560594,
-        "process": 4236772270
+        "analyse": 13293402072,
+        "mesh": 414671876,
+        "process": 4460124373
       },
       "featured_part_04301": {
-        "analyse": 7858857345,
-        "mesh": 424075860,
-        "process": 14939363322
+        "analyse": 7860990874,
+        "mesh": 421667496,
+        "process": 14569334999
       },
       "featured_part_04343": {
-        "analyse": 2300112452,
-        "mesh": 381905166,
-        "process": 6338243053
+        "analyse": 2300196417,
+        "mesh": 383555277,
+        "process": 6130201653
       },
       "featured_part_04365": {
-        "analyse": 13699118570,
-        "mesh": 517692418,
-        "process": 25565147759
+        "analyse": 13746746650,
+        "mesh": 522577208,
+        "process": 6632150316
       },
       "featured_part_04381": {
-        "analyse": 7539111009,
-        "mesh": 463195417,
-        "process": 8694884044
+        "analyse": 7549059889,
+        "mesh": 462486334,
+        "process": 5684916414
       },
       "featured_part_04561": {
-        "analyse": 1191806190,
-        "mesh": 388749491,
-        "process": 6480588967
+        "analyse": 1190931959,
+        "mesh": 391752844,
+        "process": 4801375458
       },
       "featured_part_04785": {
-        "analyse": 915356808,
-        "mesh": 329985657,
-        "process": 3993892880
+        "analyse": 941797411,
+        "mesh": 330683170,
+        "process": 3623127792
       },
       "featured_part_04989": {
-        "analyse": 2383957216,
-        "mesh": 381405183,
-        "process": 5222873892
+        "analyse": 2395844156,
+        "mesh": 381306338,
+        "process": 5258517688
       },
       "featured_part_05321": {
-        "analyse": 1339461345,
-        "mesh": 451595900,
-        "process": 8881852895
+        "analyse": 1342912418,
+        "mesh": 453005657,
+        "process": 7184143570
       },
       "featured_part_05431": {
-        "analyse": 746397178,
-        "mesh": 342705094,
-        "process": 10677886675
+        "analyse": 752365649,
+        "mesh": 343930591,
+        "process": 9561563362
       },
       "featured_part_05548": {
-        "analyse": 5692493857,
-        "mesh": 533400606,
-        "process": 8569498826
+        "analyse": 5704472249,
+        "mesh": 534581743,
+        "process": 7846899395
       },
       "featured_part_05677": {
-        "analyse": 1615088306,
-        "mesh": 393857382,
-        "process": 4511988681
+        "analyse": 1619923356,
+        "mesh": 394220555,
+        "process": 4347186773
       },
       "featured_part_05774": {
-        "analyse": 4329238369,
-        "mesh": 512341483,
-        "process": 5172718505
+        "analyse": 4334171093,
+        "mesh": 517524852,
+        "process": 5708687618
       },
       "featured_part_05938": {
-        "analyse": 981560769,
-        "mesh": 334485784,
-        "process": 2895290838
+        "analyse": 980881340,
+        "mesh": 336240561,
+        "process": 2992960572
       },
       "featured_part_06236": {
-        "analyse": 1526123005,
-        "mesh": 420339589,
-        "process": 4499598021
+        "analyse": 1528714591,
+        "mesh": 422191678,
+        "process": 4135645378
       },
       "featured_part_06455": {
-        "analyse": 599046085,
-        "mesh": 311967425,
-        "process": 2791730157
+        "analyse": 597481448,
+        "mesh": 312336415,
+        "process": 2890498861
       },
       "featured_part_06488": {
-        "analyse": 2236152170,
-        "mesh": 392382190,
-        "process": 21255867160
+        "analyse": 2235954700,
+        "mesh": 399429435,
+        "process": 18184842339
       },
       "featured_part_06632": {
-        "analyse": 1391271825,
-        "mesh": 436757670,
-        "process": 38773263294
+        "analyse": 1389937343,
+        "mesh": 439773279,
+        "process": 29237656220
       },
       "featured_part_06887": {
-        "analyse": 2268657940,
-        "mesh": 387099574,
-        "process": 4570819818
+        "analyse": 2271576507,
+        "mesh": 387207374,
+        "process": 3851392873
       },
       "featured_part_06952": {
-        "analyse": 4584292188,
-        "mesh": 370437039,
-        "process": 4219780496
+        "analyse": 4587467359,
+        "mesh": 374983149,
+        "process": 3845862057
       },
       "featured_part_07030": {
-        "analyse": 849885676,
-        "mesh": 365501439,
-        "process": 3430895965
+        "analyse": 851880903,
+        "mesh": 364201793,
+        "process": 2870690411
       },
       "featured_part_07118": {
-        "analyse": 1353220769,
-        "mesh": 461708933,
-        "process": 9134372823
+        "analyse": 1349334342,
+        "mesh": 468381075,
+        "process": 8905872928
       },
       "featured_part_07147": {
-        "analyse": 685166054,
-        "mesh": 336795728,
-        "process": 5592002615
+        "analyse": 684524075,
+        "mesh": 337378194,
+        "process": 5182841210
       },
       "featured_part_07312": {
-        "analyse": 1633042615,
-        "mesh": 430608532,
-        "process": 10763581588
+        "analyse": 1630454091,
+        "mesh": 426674725,
+        "process": 8811166003
       },
       "featured_part_07379": {
-        "analyse": 1207813187,
-        "mesh": 413454862,
-        "process": 35349631094
+        "analyse": 1207176340,
+        "mesh": 412552019,
+        "process": 28449887359
       },
       "featured_part_07380": {
-        "analyse": 8641779841,
-        "mesh": 401306665,
-        "process": 17274748808
+        "analyse": 8649918786,
+        "mesh": 410217370,
+        "process": 16914514504
       },
       "featured_part_07384": {
-        "analyse": 3188508858,
-        "mesh": 448814112,
-        "process": 6789860279
+        "analyse": 3188195289,
+        "mesh": 446792444,
+        "process": 5698426315
       },
       "featured_part_07584": {
-        "analyse": 461997355,
-        "mesh": 296760545,
-        "process": 1942729120
+        "analyse": 463679991,
+        "mesh": 296517163,
+        "process": 1877802960
       },
       "featured_part_07588": {
-        "analyse": 743960774,
-        "mesh": 324242395,
-        "process": 1879253492
+        "analyse": 754273727,
+        "mesh": 333874441,
+        "process": 1834695958
       },
       "featured_part_07774": {
-        "analyse": 1910486508,
-        "mesh": 354101317,
-        "process": 3513632059
+        "analyse": 1913028183,
+        "mesh": 354985368,
+        "process": 3404639030
       },
       "featured_part_07812": {
-        "analyse": 673766993,
-        "mesh": 314016209,
-        "process": 2283330391
+        "analyse": 676146826,
+        "mesh": 315322516,
+        "process": 2247068112
       },
       "featured_part_07923": {
-        "analyse": 5591815227,
-        "mesh": 394190756,
-        "process": 4167855756
+        "analyse": 5591474908,
+        "mesh": 401735440,
+        "process": 4296352589
       },
       "featured_part_08116": {
-        "analyse": 3837836100,
-        "mesh": 444909797,
-        "process": 3654639955
+        "analyse": 3839422915,
+        "mesh": 439223558,
+        "process": 3441201926
       },
       "featured_part_08204": {
-        "analyse": 3846857040,
-        "mesh": 466797333,
-        "process": 5310965291
+        "analyse": 3855563994,
+        "mesh": 469696347,
+        "process": 4604457095
       },
       "featured_part_08221": {
-        "analyse": 476231345,
-        "mesh": 299474456,
-        "process": 3454652759
+        "analyse": 481549970,
+        "mesh": 303333970,
+        "process": 3923031205
       },
       "featured_part_08336": {
-        "analyse": 1731208154,
-        "mesh": 374141079,
-        "process": 4711120119
+        "analyse": 1733013096,
+        "mesh": 374833257,
+        "process": 4743706900
       },
       "featured_part_08413": {
-        "analyse": 1097427141,
-        "mesh": 386453556,
-        "process": 6656847143
+        "analyse": 1098503121,
+        "mesh": 388200650,
+        "process": 5473171169
       },
       "featured_part_08595": {
-        "analyse": 1305701968,
-        "mesh": 412275120,
-        "process": 7755650655
+        "analyse": 1309575798,
+        "mesh": 414045575,
+        "process": 5801332144
       },
       "featured_part_08784": {
-        "analyse": 733371300,
-        "mesh": 332893622,
-        "process": 3598490739
+        "analyse": 732693779,
+        "mesh": 332242825,
+        "process": 3443183073
       },
       "featured_part_08841": {
-        "analyse": 5833046673,
-        "mesh": 333721022,
-        "process": 2889046224
+        "analyse": 5832748413,
+        "mesh": 334783067,
+        "process": 2825820218
       },
       "featured_part_08987": {
-        "analyse": 1819618015,
-        "mesh": 331133097,
-        "process": 3429796462
+        "analyse": 1822110433,
+        "mesh": 331935899,
+        "process": 3484504393
       },
       "featured_part_09125": {
-        "analyse": 1043836285,
-        "mesh": 387986120,
-        "process": 5693015780
+        "analyse": 1043211336,
+        "mesh": 383077506,
+        "process": 5356742720
       },
       "featured_part_09158": {
-        "analyse": 635025759,
-        "mesh": 324009469,
-        "process": 3658923581
+        "analyse": 633021524,
+        "mesh": 324882723,
+        "process": 3346580321
       },
       "featured_part_09263": {
-        "analyse": 3026271749,
-        "mesh": 465650692,
-        "process": 5417872000
+        "analyse": 3021251338,
+        "mesh": 472785089,
+        "process": 5243184861
       },
       "featured_part_09270": {
-        "analyse": 1074905992,
-        "mesh": 385115260,
-        "process": 11974153671
+        "analyse": 1082751241,
+        "mesh": 385352782,
+        "process": 10595897913
       },
       "featured_part_09336": {
-        "analyse": 1857574156,
-        "mesh": 447158029,
-        "process": 12324462013
+        "analyse": 1863430611,
+        "mesh": 444219712,
+        "process": 12072385805
       },
       "featured_part_09364": {
-        "analyse": 1706872592,
-        "mesh": 409300353,
-        "process": 8992777435
+        "analyse": 1712264740,
+        "mesh": 409003652,
+        "process": 6438103384
       },
       "featured_part_09390": {
-        "analyse": 1295908497,
-        "mesh": 434082938,
-        "process": 43997130755
+        "analyse": 1297727217,
+        "mesh": 434781886,
+        "process": 33451676692
       },
       "featured_part_09449": {
-        "analyse": 720148437,
-        "mesh": 319893919,
-        "process": 5974548138
+        "analyse": 718258217,
+        "mesh": 319668611,
+        "process": 6202297791
       },
       "featured_part_09497": {
-        "analyse": 1771990727,
-        "mesh": 490510843,
-        "process": 10567929804
+        "analyse": 1769960268,
+        "mesh": 493213485,
+        "process": 9289986631
       },
       "featured_part_09510": {
-        "analyse": 986115734,
-        "mesh": 374092661,
-        "process": 9166302247
+        "analyse": 989406866,
+        "mesh": 374582053,
+        "process": 7675158648
       },
       "featured_part_09615": {
-        "analyse": 3027702861,
-        "mesh": 437948623,
-        "process": 6852526556
+        "analyse": 3035629698,
+        "mesh": 447371827,
+        "process": 5817631823
       },
       "featured_part_09750": {
-        "analyse": 725477537,
-        "mesh": 344425563,
-        "process": 4111156546
+        "analyse": 726229297,
+        "mesh": 345821489,
+        "process": 4215168232
       },
       "featured_part_09871": {
-        "analyse": 900719696,
-        "mesh": 375296260,
-        "process": 4573222424
+        "analyse": 900514229,
+        "mesh": 376191083,
+        "process": 4240273832
       },
       "featured_part_10091": {
-        "analyse": 2020493246,
-        "mesh": 366703084,
-        "process": 5846233058
+        "analyse": 2032237864,
+        "mesh": 374361453,
+        "process": 5637679822
       },
       "featured_part_10124": {
-        "analyse": 4776447216,
-        "mesh": 518138898,
-        "process": 8979167708
+        "analyse": 4784291130,
+        "mesh": 524994395,
+        "process": 5955540159
       },
       "featured_part_10255": {
-        "analyse": 3541873007,
-        "mesh": 442107075,
-        "process": 6676371355
+        "analyse": 3549551506,
+        "mesh": 442707635,
+        "process": 5486309411
       },
       "featured_part_10267": {
-        "analyse": 2466589145,
-        "mesh": 467079593,
-        "process": 5274156530
+        "analyse": 2473648249,
+        "mesh": 466703661,
+        "process": 5060969593
       },
       "featured_part_10351": {
-        "analyse": 6321376991,
-        "mesh": 403809760,
-        "process": 5150345741
+        "analyse": 6325730870,
+        "mesh": 400025870,
+        "process": 4982397671
       },
       "featured_part_10420": {
-        "analyse": 1562537402,
-        "mesh": 391100277,
-        "process": 5362949649
+        "analyse": 1573300909,
+        "mesh": 400934200,
+        "process": 5808761513
       },
       "featured_part_10653": {
-        "analyse": 5292963381,
-        "mesh": 413785772,
-        "process": 16608352952
+        "analyse": 5302658523,
+        "mesh": 415124029,
+        "process": 15607452493
       },
       "featured_part_10809": {
-        "analyse": 1373291443,
-        "mesh": 415093068,
-        "process": 4843919951
+        "analyse": 1374100727,
+        "mesh": 413461465,
+        "process": 4423201730
       },
       "featured_part_10816": {
-        "analyse": 806356933,
-        "mesh": 340438848,
-        "process": 3529017400
+        "analyse": 815237478,
+        "mesh": 340394732,
+        "process": 3395059076
       },
       "featured_part_10987": {
-        "analyse": 755792856,
-        "mesh": 323240797,
-        "process": 11532598467
+        "analyse": 764591749,
+        "mesh": 323677744,
+        "process": 12302858855
       },
       "featured_part_11012": {
-        "analyse": 899057390,
-        "mesh": 340248656,
-        "process": 4944748064
+        "analyse": 910121844,
+        "mesh": 343181265,
+        "process": 4678548343
       },
       "featured_part_11053": {
-        "analyse": 475465346,
-        "mesh": 298647310,
-        "process": 2542357965
+        "analyse": 471599124,
+        "mesh": 297842651,
+        "process": 1903903261
       },
       "featured_part_11096": {
-        "analyse": 7043202365,
-        "mesh": 442666041,
-        "process": 19444979559
+        "analyse": 7055902077,
+        "mesh": 441555207,
+        "process": 17111946446
       },
       "featured_part_11360": {
-        "analyse": 872746227,
-        "mesh": 322032503,
-        "process": 3086251820
+        "analyse": 873958480,
+        "mesh": 322281149,
+        "process": 3185610421
       }
     },
     "stages": {
       "analyse": {
         "measured_parts": 100,
-        "median": 1624065460.5,
+        "median": 1625188723.5,
         "parts": 100,
-        "total": 292235363027
+        "total": 292742594184
       },
       "mesh": {
         "measured_parts": 100,
-        "median": 401804629.0,
+        "median": 403540806.0,
         "parts": 100,
-        "total": 40077203978
+        "total": 40240100383
       },
       "process": {
         "measured_parts": 100,
-        "median": 5946265869.0,
+        "median": 5520321047.5,
         "parts": 100,
-        "total": 959975751263
+        "total": 876151726364
       }
     }
   },
   "schema_version": 2,
   "timing": {
-    "wall_seconds": 41.154737
+    "wall_seconds": 47.557539
   }
 }

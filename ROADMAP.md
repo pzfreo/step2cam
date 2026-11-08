@@ -5,21 +5,23 @@ unless an item says it can run alongside. Items marked *waits on* depend on anot
 step2cam is an experiment in explainable process planning (README, "Read this first"), so the
 order favours what makes the plans correct and honest before what makes them faster.
 
-## In review
+## Done
 
-- PR #31: write no G-code; hand camlib the job and show its simulation.
-- PR #44: every fixture has a STEP file carrying GD&T.
-- PR #27 (machines, a Makera Carvera), #28 (the lathe) and #30 (Carvera research): to rebase onto
-  #31.
+- #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
+  benchmark (`tools/benchmark`); #46 camlib at its main (4034290).
+
+## Parked
+
+- PR #28 and #57, the lathe: the focus is making 3-axis milling really good first.
 
 ## Phase 1: correct and honest about reach
 
 What the plan leaves out today, and why, on parts deeper or larger than the demo library.
 
-1. #36 Roughing is dropped entirely when the part is deeper than the end mill reaches.
-   *Waits on* stevecad/camlib#122 for the main fix.
-2. #35 A feature left out should say what tool would cut it.
-3. #46 Update the pinned camlib to its current main.
+1. #67 Features still "covered by roughing" after the roughing is dropped.
+2. #36 Roughing is dropped entirely when the part is deeper than the end mill reaches: rough
+   to what the tool reaches meanwhile. *Waits on* stevecad/camlib#122 for the main fix.
+3. #35 A feature left out should say what tool would cut it.
 4. #34 Choose the drilling strategy by depth (and check a drill's flutes reach).
 
 ## Phase 2: holes the way a machinist makes them
@@ -51,7 +53,7 @@ What the plan leaves out today, and why, on parts deeper or larger than the demo
 19. Engagement-based feeds, in #38. *Waits on* stevecad/camlib#23.
 20. #51 Name the tool library's fields by ISO 13399.
 
-## Phase 6: the lathe through camlib
+## Phase 6: the lathe through camlib (parked)
 
 21. #57 Hand lathe setups to camlib's turning (after PR #28 and #46).
 
@@ -81,7 +83,7 @@ needs is in.
 ## From other projects
 
 - camlib: #120 (post G-code from Rust), #121 (start from given stock), #122 (roughing layer
-  depth), and our comment on #23 (engagement-based feeds).
+  depth), #123 (roughing refused since #104 on parts it cut before), and our comment on #23 (engagement-based feeds).
 - specify-core: `docs/upstream-needs.md` (a schema for the analysis, the material's family, a
   finer mesh).
 
