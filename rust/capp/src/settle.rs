@@ -103,18 +103,18 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
     let mut uncovered = vec![];
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
-        let jaw_floor = setup["clamping"]["jaw_top_z"].as_f64().map(|z| z + setup["clamping"]["clearance_mm"].as_f64().unwrap());
+        let jaw_floor = setup["clamping"]["jaw_top_z"].as_f64().map(|z| r(z + setup["clamping"]["clearance_mm"].as_f64().unwrap()));
         let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
         let Some(rough) = ops.iter_mut().find(|o| o["kind"] == "roughing") else { continue; };
         // Minimal hand-written plans may have no geometry; there is no floor to cap there.
         let Some(top) = rough["top_z"].as_f64() else { continue; };
         let old = num(rough, "floor_z")?;
-        let floor = jaw_floor.map_or(top - reach, |z| z.max(top - reach));
+        let floor = r(jaw_floor.map_or(top - reach, |z| z.max(top - reach)));
         let rule = if jaw_floor == Some(floor) { "machine.clamping" } else { REACH_RULE };
         if old >= floor { continue; }
         rough["floor_z"] = json!(floor);
         if let Some(web) = rough["web_mm"].as_f64() {
-            rough["web_mm"] = json!(web + floor - old);
+            rough["web_mm"] = json!(r(web + floor - old));
         }
         let why = if rule == "machine.clamping" {
             format!("side cutting stops at Z{}: jaw top plus {} mm clearance; the gripped stock and material below the jaws need a later setup", show(floor), show(crate::rules::workholding()["clearance_mm"].as_f64().unwrap()))
@@ -253,7 +253,7 @@ fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Res
     cap_roughing(plan, &library, trace)?;
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
-        if let Some(cap) = setup["clamping"]["jaw_top_z"].as_f64().map(|z| z + setup["clamping"]["clearance_mm"].as_f64().unwrap()) {
+        if let Some(cap) = setup["clamping"]["jaw_top_z"].as_f64().map(|z| r(z + setup["clamping"]["clearance_mm"].as_f64().unwrap())) {
             let axis = usize::from(setup["clamping"]["faces"][0] == "stock.y.min");
             let low = setup["stock"]["min"][axis].as_f64().unwrap();
             let high = setup["stock"]["max"][axis].as_f64().unwrap();

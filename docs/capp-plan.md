@@ -61,10 +61,10 @@ A vise with explicit `max_jaw_opening_mm`, `jaw_width_mm` and `jaw_height_mm` al
 records `setups[].clamping`: the stock faces gripped, grip height, jaw top Z, clearance,
 and named jaw/support boxes in the setup frame. The `machine.clamping` rule and
 `rules/workholding.json` choose the long stock sides across the narrower XY dimension
-(X on a tie), gripping at least 3.175 mm or 20% of stock height, up to 50%. The minimum
-is informed by SMW's specialized low-profile grip example; this is a planning heuristic,
-not a holding-force calculation for arbitrary jaws. Stock and the faced part top must
-stand above the jaws. Missing jaw data means no inferred dimensions or fixture scene,
+(X on a tie), gripping at least 3.175 mm or 20% of stock height, up to 50%. These values
+are step2cam judgement: no applicable public source for a minimum grip of standard vise
+jaws was found. They are not a holding-force calculation. Stock and the faced part top
+must stand above the jaws. Missing jaw data means no inferred dimensions or fixture scene,
 and the trace says so.
 
 Side cuts stop at least 1 mm above the jaw top, or higher if tool reach requires it.
@@ -75,10 +75,11 @@ interior features retain their depth.
 Features and wall allowance below the cap are reported as remainders requiring another
 setup, without suggesting a longer tool would solve the clamping obstruction.
 Each jaw is passed to camlib as a fixture prism, checked against the whole tool assembly.
-Jaw thickness is conservatively modeled equal to jaw height. Without parallels, the jaws
-are positioned for the chosen grip and no support is assumed. If `parallels_height_mm` is
-supplied, stock seats on two modeled edge bars; grip becomes jaw height minus parallel
-height and must satisfy the same limits. Bar envelopes use the rule's minimum grip as
+Jaw thickness is conservatively modeled equal to jaw height. Without `parallels_height_mm`,
+the stock must be raised on parallels or similar so the jaws grip only the chosen height.
+That support is not modeled or checked, so through cuts are not checked against it.
+If `parallels_height_mm` is supplied, stock seats on two modeled edge bars; grip becomes
+jaw height minus parallel height and must satisfy the same limits. Bar envelopes use the rule's minimum grip as
 width (or one third of the opening for narrow stock) and span the stock length. Their
 prisms are included in verification so through cuts cannot silently enter them.
 

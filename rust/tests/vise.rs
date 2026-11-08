@@ -26,7 +26,16 @@ fn plate_jobs_have_clamping_and_camlib_clears_the_fixtures() {
             }
         }
         if name == "synthetic/stepped-plate" {
+            assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 3.8);
+            assert_eq!(plan["setups"][0]["clamping"]["jaw_top_z"], -15.2);
+            let decision = list(&plan["decisions"]).iter().find(|d| d["id"] == plan["setups"][0]["clamping"]["because"][0]).unwrap();
+            let says = decision["says"].as_str().unwrap();
+            assert!(says.contains("raise stock on parallels or similar so jaws grip only 3.8 mm"), "{says}");
+            assert!(says.contains("through cuts are not checked against it"), "{says}");
             let ops = list(&plan["setups"][0]["operations"]);
+            let rough = ops.iter().find(|o| o["kind"] == "roughing").unwrap();
+            assert_eq!(rough["web_mm"], 4.8);
+            assert_eq!(rough["floor_z"], -14.2);
             let slot = ops.iter().find(|o| o["kind"] == "slot").unwrap();
             assert_eq!(slot["floor_z"], -19., "the enclosed slot does not reach a jaw");
             for notch in ops.iter().filter(|o| o["kind"] == "notch" && o["open"] == true) {
@@ -37,6 +46,9 @@ fn plate_jobs_have_clamping_and_camlib_clears_the_fixtures() {
         let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
         assert!(!jobs.is_empty());
         for job in jobs {
+            if name == "synthetic/stepped-plate" && job.setup == "top" {
+                assert!(job.notes.iter().any(|note| note.contains("leaves a 4.8 mm web")), "{:?}", job.notes);
+            }
             assert_eq!(list(&job.manifest["verification"]["scene"]["scene"]["bodies"]).len(), 2);
             step2cam::simulate::simulate(&job.manifest.to_string()).unwrap_or_else(|e| panic!("{name}/{}: {}", job.setup, e.message));
         }
