@@ -87,6 +87,13 @@ fn reach_reason(rough: &Value, mill: &Value) -> Result<String, String> {
         id(mill), show(num(mill, "flute_length")?), show(num(mill, "stickout")?), show(REACH_MARGIN_MM)))
 }
 
+/// Both the flutes and the holder face must clear the stock by the reach margin.
+fn needed_for_reach(op: &Value, top: f64, library: &Library, depth: f64) -> Result<String, String> {
+    let required = depth + REACH_MARGIN_MM;
+    let need = crate::needed::for_operation(op, top, library, Some(required))?.ok_or("no reach query for operation")?;
+    Ok(format!("{need}, and stickout of at least {} mm", crate::needed::reach(required)))
+}
+
 /// Apply before any execution attempt, while the selected roughing tool is known. Repeating
 /// settlement leaves an already capped operation and its trace alone.
 fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Result<(), String> {
@@ -114,9 +121,29 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
             for (id, depth) in depths {
                 if depth["floor_z"].as_f64().is_some_and(|z| z >= floor) { continue; }
                 let required = top - depth["floor_z"].as_f64().unwrap_or(old);
-                let need = crate::needed::for_operation(rough, top, library, Some(required))?.unwrap();
+                let need = needed_for_reach(rough, top, library, required)?;
                 uncovered.push((id.clone(), format!("{}: no operation of its own; {why}: needs {need}", depth["family"].as_str().unwrap_or("feature"))));
             }
+        }
+        // Use the original flats, before filtering, to recover the bands made by
+        // wall_operations. A crossing band can still finish its reachable upper section.
+        let part_top = rough["positions"].as_array().and_then(|p| p.iter().skip(2).step_by(3)
+            .filter_map(Value::as_f64).max_by(f64::total_cmp)).unwrap_or(top);
+        let levels: Vec<f64> = ops.iter().filter(|o| o["kind"] == "flats")
+            .flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64).collect();
+        for wall in ops.iter_mut().filter(|o| o["kind"] == "wall_finish") {
+            let low = num(wall, "floor_z")?;
+            if low >= floor { continue; }
+            let high = levels.iter().copied().filter(|z| *z > low).min_by(f64::total_cmp).unwrap_or(part_top);
+            // Leave wholly unreachable bands to wall_refusal and the existing needs_wall handling.
+            if high <= floor { continue; }
+            let need = needed_for_reach(wall, top, library, top - low)?;
+            wall["floor_z"] = json!(floor);
+            // It now stops in the roughed stock, above the flat it originally stood on.
+            wall["on_flat"] = json!(false);
+            let d = trace.warn(REACH_RULE, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
+                format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut: needs {need}", show(floor)));
+            because(wall, [d]);
         }
         for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
             if let Some(levels) = op["levels"].as_array_mut() {
@@ -161,7 +188,7 @@ fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(
         return Ok(Some(("feasibility.wall.needs_mill", format!("no end mill to finish the wall with: needs {}", crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
     };
     if num(op, "floor_z")? < num(rough, "floor_z")? {
-        return Ok(Some((REACH_RULE, format!("{}; this wall band extends below the cleared stock", reach_reason(rough, mill)?))));
+        return Ok(Some((REACH_RULE, format!("{}; none of this wall band remains above the cleared stock", reach_reason(rough, mill)?))));
     }
     let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
     let needed = num(mill, "diameter")? + 2. * radial;

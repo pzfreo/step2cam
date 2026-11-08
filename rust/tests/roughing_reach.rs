@@ -22,7 +22,7 @@ fn planned(rough_from: &str) -> Value {
 fn ops(plan: &Value) -> &[Value] { plan["setups"][0]["operations"].as_array().unwrap() }
 
 #[test]
-fn short_flutes_keep_shallow_coverage_and_drop_deep_features_and_wall_bands() {
+fn short_flutes_keep_shallow_coverage_and_limit_crossing_wall_bands() {
     let mut plan = planned("top");
     let original = plan.clone();
     let library = tools(12., 80.);
@@ -51,8 +51,9 @@ fn short_flutes_keep_shallow_coverage_and_drop_deep_features_and_wall_bands() {
     }
     assert!(kept > 0 && dropped > 0, "kept {kept}, dropped {dropped}");
     let walls: Vec<_> = ops(&plan).iter().filter(|o| o["kind"] == "wall_finish").collect();
-    assert_eq!(walls.len(), 1);
-    assert_eq!(walls[0]["floor_z"], -7.);
+    assert_eq!(walls.len(), 2);
+    assert_eq!(walls[0]["floor_z"], -11.);
+    assert_eq!(walls[1]["floor_z"], -7.);
     assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "flats").unwrap()["levels"], json!([-7.]));
     let settled = plan.clone();
     capp::settle(&mut plan, &library).unwrap();
@@ -64,7 +65,11 @@ fn stickout_limits_reach_and_flats_below_it_are_removed_before_dependants() {
     let mut plan = planned("top");
     capp::finish(&mut plan, &tools(75., 6.), &[]).unwrap();
     assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "roughing").unwrap()["floor_z"], -5.);
-    assert!(!ops(&plan).iter().any(|o| o["kind"] == "flats" || o["kind"] == "wall_finish" || (o["kind"] == "v_channel" && o["on_flat"] == true)));
+    assert!(!ops(&plan).iter().any(|o| o["kind"] == "flats" || (o["kind"] == "v_channel" && o["on_flat"] == true)));
+    let walls: Vec<_> = ops(&plan).iter().filter(|o| o["kind"] == "wall_finish").collect();
+    assert_eq!(walls.len(), 1, "only the upper band has any wall above the cap");
+    assert_eq!(walls[0]["floor_z"], -5.);
+    assert_eq!(walls[0]["on_flat"], false, "the clipped wall no longer needs the unreachable flat");
     assert!(plan["warnings"].to_string().contains("6.0 mm stickout"));
 }
 
@@ -154,4 +159,59 @@ fn schema_accepts_mesh_free_settled_roughing_but_rejects_missing_or_partial_inpu
     let rough = plan["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == "roughing").unwrap();
     rough["positions"] = positions;
     assert!(!validator.is_valid(&plan), "a half-present mesh is always invalid");
+}
+
+#[test]
+fn a_single_band_wall_is_finished_above_the_cap_and_reports_what_is_left_below() {
+    let analysis = read("tests/fixtures/plate.analysis.json");
+    let mesh = read("tests/fixtures/plate.mesh.json");
+    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    assert_eq!(ops(&plan).iter().filter(|o| o["kind"] == "wall_finish").count(), 1);
+    assert!(!ops(&plan).iter().any(|o| o["kind"] == "flats"));
+    let old_floor = ops(&plan).iter().find(|o| o["kind"] == "wall_finish").unwrap()["floor_z"].as_f64().unwrap();
+    assert!(old_floor < -5.);
+    let library = tools(6., 80.);
+    capp::finish(&mut plan, &library, &[]).unwrap();
+    let wall = ops(&plan).iter().find(|o| o["kind"] == "wall_finish").expect("the reachable wall is kept");
+    assert_eq!(wall["floor_z"], -5.);
+    assert_eq!(wall["tool"], "em12");
+    let warning = plan["decisions"].as_array().unwrap().iter().find(|d|
+        d["rule"] == "process.roughing.reach@1" && d["subject"] == format!("top:{}", wall["wall"].as_str().unwrap())).unwrap();
+    let text = warning["says"].as_str().unwrap();
+    assert!(text.contains("outside wall limited to Z-5.0"), "{text}");
+    assert!(text.contains("finishing allowance below this level is left uncut: needs an end mill"), "{text}");
+    assert!(text.contains("stickout of at least"), "{text}");
+    assert!(wall["because"].as_array().unwrap().contains(&warning["id"]));
+    assert!(plan["tools_needed"].as_array().unwrap().iter().any(|n| n["operations"].as_array().unwrap().contains(&warning["subject"])));
+    let settled = plan.clone();
+    capp::settle(&mut plan, &library).unwrap();
+    assert_eq!(plan, settled);
+
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    assert!(ops(&out["plan"]).iter().any(|o| o["kind"] == "wall_finish" && o["floor_z"] == -5.), "{}", out["plan"]["warnings"]);
+    assert_eq!(out["programs"][0]["material"]["gouge"]["definite_cells"], 0);
+}
+
+#[test]
+fn the_recommended_flutes_and_stickout_actually_reach_a_feature_inside_the_margin() {
+    let original = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-100],"max":[20,20,0]}, "operations":[
+        {"kind":"roughing", "top_z":0., "floor_z":-99.5, "web_mm":0.5}
+    ]}], "covered_by_roughing":["pockets:0"],
+        "roughing_feature_depths":{"pockets:0":{"floor_z":-74.5,"family":"pockets"}}});
+    let mut plan = original.clone();
+    capp::finish(&mut plan, &tools(75., 75.), &[]).unwrap();
+    assert_eq!(plan["covered_by_roughing"], json!([]));
+    let need = plan["tools_needed"][0]["description"].as_str().unwrap();
+    assert_eq!(need, "an end mill with flutes of at least 76 mm, and stickout of at least 76 mm");
+    let length: f64 = need.split("flutes of at least ").nth(1).unwrap().split_whitespace().next().unwrap().parse().unwrap();
+    let mut reached = original.clone();
+    capp::finish(&mut reached, &tools(length, length), &[]).unwrap();
+    assert_eq!(reached["covered_by_roughing"], json!(["pockets:0"]));
+    assert!(ops(&reached)[0]["floor_z"].as_f64().unwrap() <= -74.5);
+    assert_eq!(reached["tools_needed"], json!([]));
+    // Increasing only the flutes still leaves the holder too low.
+    let mut short_holder = original;
+    capp::finish(&mut short_holder, &tools(length, 75.), &[]).unwrap();
+    assert_eq!(short_holder["covered_by_roughing"], json!([]));
 }

@@ -889,7 +889,7 @@
    "id": "process.roughing.reach",
    "version": 1,
    "stage": "process",
-   "rationale": "Stopgap for stevecad/camlib#122: each roughing layer is checked against depth below the stock top. Cap at min(flute length, stickout) minus 1 mm, clearing numerical guards and keeping the flute end and holder face above stock. Relax the flute limit to holder clearance once camlib checks per-layer cutting depth. Features must be fully reached; flats below the cap and wall bands crossing it are left out, with dependent chamfers handled as missing walls and V-channels on uncleared flats left out.",
+   "rationale": "Stopgap for stevecad/camlib#122: each roughing layer is checked against depth below the stock top. Cap at min(flute length, stickout) minus 1 mm, clearing numerical guards and keeping the flute end and holder face above stock. Relax the flute limit to holder clearance once camlib checks per-layer cutting depth. Features must be fully reached; needed-tool queries include this margin in both flute length and stickout. Flats below the cap and wholly unreachable wall bands are left out; crossing wall bands are finished down to the cap, warning of the allowance left below. Dependent chamfers follow missing walls and V-channels on uncleared flats are left out.",
    "code": "settle.rs cap_roughing, wall_refusal",
    "sources": [
     {
