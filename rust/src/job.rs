@@ -289,14 +289,6 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
     }
     let tools: Vec<&Value> = library_data.get("tools").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
     let breakthrough = library_data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.);
-    let machine = library_data.get("machine").filter(|m| m.as_object().is_some_and(|o| !o.is_empty()))
-        .ok_or("the tool library needs a `machine` (camlib assumes nothing about it)")?;
-    if machine["tool_change_position_mode"] != "table" {
-        return Err("machine.tool_change_position_mode must be \"table\" (the only mode wired up)".into());
-    }
-    if machine.get("dialect").and_then(Value::as_str).is_some_and(|d| d != "linuxcnc") {
-        return Err("only the linuxcnc dialect is wired up".into());
-    }
     let clearance_above = library_data.get("clearance_mm").and_then(Value::as_f64).unwrap_or(10.);
     let retract_above = library_data.get("retract_mm").and_then(Value::as_f64).unwrap_or(2.);
     let (mut jobs, mut log) = (vec![], vec![]);
@@ -567,7 +559,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         }
         if operations.is_empty() {
             log.extend(notes);
-            log.push(format!("setup {setup_id}: nothing to post"));
+            log.push(format!("setup {setup_id}: nothing to cut"));
             continue;
         }
         let (x0, y0) = (bound(lo, 0)?, bound(lo, 1)?);

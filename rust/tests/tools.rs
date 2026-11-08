@@ -5,7 +5,6 @@ mod common;
 use common::*;
 use serde_json::{Value, json};
 use capp::resources::Library;
-use step2cam::job::jobs;
 use capp::plan::{Options, plan};
 
 fn tip(diameter: f64) -> f64 {
@@ -150,12 +149,4 @@ fn a_holder_narrower_than_the_shank_is_refused() {
     let mut data = example_tools();
     data["tools"][0]["holder_diameter"] = json!(3);
     assert!(Library::new(&data).is_err());
-}
-
-#[test]
-fn only_table_tool_changes_are_posted() {
-    let mut data = example_tools();
-    data["machine"]["tool_change_position_mode"] = json!("z_home");
-    let Err(error) = jobs(&finished(&plate_no_mesh(&Default::default()), &data), &data) else { panic!("accepted") };
-    assert!(error.contains("table"), "{error}");
 }

@@ -1,28 +1,6 @@
 {
  "_comment": "The tool library of the step2cam demo. Every number is a placeholder chosen so that many parts can be shown: not for a real machine.",
- "machine": {
-  "name": "Example three-axis LinuxCNC mill",
-  "dialect": "linuxcnc",
-  "output_units": "mm",
-  "decimals": 3,
-  "max_feed_mm_min": 5000,
-  "max_spindle_rpm": 24000,
-  "rapid_mm_min": 5000,
-  "planes": [
-   "xy",
-   "xz",
-   "yz"
-  ],
-  "arcs": true,
-  "helices": true,
-  "max_sweep_rad": 6.283185307179586,
-  "max_tool_number": 99,
-  "max_length_register": 99,
-  "tool_changes": true,
-  "flood": true,
-  "mist": false,
-  "tool_change_position_mode": "table"
- },
+ "rapid_mm_min": 5000,
  "clearance_mm": 10,
  "retract_mm": 2,
  "breakthrough_mm": 1,

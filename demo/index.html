@@ -27,7 +27,7 @@
       <button type="button" data-view="top">Top</button>
       <button type="button" data-view="front">Front</button>
     </div>
-    <div id="save" class="views" role="group" aria-label="Save the G-code"></div>
+    <div id="save" class="views" role="group" aria-label="Save the camlib job"></div>
     <div class="views" role="group" aria-label="Sample parts">
       <button type="button" data-sample="plate.step">Simple plate</button>
       <button type="button" data-sample="stepped-plate.step">Complex plate</button>
@@ -76,7 +76,7 @@
     </section>
     <section class="pane" data-pane="toolpaths" aria-label="Toolpaths">
       <button type="button" class="pane-rail" data-pane="toolpaths"><span>3 · Making it</span></button>
-      <div class="pane-title"><h2>3 · Making it</h2><span>toolpaths and G-code, by camlib</span><button type="button" class="pane-size" data-pane="toolpaths" aria-pressed="false">Expand</button></div>
+      <div class="pane-title"><h2>3 · Making it</h2><span>toolpaths and simulation, by camlib</span><button type="button" class="pane-size" data-pane="toolpaths" aria-pressed="false">Expand</button></div>
       <div class="pane-body">
         <div class="view" id="gcode-view">
           <div class="view-tools" role="group" aria-label="What the toolpath view shows">
@@ -86,7 +86,7 @@
           </div>
         </div>
         <div class="side code-panel">
-          <div id="code" class="code" tabindex="0" aria-label="G-code"><div id="code-spacer"><div id="code-rows"></div></div></div>
+          <div id="code" class="code" tabindex="0" aria-label="camlib's moves"><div id="code-spacer"><div id="code-rows"></div></div></div>
           <div id="code-explain" class="code-explain" aria-live="off"></div>
         </div>
       </div>

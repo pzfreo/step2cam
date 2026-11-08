@@ -2,7 +2,7 @@
 //! beside a wall, so what it can say is: no definite gouge, and at least so much left.
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
-use step2cam::post::{Machine, post};
+use step2cam::simulate::simulate;
 
 /// The plan as it is executed: settled, and each operation's tool named.
 fn finished(plan: &Value, library: &Value) -> Value {
@@ -20,23 +20,22 @@ fn tools() -> Value {
 }
 fn process(part: &str) -> Value {
     let out = step2cam::process(&fixture(&format!("{part}.analysis.json")), &fixture(&format!("{part}.mesh.json")), &tools()).unwrap();
-    assert!(out["post_error"].is_null(), "{part}: {}", out["post_error"]);
+    assert!(out["error"].is_null(), "{part}: {}", out["error"]);
     out
 }
 fn left_on_part(out: &Value) -> f64 {
     out["programs"][0]["material"]["residual"]["volume_mm3"][0].as_f64().unwrap()
 }
-/// A part's first job with the last of its operations of this kind changed, posted.
-fn post_with(part: &str, kind: &str, change: &dyn Fn(&mut Value)) -> Result<step2cam::post::Program, step2cam::post::Failure> {
+/// A part's first job with the last of its operations of this kind changed, simulated.
+fn simulate_with(part: &str, kind: &str, change: &dyn Fn(&mut Value)) -> Result<step2cam::simulate::Run, step2cam::simulate::Failure> {
     let plan = capp::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
     change(manifest["operations"].as_array_mut().unwrap().iter_mut().rev().find(|o| o["kind"] == kind).unwrap());
-    let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
-    post(&manifest.to_string(), machine)
+    simulate(&manifest.to_string())
 }
 fn refused(part: &str, kind: &str, change: &dyn Fn(&mut Value)) -> bool {
-    match post_with(part, kind, change) {
+    match simulate_with(part, kind, change) {
         Ok(_) => false,
         Err(failure) => {
             assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
@@ -125,10 +124,10 @@ fn threaded(plate: &str) -> Value {
     analysis["resume"] = json!({"answers": {"hole.function:holes:12": "tapped:M5"}});
     analysis
 }
-fn threaded_job() -> (Value, Machine) {
+fn threaded_job() -> Value {
     let plan = capp::plan::plan(&threaded("plate"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
-    (jobs[0].manifest.clone(), serde_json::from_value(tools()["machine"].clone()).unwrap())
+    jobs[0].manifest.clone()
 }
 
 /// A thread goes past the bore the mesh shows: compared after it, every correct thread is a gouge.
@@ -136,7 +135,7 @@ fn threaded_job() -> (Value, Machine) {
 #[test]
 fn a_threaded_part_is_compared_right_through_before_its_threads() {
     let out = step2cam::process(&threaded("plate"), &fixture("plate.mesh.json"), &tools()).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
+    assert!(out["error"].is_null(), "{}", out["error"]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
     assert!(out["log"].to_string().contains("before thread milling"), "{}", out["log"]);
     let top = out["plan"]["setups"][0]["operations"].as_array().unwrap();
@@ -145,13 +144,13 @@ fn a_threaded_part_is_compared_right_through_before_its_threads() {
 
 #[test]
 fn a_misplaced_hole_is_found_on_a_threaded_part_wherever_it_is() {
-    let (manifest, machine) = threaded_job();
+    let manifest = threaded_job();
     let holes = manifest["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "drilling" && o["centers_mm"].as_array().is_some_and(|c| c.len() > 1)).expect("a pattern of holes");
     for hole in 0..manifest["operations"][holes]["centers_mm"].as_array().unwrap().len() {
         let mut wrong = manifest.clone();
         let x = wrong["operations"][holes]["centers_mm"][hole][0].as_f64().unwrap();
         wrong["operations"][holes]["centers_mm"][hole][0] = (x + 3.).into();
-        let Err(failure) = post(&wrong.to_string(), machine.clone()) else { panic!("hole {hole} moved 3 mm passed") };
+        let Err(failure) = simulate(&wrong.to_string()) else { panic!("hole {hole} moved 3 mm passed") };
         assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
     }
 }
@@ -162,8 +161,7 @@ fn a_comparison_that_runs_out_of_budget_gives_no_program() {
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
     let mut manifest = jobs[0].manifest.clone();
     manifest["verification"]["material"][0]["options"]["max_boundary_tests"] = 1000.into();
-    let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
-    let Err(failure) = post(&manifest.to_string(), machine) else { panic!("a comparison that did not finish passed") };
+    let Err(failure) = simulate(&manifest.to_string()) else { panic!("a comparison that did not finish passed") };
     assert!(failure.message.contains("ran out of budget"), "{}", failure.message);
     assert!(failure.operation.is_none());
 }
@@ -190,8 +188,7 @@ fn stock_below_the_part_is_no_gouge() {
     for part in ["plate", "mounting-plate"] {
         let plan = capp::plan::plan(&fixture(&format!("{part}.analysis.json")), Some(&fixture(&format!("{part}.mesh.json"))), &options).unwrap();
         let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
-        let machine: Machine = serde_json::from_value(tools()["machine"].clone()).unwrap();
-        post(&jobs[0].manifest.to_string(), machine).map_err(|f| format!("{part}: {}", f.message)).unwrap();
+        simulate(&jobs[0].manifest.to_string()).map_err(|f| format!("{part}: {}", f.message)).unwrap();
     }
 }
 

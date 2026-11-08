@@ -1,5 +1,5 @@
-//! Plans, jobs and G-code against tests/fixtures/rust-golden: a frozen baseline, written by the
-//! Python version this project started as.
+//! Plans and jobs against tests/fixtures/rust-golden: a frozen baseline, written by the Python
+//! version this project started as.
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
@@ -100,16 +100,15 @@ fn the_plates_job_is_python_s_job() {
 }
 
 #[test]
-fn the_plates_g_code_is_byte_for_byte_python_s() {
+fn the_plates_job_runs_in_camlib() {
     let analysis = json("tests/fixtures/plate.analysis.json");
     let mesh = json("tests/fixtures/plate.mesh.json");
     let out = step2cam::process(&analysis, &mesh, &json("examples/tools.example.json")).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
-    let nc = out["programs"][0]["nc"].as_str().unwrap();
-    assert_eq!(nc, fs::read_to_string(root().join("tests/fixtures/rust-golden/plate-top.nc")).unwrap());
+    assert!(out["error"].is_null(), "{}", out["error"]);
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
     assert_eq!(&ends[..5], [53, 1975, 1992, 2070, 2108]);
     assert_eq!(ends.len(), 6); // the wall finish
+    assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[5]);
 }
 
 /// The plate with its ⌀4.2 hole answered as tapped M5.
@@ -136,40 +135,4 @@ fn a_tapped_holes_job_is_python_s_job() {
     // Added since: the comparison of the finished stock with the part (rust/tests/material.rs).
     mine["verification"]["material"] = python["verification"]["material"].clone();
     same(&mine, &python, "manifest").unwrap();
-}
-
-#[test]
-fn a_tapped_holes_g_code_is_byte_for_byte_python_s() {
-    let out = step2cam::process(&tapped_plate(), &json("tests/fixtures/plate.mesh.json"), &json("examples/tools.example.json")).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
-    let nc = out["programs"][0]["nc"].as_str().unwrap();
-    assert_eq!(nc, fs::read_to_string(root().join("tests/fixtures/rust-golden/plate-thread-top.nc")).unwrap());
-}
-
-#[test]
-fn an_arc_the_machine_refuses_becomes_lines_near_the_plan() {
-    let analysis = json("tests/fixtures/plate.analysis.json");
-    let mesh = json("tests/fixtures/plate.mesh.json");
-    let mut library = json("examples/tools.example.json");
-    library["machine"]["arcs"] = Value::Bool(false);
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
-    let nc = out["programs"][0]["nc"].as_str().unwrap();
-    assert!(!nc.lines().any(|l| l.starts_with("G2 ") || l.starts_with("G3 ")));
-}
-
-#[test]
-fn an_operation_over_the_machines_limit_is_left_out_with_a_warning() {
-    let analysis = json("tests/fixtures/plate.analysis.json");
-    let mesh = json("tests/fixtures/plate.mesh.json");
-    let mut library = json("examples/tools.example.json");
-    // The drills feed slower than this; the end mill that faces, roughs and bores does not.
-    library["machine"]["max_feed_mm_min"] = serde_json::json!(200.0);
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
-    assert!(out["post_error"].is_null(), "{}", out["post_error"]);
-    let warnings = out["plan"]["warnings"].to_string();
-    assert!(warnings.contains("left out") && warnings.contains("above the machine's limit"), "{warnings}");
-    let kinds: Vec<&str> = out["plan"]["setups"][0]["operations"].as_array().unwrap().iter().map(|o| o["kind"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["holes", "holes"]);
-    assert!(out["programs"][0]["nc"].as_str().unwrap().contains("T3"));
 }

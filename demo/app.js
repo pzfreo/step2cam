@@ -1,6 +1,6 @@
 // The step2cam demo page. Draws what worker.js returns: features on the left in
-// three-cad-viewer, the posted G-code on the right in three.js, both in model coordinates and
-// one camera, with features, operations, toolpaths and G-code lines linked to each other.
+// three-cad-viewer, camlib's toolpaths on the right in three.js, both in model coordinates and
+// one camera, with features, operations, toolpaths and camlib's moves linked to each other.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -28,10 +28,10 @@ let showRapids = false;  // moves through the air in the toolpath view
 let showCurrent = true;  // while playing, the operation being cut stands out
 let showStock = true;    // the block, cut away as the program plays
 let paintedOp = null;    // the operation the toolpath view was last painted for
-let hoveredLine = null;  // the G-code line under the pointer
+let hoveredLine = null;  // the move under the pointer
 
 // ------------------------------------------------------------------------------------------
-// The data: operations, features and the parsed G-code
+// The data: operations, features and camlib's moves
 // ------------------------------------------------------------------------------------------
 
 function buildModel(data) {
@@ -59,7 +59,7 @@ function buildModel(data) {
   for (const f of features.values()) f.covered = covered.has(f.id);
   describeRoughed(features, data);
 
-  const path = parseProgram(data, operations);
+  const path = readMoves(data, operations);
   const m = { data, operations, features, ...path };
   for (const line of m.lines) {
     if (line.op && line.seconds) operations.get(line.op).time += line.seconds;
@@ -109,27 +109,18 @@ function describeRoughed(features, data) {
   }
 }
 
-// What the G-code list shows: its lines, with a heading where each part of the program starts.
+// What the list of moves shows: camlib's moves, with a heading where each setup and operation starts.
 function buildRows(m) {
   const rows = [];
-  const toolOf = new Map();
-  for (const s of m.segments) if (s.op && s.tool && !toolOf.has(s.op)) toolOf.set(s.op, s.tool);
   let program = null, op = null;
   for (const line of m.lines) {
-    if (line.program !== program) {
-      program = line.program; op = null;
-      const many = m.data.programs.length > 1;
-      rows.push({ head: many ? `Program for the ${program} setup: machine setup` : "Machine setup", part: true, line: line.n });
+    if (line.program !== program && m.data.programs.length > 1) {
+      rows.push({ head: `The ${line.program} setup`, part: true, line: line.n });
     }
-    // The tool change that starts an operation belongs to it; the setup lines before it do not.
-    const starts = /^T\d/.test(line.text) || line.rapid != null;
-    if (line.op && line.op !== op && starts) {
-      op = line.op;
-      const o = m.operations.get(op), t = toolOf.get(op);
-      rows.push({ head: `${o.name}${t ? ` · T${t.number} ${t.id}, ⌀${trim(t.diameter)}` : ""}`, line: line.n, key: op });
-    } else if (!line.op && op && line.first > line.last && /^(M5|M9|G49|M2)$/.test(line.text)) {
-      op = null;
-      rows.push({ head: "End of program", part: true, line: line.n });
+    if (line.program !== program || line.op !== op) {
+      program = line.program; op = line.op;
+      const o = m.operations.get(op), t = line.tool;
+      rows.push({ head: `${o?.name ?? op}${t ? ` · T${t.number} ${t.id}, ⌀${trim(t.diameter)}` : ""}`, line: line.n, key: op });
     }
     line.row = rows.length;
     rows.push({ line: line.n });
@@ -176,64 +167,44 @@ function toModel(setup, p) {
   ];
 }
 
-const PLANES = { 17: [0, 1, 2], 18: [2, 0, 1], 19: [1, 2, 0] };
+const MOVE_WORDS = {
+  rapid: "Rapid", cut: "Cut", plunge: "Plunge", lead: "Lead", link: "Link", retract: "Retract", tap: "Tap", shift: "Shift", thread: "Thread",
+};
+const xyz = (p) => `X${p[0].toFixed(3)} Y${p[1].toFixed(3)} Z${p[2].toFixed(3)}`;
 
-// G0 G1 G2 G3 in absolute coordinates with incremental arc centres, which is what step2cam's
-// post writes (G90, G91.1). Each G-code line becomes one or more straight segments.
-function parseProgram(data, operations) {
-  const toolByNumber = new Map(data.tools.map((t) => [t.number, t]));
-  const rapidRate = data.machine?.rapid_mm_min || 5000;
+// camlib's moves, each drawn as the straight pieces its points make (an arc's points lie on it).
+function readMoves(data, operations) {
+  const toolById = new Map(data.tools.map((t) => [t.id, t]));
+  const rapidRate = data.rapid_mm_min || 5000;
   const lines = [], segments = [], positions = [], local = [];
   let machining = 0;
 
   for (const program of data.programs) {
     const setup = data.plan.setups.find((s) => s.id === program.setup);
-    let motion = 0, plane = PLANES[17], mode = null, feed = 0, pos = null, tool = null, pending = null;
-    const ranges = program.operations;
-    for (const text of program.nc.split("\n")) {
-      if (!text.trim()) continue;
-      const words = {};
-      const codes = [];
-      for (const [, letter, value] of text.matchAll(/([A-Z])(-?[\d.]+)/g)) {
-        if (letter === "G" || letter === "M") codes.push(letter + value);
-        else words[letter] = Number(value);
-      }
-      const line = { text, program: program.setup, n: lines.length, first: segments.length, last: segments.length - 1 };
+    for (const move of program.moves) {
+      const end = move.points[move.points.length - 1];
+      const tool = toolById.get(move.tool) || null;
+      const curve = move.curve === "line" ? "" : ` ${move.curve}`;
+      const text = `${MOVE_WORDS[move.kind] || move.kind}${curve}  ${xyz(end)}${move.feed ? ` F${move.feed}` : ""}`;
+      const line = { text, move, tool, program: program.setup, n: lines.length, first: segments.length, last: segments.length - 1 };
       lines.push(line);
-      for (const code of codes) {
-        if (["G0", "G1", "G2", "G3"].includes(code)) mode = Number(code.slice(1));
-        if (code === "G17" || code === "G18" || code === "G19") plane = PLANES[code.slice(1)];
-        if (code === "M6" && pending != null) tool = toolByNumber.get(pending) || null;
+      line.op = move.op;
+      line.feature = nearestFeature(operations.get(move.op), end);
+      line.rapid = move.kind === "rapid";
+      const rate = line.rapid ? rapidRate : move.feed || rapidRate;
+      let length = 0;
+      for (let i = 1; i < move.points.length; i++) {
+        const from = move.points[i - 1], to = move.points[i];
+        const d = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+        length += d;
+        const seconds = d / rate * 60;
+        machining += seconds;
+        segments.push({ line: line.n, op: line.op, feature: line.feature, rapid: line.rapid, tool, setup, seconds, machining });
+        positions.push(...toModel(setup, from), ...toModel(setup, to));
+        local.push(...from, ...to);
       }
-      if (words.T != null) pending = words.T;
-      if (words.F != null) feed = words.F;
-      const isMotion = codes.some((c) => ["G0", "G1", "G2", "G3"].includes(c));
-      const range = ranges.find((r) => motion < r.end && motion >= r.start);
-      line.op = range ? range.id : null;
-      if (!isMotion) continue;
-      motion += 1;
-
-      const target = [words.X ?? pos?.[0] ?? 0, words.Y ?? pos?.[1] ?? 0, words.Z ?? pos?.[2] ?? 0];
-      line.feature = range ? nearestFeature(operations.get(range.id), target) : null;
-      line.rapid = mode === 0;
-      if (pos) {
-        const pts = mode === 2 || mode === 3 ? arcPoints(pos, target, words, plane, mode) : [target];
-        let from = pos, length = 0;
-        const rate = mode === 0 ? rapidRate : feed || rapidRate;
-        for (const to of pts) {
-          const d = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
-          length += d;
-          const seconds = d / rate * 60;
-          machining += seconds;
-          segments.push({ line: line.n, op: line.op, feature: line.feature, rapid: line.rapid, tool, setup, seconds, machining });
-          positions.push(...toModel(setup, from), ...toModel(setup, to));
-          local.push(...from, ...to);
-          from = to;
-        }
-        line.seconds = length / rate * 60;
-        line.last = segments.length - 1;
-      }
-      pos = target;
+      line.seconds = length / rate * 60;
+      line.last = segments.length - 1;
     }
   }
   return { lines, segments, positions: new Float32Array(positions), local: new Float32Array(local), machining };
@@ -249,27 +220,6 @@ function nearestFeature(op, point) {
     if (d < bestD) { bestD = d; best = op.features[i]; }
   });
   return bestD <= (op.diameter ?? op.start_diameter) ? best : null;
-}
-
-function arcPoints(from, to, words, plane, mode) {
-  const [a, b, c] = plane;
-  const offsets = [words.I ?? 0, words.J ?? 0, words.K ?? 0];
-  const ca = from[a] + offsets[a], cb = from[b] + offsets[b];
-  const start = Math.atan2(from[b] - cb, from[a] - ca), end = Math.atan2(to[b] - cb, to[a] - ca);
-  const radius = Math.hypot(from[a] - ca, from[b] - cb);
-  let sweep = end - start;
-  if (mode === 2) { if (sweep >= -1e-9) sweep -= 2 * Math.PI; } else if (sweep <= 1e-9) sweep += 2 * Math.PI;
-  const steps = Math.max(4, Math.ceil(Math.abs(sweep) / (Math.PI / 18)));
-  const pts = [];
-  for (let i = 1; i <= steps; i++) {
-    const f = i / steps, angle = start + sweep * f, p = [0, 0, 0];
-    p[a] = ca + radius * Math.cos(angle);
-    p[b] = cb + radius * Math.sin(angle);
-    p[c] = from[c] + (to[c] - from[c]) * f;
-    pts.push(p);
-  }
-  pts[pts.length - 1] = to;
-  return pts;
 }
 
 // ------------------------------------------------------------------------------------------
@@ -685,7 +635,7 @@ function paintToolpaths() {
 }
 
 // ------------------------------------------------------------------------------------------
-// The feature list, the G-code list and the timeline
+// The feature list, the list of moves and the timeline
 // ------------------------------------------------------------------------------------------
 
 const describeTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
@@ -720,7 +670,7 @@ function buildFeatureList(m) {
     const count = slot || edges ? 1 : op.features.length;
     const tool = [...m.segments].find((s) => s.op === op.id)?.tool;
     const what = op.kind === "notch" ? `to size, corners r${tool ? trim(tool.diameter / 2) : "?"}` : op.kind === "v_channel" ? `${tool ? `${tool.angle}° ${tool.id}` : "V-bit"}, to the root` : slot ? "to size" : edges ? "top edges, not the round" : `${count} ${count === 1 ? "hole" : "holes"}`;
-    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not posted"}</span></span>`, op.id));
+    host.append(button("feature-row", `<span class="swatch" style="background:${op.color}"></span><span><span class="name">${escapeHtml(op.name)}</span><span class="detail">${what}, ${op.time ? describeTime(op.time) : "not run"}</span></span>`, op.id));
     if (count > 1) {
       const chips = document.createElement("div");
       chips.className = "chips";
@@ -901,18 +851,18 @@ async function buildPlan(m) {
   fact(`<b>Material:</b> ${material.used ? `${escapeHtml(material.used)} (from ${from})` : "not given"}${material.iso513 ? ` <span class="tag">ISO 513 group ${escapeHtml(material.iso513)}</span>` : material.used ? ' <span class="tag warn">no ISO 513 group</span>' : ""}`);
   const materialWhy = (plan.decisions || []).filter((d) => d.rule.startsWith("requirement.material.group@")).map((d) => d.id);
   if (materialWhy.length) host.append(whyList(materialWhy, decisions, rules));
-  const posted = new Set(m.data.programs.map((p) => p.setup));
+  const ran = new Set(m.data.programs.map((p) => p.setup));
   fact(`<b>${plan.setups.length} ${plan.setups.length === 1 ? "setup" : "setups"}</b>, ${[...m.operations.values()].length} operations, ${plan.skipped.length} features not cut, ${plan.warnings.length} warnings.`);
 
   for (const setup of plan.setups) {
     const lo = setup.stock.min, hi = setup.stock.max;
-    head(`${setup.id} setup${posted.has(setup.id) ? "" : " · not posted"}`);
+    head(`${setup.id} setup${ran.has(setup.id) ? "" : " · not run"}`);
     fact(`Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`);
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const card = document.createElement("section");
       card.className = `plan-op${o && o.time ? "" : " unused"}`;
-      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not posted</span>'}</span>`, key);
+      const headBtn = button("plan-op-head", `<span class="step">${n + 1}.</span><span class="swatch" style="background:${o?.color || UNPLANNED}"></span><span class="name">${escapeHtml(o?.name || op.kind)} <span class="op-meta">· ${escapeHtml(op.tool || "no tool")}${o && o.time ? ` · ${describeTime(o.time)}` : ""}</span>${o && o.time ? "" : ' <span class="tag warn">not run</span>'}</span>`, key);
       card.append(headBtn);
       const iso = op.iso14649;
       const open = document.createElement("details");
@@ -1062,8 +1012,8 @@ async function showStory(m) {
   const decisions = plan.decisions || [];
   $("story-plan").textContent = `Decides how to make it: ${count(plan.setups.length, "setup")}, ${count(ops.length, "operation")}, ${count(tools.size, "tool")}. ${count(decisions.length, "decision")}, each traced to one of ${rules.size || "its"} written rules.`;
   const checked = data.programs.filter((p) => p.material);
-  const check = data.post_error ? "Posting failed." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
-  $("story-toolpaths").textContent = data.post_error ? "Posting failed: see the message above." : `Turns the plan into toolpaths and ${count(m.lines.length, "line")} of G-code, ${check}`;
+  const check = data.error ? "camlib could not run it." : checked.length ? "then cuts a virtual block and compares it with the part: no gouge found." : "but the finished stock could not be compared with the part.";
+  $("story-toolpaths").textContent = data.error ? "camlib could not run the plan: see the message above." : `camlib turns the plan into ${count(m.lines.length, "toolpath move")}, ${check}`;
   $("story").hidden = false;
 }
 
@@ -1078,20 +1028,7 @@ function savePlan() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// What the page says and a saved file would otherwise lose: it goes in the file as comments.
-function savedText(m, program) {
-  const setup = m.data.plan.setups.find((s) => s.id === program.setup);
-  const leftOut = m.data.plan.warnings.filter((w) => w.includes(" left out: "));
-  const notes = [
-    `step2cam demo, from ${m.data.name}, setup ${program.setup}`,
-    "PLACEHOLDER TOOLS AND CUTTING DATA: NOT FOR A REAL MACHINE",
-    `X0 Y0 on the minimum corner and Z0 on the top of the ${setup.zero}`,
-    ...leftOut.map((w) => `NOT CUT: ${w}`),
-  ];
-  const comments = notes.map((n) => `; ${n.replace(/[^\x20-\x7e]/g, "?")}`);
-  return `${comments.join("\n")}\n${program.nc}`;
-}
-
+// The camlib job for each setup: what camlib's own posts write G-code from.
 function buildSaveButtons(m) {
   const host = $("save");
   host.replaceChildren();
@@ -1099,12 +1036,12 @@ function buildSaveButtons(m) {
   for (const program of m.data.programs) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = m.data.programs.length > 1 ? `Save ${program.setup}` : "Save G-code";
-    button.title = `Save ${stem}-${program.setup}.nc`;
+    button.textContent = m.data.programs.length > 1 ? `Save ${program.setup} job` : "Save camlib job";
+    button.title = `Save ${stem}-${program.setup}.camlib-job.json: the setup as a camlib job, for camlib's posts to write G-code from`;
     button.addEventListener("click", () => {
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([savedText(m, program)], { type: "text/plain" }));
-      link.download = `${stem}-${program.setup}.nc`;
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(program.job)], { type: "application/json" }));
+      link.download = `${stem}-${program.setup}.camlib-job.json`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
@@ -1141,40 +1078,25 @@ function coloured(text) {
   });
 }
 
-const MODES = {
-  G21: "Units are millimetres", G90: "Coordinates are absolute", "G91.1": "Arc centres are relative to the arc's start",
-  G17: "Arcs are in the XY plane", G18: "Arcs are in the XZ plane", G19: "Arcs are in the YZ plane", G94: "Feed is in mm per minute",
-  G97: "Spindle speed is in rpm", G40: "Cutter radius compensation off", G49: "Tool length offset off", G80: "Canned cycles off",
-  "G92.1": "G92 offsets cleared", "G61.1": "Exact stop at each move", M5: "Spindle off", M9: "Coolant off", M8: "Flood coolant on",
-  M7: "Mist coolant on", M6: "Change to the selected tool", M2: "End of program",
+const MOVE_EXPLAINED = {
+  rapid: "Rapid move through the air", cut: "Cut", plunge: "Feed down into the material", lead: "Lead into or out of the cut",
+  link: "Link between cuts, at feed", retract: "Retract from the cut", tap: "Tap", shift: "Shift with the spindle stopped", thread: "Cut a thread",
 };
 
-// One G-code line in words, for the panel under the list.
-function explain(line, tools) {
-  const words = Object.fromEntries([...line.text.matchAll(/([A-Z])(-?[\d.]+)/g)].map((w) => [w[1], w[2]]));
-  const code = line.text.split(" ")[0];
-  const to = ["X", "Y", "Z"].filter((a) => words[a] != null).map((a) => `${a}${words[a]}`).join(" ");
-  const feed = words.F ? ` at ${words.F} mm/min` : "";
-  if (code === "G0") return `Rapid move through the air to ${to}`;
-  if (code === "G1") return `Cut in a straight line to ${to}${feed}`;
-  if (code === "G2" || code === "G3") {
-    return `Cut a ${code === "G2" ? "clockwise" : "counter-clockwise"} ${words.Z != null ? "helix" : "arc"} to ${to}${feed}`;
-  }
-  if (code === "M3" || code === "M4") return `Spindle on ${code === "M3" ? "clockwise" : "counter-clockwise"} at ${words.S} rpm`;
-  if (code === "G43") return `Apply the length offset in register ${words.H}`;
-  if (/^G5[4-9]$/.test(code)) return `Use work offset ${code}`;
-  if (/^T\d+$/.test(code)) {
-    const t = tools.find((x) => x.number === Number(words.T));
-    return `Select tool ${words.T}${t ? `: ${t.id}, ⌀${trim(t.diameter)}` : ""}`;
-  }
-  return MODES[code] || "";
+// One of camlib's moves in words, for the panel under the list.
+function explain(line) {
+  const { move } = line;
+  const shape = move.curve === "line" ? "in a straight line" : `along ${move.curve === "arc" ? "an arc" : "a helix"}`;
+  const feed = move.feed ? ` at ${move.feed} mm/min` : "";
+  const tool = line.tool ? `, ${line.tool.id}` : "";
+  return `${MOVE_EXPLAINED[move.kind] || move.kind} ${shape} to ${xyz(move.points[move.points.length - 1])}${feed}${tool}`;
 }
 
 function drawExplain() {
   const host = $("code-explain");
   const n = hoveredLine ?? currentLine();
   const line = model?.lines[n];
-  host.innerHTML = line ? `<code>${n + 1}: ${coloured(line.text)}</code><span>${escapeHtml(explain(line, model.data.tools))}</span>` : "";
+  host.innerHTML = line ? `<code>${n + 1}: ${coloured(line.text)}</code><span>${escapeHtml(explain(line))}</span>` : "";
 }
 
 function scrollCodeTo(line) {
@@ -1271,13 +1193,13 @@ function drawStatus() {
   if (key) {
     const lines = linesOf(key);
     const name = model.features.has(key) ? describeFeature(model.features.get(key)) : model.operations.get(key)?.name || key;
-    text = lines.length ? `${name} · G-code lines ${lines[0].n + 1}–${lines[lines.length - 1].n + 1}` : `${name} · no G-code`;
+    text = lines.length ? `${name} · moves ${lines[0].n + 1}–${lines[lines.length - 1].n + 1}` : `${name} · no toolpath`;
   } else if (model.segments.length) {
     const s = model.segments[currentSegment()];
     const what = s.feature ? describeFeature(model.features.get(s.feature)) : model.operations.get(s.op)?.name || "";
-    text = `${playing || time > 0 ? "Cutting" : "Ready"}: ${what} · line ${s.line + 1}/${model.lines.length} · ${describeTime(s.machining)}/${describeTime(model.machining)} est.`;
+    text = `${playing || time > 0 ? "Cutting" : "Ready"}: ${what} · move ${s.line + 1}/${model.lines.length} · ${describeTime(s.machining)}/${describeTime(model.machining)} est.`;
   } else {
-    text = "No G-code for this part";
+    text = "No toolpaths for this part";
   }
   $("status").textContent = text;
 }
@@ -1361,7 +1283,7 @@ function showBanner(text) {
 // The check's result in words: the headline, and what it cannot see behind a toggle.
 function showChecks(data) {
   const host = $("checks");
-  const programs = data.post_error ? [] : data.programs;
+  const programs = data.error ? [] : data.programs;
   host.hidden = !programs.length;
   host.open = false;
   if (!programs.length) return;
@@ -1414,9 +1336,9 @@ function show(data) {
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
-  $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} lines of G-code`;
+  $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
   const notes = data.notice ? [data.notice] : [];
-  if (data.post_error) notes.push(`Posting failed: ${data.post_error}`);
+  if (data.error) notes.push(`camlib could not run the plan: ${data.error}`);
   notes.push(...warningLines(model));
   notes.push(...data.log.filter((l) => /^note: .*no (drill|end mill)/.test(l)).map((l) => l.slice(6)));
   showBanner(notes.join("\n"));
@@ -1572,7 +1494,7 @@ const resized = new ResizeObserver(() => {
 });
 resized.observe($("gcode-view"));
 resized.observe($("cad").parentElement);
-// The G-code list draws only the rows in view, so it redraws when its box changes (a pane opening).
+// The list of moves draws only the rows in view, so it redraws when its box changes (a pane opening).
 new ResizeObserver(() => drawCode()).observe($("code"));
 
 $("plan-save").addEventListener("click", savePlan);
