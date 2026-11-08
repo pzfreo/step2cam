@@ -1490,6 +1490,7 @@ function show(data) {
   buildPlan(model);
   showStory(model);
   $("phone-story").hidden = true;
+  $("desktop-story").hidden = true;
   for (const step of document.querySelectorAll(".story-step")) step.removeAttribute("aria-expanded");
   $("code-spacer").style.height = `${model.rows.length * ROW_HEIGHT}px`;
   $("code").scrollTop = 0;
@@ -1591,10 +1592,8 @@ function setFocusQuiet(key) {
   applyFocus(false);
 }
 
-// Three panes in the order the work happens: recognise, plan, make. Expand (or a rail, or a story
-// step) opens one pane and shrinks the others to rails; on a narrow screen one is always open.
+// Phones keep their existing single-pane layout. Desktop shares two views above one list panel.
 const PANES = ["features", "plan", "toolpaths"];
-const NARROW = 1300;
 let expanded = null;
 // Move the existing controls and views, preserving handlers, state and desktop positions.
 const phone = window.matchMedia("(max-width: 700px)");
@@ -1673,10 +1672,135 @@ function layoutPhone(open) {
     for (const step of document.querySelectorAll(".story-step")) step.removeAttribute("aria-expanded");
   }
 }
+// Separate anchors let desktop controls return before the unchanged phone mover runs.
+const desktopMoves = new Map();
+const desktopPanels = [$("features"), document.querySelector(".plan-pane"), document.querySelector(".code-panel")];
+desktopPanels[1].id = "desktop-plan";
+desktopPanels[2].id = "desktop-moves";
+let desktopTab = "features";
+let panelShare = 30;
+let panelBeforeExpand = null;
+try {
+  const saved = Number(localStorage.getItem("step2cam.desktop-panel-percent"));
+  if (Number.isFinite(saved) && saved >= 20 && saved <= 70) panelShare = saved;
+} catch { /* Storage may be disabled. */ }
+function setPanelShare(value, remember = true) {
+  panelShare = Math.max(20, Math.min(70, value));
+  const panes = document.querySelector(".panes");
+  panes.style.setProperty("--panel-share", `${panelShare}fr`);
+  panes.style.setProperty("--view-share", `${100 - panelShare}fr`);
+  $("desktop-splitter").setAttribute("aria-valuenow", String(Math.round(panelShare)));
+  $("desktop-splitter").setAttribute("aria-valuetext", `${Math.round(panelShare)}% lists`);
+  if (remember) {
+    try { localStorage.setItem("step2cam.desktop-panel-percent", String(panelShare)); } catch { /* Keep working without storage. */ }
+  }
+}
+function moveDesktop(el, destination) {
+  if (!desktopMoves.has(el)) {
+    const anchor = document.createComment("original desktop position");
+    el.before(anchor);
+    desktopMoves.set(el, anchor);
+  }
+  if (el.parentElement !== destination) destination.append(el);
+}
+function layoutDesktop() {
+  for (const el of [...document.querySelectorAll("header > .views, header > label.open")]) {
+    if (el !== cameraButtons) moveDesktop(el, $("desktop-menu-content"));
+  }
+  moveDesktop($("plan-save"), $("desktop-menu-content"));
+  moveDesktop(document.querySelector(".about"), $("desktop-menu-content"));
+  for (const id of ["banner", "checks", "story"]) moveDesktop($(id), $("desktop-status"));
+  const panes = document.querySelector(".panes");
+  panes.dataset.desktopTab = desktopTab;
+  for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
+    const selected = tab.dataset.desktopTab === desktopTab;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
+  desktopPanels.forEach((panel, i) => {
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", "desktop-tab-" + PANES[i]);
+    panel.tabIndex = 0;
+  });
+  for (const step of document.querySelectorAll(".story-step")) {
+    step.setAttribute("aria-pressed", String(step.dataset.pane === desktopTab));
+    step.setAttribute("aria-expanded", String(!$("desktop-story").hidden && step.dataset.pane === $("desktop-story").dataset.pane));
+  }
+  setPanelShare(panelShare, false);
+}
+for (const tab of document.querySelectorAll('[role="tab"][data-desktop-tab]')) {
+  tab.addEventListener("click", () => expandPane(tab.dataset.desktopTab));
+  tab.addEventListener("keydown", (event) => {
+    const index = PANES.indexOf(tab.dataset.desktopTab);
+    const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
+    if (next === null) return;
+    event.preventDefault();
+    expandPane(PANES[next]);
+    document.querySelector(`[role="tab"][data-desktop-tab="${PANES[next]}"]`).focus();
+  });
+}
+function toggleDesktopExpand() {
+  if (panelBeforeExpand === null) {
+    panelBeforeExpand = panelShare;
+    setPanelShare(70);
+  } else {
+    setPanelShare(panelBeforeExpand);
+    panelBeforeExpand = null;
+  }
+  $("desktop-expand").textContent = panelBeforeExpand === null ? "Expand" : "Restore";
+  $("desktop-expand").setAttribute("aria-pressed", String(panelBeforeExpand !== null));
+}
+$("desktop-expand").addEventListener("click", toggleDesktopExpand);
+const splitter = $("desktop-splitter");
+let splitPointer = null;
+function dragPanel(event) {
+  const box = document.querySelector(".panes").getBoundingClientRect();
+  // The tabs and handle occupy 46px; the remaining space is shared by views and lists.
+  const available = box.height - 46;
+  if (available <= 0) return;
+  setPanelShare((box.bottom - event.clientY - 41) / available * 100);
+}
+splitter.addEventListener("pointerdown", (event) => {
+  if (phone.matches || event.button !== 0) return;
+  event.preventDefault();
+  splitter.focus();
+  splitPointer = event.pointerId;
+  splitter.setPointerCapture(splitPointer);
+});
+splitter.addEventListener("pointermove", (event) => {
+  if (event.pointerId === splitPointer) dragPanel(event);
+});
+for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  splitter.addEventListener(name, () => { splitPointer = null; });
+}
+splitter.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  event.preventDefault();
+  setPanelShare(panelShare + (event.key === "ArrowUp" ? 2 : -2));
+});
+$("desktop-menu-content").addEventListener("click", (event) => {
+  if (event.target.closest("button")) $("desktop-menu").open = false;
+});
 function layoutPanes() {
   const panes = document.querySelector(".panes");
-  const single = window.innerWidth < NARROW;
-  const open = expanded || (single ? "features" : null);
+  if (!phone.matches) {
+    panes.classList.remove("single");
+    panes.style.gridTemplateColumns = "";
+    for (const pane of document.querySelectorAll(".pane")) pane.classList.remove("shrunk");
+    layoutPhone(desktopTab);
+    layoutDesktop();
+    return;
+  }
+  for (const [el, anchor] of desktopMoves) anchor.after(el);
+  for (const panel of desktopPanels) {
+    panel.removeAttribute("role");
+    panel.removeAttribute("aria-labelledby");
+    panel.removeAttribute("tabindex");
+  }
+  $("desktop-menu").open = false;
+  $("desktop-story").hidden = true;
+  const single = true;
+  const open = expanded || "features";
   panes.classList.toggle("single", single);
   panes.style.gridTemplateColumns = open ? PANES.map((p) => (p === open ? "minmax(0, 1fr)" : "44px")).join(" ") : "";
   for (const pane of document.querySelectorAll(".pane")) pane.classList.toggle("shrunk", Boolean(open) && pane.dataset.pane !== open);
@@ -1689,6 +1813,11 @@ function layoutPanes() {
   layoutPhone(open || "features");
 }
 function expandPane(name) {
+  if (!phone.matches) {
+    desktopTab = name || "features";
+    layoutDesktop();
+    return;
+  }
   expanded = name;
   layoutPanes();
 }
@@ -1697,7 +1826,15 @@ for (const b of document.querySelectorAll(".pane-size[data-pane]")) {
 }
 for (const b of document.querySelectorAll(".pane-rail, .story-step")) {
   b.addEventListener("click", () => {
-    expandPane(b.classList.contains("story-step") && expanded === b.dataset.pane && window.innerWidth >= NARROW ? null : b.dataset.pane);
+    expandPane(b.dataset.pane);
+    if (!phone.matches && b.classList.contains("story-step")) {
+      const sentence = $("story-" + b.dataset.pane).textContent;
+      const hide = !$("desktop-story").hidden && $("desktop-story").dataset.pane === b.dataset.pane;
+      $("desktop-story").textContent = sentence;
+      $("desktop-story").dataset.pane = b.dataset.pane;
+      $("desktop-story").hidden = hide;
+      layoutDesktop();
+    }
     if (phone.matches && b.classList.contains("story-step")) {
       const sentence = $("story-" + b.dataset.pane).textContent;
       const hide = !$("phone-story").hidden && $("phone-story").textContent === sentence;
@@ -1709,7 +1846,16 @@ for (const b of document.querySelectorAll(".pane-rail, .story-step")) {
 }
 window.addEventListener("resize", layoutPanes);
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && expanded && window.innerWidth >= NARROW) expandPane(null);
+  if (event.key === "Escape" && !phone.matches) {
+    $("desktop-menu").open = false;
+    $("desktop-story").hidden = true;
+    $("checks").open = false;
+    for (const details of $("banner").querySelectorAll("details")) details.open = false;
+    $("banner").classList.remove("phone-banner-open");
+    $("banner").querySelector(".phone-banner-toggle")?.setAttribute("aria-expanded", "false");
+    if (panelBeforeExpand !== null) toggleDesktopExpand();
+    layoutDesktop();
+  }
 });
 layoutPanes();
 
