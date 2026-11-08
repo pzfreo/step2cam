@@ -4,6 +4,16 @@
  "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
  "rules": [
   {
+   "id": "setup.flip_face",
+   "warning_label": "flip-and-face setup",
+   "version": 3,
+   "stage": "setup",
+   "rationale": "Explicitly selected vise flip option (overrides.workholding_option): trace availability separately without choosing an option; choosing rules belong to #94. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
+   "code": "flip.rs; workholding.rs; clamping_history.rs",
+   "data": ["rules/workholding.json"],
+   "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."}]
+  },
+  {
    "id": "requirement.thread.unknown_size",
    "warning_label": "thread size not recognised",
    "version": 1,

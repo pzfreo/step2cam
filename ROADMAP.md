@@ -30,7 +30,8 @@ is planned and checked, but can't yet be made as it is. In order:
 
 1. #86 Turn it over onto parallels and face it to thickness (the vise route), **or** #87 hold
    the stock by its margins and cut the outline through with tabs (the clamps route, which
-   suits the Carvera's bed). Choose one; both are open.
+   suits the Carvera's bed). The #86 vise option is implemented; #94 will lay out
+   workholding alternatives and choose between them.
 2. #88 The Carvera's real tools and aluminium cutting data in the demo library, with a ⌀2 mm
    end mill for the slot's r1.2 corners.
 3. The front holes: hold the finished part on its side (the rest of #43), checked against the

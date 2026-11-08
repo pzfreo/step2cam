@@ -95,10 +95,69 @@ fn bands(setup: &Value) -> Option<Vec<Bounds>> {
         b[1][axis] = stock[n][axis];
         b[0][along] = b[0][along].max(jaw["min"][along].as_f64()?);
         b[1][along] = b[1][along].min(jaw["max"][along].as_f64()?);
+        if let Some(z) = c["contact_min_z"].as_f64() { b[0][2] = z; }
+        if let Some(a) = c["contact_along_min"].as_f64() { b[0][along] = b[0][along].max(a); }
+        if let Some(a) = c["contact_along_max"].as_f64() { b[1][along] = b[1][along].min(a); }
         b[1][2] = c["jaw_top_z"].as_f64()?;
         bands.push(b);
     }
     Some(bands)
+}
+
+/// Check the actual retained contact polygons against finished contour segments.
+/// A notch can divide a side into several segments; no segment need span air.
+fn prepared_contacts(setup: &Value, earlier: &Value) -> bool {
+    let seat=&setup["flip_seating"];
+    let axis=seat["axis"].as_u64().unwrap() as usize;
+    let along=1-axis;
+    let eps=crate::rules::workholding()["flip_frame_tolerance_mm"].as_f64().unwrap();
+    let Some(frame)=Frame::read(earlier) else {return false;};
+    let Ok(sides)=serde_json::from_value::<Vec<Vec<Vec<Point>>>>(seat["contact_patches_model"].clone()) else {return false;};
+    sides.iter().all(|patches| !patches.is_empty() && patches.iter().all(|patch| {
+        let points: Vec<Point>=patch.iter().map(|p| std::array::from_fn(|i|(0..3).map(|j|frame.rotation[i][j]*(p[j]-frame.origin[j])).sum())).collect();
+        let low=points.iter().map(|p|p[2]).fold(f64::INFINITY,f64::min);
+        let side=points[0][axis];
+        let mut intervals=vec![];
+        for op in earlier["operations"].as_array().into_iter().flatten().filter(|o|o["kind"]=="wall_finish" && o["tool"].is_string() && o["floor_z"].as_f64().is_some_and(|z|z<=low+eps)) {
+            if let Some(outer)=op["outer"].as_array() {for i in 0..outer.len() {
+                let a=&outer[i];let b=&outer[(i+1)%outer.len()];
+                if a[2].as_f64()==Some(0.) && a[axis].as_f64().is_some_and(|v|(v-side).abs()<=eps) && b[axis].as_f64().is_some_and(|v|(v-side).abs()<=eps)
+                    && let Some((a,b))=a[along].as_f64().zip(b[along].as_f64()) {intervals.push([a.min(b)-eps,a.max(b)+eps]);}
+            }}
+        }
+        intervals.sort_by(|a,b|a[0].total_cmp(&b[0]));
+        let mut merged: Vec<[f64;2]>=vec![];
+        for span in intervals {if let Some(last)=merged.last_mut().filter(|last|last[1]>=span[0]) {last[1]=last[1].max(span[1]);} else {merged.push(span);}}
+        let poly: Vec<_>=points.iter().map(|p|[p[along],p[2]]).collect();
+        let want=crate::flip::area(&poly);
+        let covered: f64=merged.iter().map(|span|crate::flip::area(&crate::flip::clipped(poly.clone(),[[span[0],f64::NEG_INFINITY],[span[1],f64::INFINITY]]))).sum();
+        want>0. && covered+eps>=want
+    }))
+}
+
+/// Positive evidence for the actual support plane, independent of cutting
+/// envelopes: absence of cuts is never evidence of prepared seating or faces.
+fn established_seat(setup: &Value, earlier: &Value) -> bool {
+    let support=setup["flip_seating"]["seat_z_model"].as_f64()
+        .zip(earlier["origin_model"][2].as_f64()).map(|(seat,origin)|seat-origin);
+    let eps=crate::rules::workholding()["flip_frame_tolerance_mm"].as_f64().unwrap();
+    earlier["operations"].as_array().into_iter().flatten().any(|op|
+        op["tool"].is_string() && support.is_some_and(|support|
+            (op["kind"]=="facing" && op["floor_z"].as_f64().is_some_and(|z|(z-support).abs()<eps))
+            || (op["kind"]=="flats" && op["levels"].as_array().into_iter().flatten()
+                .any(|z|z.as_f64().is_some_and(|z|(z-support).abs()<eps)))))
+}
+
+fn spot_envelope(op: &Value) -> Option<Bounds> {
+    let corners: Option<Vec<_>> = op["spots"].as_array()?.iter().map(|s| {
+        let x=s["center"][0].as_f64()?;
+        let y=s["center"][1].as_f64()?;
+        let z=s["top_z"].as_f64()?;
+        let radius=s["diameter"].as_f64()?/2.;
+        let depth=s["depth"].as_f64()?;
+        Some([[x-radius,y-radius,z-depth],[x+radius,y+radius,z]])
+    }).collect();
+    bounds(corners?.into_iter().flatten())
 }
 
 /// Called after settlement, exclusions and tool resolution, so absent/untooled operations
@@ -109,6 +168,18 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         let id = setup["id"].as_str().unwrap_or("");
         let mut hits = vec![];
         let mut unchecked = vec![];
+        let flip=setup["flip_seating"].is_object();
+        let top=setups[..index].iter().find(|s|s["id"]=="top");
+        let prepared=flip && top.is_some_and(|s|prepared_contacts(setup,s));
+        let seated=flip && top.is_some_and(|s|established_seat(setup,s));
+        // Check these even when top has no retained cuts, or only cuts that
+        // never touch the bands. A clean overlap audit cannot prepare a grip.
+        if flip && !prepared {
+            unchecked.push(json!({"setup":"top","reason":"finished grip faces are not established by retained tooled wall finishing"}));
+        }
+        if flip && !seated {
+            unchecked.push(json!({"setup":"top","reason":"finished edge seating is not established by retained facing/flats"}));
+        }
         for earlier in &setups[..index] {
             let cuts: Vec<_> = earlier["operations"].as_array().into_iter().flatten().enumerate().filter(|(_, o)| o["tool"].is_string()).collect();
             if cuts.is_empty() { continue; }
@@ -117,9 +188,17 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
                 continue;
             };
             let bands: Vec<_> = bands.into_iter().map(|b| transformed(b, &from, &to)).collect();
+            // Only this option's mesh-proven contact faces can treat retained
+            // outside finishing as preparation, rather than removed material.
+            // Still check holes/notches/slots and all other setups normally.
+            let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
             for (n, op) in cuts {
+                if flip_top && prepared && (matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) || crate::flip::modeled_cut(&setup["flip_seating"],op)) { continue; }
                 let operation = format!("{}-{}-{}", earlier["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""));
-                let Some(cut) = envelope(earlier, op, resources) else {
+                let cut = if setup["flip_seating"].is_object() && op["kind"] == "spot_drill" {
+                    spot_envelope(op)
+                } else { envelope(earlier, op, resources) };
+                let Some(cut) = cut else {
                     unchecked.push(json!({"operation": operation, "reason": "missing or unsupported cutting geometry"}));
                     continue;
                 };
@@ -128,7 +207,11 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
-        let detail = json!({"status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        let mut detail = json!({"status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        if flip {
+            detail["prepared_contacts"]=json!(prepared);
+            detail["established_seat"]=json!(seated);
+        }
         let says = match status {
             "possible_overlap" => format!("setup {id}: earlier cuts may have removed material in the later grip band: {}; {SCOPE}", detail["overlaps"]),
             "unchecked" => format!("setup {id}: later grip band could not be checked completely against earlier cuts: {}; {SCOPE}", detail["unchecked"]),
@@ -138,10 +221,27 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         let primary = setup["clamping"]["because"][0].as_str().unwrap_or("");
         if let Some(d) = trace.decisions.iter_mut().find(|d| d["id"] == primary) {
             d["chosen"]["prior_setups"] = detail.clone();
+            if flip {
+                let ready=prepared && seated && status=="no_overlap";
+                let conclusion=if ready {"finished grip faces and edge seating confirmed by retained top operations"}
+                    else {"grip preparation not established; flip clamping is unavailable"};
+                d["says"]=json!(format!("{}; {conclusion}",d["says"].as_str().unwrap_or("")));
+                if !ready {d["outcome"]=json!("none");}
+            }
         }
         let decision = if status == "no_overlap" {
             trace.decide(RULE, id, "chosen", &says, json!({"chosen": detail}))
         } else { trace.warn(RULE, id, says, json!({})) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
+        if flip && (!prepared || !seated || status != "no_overlap") {
+            let b=setup["stock"]["max"][2].as_f64().unwrap_or(0.);
+            let reason = format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned");
+            trace.warn(RULE, id, reason.clone(), json!({}));
+            for feature in setup["operations"].as_array().into_iter().flatten()
+                .flat_map(|o| o["features"].as_array().into_iter().flatten()).filter_map(Value::as_str) {
+                trace.skip(RULE, feature, reason.clone());
+            }
+            plan["setups"][index]["operations"] = json!([]);
+        }
     }
 }

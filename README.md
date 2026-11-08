@@ -287,6 +287,13 @@ their current names. Both names may be given if their values are equal; differin
 refuse the library with an error naming the tool and both fields. Missing fields are
 reported using the current name. This translates names only, without converting dimensions.
 
+The resources can explicitly select the vise flip-and-face option with
+`{"overrides":{"workholding_option":"vise_flip_face"}}`. Omit the switch or set it
+to `"none"` to retain ordinary planning and the demo's default machining plans. The
+trace records availability separately from selection, and explains any unavailable
+selection or fallback. Other values are rejected. Choosing rules between workholding
+options belong to #94; see [the CAPP planning documentation](docs/capp-plan.md).
+
 **Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
 on purpose.
 

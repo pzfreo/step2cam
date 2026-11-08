@@ -55,7 +55,7 @@ skipped with a reach reason and needed-tool query, including the 1 mm margin in 
 minimum flute length and stickout. Flats below the cap are removed; crossing wall bands are
 finished down to the cap, with a needed-tool warning for the allowance left below it. Wholly
 unreachable wall bands are removed, and dependent edge chamfers follow the missing-wall
-handling. No second roughing setup is added.
+handling. No second roughing setup is added. The resource-aware `capp::flip::plan` option can instead reserve sacrificial bottom stock before planning, so the jaws do not obstruct the part.
 
 A vise with explicit `max_jaw_opening_mm`, `jaw_width_mm` and `jaw_height_mm` also
 records `setups[].clamping`: the stock faces gripped, grip height, jaw top Z, clearance,
@@ -114,11 +114,87 @@ clamping decision, with the audit decision also linked from `clamping.because`.
 Roughing and contour envelopes include preserved part material; grouped-hole boxes include
 the space between holes. Missing frames or unsupported geometry are reported as unchecked.
 This is a conservative warning, not a stock simulation, proof of retained contact area, or
-holding-strength calculation. No operations are removed by this audit. Execution retries
+holding-strength calculation. For ordinary setups no operations are removed by this audit. Execution retries
 recompute it after refusals, so excluded earlier operations do not count as cuts.
 
-The automatic flip-onto-parallels and face-to-thickness pattern remains deferred pending
-camlib#121's ability to start a later job from the earlier job's stock.
+`capp::flip::plan(analysis, mesh, resources)` implements the self-contained #86 vise
+flip-and-face option. Selection is explicit in the resources:
+
+```json
+{"overrides":{"workholding_option":"vise_flip_face"}}
+```
+
+Without `overrides.workholding_option`, or with `"none"`, `process` keeps the ordinary
+machine-independent plan and its machining behavior, including the demo's default plans.
+It adds a trace decision recording whether the flip was available and that it was not
+selected. Only `"vise_flip_face"` requests the flip. Availability requires a dimensioned
+vise, a web or through feature, and the seating, grip, opening and reach checks below.
+An unavailable selected option keeps ordinary planning and traces the reason, including
+missing vise data, ineligible parts, explicit clamping proposals, and execution fallback.
+Unknown values (including null and non-strings) are rejected during resource normalisation.
+The switch chooses an option directly; a rule choosing between options belongs to #94.
+No options table, supplied-decision protocol or automatic choice is introduced.
+
+Stock in this option includes bottom stock B, solved from
+`B >= max(3.175, 0.2 * (part_height + top_stock + B)) + 1 + 1`.
+The first 1 mm is the existing side-cut clearance; the additional 1 mm facing allowance
+is step2cam judgement. B is rounded upward to 0.0001 mm for numerical safety, not a machining
+tolerance. Supplied parallels prescribe grip as jaw height minus parallel height; both
+setups must satisfy the grip limits or the option is withheld. Op 1 roughs and finishes
+the complete outline to the part bottom, with no part web; through holes and slots break
+into the sacrificial stock by up to 0.5 mm (judgement, capped by the library breakthrough,
+to retain tool reach). Op 2 faces that stock to the bottom face at thickness. With
+this stock rule Op 1 reaches the whole outline, so no invented bottom wall operation is
+needed; genuinely bottom-entered features retain their setup.
+
+Op 2 measures real planar face area in each opposed jaw band by clipping mesh
+triangles. Each side needs at least 60% of the nominal band area and 3.175 mm of
+effective contact length (area divided by grip height). These are judgement values
+in `workholding.json`, not a holding-force calculation. Holes, pockets and edge
+breaks reduce contact instead of rejecting the entire band. The retained contact
+polygons, area, fraction and effective length per side are recorded in seating,
+clamping and the trace. A top round/chamfer leaves the actual contact below the
+break; the nominal jaw top and seating height remain physically consistent. When
+minimum grip gives too little contact, search grip upward in the same 0.25 mm
+steps, within the existing 50% and jaw-height limits; use the least acceptable
+grip. The 16 mm support search covers large edge chamfers on benchmark-sized
+blocks; bars cannot overlap each other.
+
+Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
+support length (area divided by bar width), also judgement. Two 3.175 mm wide bars
+search inward up to 16 mm, in 0.25 mm steps, to seat beyond edge breaks. Support
+area, fraction and offset are recorded per bar; material projecting below the
+seat in the flipped frame must not interfere with their footprints. The most
+complete opposed contact is preferred, with narrower-axis precedence on a tie.
+Missing support faces or insufficient side contact withhold the option with the
+measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
+matching covers compounded four-decimal serialization; neither is a manufacturing
+tolerance. Missing parallels are chosen at the required height; supplied parallels
+must pass the existing grip limits.
+
+The clamping-history audit requires retained, tooled wall contour segments covering
+all real contact polygons at their depths, and retained facing/flats at the support
+level. Both are recorded as positive evidence and required even if no earlier cut
+overlaps the grip bands, including when roughing and all finishing were refused.
+An overlap-free audit alone never establishes a grip. Clamping is described as a
+proposal until retained operations confirm it. Several segments can prepare a side interrupted by notches. Modelled opening
+operations are recognised by their original geometric inputs: their missing contact
+is already measured from the final mesh. New or changed cuts still run through the
+conservative envelope audit; other setups retain that audit unchanged. Exclusions
+recompute preparation. If a grip or facing becomes unavailable, `process` replans
+without the flip, traces the reason and resets operation-index exclusions (which
+belong to the previous plan). It then retries ordinary planning/execution normally.
+A direct `capp::finish` caller also gets an explicit warning that the part remains on
+B mm of sacrificial stock and needs facing by hand or another setup; its bottom
+operations are withheld. Thus an unavailable featureless facing cannot disappear
+without explaining the unfinished part.
+
+Until camlib#121 / #45, Op 2 starts from a fresh part box plus bottom stock. Its trace
+warns that this does not model the true underside shape, stock history, or Op 1's margin
+remaining below the jaw line. Facing explicitly overlaps the box by the original XY margin
+to clear this material; a facing cutter too small for that overlap withholds the option. Jaw and edge-support fixtures and
+the transformed target mesh remain checked by camlib; box stock is not a simulation of
+physical seating or a holding-strength calculation.
 
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
