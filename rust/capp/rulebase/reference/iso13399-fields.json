@@ -1,0 +1,483 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "iso13399.fields",
+ "title": "Exact ISO 13399 aliases for tool-library fields",
+ "source": {
+  "standard": "ISO 13399",
+  "obtained_from": [
+   "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+   "https://www.dormerpramet.com/uk-ie/en/ISO-13399/",
+   "https://www.sandvik.coromant.com/en-gb/knowledge/machining-formulas-definitions/cutting-tool-parameters",
+   "https://asia.kyocera.com/products/cuttingtools/wp-content/uploads/2023/04/Chapter-R.pdf"
+  ],
+  "agreement": "Public manufacturer lists read 2026-11-08. Each mapped row cites two independently published lists agreeing on the property. Ford gives type-specific conversions; Kyocera R5 corroborates end-mill APMX, drill LCF and neck DN. No unit, angle or reference-plane conversion is performed. Uncertain or different conventions remain unmapped.",
+  "checked_against_standard": false
+ },
+ "fields": [
+  {
+   "field": "id",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local tool identifier, not a manufacturer item identifier.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "number",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local tool-change pocket number.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "diameter",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill"
+   ],
+   "symbol": "DC",
+   "unit": "mm",
+   "reason": "Cutting diameter; for the single-profile thread mill this is the tooth diameter.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "diameter",
+   "types": [
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": "mm",
+   "reason": "This library uses the widest cutting diameter. Ford uses DC for the chamfer tip, and DCX for a countersink maximum; no two-source agreement for this chamfer field.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "overall_length",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": "OAL",
+   "unit": "mm",
+   "reason": "Overall tool length, not functional length LF (a different reference plane).",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "stickout",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Actual tip-to-holder projection of this mounted tool. Neither recommended usable length LU nor functional length LF defines this assembly setting.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "holder_length",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Axial length of the simplified collision cylinder, not a catalogued holder functional length LF or overall length OAL.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "holder_diameter",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Diameter of the simplified collision cylinder, not a holder connection diameter DCON or interference envelope specification.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "feed_mm_min",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "spindle_rpm",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "coolant",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local off/flood/mist command, not coolant entry/exit style or pressure.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "shank_diameter",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": "DCONMS",
+   "unit": "mm",
+   "reason": "Machine-side cylindrical connection diameter, the shank. DMM and DCON are not additional aliases: the former is absent from Ford, the latter omits the connection side.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.sandvik.coromant.com/en-gb/knowledge/machining-formulas-definitions/cutting-tool-parameters"
+   ]
+  },
+  {
+   "field": "length_register",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local controller length-offset register.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "retract_feed_mm_min",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "type",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local tool kind enum, not an ISO operation or tool-style code.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "flute_length",
+   "types": [
+    "end_mill",
+    "chamfer_mill"
+   ],
+   "symbol": "APMX",
+   "unit": "mm",
+   "reason": "Axial cutting length, used as the maximum axial cutting depth. Ford explicitly converts mill flute length to APMX; not the chip flute length LCF.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.sandvik.coromant.com/en-gb/knowledge/machining-formulas-definitions/cutting-tool-parameters"
+   ]
+  },
+  {
+   "field": "flute_length",
+   "types": [
+    "drill"
+   ],
+   "symbol": "LCF",
+   "unit": "mm",
+   "reason": "Drill chip flute length; not recommended usable drilling depth LU.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://asia.kyocera.com/products/cuttingtools/wp-content/uploads/2023/04/Chapter-R.pdf"
+   ]
+  },
+  {
+   "field": "plunge_mm_min",
+   "types": [
+    "end_mill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "stepdown_mm",
+   "types": [
+    "end_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "stepover_mm",
+   "types": [
+    "end_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "cutting_data",
+   "types": [
+    "end_mill",
+    "drill",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local collection of shop cutting settings by material group.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "point_angle",
+   "types": [
+    "drill"
+   ],
+   "symbol": "SIG",
+   "unit": "degree",
+   "reason": "Included drill point angle, not cutting edge angle KAPR. Ford identifies SIG as the included point angle; Dormer names it point angle.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "peck_mm",
+   "types": [
+    "drill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "tooth_height",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Axial height of one thread-mill tooth, not theoretical thread height HA or usable reach.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "neck_diameter",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": "DN",
+   "unit": "mm",
+   "reason": "Diameter of the reduced neck.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://asia.kyocera.com/products/cuttingtools/wp-content/uploads/2023/04/Chapter-R.pdf"
+   ]
+  },
+  {
+   "field": "neck_length",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Length of the reduced segment after the tooth: camlib adds tooth_height to it. Ford LU measures usable reach from the tip, so it is not this segment length.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "min_pitch_mm",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local minimum pitch the single-profile tooth suits, not the pitch of a defined thread.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "max_pitch_mm",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Local maximum pitch the single-profile tooth suits, not the pitch of a defined thread.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "radial_passes",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "spring_passes",
+   "types": [
+    "thread_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Shop cutting setting or pass policy, not an intrinsic ISO tool property; no verified exact alias in the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "angle",
+   "types": [
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Included chamfer cone angle. KAPR is a cutting edge angle (45 versus 90 here); Ford uses SIG but two independent sources do not establish that alias for this field.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "tip_diameter",
+   "types": [
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Chamfer flat tip, possibly non-cutting. Ford DC is a cutting tip diameter; its countersink non-cutting tip convention differs. No agreed exact alias.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  }
+ ]
+}

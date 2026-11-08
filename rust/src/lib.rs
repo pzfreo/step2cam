@@ -61,6 +61,8 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
 /// operation camlib refuses is left out with a warning, so the rest of the part can still be
 /// seen; a part that plans but cannot be simulated at all still comes back, with `error`.
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
+    let normalized = capp::resources::normalize(library)?;
+    let library = normalized.as_ref();
     let planned = capp::plan::plan(analysis, Some(mesh), &capp::plan::Options::default())?;
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
