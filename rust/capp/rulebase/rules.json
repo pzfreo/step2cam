@@ -5,6 +5,7 @@
  "rules": [
   {
    "id": "setup.flip_face",
+   "warning_label": "flip-and-face setup",
    "version": 2,
    "stage": "setup",
    "rationale": "Self-contained vise flip option: solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",

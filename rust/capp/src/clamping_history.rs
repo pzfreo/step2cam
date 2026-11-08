@@ -236,7 +236,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         if flip && (!prepared || !seated || status != "no_overlap") {
             let b=setup["stock"]["max"][2].as_f64().unwrap_or(0.);
             let reason = format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned");
-            trace.warn(RULE, id, reason.clone());
+            trace.warn(RULE, id, reason.clone(), json!({}));
             for feature in setup["operations"].as_array().into_iter().flatten()
                 .flat_map(|o| o["features"].as_array().into_iter().flatten()).filter_map(Value::as_str) {
                 trace.skip(RULE, feature, reason.clone());
