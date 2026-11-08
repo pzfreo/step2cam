@@ -1077,6 +1077,10 @@ fn occupied_rounded(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: f64, radius
 /// The mesh must agree that its interior is empty. An open side is cut past the part;
 /// settle records any corner radius the cutter leaves beyond the model's radius.
 fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+    notch_with_corner_pairs(feature, cx, true)
+}
+
+fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) -> Result<Option<(&'static str, Value)>, String> {
     let mut normalized = feature["record"].clone();
     if feature["family"] == "rectangular_blind_slots" {
         let axis = |key: &str| ["x", "y", "z"].iter().position(|a| normalized[key].as_str() == Some(a));
@@ -1114,6 +1118,7 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
         let (depth, mut side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
         let mut radius = record["corner_radius"].as_f64().unwrap_or(0.).max(0.);
         let mut side_open = if side_axis == depth_axis { open } else { 0. };
+        let mut inferred_open = false;
         // Some records report only the straight side-wall interval. Four matching concave
         // quarter-rounds recover a closed recess; a pair recovers its closed end and implies
         // an opening at the other end, which the mesh/run-out check must confirm.
@@ -1135,7 +1140,8 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
             if same_radius && corners.len() == 4 && pair_at(false) && pair_at(true) {
                 radius = corners[0].0;
                 side = (side.0-radius, side.1+radius);
-            } else if same_radius && corners.len() == 2 && (pair_at(false) || pair_at(true)) {
+            } else if recover_open && same_radius && corners.len() == 2 && (pair_at(false) || pair_at(true)) {
+                inferred_open = true;
                 radius = corners[0].0;
                 if pair_at(false) {
                     side.0 -= radius;
@@ -1162,6 +1168,12 @@ fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str
         let mesh = frame.triangles(triangles);
         if radius > width / 2. + LEVEL_EPS || radius > (side.1 - side.0) / 2. + LEVEL_EPS { continue; }
         if occupied_rounded(mesh, lo, hi, floor + 1e-3, radius) {
+            // A corner pair alone cannot prove the opposite end is open. Partial records
+            // of irregular recesses can have other walls there. Preserve their previously
+            // validated interior cut when the inferred run-out is blocked.
+            if inferred_open {
+                return notch_with_corner_pairs(feature, cx, false);
+            }
             continue;
         }
         let part = cx.part_faces[name];

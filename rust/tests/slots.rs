@@ -248,3 +248,20 @@ fn a_cutter_larger_than_the_model_corner_warns_and_short_flutes_do_not_qualify()
     let rounded = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["kind"] == "notch" && o["corner_radius"] == 3.).unwrap();
     assert_eq!(rounded["tool"], "em6");
 }
+
+#[test]
+fn a_corner_pair_with_a_blocked_run_out_keeps_the_validated_interior_cut() {
+    let analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
+    let mut mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
+    let first = mesh["positions"].as_array().unwrap().len() / 3;
+    // Block the inferred left run-out, outside the record's original straight-wall box.
+    mesh["positions"].as_array_mut().unwrap().extend([-44., -18., 9., -42., -18., 9., -43., -16., 9.].map(|v| serde_json::json!(v)));
+    mesh["indices"].as_array_mut().unwrap().extend([first, first + 1, first + 2].map(|v| serde_json::json!(v)));
+    let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let feature = analysis["features"].as_array().unwrap().iter().find(|f| f["family"] == "pockets" && f["record"]["width"] == 8. && f["record"]["corner_radius"].is_null()).unwrap();
+    let op = plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["features"].as_array().is_some_and(|fs| fs.contains(&feature["id"]))).unwrap();
+    assert_eq!(op["kind"], "notch");
+    assert_eq!(op["length"], 23.);
+    assert_eq!(op["open"], false);
+    assert_eq!(op["corner_radius"], 0.);
+}
