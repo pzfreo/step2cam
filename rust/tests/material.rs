@@ -213,3 +213,24 @@ fn the_per_motion_proof_reports_when_mesh_error_spends_its_tolerance() {
     assert!(proof["unavailable"].as_str().unwrap().contains("does not exceed the target mesh's surface error"));
     assert!(out["log"].to_string().contains("per-motion gouge proof"));
 }
+
+#[test]
+fn the_per_motion_proof_decides_the_channels_wall_cells() {
+    let out = step2cam::process(
+        &fixture("synthetic/walls/channel.analysis.json"),
+        &fixture("synthetic/walls/channel.mesh.json"),
+        &fixture("../../demo/tools.json"),
+    ).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let program = &out["programs"][0];
+    let material = &program["material"];
+    let proof = &material["sweep_proof"];
+    assert_eq!(material["complete"], true);
+    assert_eq!(material["gouge"]["definite_cells"], 0);
+    assert!(material["gouge"]["possible_only_cells"].as_u64().unwrap() > 0);
+    assert_eq!(proof["decided_cells"], material["gouge"]["possible_only_cells"]);
+    assert_eq!(proof["history_complete"], true);
+    assert_eq!(proof["unproven_moves"], 0);
+    assert_eq!(proof["proven_moves"].as_u64().unwrap(), program["moves"].as_array().unwrap().len() as u64);
+    assert!(proof["unavailable"].is_null());
+}
