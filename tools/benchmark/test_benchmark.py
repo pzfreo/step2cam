@@ -11,6 +11,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import family, normalise, summarise_part, totals
 from compare import compare
 from fetch import RemoteZip, cache_path, extract
+from run import valid_cache, REPO
+
+
+class CacheLocationTests(unittest.TestCase):
+    def test_only_the_private_clone_cache_is_allowed_inside_the_repo(self):
+        self.assertTrue(valid_cache(REPO / '.bench-cache'))
+        self.assertFalse(valid_cache(REPO / 'reports'))
+        self.assertFalse(valid_cache(REPO / '.bench-cache' / 'nested'))
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(valid_cache(Path(tmp)))
 
 
 class AccountingTests(unittest.TestCase):
@@ -140,21 +150,3 @@ class FetchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-class PrivateCacheTests(unittest.TestCase):
-    def test_root_private_cache_is_allowed_but_tracked_directories_are_rejected(self):
-        import run
-        class StopBeforeBuild(Exception):
-            pass
-        with tempfile.TemporaryDirectory() as directory:
-            repo = Path(directory).resolve()
-            with patch.object(run, 'REPO', repo), patch.object(run, 'build_process', side_effect=StopBeforeBuild):
-                with patch.object(sys, 'argv', ['run.py', '--cache', str(repo / '.bench-cache'), '--out', str(repo / 'unused.json')]):
-                    with self.assertRaises(StopBeforeBuild):
-                        run.main()
-                self.assertTrue((repo / '.bench-cache').is_dir())
-                with patch.object(sys, 'argv', ['run.py', '--cache', str(repo / 'tools'), '--out', str(repo / 'unused.json')]), patch('sys.stderr', io.StringIO()):
-                    with self.assertRaises(SystemExit) as caught:
-                        run.main()
-                self.assertEqual(caught.exception.code, 2)

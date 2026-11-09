@@ -87,3 +87,22 @@ fn spindle_collet_change_mode_is_optional_but_checked() {
     library["machines"][0]["spindle"]["collet_change"] = serde_json::json!("maybe");
     assert!(!validator.is_valid(&library));
 }
+
+#[test]
+fn simulated_workholding_candidates_match_schema_and_catch_missing_costs() {
+    let out=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate.mesh.json"),&read("demo/tools.json")).unwrap();
+    check("schemas/plan-1.schema.json","simulated workholding",&out["plan"]);
+    let mut bad=out["plan"].clone();
+    bad["workholding"]["candidates"][0].as_object_mut().unwrap().remove("estimated_seconds");
+    assert!(!jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap().is_valid(&bad));
+    let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
+    let mut obsolete=out["plan"].clone();
+    obsolete["workholding"]["candidates"][0]["simulation"]=serde_json::json!("camlib passed");
+    assert!(!validator.is_valid(&obsolete),"a blanket simulation claim is not part of the candidate schema");
+    let mut missing=out["plan"].clone();
+    missing["workholding"]["candidates"][0].as_object_mut().unwrap().remove("tools_needed");
+    assert!(!validator.is_valid(&missing));
+    let mut malformed=out["plan"].clone();
+    malformed["workholding"]["candidates"][0]["tools_needed"]=serde_json::json!([{"description":"a thread mill"}]);
+    assert!(!validator.is_valid(&malformed),"tool needs must retain features and operations");
+}

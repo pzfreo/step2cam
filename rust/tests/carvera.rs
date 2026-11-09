@@ -45,6 +45,9 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
             }
         }
         if name == "synthetic/stepped-plate" {
+            // #94: on the real library the rule still chooses flip and face, which finishes the part.
+            assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
+            assert_eq!(out["plan"]["workholding"]["source"], "rule");
             let notch = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
                 .find(|op| op["kind"] == "notch" && op["features"].as_array().is_some_and(|f| f.iter().any(|id| id == "slots:37.40.41.44")))
                 .expect("the 6 mm notch is cut");

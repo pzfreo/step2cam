@@ -117,23 +117,82 @@ This is a conservative warning, not a stock simulation, proof of retained contac
 holding-strength calculation. For ordinary setups no operations are removed by this audit. Execution retries
 recompute it after refusals, so excluded earlier operations do not count as cuts.
 
-`capp::flip::plan(analysis, mesh, resources)` implements the self-contained #86 vise
-flip-and-face option. Selection is explicit in the resources:
+`step2cam::process` plans and simulates every available workholding candidate through
+its own complete `process_planned` run, including camlib refusals, exclusions and flip
+preparation checks. `capp::flip::plan` remains the lower-level #86 route constructor.
+`plan.workholding = {chosen, source, candidates}` describes the comparison. Stable IDs:
+
+- `vise_ordinary`: Vise, ordinary grip.
+- `vise_flip_face`: Vise, flip and face.
+- `fixture_plate`: Fixture plate, screwed through holes (unavailable).
+- `margins_tabs`: Margins and tabs (unavailable until #87).
+
+Both vise options require positive finite jaw width, height and opening on the first
+mill's first listed vise. Vise options are omitted when these are missing. Unavailable
+flip candidates carry the actual availability or execution failure reason. Only available
+routes are simulated. A candidate planning/execution error makes that candidate unavailable;
+other candidates continue. If no candidate is selected, an existing ordinary run is reused. If none are available, `chosen` is null and the legacy plan is
+retained for review with an explicit trace explanation that holding is not validated.
+
+Fixture-plate holding is withheld even on parts with through holes: screw-head/tool
+clearance, supported seating and residual stock transfer across the flip cannot yet
+be represented and checked soundly. For the unavailable row only, potential screw holes are unthreaded Z-axis through
+holes, 3.2–9 mm diameter, with two centres at least 25% of the XY bounding-box
+diagonal apart (step2cam judgement, not a fixture validation). Otherwise its reason
+is "no suitable through holes". No plate fixture simulation or new machine-description
+kind is claimed. A later implementation must validate those
+before offering this route. The page shows a short reason and keeps the full explanation
+in the tooltip and plan JSON. No resource schema extension is needed in this change.
+
+Each available candidate records `finished`, `outline_left_mm`, distinct
+`features_left_out` with all skipped reasons, `features_cut`, `covered_by_roughing`,
+`setups`, `extra_stock_mm`, `stock_height_mm`, `estimated_seconds`, `tools`,
+`tool_changes`, `tools_needed`, `grips`, `risks`, and `shop_needs`. `tools_needed` copies
+that candidate run's full missing-tool queries (descriptions, feature IDs and operation
+IDs), independently of workholding completion. **Finished** means the planned outline
+has no web left, no grip or travel omission remains, a roughing operation establishes
+the outline, and camlib execution succeeds. Operations missing tools do not change this
+status: they are resource needs, reported separately for each candidate. It means
+the workholding route releases the outline and grip stock; unsupported details such as
+edge rounds still appear in `features_left_out`. The page keeps "finished" first, then
+shows the left-out feature count and a short tool need (for example "needs a thread
+mill"); full tool queries appear in the row's tooltip. This is not a dimensional inspection,
+proof of holding force, or proof that the material comparison resolved every cell.
+Grip fractions divide grip height by that setup's starting stock height; finished-wall
+grips are identified and soft jaws advised. Existing simulation limitations remain in
+the risks, including unmodeled supports and lack of cross-setup stock history.
+
+Extra stock is **additional thickness over ordinary planning's starting stock** (the
+common 1 mm top facing allowance is excluded). Total starting thickness is also given.
+Time sums every simulated move's polyline segment length / feed, including rapids at
+`rapid_mm_min` or 5000 mm/min, exactly as the page; setup labour and tool-change delays
+are excluded. Tool changes count transitions between consecutive move tool IDs across
+the whole run, excluding the initial tool load. Candidate consequences are summaries;
+the chosen run retains its full programs, logs, trace and checks.
+
+`setup.workholding@1` compares available candidates lexicographically: finished route,
+then fewest distinct features left out, fewest setups, least extra stock, shortest
+estimated machining time. Exact ties retain stable candidate order. The choice is traced
+on subject `part`, source `rule`. All three demo plates default to flip-and-face because
+ordinary grip leaves the outline attached. Supplied decisions can select any available
+candidate, with `source` `user`, `agent`, or `agent:<name>` and a reason:
 
 ```json
-{"overrides":{"workholding_option":"vise_flip_face"}}
+{"decisions":[{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"shop preference"}]}
 ```
 
-Without `overrides.workholding_option`, or with `"none"`, `process` keeps the ordinary
-machine-independent plan and its machining behavior, including the demo's default plans.
-It adds a trace decision recording whether the flip was available and that it was not
-selected. Only `"vise_flip_face"` requests the flip. Availability requires a dimensioned
-vise, a web or through feature, and the seating, grip, opening and reach checks below.
-An unavailable selected option keeps ordinary planning and traces the reason, including
-missing vise data, ineligible parts, explicit clamping proposals, and execution fallback.
-Unknown values (including null and non-strings) are rejected during resource normalisation.
-The switch chooses an option directly; a rule choosing between options belongs to #94.
-No options table, supplied-decision protocol or automatic choice is introduced.
+Unknown, unavailable or malformed choices go through the standard supplied refusal
+path, then the rule chooses. Accepted and refused requests remain in
+`supplied_decisions`; pass this list as resources `decisions` to replay. The legacy
+`overrides.workholding_option` is translated into a user request: `"none"` means
+`vise_ordinary`; `"vise_flip_face"` means that candidate; its reason names the override.
+Explicit decisions take precedence. Other override values still fail normalization.
+The Plan tab's Workholding block shows the choice, costs and alternative reasons;
+the chosen option has ✓, clickable available alternatives have ○, and unavailable ones
+have ✕. Finished-wall grips say "soft jaws advised" on the row. If the chosen route
+leaves the outline attached, the block explicitly says the part will not come off finished.
+Clicking an available alternative replans with a user decision. Changing part or
+machine clears that choice and returns to the default rule.
 
 Stock in this option includes bottom stock B, solved from
 `B >= max(3.175, 0.2 * (part_height + top_stock + B)) + 1 + 1`.
@@ -523,7 +582,8 @@ a point angle at least as large as the following twist drill's.
 
 This round supports tool IDs for `tool.hole.drill_or_bore`, `tool.counterbore.bore_mill`,
 `tool.slot.bore_mill`, `tool.notch.pocket_mill`, `tool.thread_mill`,
-`tool.v_channel.v_bit`, and `tool.edge_chamfer.chamfer_mill`, plus the clamping object above.
+`tool.v_channel.v_bit`, and `tool.edge_chamfer.chamfer_mill`, plus the clamping object above
+and `setup.workholding` on subject `part` (candidate ID, checked by `process` after simulation).
 Hole choices may be drills or boring end mills. Every tool passes the same selector keep
 conditions and inputs as the rule. Clearing and follow-roughing tools, spot drills, setup
 order, and all other decisions are not suppliable this round; clearing still uses

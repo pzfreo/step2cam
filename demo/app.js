@@ -995,6 +995,50 @@ async function buildPlan(m) {
   const head = (text) => host.insertAdjacentHTML("beforeend", `<h3>${escapeHtml(text)}</h3>`);
   const fact = (html) => host.insertAdjacentHTML("beforeend", `<p class="plan-fact">${html}</p>`);
   host.insertAdjacentHTML("beforeend", `<details class="plan-lead"><summary>A draft to check · how to read this ▸</summary><p>A draft to check, not a plan to run. What the planner decided, in the order it would be cut, and why. Every choice names the written rule it was made by. Select an operation to see its tool choice and decisions; open a Why line to read the rule and its source.</p></details>`);
+  if (plan.workholding) {
+    const block = document.createElement("section");
+    block.className = "workholding";
+    const title = document.createElement("h3");
+    title.textContent = "Workholding";
+    block.append(title);
+    const w = plan.workholding;
+    const note = document.createElement("p");
+    note.className = "plan-fact";
+    note.textContent = w.source === "rule"
+      ? "Default rule's choice; alternatives are listed below. Select an available option to replan."
+      : `Chosen by ${w.source}; select an available alternative to replan.`;
+    if (!w.chosen) note.textContent = "No validated holding option is available. This plan needs a workholding decision.";
+    const selected = w.candidates.find((c) => c.id === w.chosen);
+    if (selected && !selected.finished) note.textContent += " The part will not come off finished: " + selected.reason + ".";
+    block.append(note);
+    for (const c of w.candidates) {
+      const chosen = c.id === w.chosen;
+      const row = document.createElement(c.available && !chosen ? "button" : "div");
+      row.className = "workholding-option";
+      const seconds = Math.round(c.estimated_seconds || 0);
+      const duration = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      const leftOut = c.features_left_out?.length || 0;
+      const needs = [...new Set((c.tools_needed || []).map((n) => n.description.split(/,? or /)
+        .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
+      const softJaws = c.grips?.some((g) => g.finished_wall) ? " · soft jaws advised" : "";
+      const summary = c.available
+        ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setup${c.setups === 1 ? "" : "s"} · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${softJaws}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
+        : c.short_reason || c.reason;
+      const label = c.id === "fixture_plate" ? "Fixture plate" : c.label;
+      row.textContent = `${chosen ? "✓" : c.available ? "○" : "✕"} ${label} — ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
+      row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`, ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].join("\n") : `${c.label}: ${c.reason}`;
+      if (c.available && !chosen) {
+        row.type = "button";
+        row.addEventListener("click", () => {
+          if (model !== m || !openPart) return;
+          count(`workholding-${c.id}`);
+          run(openPart.name, openPart.bytes.slice(0), undefined, c.id);
+        });
+      }
+      block.append(row);
+    }
+    host.prepend(block);
+  }
   const material = plan.material || {};
   const from = material.override ? "the tool library's override" : material.specified ? "Specify" : null;
   const materialLabel = `${material.used ? `${escapeHtml(material.used)} (from ${escapeHtml(from || "plan")})` : "material not given"}${material.iso513 ? ` · ISO 513 ${escapeHtml(material.iso513)}` : material.used ? " · no ISO 513 group" : ""}`;
@@ -1633,13 +1677,13 @@ for (const button of document.querySelectorAll("[data-machine]")) {
 
 // own: a visitor's file (true) or a sample (false); left out when the same part is planned again
 // for another machine, which keeps what is known about it.
-function run(name, bytes, own) {
+function run(name, bytes, own, workholding) {
   const id = ++job;
   openPart = own === undefined ? { ...openPart, bytes: bytes.slice(0) } : { name, bytes: bytes.slice(0), own };
   $("busy").hidden = false;
   $("start").hidden = true;
   showBanner("");
-  worker.postMessage({ id, name, bytes, library: { machine: machine.machine, file: machine.file } }, [bytes]);
+  worker.postMessage({ id, name, bytes, workholding, library: { machine: machine.machine, file: machine.file } }, [bytes]);
 }
 
 worker.onmessage = ({ data: { id, data, error } }) => {

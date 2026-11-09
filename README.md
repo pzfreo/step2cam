@@ -303,18 +303,26 @@ their current names. Both names may be given if their values are equal; differin
 refuse the library with an error naming the tool and both fields. Missing fields are
 reported using the current name. This translates names only, without converting dimensions.
 
-The resources can explicitly select the vise flip-and-face option with
-`{"overrides":{"workholding_option":"vise_flip_face"}}`. Omit the switch or set it
-to `"none"` to retain ordinary planning and the demo's default machining plans. The
-trace records availability separately from selection, and explains any unavailable
-selection or fallback. Other values are rejected. Choosing rules between workholding
-options belong to #94; see [the CAPP planning documentation](docs/capp-plan.md).
+`process` plans and simulates each available workholding candidate, then chooses by
+`setup.workholding`: finishes the outline and removes grip stock, fewest features left
+out, fewest setups, least extra stock, shortest machining time. The Plan tab shows the
+choice and alternatives; selecting another available option replans it. Both vise
+routes require a dimensioned vise in the first mill. Fixture plates and margins/tabs
+are listed with their implementation blockers, without simulated results.
+
+Supply a choice with `decisions`:
+`{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"shop preference"}`.
+The checked choice and its provenance are stored in `plan.supplied_decisions` for replay.
+The old `overrides.workholding_option` still works: `"none"` means `vise_ordinary`,
+`"vise_flip_face"` selects that route, both recorded as user choices. An explicit
+supplied decision takes precedence. With neither, the default rule chooses; all three
+demo plates now select flip-and-face to remove the ordinary grip's attached outline.
+See [the CAPP planning documentation](docs/capp-plan.md) for consequences and limits.
 
 The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
 on purpose.
 
-- There is no controller here: step2cam writes no G-code. `rapid_mm_min` is only for the page's
-  time estimate.
+- There is no controller here: step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
 - `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
   - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
     why;
