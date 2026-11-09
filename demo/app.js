@@ -9,7 +9,7 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { Display, Viewer } from "three-cad-viewer";
 import { createStock } from "./stock.js";
-import { NOT_FEATURES, reportHtml, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
+import { NOT_FEATURES, reportDocument, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
 
 const $ = (id) => document.getElementById(id);
 const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
@@ -1948,23 +1948,25 @@ new ResizeObserver(() => drawCode()).observe($("code"));
 $("plan-save").addEventListener("click", savePlan);
 $("setup-sheet").addEventListener("click", async () => {
   if (!model) return;
-  count("setup-sheet");
-  const sheet = window.open("", "_blank"); // Must precede the asynchronous loads.
-  if (!sheet) return;
-  sheet.opener = null;
-  const m = model;
+  const m = model, button = $("setup-sheet");
+  button.disabled = true;
+  $("status").textContent = "Generating setup sheet PDF…";
   try {
-    const [rules, library] = await Promise.all([loadRules(), fetch(m.data.library.file).then((r) => r.json())]);
-    const html = reportHtml(m.data, { rules, library, operations: m.operations, features: m.features, estimatedSeconds: m.machining });
-    sheet.document.open();
-    sheet.document.write(html);
-    sheet.document.close();
-    if (sheet.document.readyState !== "complete") await new Promise((resolve) => sheet.addEventListener("load", resolve, { once: true }));
-    sheet.focus();
-    sheet.print();
+    const [rules, library, { downloadReportPdf }] = await Promise.all([
+      loadRules(), fetch(m.data.library.file).then((r) => { if (!r.ok) throw new Error("machine library unavailable"); return r.json(); }),
+      import("./report-pdf.js"),
+    ]);
+    const report = reportDocument(m.data, { rules, library, operations: m.operations, features: m.features, estimatedSeconds: m.machining });
+    const name = (m.data.name || "part").replace(/\.(step|stp)$/i, "");
+    await downloadReportPdf(report, `${name}-setup-sheet.pdf`);
+    count("setup-sheet");
+    $("status").textContent = "Setup sheet PDF downloaded.";
   } catch (error) {
-    sheet.document.body.textContent = `Could not create setup sheet: ${error.message}`;
-  }
+    // A fixed category prevents URLs, file names or user data reaching analytics.
+    const reason = error.name === "TimeoutError" ? "download timed out" : "PDF generation unavailable";
+    $("status").textContent = `Could not create setup sheet PDF: ${reason}. Please try again.`;
+    count(`setup-sheet failed: ${reason}`);
+  } finally { button.disabled = false; }
 });
 
 initRight();

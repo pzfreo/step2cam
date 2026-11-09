@@ -1,37 +1,38 @@
-// Shared plan wording and a DOM-independent printable report. All interpolated data is escaped.
+// Shared page wording and renderer-neutral report content. No DOM or PDF dependency.
 
 // specify-core's descriptions of the part as a whole, not features a person would point at.
 export const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
 
 export const trim = (x) => x == null ? "—" : String(Math.round(Number(x) * 10) / 10);
 
-export function featureName(f) {
+export function featureName(f, format = trim) {
   const r = f.record || {};
   switch (f.family) {
-    case "holes": return `⌀${trim(r.diameter)} hole`;
-    case "slots": return `Slot, ${trim(r.width)} wide`;
-    case "pockets": return r.open_sign ? `Notch, ${trim(r.width)} wide × ${trim(r.depth)} deep` : `Pocket, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
-    case "v_channels": return `V-channel, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
-    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${trim(r.across_flats)} across flats` : `${r.side_count ?? "—"}-sided boss`;
-    case "fillets": return r.side === "convex" ? `r${trim(r.radius)} edge round` : `r${trim(r.radius)} fillet`;
+    case "holes": return `⌀${format(r.diameter)} hole`;
+    case "slots": return `Slot, ${format(r.width)} wide`;
+    case "pockets": return r.open_sign ? `Notch, ${format(r.width)} wide × ${format(r.depth)} deep` : `Pocket, ${format(r.width)} wide × ${format(r.depth)} deep`;
+    case "v_channels": return `V-channel, ${format(r.width)} wide × ${format(r.depth)} deep`;
+    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${format(r.across_flats)} across flats` : `${r.side_count ?? "—"}-sided boss`;
+    case "fillets": return r.side === "convex" ? `r${format(r.radius)} edge round` : `r${format(r.radius)} fillet`;
     default: return (f.family || "—").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   }
 }
 
-export function operationName(op, setup, plan) {
+export function operationName(op, setup, plan, format = null) {
+  const size = format || ((x) => x ?? "—"), rounded = format || trim;
   const where = plan.setups.length > 1 ? ` (${setup.id})` : "";
   if (op.kind === "spot_drill") return "Spot drill" + where;
   if (op.kind === "facing") return "Facing" + where;
   if (op.kind === "roughing") return "Roughing" + where;
-  if (op.kind === "counterbore") return `⌀${op.diameter ?? "—"} counterbore` + where;
+  if (op.kind === "counterbore") return `⌀${size(op.diameter)} counterbore` + where;
   if (op.kind === "thread") return `${op.spec ?? "—"} thread` + where;
-  if (op.kind === "slot") return `${op.width ?? "—"} × ${op.length ?? "—"} slot` + where;
-  if (op.kind === "notch") return `${trim(op.width)} × ${trim(op.length)} ${op.open ? "notch" : "slot"}` + where;
-  if (op.kind === "v_channel") return `V-channel, ${trim(op.width)} wide` + where;
+  if (op.kind === "slot") return `${size(op.width)} × ${size(op.length)} slot` + where;
+  if (op.kind === "notch") return `${rounded(op.width)} × ${rounded(op.length)} ${op.open ? "notch" : "slot"}` + where;
+  if (op.kind === "v_channel") return `V-channel, ${rounded(op.width)} wide` + where;
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
-  if (op.kind === "edge_chamfer") return (op.radius == null ? `${op.width ?? "—"} mm 45° edge chamfer` : `${op.width ?? "—"} chamfer on r${op.radius ?? "—"} edges`) + where;
-  return `⌀${op.diameter ?? "—"} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
+  if (op.kind === "edge_chamfer") return (op.radius == null ? `${size(op.width)} mm 45° edge chamfer` : `${size(op.width)} chamfer on r${size(op.radius)} edges`) + where;
+  return `⌀${size(op.diameter)} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
 export const describeTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
@@ -118,22 +119,60 @@ export function workholdingText(c) {
   return { label, summary };
 }
 
-export function setupZero(setup) {
+export function setupZero(setup, format = trim) {
   const lo = setup.stock?.min, hi = setup.stock?.max;
-  return `Tool comes down −Z; zero on the ${setup.zero == null ? "—" : setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => trim(v - lo[i])).join(" × ") : "—"} mm.`;
+  return `Tool comes down −Z; zero on the ${setup.zero == null ? "—" : setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
 }
 
 const value = (x) => x == null || x === "" ? "—" : typeof x === "object" ? JSON.stringify(x) : String(x);
-const text = (x) => escapeHtml(value(x));
-const list = (items) => items.length ? `<ul>${items.map((x) => `<li>${x}</li>`).join("")}</ul>` : "<p>—</p>";
-const table = (heads, rows, className = "") => `<table${className ? ` class="${className}"` : ""}><thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${heads.length}">—</td></tr>`}</tbody></table>`;
-const row = (cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+const text = value;
+export const reportLength = (x) => x == null ? "—" : String(Number(x) === 3.175 ? 3.175 : Number(Number(x).toFixed(2)));
+const rate = (x) => x == null ? "—" : String(Math.round(x));
+export function reportDuration(seconds) {
+  const minutes = Math.round(seconds / 60);
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
+}
+// Keep the page's established wording; only the machinist's sheet simplifies it.
+export function sheetWords(input) {
+  let s = value(input);
+  // Balanced JSON objects/arrays can contain nested values and escaped quotes.
+  for (let start = 0; start < s.length; start++) {
+    if (!"{[".includes(s[start])) continue;
+    let depth = 0, quoted = false, escaped = false;
+    for (let end = start; end < s.length; end++) {
+      const c = s[end];
+      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if ("{[".includes(c)) depth++;
+      else if ("}]".includes(c) && --depth === 0) {
+        const part = s.slice(start, end + 1);
+        try { JSON.parse(part); s = s.slice(0, start) + s.slice(end + 1); start--; } catch { /* ordinary bracketed prose */ }
+        break;
+      }
+    }
+  }
+  const names = {
+    "Closed_slot with Radiused_slot_end_type ends": "slot with rounded ends",
+    "bottom_and_side_finish_milling": "finish bottom and sides",
+    "Vee_profile": "V-channel", "full_retract": "full-retract pecks",
+    "Closed_slot": "closed slot", "Radiused_slot_end_type": "rounded ends",
+  };
+  for (const [id, words] of Object.entries(names)) s = s.replaceAll(id, words);
+  return s.replace(/\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b/g, (id) => id.replaceAll("_", " "))
+    .replace(/-?\d+\.\d+/g, (n) => reportLength(Number(n))).replace(/, offsets\s*; measured side contact\s*\./g, ".").replace(/:\s*;/g, ";").replace(/ {2,}/g, " ").trim();
+}
+const heading = (text, level = 2) => ({ type: "heading", level, text });
+const paragraph = (text) => ({ type: "paragraph", text });
+const list = (items) => ({ type: "list", items: items.length ? items : ["—"] });
+const table = (headers, rows, id = "") => ({ type: "table", id, headers, rows: rows.length ? rows : [headers.map(() => "—")] });
+const row = (cells) => cells;
+const pageBreak = () => ({ type: "page-break" });
 
-/** A self-contained document, with no page DOM or browser dependencies.
+/** A renderer-neutral document, with no page DOM or browser dependencies.
  * Maps may supply the page's move-derived operation times and feature annotations.
  * Without them, times are calculated from the same program moves and feed rates.
  */
-export function reportHtml(data, { rules = new Map(), library = {}, operations, features, estimatedSeconds, date = new Date().toLocaleDateString("en-GB") } = {}) {
+export function reportDocument(data, { rules = new Map(), library = {}, operations, features, estimatedSeconds, date = new Date().toLocaleDateString("en-GB") } = {}) {
   const plan = data.plan;
   const tools = data.tools || library.tools || [];
   const machine = library.machines?.find((m) => m.id === data.library?.machine);
@@ -148,14 +187,17 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
     times.set(id, (times.get(id) || 0) + seconds);
     total += seconds;
   }
-  const fs = features || new Map((data.analysis?.features || []).filter((f) => !NOT_FEATURES.has(f.family)).map((f) => [f.id, { ...f, name: featureName(f) }]));
-  const ops = operations || new Map(plan.setups.flatMap((s) => s.operations.map((o, i) => {
+  const fs = new Map([...(features?.values() || (data.analysis?.features || []).filter((f) => !NOT_FEATURES.has(f.family)))].map((f) => [f.id, { ...f, name: featureName(f, reportLength) }]));
+  const originalOps = operations || new Map(plan.setups.flatMap((s) => s.operations.map((o, i) => {
     const id = `${s.id}-${i + 1}-${o.kind}`;
     return [id, { ...o, id, setup: s, name: operationName(o, s, plan), time: times.get(id) || 0 }];
   })));
+  const ops = new Map([...originalOps].map(([id, o]) => [id, { ...o, name: operationName(o, o.setup, plan, reportLength) }]));
   const m = { data, operations: ops, features: fs };
   const warnings = planWarnings(m);
   const check = checkText(programs);
+  const colletWarnings = warnings.filter((d) => d.rule.startsWith("machine.spindle.manual_collets@"));
+  const manualCollets = machine?.spindle?.manual_collets || machine?.spindle?.collet_change === "manual" || colletWarnings.length > 0;
   const chosen = plan.workholding?.candidates?.find((c) => c.id === plan.workholding.chosen);
   const needs = plan.tools_needed || [];
   const decisions = new Map((plan.decisions || []).map((d) => [d.id, d]));
@@ -173,116 +215,113 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
     entry.contexts.add(n.context);
     for (const id of n.features || []) entry.features.add(id);
   }
-  const sections = [];
-  sections.push(`<h1>SETUP SHEET</h1><h2>${text(data.name)}</h2><p class="draft">Draft — check before cutting</p>`);
-  sections.push(table(["Machine", "Date", "Material", "Stock size (mm)", "Feed-rate estimate"], [row([
-    text(machine?.name || data.library?.machine), text(date), text(plan.material?.used),
-    text(plan.setups[0]?.stock ? plan.setups[0].stock.max.map((v, i) => trim(v - plan.setups[0].stock.min[i])).join(" × ") : null),
-    programs.length ? text(describeTime(estimatedSeconds ?? total)) : "—",
-  ])]));
-  sections.push(`<p>Camlib: ${text(data.error ? `could not run the plan: ${data.error}` : programs.length ? check.compact : "—")}</p>`);
-  if (data.notice) sections.push(`<p>${text(data.notice)}</p>`);
-  sections.push("<h2>TOOLS — load before starting</h2>");
-  if (machine?.spindle?.manual_collets) sections.push("<p>Manual collets: check the collet at every tool change. Changes of recorded shank size are flagged below.</p>");
-  sections.push(table(["T / tool id", "Type / ⌀ mm", "Flute length mm", "Stickout / overall mm", "RPM", "Feed mm/min"], used.map((id) => {
+  const blocks = [];
+  const stockSize = (stock) => stock ? stock.max.map((v, i) => reportLength(v - stock.min[i])).join(" × ") : "—";
+  blocks.push(heading("SETUP SHEET", 1), heading(text(data.name)), paragraph("Draft — check before cutting"));
+  blocks.push(table(["Machine", "Date", "Material", "Stock size (mm)", "Feed-rate estimate"], [row([
+    text(machine?.name || data.library?.machine), text(date), text(plan.material?.used), stockSize(plan.setups[0]?.stock),
+    programs.length ? reportDuration(estimatedSeconds ?? total) : "—",
+  ])], "header"));
+  blocks.push(paragraph(sheetWords(`Camlib: ${data.error ? `could not run the plan: ${data.error}` : programs.length ? check.compact : "—"}`)));
+  if (data.notice) blocks.push(paragraph(sheetWords(data.notice)));
+  blocks.push(heading("TOOLS — load before starting"));
+  blocks.push(table(["T / tool id", "Type / ⌀ mm", "Flute length mm", "Stickout / overall mm", "RPM", "Feed mm/min"], used.map((id) => {
     const t = tools.find((t) => t.id === id);
     const uses = [...ops.values()].filter((o) => o.tool === id);
-    const settings = (key) => [...new Set(uses.map((o) => value(o.technology?.[key])))].map(text).join(" / ");
-    return row([toolLabel(id), `${text(t?.type)} / ${text(t?.diameter)}`, text(t?.flute_length), `${text(t?.stickout)} / ${text(t?.overall_length)}`, settings("spindle_rpm"), settings("feed_mm_min")]);
-  })));
-  sections.push("<h2>Tools needed but not in the library</h2>", list([...missingByTool].map(([description, n]) => `${text(description)} — needed by ${[...n.contexts].map(text).join("; ")}${n.features.size ? ` — ${[...n.features].map((id) => text(fs.get(id)?.name || id)).join(", ")}` : ""}`)));
+    const settings = (key) => [...new Set(uses.map((o) => rate(o.technology?.[key])))].join(" / ");
+    return row([toolLabel(id), `${sheetWords(t?.type)} / ${reportLength(t?.diameter)}`, reportLength(t?.flute_length), `${reportLength(t?.stickout)} / ${reportLength(t?.overall_length)}`, settings("spindle_rpm"), settings("feed_mm_min")]);
+  }), "tools"));
+  if (manualCollets) {
+    blocks.push(paragraph("Manual collets: check the collet at every tool change."));
+    blocks.push(paragraph("Collet changes — " + plan.setups.map((setup) => {
+      const recorded = colletWarnings.find((d) => d.subject === setup.id)?.shank_sizes_mm;
+      const shanks = recorded ? recorded.map(reportLength) : [...new Set(setup.operations.filter((o) => o.tool).map((o) => reportLength(tools.find((t) => t.id === o.tool)?.shank_diameter)))];
+      return `${setup.id}: ${shanks.join(", ") || "—"} mm shanks`;
+    }).join("; ")));
+    if (colletWarnings.length) blocks.push(list(colletWarnings.map((d) => sheetWords(warningText(m, d)))));
+  }
+  if (missingByTool.size) blocks.push(heading("Tools needed but not in the library"), list([...missingByTool].map(([description, n]) => sheetWords(`${text(description)} — needed by ${[...n.contexts].map(text).join("; ")}${n.features.size ? ` — ${[...n.features].map((id) => text(fs.get(id)?.name || id)).join(", ")}` : ""}`))));
   let previousTool;
   for (const setup of plan.setups) {
     const grip = chosen?.grips?.find((g) => g.setup === setup.id);
     const holding = chosen ? workholdingText(chosen).label : null;
-    sections.push(`<section class="setup"><h1>SETUP — ${text(setup.id)}</h1><p><b>Workholding:</b> ${text(holding)} · grip depth ${text(grip?.height_mm ?? setup.clamping?.grip_height_mm)} mm${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}</p><p><b>Work zero:</b> ${text(setupZero(setup))}</p>`);
+    blocks.push(pageBreak(), heading(`SETUP — ${setup.id}`, 1),
+      paragraph(sheetWords(`Workholding: ${text(holding)} · grip depth ${reportLength(grip?.height_mm ?? setup.clamping?.grip_height_mm)} mm${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}`)),
+      paragraph(`Work zero: ${setupZero(setup, reportLength)}`));
     const rows = setup.operations.map((op, i) => {
       const id = `${setup.id}-${i + 1}-${op.kind}`, o = ops.get(id), t = op.technology || {};
       const notes = [];
-      const choices = toolChoiceRows(op, decisions);
-      for (const [id, choice] of choices) if (choice.chosen && id === op.tool) notes.push(`Tool choice: ✓ ${text(id)} — ${text(choice.reason)}`);
-      if (t.peck_mode != null) notes.push(`Peck mode: ${text(t.peck_mode)}`);
-      if (t.peck_mm != null) notes.push(`Peck depth: ${text(t.peck_mm)} mm`);
-      if (op.tool_note) notes.push(text(op.tool_note));
-      if (op.notes) notes.push(text(op.notes));
-      if (op.iso14649?.note) notes.push(text(op.iso14649.note));
+      for (const [id, choice] of toolChoiceRows(op, decisions)) if (choice.chosen && id === op.tool) notes.push(`Tool choice: ✓ ${id} — ${choice.reason}`);
+      if (t.peck_mode != null) notes.push(`Peck mode: ${t.peck_mode}`);
+      if (t.peck_mm != null) notes.push(`Peck depth: ${reportLength(t.peck_mm)} mm`);
+      if (op.tool_note) notes.push(op.tool_note);
+      if (op.notes) notes.push(value(op.notes));
+      if (op.iso14649?.note) notes.push(op.iso14649.note);
       const old = tools.find((t) => t.id === previousTool), next = tools.find((t) => t.id === op.tool);
-      if (machine?.spindle?.manual_collets && previousTool && previousTool !== op.tool) {
-        // Shank diameter is the collet fit; cutting diameter is not a substitute.
+      if (manualCollets && previousTool && previousTool !== op.tool) {
         if (old?.shank_diameter != null && next?.shank_diameter != null) {
-          if (old.shank_diameter !== next.shank_diameter) notes.push(`Manual collet change: ${text(previousTool)} → ${text(op.tool)} (${text(old.shank_diameter)} → ${text(next.shank_diameter)} mm shank).`);
-        } else notes.push(`Check manual collet change: ${text(previousTool)} → ${text(op.tool)}; shank size —.`);
+          if (old.shank_diameter !== next.shank_diameter) notes.push(`Manual collet change: ${previousTool} → ${op.tool} (${reportLength(old.shank_diameter)} → ${reportLength(next.shank_diameter)} mm shank).`);
+        } else notes.push(`Check manual collet change: ${previousTool} → ${op.tool}; shank size —.`);
       }
       if (op.tool) previousTool = op.tool;
-      notes.push(...warnings.filter((d) => op.because?.includes(d.id)).map((d) => text(warningText(m, d, true))));
-      const main = row([text(i + 1), text(o?.name || operationName(op, setup, plan)), toolLabel(op.tool), text(t.spindle_rpm), text(t.feed_mm_min), text(t.plunge_mm_min), `${text(t.stepdown_mm)} / ${text(t.stepover_mm)}`, o?.time ? text(describeTime(o.time)) : "not run"]);
-      return `<tbody>${main}${notes.length ? `<tr><td colspan="8" class="notes">${notes.join("<br>")}</td></tr>` : ""}</tbody>`;
+      notes.push(...warnings.filter((d) => op.because?.includes(d.id)).map((d) => warningText(m, d, true)));
+      // Notes stay in the operation's row so the PDF never separates them.
+      return row([text(i + 1), sheetWords(o?.name || operationName(op, setup, plan)) + (notes.length ? "\n" + notes.map(sheetWords).join("\n") : ""), toolLabel(op.tool), rate(t.spindle_rpm), rate(t.feed_mm_min), rate(t.plunge_mm_min), `${reportLength(t.stepdown_mm)} / ${reportLength(t.stepover_mm)}`, o?.time ? describeTime(Math.round(o.time)) : "not run"]);
     });
-    // One tbody per operation keeps its notes with the cutting data when printing.
-    sections.push(`<table class="operations"><thead><tr>${["#", "Operation", "Tool", "RPM", "Feed mm/min", "Plunge mm/min", "↓ / ↔ mm", "Time est."].map((h) => `<th>${h}</th>`).join("")}</tr></thead>${rows.join("")}</table></section>`);
+    blocks.push(table(["#", "Operation / notes", "Tool", "RPM", "Feed mm/min", "Plunge mm/min", "↓ / ↔ mm", "Time est."], rows, "operations"));
   }
-  sections.push("<h2>NOT CUT</h2>", table(["Feature", "Reason", "Tool that would cut it"], (plan.skipped || []).map((s) => row([
-    `${text(fs.get(s.feature)?.name || s.feature)} (${text(s.feature)})`, text(s.reason),
-    text(needs.filter((n) => n.features?.includes(s.feature)).map((n) => n.description).join("; ")),
-  ])).concat([...fs.values()].filter((f) => f.notCut && !plan.skipped?.some((s) => s.feature === f.id)).map((f) => row([text(f.name), text(f.note), "—"])))));
-  sections.push("<h2>WARNINGS</h2>");
+  blocks.push(heading("NOT CUT"), table(["Feature", "Reason", "Tool that would cut it"], (plan.skipped || []).map((s) => row([
+    sheetWords(`${fs.get(s.feature)?.name || s.feature} (${s.feature})`), sheetWords(s.reason),
+    sheetWords(needs.filter((n) => n.features?.includes(s.feature)).map((n) => n.description).join("; ")),
+  ])).concat([...fs.values()].filter((f) => f.notCut && !plan.skipped?.some((s) => s.feature === f.id)).map((f) => row([sheetWords(f.name), sheetWords(f.note), "—"]))), "not-cut"));
+  blocks.push(heading("WARNINGS"));
   const groups = new Map();
   for (const d of warnings) {
     const label = rules.get(d.rule)?.warning_label || "plan needs checking";
     if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(text(warningText(m, d)));
+    groups.get(label).push(sheetWords(warningText(m, d)));
   }
-  for (const [label, items] of groups) sections.push(`<h3>${text(label)}</h3>`, list(items));
-  // Preserve warning strings even if a future/older plan has no matching trace entry.
+  for (const [label, items] of groups) blocks.push(heading(sheetWords(label), 3), list(items));
   const extra = (plan.warnings || []).filter((w) => !warnings.some((d) => d.says === w));
-  if (extra.length) sections.push(list(extra.map(text)));
-  if (!warnings.length && !extra.length) sections.push("<p>—</p>");
+  if (extra.length) blocks.push(list(extra.map(sheetWords)));
+  if (!warnings.length && !extra.length) blocks.push(paragraph("—"));
   const refused = (plan.decisions || []).filter((d) => d.rule?.startsWith("execution.refused@") && d.outcome === "removed");
-  if (refused.length) sections.push("<h3>Refused by camlib</h3>", list(refused.map((d) => `${text(d.subject)}: ${text(d.says)}`)));
-  sections.push('<section class="appendix"><h1>APPENDIX — FULL REPORT</h1><h2>Recognised features</h2>', table(["Id", "Feature", "What happens to it"], [...fs.values()].map((f) => {
+  if (refused.length) blocks.push(heading("Refused by camlib", 3), list(refused.map((d) => sheetWords(`${d.subject}: ${d.says}`))));
+  const appendixStart = blocks.length;
+  blocks.push(pageBreak(), heading("APPENDIX — FULL REPORT", 1), heading("Recognised features"), table(["Id", "Feature", "What happens to it"], [...fs.values()].map((f) => {
     const cutBy = [...ops.values()].filter((o) => o.features?.includes(f.id));
     const disposition = f.note || (cutBy.length ? [...new Set(cutBy.map((o) => o.name))].join("; ")
-      : (plan.skipped || []).some((s) => s.feature === f.id) || fs.get(f.id)?.notCut ? "not cut"
+      : (plan.skipped || []).some((s) => s.feature === f.id) || f.notCut ? "not cut"
       : (plan.covered_by_roughing || []).includes(f.id) ? "covered by roughing" : "not cut");
-    return row([text(f.id), text(f.name || featureName(f)), text(disposition)]);
+    return row([text(f.id), sheetWords(f.name || featureName(f)), text(disposition)]);
   }), "features"));
-  sections.push("<h2>Workholding options and consequences</h2>");
-  sections.push(list((plan.workholding?.candidates || []).map((c) => {
+  blocks.push(heading("Workholding options and consequences"));
+  for (const c of plan.workholding?.candidates || []) {
     const { label, summary } = workholdingText(c);
-    return `<b>${c.id === plan.workholding.chosen ? "✓ " : ""}${text(label)}</b> — ${text(summary)}<br>${text(c.comparison)}${list([...(c.risks || []), ...(c.shop_needs || []).map((n) => `Needs: ${n}`), ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].map(text))}`;
-  })));
-  sections.push(`<p>Choice source: ${text(plan.workholding?.source)}</p><h2>Every decision</h2>`);
-  sections.push(table(["Id · stage · subject", "Decision", "Rule · source"], (plan.decisions || []).map((d) => {
+    blocks.push(paragraph(`${c.id === plan.workholding.chosen ? "✓" : c.available ? "○" : "✕"} ${label} — ${summary}. ${text(c.comparison)}`),
+      list([...(c.risks || []), ...(c.shop_needs || []).map((n) => `Needs: ${n}`), ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)]));
+  }
+  blocks.push(paragraph(`Choice source: ${text(plan.workholding?.source)}`), heading("Every decision"));
+  blocks.push(table(["Id · stage · subject", "Decision", "Rule · source"], (plan.decisions || []).map((d) => {
     const alternatives = typeof d.chosen === "string" ? [...new Set((d.considered || []).map((c) => c.candidate).filter((c) => c !== d.chosen))] : [];
-    const choice = alternatives.length ? ` Chose ${text(d.chosen)} over ${alternatives.map(text).join(", ")}.` : "";
-    const source = `${text(d.source)}${d.source && d.source !== "rule" && d.reason ? `: ${text(d.reason)}` : ""}`;
-    return row([`${text(d.id)} · ${text(STAGES[d.stage] || d.stage)} · ${text(d.subject)}`,
-      `${text(d.says)}${choice}${d.superseded_by ? ` Replaced by ${text(d.superseded_by)}.` : ""}`,
-      `${text(d.rule)} · ${source}`]);
+    const choice = alternatives.length ? ` Chose ${d.chosen} over ${alternatives.join(", ")}.` : "";
+    const source = `${text(d.source)}${d.source && d.source !== "rule" && d.reason ? `: ${d.reason}` : ""}`;
+    return row([`${d.id} · ${STAGES[d.stage] || d.stage} · ${text(d.subject)}`, `${d.says}${choice}${d.superseded_by ? ` Replaced by ${d.superseded_by}.` : ""}`, `${d.rule} · ${source}`]);
   }), "decisions"));
-  sections.push("<h2>Rules cited</h2>", table(["Rule id", "Rule text", "Sources"], [...new Set((plan.decisions || []).map((d) => d.rule))].map((id) => {
+  blocks.push(heading("Rules cited"), table(["Rule id", "Rule text", "Sources"], [...new Set((plan.decisions || []).map((d) => d.rule))].map((id) => {
     const r = rules.get(id);
     return row([text(id), r ? text(r.rationale) : "Rule text unavailable.", r ? text((r.sources || []).map(describeSource).join("; ")) : "—"]);
   }), "rules"));
-  sections.push("<h2>Camlib checks and limits</h2>", `<p>${check.headline || text(data.error || "—")}</p>`, list(check.items.map(text)));
-  sections.push(table(["Setup", "Material check", "Stock-contact / uncertain motions"], plan.setups.map((s) => {
+  const headline = programs.map((p) => `${p.setup}: ${p.material ? "compared with the part, no gouge found." : "not compared with the part."}`).join(" ");
+  blocks.push(heading("Camlib checks and limits"), paragraph(headline || text(data.error || "—")), list(check.items));
+  blocks.push(table(["Setup", "Material check", "Stock-contact / uncertain motions"], plan.setups.map((s) => {
     const p = programs.find((p) => p.setup === s.id);
-    return row([text(s.id), p ? p.material ? `Compared with the part; no gouge found. Complete: ${text(p.material.complete)}` : "Not compared with the part." : "not run",
-      list((Array.isArray(data.log) ? data.log : []).filter((line) => line.includes(`setup ${s.id}:`) && (line.includes("stock-contact") || line.includes("per-motion gouge proof"))).map(text))]);
-  })));
-  sections.push("<p>Uncertain-motion counts are only available where recorded in the camlib log; an absent count is —. Holding force and support flatness are not simulated.</p>");
-  if (data.log?.length) sections.push("<h3>Camlib log</h3>", list((Array.isArray(data.log) ? data.log : [data.log]).map(text)));
-  sections.push("</section>");
-  // JSON quoting provides a safe CSS string, including filenames with quotes/newlines.
-  const pageName = JSON.stringify(String(data.name || "—")).replaceAll("<", "\\3c ");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>${text(data.name)} — Setup sheet</title><style>
-@page { size: A4 portrait; margin: 17mm 12mm; @top-left { content: ${pageName}; font: 9pt sans-serif; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 9pt sans-serif; } }
-* { box-sizing: border-box; } html { color-scheme: light; background: white; color: #111; } body { font: 10pt/1.35 Arial, sans-serif; margin: 0 auto; max-width: 190mm; padding: 5mm; } h1 { font-size: 19pt; } h2 { font-size: 13pt; margin: 5mm 0 2mm; } h3 { font-size: 11pt; } h1,h2,h3 { break-after: avoid; } p { margin: 2mm 0; } table { width: 100%; border-collapse: collapse; margin: 3mm 0; table-layout: fixed; } th,td { text-align: left; vertical-align: top; border: 1px solid #bbb; padding: 1.5mm; overflow-wrap: anywhere; } th { background: #eee; } tr, .operations tbody { break-inside: avoid; page-break-inside: avoid; } thead { display: table-header-group; } .setup,.appendix { break-before: page; page-break-before: always; } .draft { font-weight: bold; border: 2px solid #555; padding: 2mm; } ul { padding-left: 5mm; } .notes { background: #f5f5f5; }
-.appendix { line-height: 1.2; } .appendix th,.appendix td { padding: 1mm; }
-.decisions th:first-child { width: 22%; } .decisions th:nth-child(2) { width: 53%; } .decisions th:last-child { width: 25%; }
-.rules th:first-child { width: 20%; } .rules th:nth-child(2) { width: 60%; } .rules th:last-child { width: 20%; }
-.features th:first-child { width: 20%; } .features th:nth-child(2) { width: 35%; } @media print { body { max-width: none; padding: 0; } }
-</style></head><body>${sections.join("\n")}</body></html>`;
+    const log = (Array.isArray(data.log) ? data.log : []).filter((line) => line.includes(`setup ${s.id}:`) && (line.includes("stock-contact") || line.includes("per-motion gouge proof")));
+    return row([s.id, p ? p.material ? `Compared with the part; no gouge found. Complete: ${text(p.material.complete)}` : "Not compared with the part." : "not run", log.join("\n") || "—"]);
+  }), "checks"));
+  blocks.push(paragraph("Uncertain-motion counts are only available where recorded in the camlib log; an absent count is —. Holding force and support flatness are not simulated."));
+  if (data.log?.length) blocks.push(heading("Camlib log", 3), list((Array.isArray(data.log) ? data.log : [data.log]).map(text)));
+  return { title: text(data.name), appendixStart, blocks };
 }
 
 export function toolChoiceRows(op, decisions) {

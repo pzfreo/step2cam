@@ -10,6 +10,10 @@
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 {"imports": {
+  "jspdf": "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.es.min.js",
+  "jspdf-autotable": "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.mjs",
+  "@babel/runtime/helpers/typeof": "https://cdn.jsdelivr.net/npm/@babel/runtime@7.25.6/helpers/esm/typeof.js",
+  "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js",
   "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/",
   "three-cad-viewer": "https://cdn.jsdelivr.net/npm/three-cad-viewer@5.1.3/dist/three-cad-viewer.esm.min.js"
@@ -137,7 +141,7 @@
     </div>
   </footer>
 
-  <p class="about"><b>An experiment in explainable planning, not CAM to run on a machine:</b> it does not model workholding, tolerances or cutting forces, and every tool and feed is a placeholder. Runs in your browser: your file is not uploaded. Visits and actions (a sample, a file opened, play, save, a tab or Why opened) are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies, no identifier, and nothing about your file beyond whether it planned or a short error message. To see whether people come back, once a day the page counts, in broad groups, on how many days it has been used in this browser and how long ago it first was; that tally stays in your browser. <a href="https://github.com/pzfreo/step2cam">step2cam</a> uses <a href="https://github.com/pzfreo/specify-core">specify-core</a>, <a href="https://github.com/stevecad/camlib">camlib</a> (<a href="licenses/camlib-LICENSE.txt">MIT</a>), <a href="https://github.com/bernhard-42/three-cad-viewer">three-cad-viewer</a> and <a href="https://threejs.org">three.js</a>.</p>
+  <p class="about"><b>An experiment in explainable planning, not CAM to run on a machine:</b> it does not model workholding, tolerances or cutting forces, and every tool and feed is a placeholder. Runs in your browser: your file is not uploaded. Visits and actions (a sample, a file opened, play, save, a tab or Why opened) are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies, no identifier, and nothing about your file beyond whether it planned or a short error message. To see whether people come back, once a day the page counts, in broad groups, on how many days it has been used in this browser and how long ago it first was; that tally stays in your browser. <a href="https://github.com/pzfreo/step2cam">step2cam</a> uses <a href="https://github.com/pzfreo/specify-core">specify-core</a>, <a href="https://github.com/stevecad/camlib">camlib</a> (<a href="licenses/camlib-LICENSE.txt">MIT</a>), <a href="https://github.com/bernhard-42/three-cad-viewer">three-cad-viewer</a> and <a href="https://threejs.org">three.js</a>. PDF downloads use <a href="https://github.com/parallax/jsPDF/tree/v2.5.2">jsPDF 2.5.2</a> (<a href="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/LICENSE">MIT</a>), <a href="https://github.com/simonbengtsson/jsPDF-AutoTable/tree/v3.8.4">AutoTable 3.8.4</a> (<a href="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/LICENSE.txt">MIT</a>), and <a href="https://dejavu-fonts.github.io/">DejaVu Sans</a> (<a href="https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/LICENSE">font licence</a>), fetched from jsDelivr only when requested.</p>
 
   <div id="busy" class="busy" hidden><div>Analysing and posting, in your browser…</div></div>
 </div>
