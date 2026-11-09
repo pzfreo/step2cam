@@ -74,3 +74,12 @@ fn controller_metadata_is_optional_and_machine_typos_are_rejected() {
     library["machines"][0]["controler"] = serde_json::json!("haas_ngc");
     assert!(!validator.is_valid(&library));
 }
+
+#[test]
+fn simulated_workholding_candidates_match_schema_and_catch_missing_costs() {
+    let out=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate.mesh.json"),&read("demo/tools.json")).unwrap();
+    check("schemas/plan-1.schema.json","simulated workholding",&out["plan"]);
+    let mut bad=out["plan"].clone();
+    bad["workholding"]["candidates"][0].as_object_mut().unwrap().remove("estimated_seconds");
+    assert!(!jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap().is_valid(&bad));
+}

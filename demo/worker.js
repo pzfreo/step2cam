@@ -18,10 +18,14 @@ function loadLibrary(url) {
   return libraries.get(url);
 }
 
-self.onmessage = async ({ data: { id, name, bytes, library } }) => {
+self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => {
   try {
     const [, toolsText] = await Promise.all([ready, loadLibrary(library.file)]);
     const tools = JSON.parse(toolsText);
+    if (workholding) {
+      tools.decisions = [...(tools.decisions || []).filter((d) => d.rule !== "setup.workholding"),
+        { rule: "setup.workholding", subject: "part", choice: workholding, source: "user", reason: "chosen in the page Workholding block" }];
+    }
     const input = new Uint8Array(bytes);
     // An assembly opens at its largest part.
     const parts = JSON.parse(IntentEngine.parts(name, input));
@@ -35,7 +39,7 @@ self.onmessage = async ({ data: { id, name, bytes, library } }) => {
       engine.free();
     }
     const { analysis, mesh } = snapshot;
-    const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), toolsText));
+    const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), JSON.stringify(tools)));
     self.postMessage({
       id,
       data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },

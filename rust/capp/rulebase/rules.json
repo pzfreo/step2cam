@@ -4,14 +4,34 @@
  "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
  "rules": [
   {
+   "id": "setup.workholding",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "Compare independently planned and simulated available candidates in order: finishes the part; fewest distinct features left out; fewest setups; least extra stock thickness; shortest estimated machining time. Stable candidate order breaks exact ties. Finished means no grip/travel omissions, missing-tool operations, remaining outline/web, or failed execution checks; unrelated unsupported details remain listed and ranked as features left out; it is not a dimensional or holding-force proof. Vise candidates require a dimensioned vise in the first mill. Fixture plate is withheld: screw-head/tool clearance, supported seating and transfer of residual stock are not implemented; no simulated plate holding is claimed. No new machine workholding kind is introduced until this can be validated. Margins and tabs await #87.",
+   "code": "candidates.rs; rust/src/workholding.rs",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "ref": "Judgement: lexicographic choosing policy approved in #94; full comparison uses the same motion length/feed time estimate as the page, excluding setup and tool-change labour."
+    }
+   ]
+  },
+  {
    "id": "setup.flip_face",
    "warning_label": "flip-and-face setup",
    "version": 3,
    "stage": "setup",
-   "rationale": "Explicitly selected vise flip option (overrides.workholding_option): trace availability separately without choosing an option; choosing rules belong to #94. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
+   "rationale": "Vise flip candidate: trace availability separately; setup.workholding chooses among simulated candidates. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
    "code": "flip.rs; workholding.rs; clamping_history.rs",
-   "data": ["rules/workholding.json"],
-   "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."}]
+   "data": [
+    "rules/workholding.json"
+   ],
+   "sources": [
+    {
+     "kind": "step2cam",
+     "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."
+    }
+   ]
   },
   {
    "id": "requirement.thread.unknown_size",
@@ -322,7 +342,7 @@
    "id": "process.edge_chamfer",
    "version": 2,
    "stage": "process",
-   "rationale": "Modelled equal-leg 45° top loops are chamfered with their wall or bore at size. Convex top edge rounds retain the chamfer meeting their middle.",
+   "rationale": "Modelled equal-leg 45\u00b0 top loops are chamfered with their wall or bore at size. Convex top edge rounds retain the chamfer meeting their middle.",
    "code": "plan.rs edge_operations, modelled_edge_operations",
    "sources": [
     {
@@ -349,7 +369,7 @@
    "id": "process.chamfer.not_cut",
    "version": 3,
    "stage": "process",
-   "rationale": "Chamfers without a complete reachable equal-leg 45° top loop and a wall or bore at size stay out with their geometry reason and a hand-chamfer instruction. Geometry refusals do not request tools.",
+   "rationale": "Chamfers without a complete reachable equal-leg 45\u00b0 top loop and a wall or bore at size stay out with their geometry reason and a hand-chamfer instruction. Geometry refusals do not request tools.",
    "code": "plan.rs plan, modelled_edge_operations",
    "sources": [
     {
@@ -755,7 +775,11 @@
    "stage": "process",
    "rationale": "A rectangular recess keeps the model outline. If the chosen cutter radius exceeds the model corner radius, report the larger inside corner radii as a plan deviation; no corner relief is requested by today's analysis or answers.",
    "code": "settle.rs resolve_with",
-   "sources": [{ "kind": "step2cam" }]
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
   },
   {
    "id": "tool.notch.pocket_mill",
@@ -806,7 +830,7 @@
    "id": "tool.edge_chamfer.chamfer_mill",
    "version": 2,
    "stage": "tools",
-   "rationale": "The largest 90° chamfer mill covering the whole width plus tip clearance, within loop clearance and cutting-length reach from the stock top.",
+   "rationale": "The largest 90\u00b0 chamfer mill covering the whole width plus tip clearance, within loop clearance and cutting-length reach from the stock top.",
    "code": "resources.rs Library::chamfer_mill_in",
    "sources": [
     {
@@ -990,7 +1014,7 @@
    "id": "process.spot_drill",
    "version": 1,
    "stage": "process",
-   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1\u00b0. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
    "code": "spots.rs; settle.rs; job.rs",
    "data": [
     "rules/tools.json#spot_drill",
@@ -1007,7 +1031,7 @@
      "kind": "practice",
      "ref": "MSC Industrial Supply, Spotting & Step Drills, Countersinks & Center Reamers Technical Information",
      "url": "https://www.mscdirect.com/resources/buying-guides/drills-countersinks",
-     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120° spots for 118° or 120° drills."
+     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120\u00b0 spots for 118\u00b0 or 120\u00b0 drills."
     }
    ]
   },
@@ -1015,7 +1039,7 @@
    "id": "tool.spot_drill",
    "version": 1,
    "stage": "tools",
-   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1°. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
+   "rationale": "Spot only twist drills, including tap drills, before drilling, grouped by tool per setup. Indexable insert drills start on their own and are not spotted (no such tool type here). Ordinary spots require point angle >= twist drill angle; enlarged countersinks instead require only the countersink angle match (the twist-drill angle minimum is disabled). This enlarged-countersink exception is a reviewer decision. Depth = (spot diameter / 2) / tan(point angle / 2), referenced to the tip. Prefer the smallest covering tool; no undersize fallback, since it cannot make the requested spot or countersink. A countersink is cut only when the tool covers its larger diameter and matches its included angle within 1\u00b0. No peck; 0.2 s dwell for a clean spot/chamfer. Insertion precedes exclusion replay; subsequent pruning never recreates a refused spot.",
    "code": "spots.rs; settle.rs; job.rs",
    "data": [
     "rules/tools.json#spot_drill",
@@ -1032,7 +1056,7 @@
      "kind": "practice",
      "ref": "MSC Industrial Supply, Spotting & Step Drills, Countersinks & Center Reamers Technical Information",
      "url": "https://www.mscdirect.com/resources/buying-guides/drills-countersinks",
-     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120° spots for 118° or 120° drills."
+     "note": "Read 2026-11-08: spotting establishes a true centre; choose a point angle equal to or greater than the final drill. Lists 120\u00b0 spots for 118\u00b0 or 120\u00b0 drills."
     }
    ]
   },
