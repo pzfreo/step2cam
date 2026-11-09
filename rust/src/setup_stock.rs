@@ -41,6 +41,37 @@ pub(crate) fn carry(
     Ok((out, lo[2]))
 }
 
+/// Reuse the adapter's existing plane, tool-change and grid calculations on
+/// the carried envelope. Cutting coordinates and the recorded frame stay fixed.
+pub(crate) fn adapt(
+    mut carried: Value,
+    bottom: f64,
+    frame: &Value,
+    part: &Value,
+    library: &Value,
+) -> Result<crate::job::Job, String> {
+    let mut receiving = frame.clone();
+    receiving["stock"] =
+        json!({"min": carried["stock"]["min_mm"], "max": carried["stock"]["max_mm"]});
+    receiving["stock"]["min"][2] = json!(bottom);
+    if receiving["flip_seating"].is_object() {
+        // The carried box already contains the residual margin. The old box
+        // needed this extra overlap because it covered only the part.
+        receiving["flip_seating"]["residual_margin_mm"] = json!(0.);
+    }
+    let plan = json!({"format": capp::plan::PLAN_FORMAT, "part": part, "setups": [receiving]});
+    let (mut jobs, _) = crate::job::jobs(&plan, library)?;
+    let mut job = jobs
+        .pop()
+        .ok_or("no executable job for the carried stock")?;
+    job.manifest["stock"]["mesh"] = carried["stock"]
+        .as_object_mut()
+        .unwrap()
+        .remove("mesh")
+        .ok_or("missing carried mesh")?;
+    Ok(job)
+}
+
 pub(crate) fn assumption(reason: &str) -> String {
     format!("Assumes a freed, part-sized block; stock carry unavailable: {reason}")
 }
@@ -107,8 +138,7 @@ mod tests {
             .find(|p| p["setup"] == "top")
             .unwrap();
         // Replay the accepted top manifest once in this test to obtain camlib's
-        // returned stock. Check the receiving input even if camlib refuses all
-        // front operations; a refused operation must not weaken this assertion.
+        // returned stock, and compare the actual receiving mesh structurally.
         let mut job = crate::job::Job {
             setup: "top".into(),
             return_stock: true,
@@ -122,13 +152,30 @@ mod tests {
             .finished_stock
             .unwrap()
             .unwrap();
-        let mut requested = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-        capp::finish(&mut requested, &library, &[]).unwrap();
-        let (jobs, _) = crate::job::jobs(&requested, &library).unwrap();
-        let receiving = jobs.iter().find(|j| j.setup == "front").unwrap();
-        let (manifest, _) =
-            carry(&finished, &plan["setups"][0], front, &receiving.manifest).unwrap();
+        let program = output["programs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["setup"] == "front")
+            .expect("spot drilling should run above the carried stock");
+        assert!(
+            front["stock_note"]
+                .as_str()
+                .unwrap()
+                .contains("carried from top")
+        );
+        let (expected, _) = carry(&finished, &plan["setups"][0], front, &program["job"]).unwrap();
+        let manifest = program["job"].clone();
         assert!(manifest["stock"]["mesh"].is_object());
+        assert_eq!(manifest["stock"]["mesh"], expected["stock"]["mesh"]);
+        let top = manifest["stock"]["max_mm"][2].as_f64().unwrap();
+        for op in manifest["operations"].as_array().unwrap() {
+            assert!(op["clearance_z_mm"].as_f64().unwrap() > top);
+            if let Some(retract) = op["retract_z_mm"].as_f64() {
+                assert!(retract > top);
+            }
+        }
+
         let step = &front["before_setup"];
         assert_eq!(step["kind"], "break_out");
         assert_eq!(step["after_setup"], "top");

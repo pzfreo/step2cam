@@ -57,14 +57,14 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
         let setup_index = frames.iter().position(|s| s["id"] == job.setup).unwrap();
         if setup_index > 0 {
             let carried = match &previous {
-                Some((from, Ok(stock))) => setup_stock::carry(stock, from, frame, &job.manifest),
+                Some((from, Ok(stock))) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, &plan["part"], library)),
                 Some((_, Err(reason))) => Err(reason.clone()),
                 None => Err("the previous setup returned no finished stock".into()),
             };
             let note = match carried {
-                Ok((manifest, bottom)) => {
-                    job.stock_bottom_mm = job.stock_bottom_mm.min(bottom);
-                    job.manifest = manifest;
+                Ok(mut adapted) => {
+                    adapted.return_stock = job.return_stock;
+                    job = adapted;
                     format!("Starting stock carried from {}: {}", previous.as_ref().unwrap().0["id"].as_str().unwrap_or("previous setup"), camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION)
                 }
                 Err(reason) => setup_stock::assumption(&reason),

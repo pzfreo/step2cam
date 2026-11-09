@@ -637,7 +637,9 @@ Unused inventory tools do not affect the note. No tool choice changes.
 Sequential simulation carries camlib's finished-stock mesh into the next setup using the
 recorded rotation and model origin. The mesh is conservative height-field stock, including
 filled voids and undercuts; it is not a measured part. Only setups with a successor export
-stock. The receiving manifest retains its grid resolution and encloses the carried mesh.
+stock. The receiving manifest encloses the carried mesh. The existing adapter derives its grid,
+retract and clearance planes and tool-change position from that envelope, respecting the
+library's configured values. The flip facing needs no second residual-margin overlap.
 Camlib alone decides tool contact and material acceptance.
 
 `process` adds two optional setup fields: `stock_note`, the actual initial-stock premise
