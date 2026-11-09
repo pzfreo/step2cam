@@ -633,3 +633,18 @@ swapping the spindle collet, separately from swapping complete tool holders.
 selected tools require multiple shank sizes. Absent leaves this check unspecified;
 preassembled CAT40/ER holders need not claim manual spindle-collet changes.
 Unused inventory tools do not affect the note. No tool choice changes.
+
+Sequential simulation carries camlib's finished-stock mesh into the next setup using the
+recorded rotation and model origin. The mesh is conservative height-field stock, including
+filled voids and undercuts; it is not a measured part. Only setups with a successor export
+stock. The receiving manifest retains its grid resolution and encloses the carried mesh.
+Camlib alone decides tool contact and material acceptance.
+
+`process` adds two optional setup fields: `stock_note`, the actual initial-stock premise
+(or an explicit freed, part-sized block assumption with the carry refusal), and
+`before_setup`, a manual `break_out` instruction immediately before reclamping. Its
+`witness` records the source setup, bottom/top Z and approximate thickness at the bottom
+perimeter. The setup list and setup sheet display the instruction. Manual separation is
+not simulated: the next job retains the web and surrounding stock conservatively rather
+than pretending a manual cut was checked. The flip-and-face route removes its sacrificial
+stock by machining and does not receive a web break-out instruction.

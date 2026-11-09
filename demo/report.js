@@ -208,7 +208,8 @@ function setupBox(part, setup) {
 export function setupDetails(setup, plan) {
   const unstated = "not stated in the plan", c = setup.clamping || {};
   const face = (id) => typeof id !== "string" ? unstated : id.replace(/^(stock|part)\.([xyz])\.(min|max)$/, (_, body, axis, edge) => `${body} ${edge === "min" ? "−" : "+"}${axis.toUpperCase()} face`);
-  const lines = [`Faces in jaws (setup axes): ${c.faces?.length ? c.faces.map(face).join(", ") : unstated}. Jaw-top Z: ${c.jaw_top_z == null ? unstated : reportLength(c.jaw_top_z) + " mm"}. Grip depth: ${c.grip_height_mm == null ? unstated : reportLength(c.grip_height_mm) + " mm"}.`];
+  const lines = [setup.before_setup?.says, setup.stock_note].filter(Boolean);
+  lines.push(`Faces in jaws (setup axes): ${c.faces?.length ? c.faces.map(face).join(", ") : unstated}. Jaw-top Z: ${c.jaw_top_z == null ? unstated : reportLength(c.jaw_top_z) + " mm"}. Grip depth: ${c.grip_height_mm == null ? unstated : reportLength(c.grip_height_mm) + " mm"}.`);
   if (c.contacts?.length) lines.push(`Contact faces (model axes): ${[...new Set(c.contacts.map((contact) => face(contact.face_model)))].join(", ")}.`);
   lines.push(c.parallels?.length ? c.parallels.map((p, i) => {
     if (!p.min || !p.max) return `Parallel ${i + 1}: height/width ${unstated}`;
