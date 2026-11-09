@@ -67,10 +67,17 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
     assert_eq!(rough["floor_z"], -19.);
     assert_eq!(rough["web_mm"], 0.);
     let bottom = setup(p, "bottom");
-    assert_eq!(
-        bottom["stock"],
-        json!({"min":[0.,0.,-18.],"max":[100.,56.,7.25]})
-    );
+    // The receiving envelope includes Op 1's residual stock margins, with
+    // camlib's conservative numerical enclosure, rather than a fresh part box.
+    assert_eq!(bottom["stock"]["min"][0], -2.);
+    assert_eq!(bottom["stock"]["min"][1], -2.);
+    assert_eq!(bottom["stock"]["max"], json!([102.,58.,7.25]));
+    let low = bottom["stock"]["min"][2].as_f64().unwrap();
+    assert!(low <= -18. && low > -18.001);
+    let job = list(&out["programs"]).iter().find(|j|j["setup"]=="bottom").unwrap();
+    assert!(job["job"]["stock"]["mesh"].is_object());
+    assert_eq!(bottom["stock"]["min"], job["job"]["stock"]["min_mm"]);
+    assert_eq!(bottom["stock"]["max"], job["job"]["stock"]["max_mm"]);
     assert_eq!(
         list(&bottom["operations"]).len(),
         1,
