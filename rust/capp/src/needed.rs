@@ -106,7 +106,7 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool
             for_operation_with_context(op, top, library, tool.and_then(|t| t["flute_length"].as_f64()), setup, plan["material"]["iso513"].as_str())?.unwrap_or_else(|| "a tool".into()), reach(depth)));
     }
     let flutes = evidence["depth_available_mm"].as_f64().or_else(|| tool.and_then(|t| t["flute_length"].as_f64()));
-    let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| (z - op["top_z"].as_f64().unwrap_or(top)).abs() > 0.001) { "material top" } else { "stock top" };
+    let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| z < op["top_z"].as_f64().unwrap_or(top) - 0.001) { "material top" } else { "stock top" };
     let plain = flutes.map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the {reference} and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
     Ok(match for_operation_with_context(op, top, library, Some(depth), setup, plan["material"]["iso513"].as_str())? {
         Some(need) => format!("{plain}: needs {need}"),
