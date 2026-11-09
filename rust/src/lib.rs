@@ -43,8 +43,11 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
     let mut previous: Option<(Value, Result<camlib::stock_mesh::FinishedStock, String>)> = None;
     // Keep the original coordinate/stock descriptions while reporting the actual premise.
     let frames = plan["setups"].as_array().cloned().unwrap_or_default();
-    for setup in plan["setups"].as_array_mut().into_iter().flatten().skip(1) {
+    for (index, setup) in plan["setups"].as_array_mut().into_iter().flatten().enumerate().skip(1) {
         setup["stock_note"] = json!(setup_stock::assumption("this setup has no executable camlib job"));
+        if let Some(step) = setup_stock::breakout(&frames[index - 1]) {
+            setup["before_setup"] = step;
+        }
     }
     for (index, mut job) in jobs.into_iter().enumerate() {
         job.return_stock = index + 1 < count;
@@ -53,9 +56,6 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
         let frame = frames.iter().find(|s| s["id"] == job.setup).ok_or("missing setup frame")?;
         let setup_index = frames.iter().position(|s| s["id"] == job.setup).unwrap();
         if setup_index > 0 {
-            if let Some(step) = setup_stock::breakout(&frames[setup_index - 1]) {
-                plan["setups"][setup_index]["before_setup"] = step;
-            }
             let carried = match &previous {
                 Some((from, Ok(stock))) => setup_stock::carry(stock, from, frame, &job.manifest),
                 Some((_, Err(reason))) => Err(reason.clone()),
@@ -71,9 +71,9 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
             };
             plan["setups"][setup_index]["stock_note"] = json!(note);
         }
-        let input = if job.return_stock { job.manifest.clone() } else { Value::Null };
+        let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.return_stock == job.return_stock) {
+        let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && (!job.return_stock || c.job.return_stock)) {
             job = saved.job.clone();
             if setup_index > 0 { plan["setups"][setup_index]["stock_note"] = saved.stock_note.clone(); }
             saved.run.clone()

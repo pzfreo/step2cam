@@ -104,7 +104,6 @@ function buildModel(data) {
   }
   let next = 0;
   for (const setup of data.plan.setups) {
-    if (setup.stock_note) host.insertAdjacentHTML("beforeend", `<p>${escapeHtml(setup.stock_note)}</p>`);
     setup.operations.forEach((op, n) => {
       const id = `${setup.id}-${n + 1}-${op.kind}`;
       const color = op.kind === "facing" ? FACING : op.kind === "roughing" ? ROUGHING : PALETTE[next++ % PALETTE.length];

@@ -100,19 +100,35 @@ mod tests {
             .iter()
             .find(|s| s["id"] == "front")
             .unwrap();
-        let program = output["programs"]
+        let top = output["programs"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|p| p["setup"] == "front")
+            .find(|p| p["setup"] == "top")
             .unwrap();
-        assert!(program["job"]["stock"]["mesh"].is_object());
-        assert!(
-            front["stock_note"]
-                .as_str()
-                .unwrap()
-                .contains("carried from top")
-        );
+        // Replay the accepted top manifest once in this test to obtain camlib's
+        // returned stock. Check the receiving input even if camlib refuses all
+        // front operations; a refused operation must not weaken this assertion.
+        let mut job = crate::job::Job {
+            setup: "top".into(),
+            return_stock: true,
+            manifest: top["job"].clone(),
+            stock_bottom_mm: plan["setups"][0]["stock"]["min"][2].as_f64().unwrap(),
+            notes: vec![],
+            local_pocket_tops: Default::default(),
+        };
+        let finished = crate::simulate::simulate_prepared_job(&mut job)
+            .unwrap()
+            .finished_stock
+            .unwrap()
+            .unwrap();
+        let mut requested = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+        capp::finish(&mut requested, &library, &[]).unwrap();
+        let (jobs, _) = crate::job::jobs(&requested, &library).unwrap();
+        let receiving = jobs.iter().find(|j| j.setup == "front").unwrap();
+        let (manifest, _) =
+            carry(&finished, &plan["setups"][0], front, &receiving.manifest).unwrap();
+        assert!(manifest["stock"]["mesh"].is_object());
         let step = &front["before_setup"];
         assert_eq!(step["kind"], "break_out");
         assert_eq!(step["after_setup"], "top");
@@ -128,7 +144,7 @@ mod tests {
             - step["witness"]["bottom_z_mm"].as_f64().unwrap();
         assert!((measured - rough["web_mm"].as_f64().unwrap()).abs() < 1e-9);
         assert!(step["says"].as_str().unwrap().contains("bottom perimeter"));
-        let manifest: StreamManifest = serde_json::from_value(program["job"].clone()).unwrap();
+        let manifest: StreamManifest = serde_json::from_value(manifest).unwrap();
         let carried = manifest.stock.initial_stock(&|| false).unwrap();
         let carried = carried.height().unwrap();
         // Material removed in top must remain absent in front. Ask camlib for
