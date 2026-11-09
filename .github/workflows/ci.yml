@@ -14,3 +14,5 @@ jobs:
         run: tests/specify-link.sh
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: The setup sheet's content
+        run: node tests/report.mjs

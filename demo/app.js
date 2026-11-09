@@ -9,13 +9,12 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { Display, Viewer } from "three-cad-viewer";
 import { createStock } from "./stock.js";
+import { NOT_FEATURES, reportDocument, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
 
 const $ = (id) => document.getElementById(id);
 const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
 const PALETTE = ["#2dd4bf", "#5aa9ff", "#ffb020", "#f472b6", "#a78bfa", "#a3e635", "#fb7185", "#38bdf8"];
 const ROUGHED = "#7fb7a8", NOT_CUT = "#ff7a4d";
-// specify-core's descriptions of the part as a whole, not features a person would point at.
-const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
 const PLAYBACK_SECONDS = 45;
 const ROW_HEIGHT = 20;
 
@@ -133,21 +132,6 @@ function buildModel(data) {
   return m;
 }
 
-const trim = (x) => String(Math.round(Number(x) * 10) / 10);
-
-function featureName(f) {
-  const r = f.record || {};
-  switch (f.family) {
-    case "holes": return `⌀${trim(r.diameter)} hole`;
-    case "slots": return `Slot, ${trim(r.width)} wide`;
-    case "pockets": return r.open_sign ? `Notch, ${trim(r.width)} wide × ${trim(r.depth)} deep` : `Pocket, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
-    case "v_channels": return `V-channel, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
-    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${trim(r.across_flats)} across flats` : `${r.side_count}-sided boss`;
-    case "fillets": return r.side === "convex" ? `r${trim(r.radius)} edge round` : `r${trim(r.radius)} fillet`;
-    default: return f.family.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-  }
-}
-
 // The plan's `covered_by_roughing` knows the feature's faces, not the tool: a Ø12 mill does not
 // get into an 8 mm notch. What is too narrow says so, and stands out on the part.
 function describeRoughed(features, data) {
@@ -204,22 +188,6 @@ function compressTimeline(m) {
     s.end = end;
   }
   m.total = end;
-}
-
-function operationName(op, setup, plan) {
-  const where = plan.setups.length > 1 ? ` (${setup.id})` : "";
-  if (op.kind === "spot_drill") return "Spot drill" + where;
-  if (op.kind === "facing") return "Facing" + where;
-  if (op.kind === "roughing") return "Roughing" + where;
-  if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
-  if (op.kind === "thread") return `${op.spec} thread` + where;
-  if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
-  if (op.kind === "notch") return `${trim(op.width)} × ${trim(op.length)} ${op.open ? "notch" : "slot"}` + where;
-  if (op.kind === "v_channel") return `V-channel, ${trim(op.width)} wide` + where;
-  if (op.kind === "flats") return "Finish flats" + where;
-  if (op.kind === "wall_finish") return "Finish outside wall" + where;
-  if (op.kind === "edge_chamfer") return (op.radius == null ? `${op.width} mm 45° edge chamfer` : `${op.width} chamfer on r${op.radius} edges`) + where;
-  return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
 // Setup coordinates -> model coordinates: the rotation's inverse is its transpose.
@@ -704,7 +672,6 @@ function paintToolpaths() {
 // The feature list, the list of moves and the timeline
 // ------------------------------------------------------------------------------------------
 
-const describeTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 function rowEvents(el, key) {
   el.dataset.key = key;
@@ -722,7 +689,6 @@ function button(className, html, key) {
   return el;
 }
 
-const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 function buildFeatureList(m) {
   // Keep the scroll panel separate from the auto-height column content.
@@ -877,15 +843,6 @@ async function loadRules() {
   return rulesById;
 }
 
-const STAGES = { machine: "Machine", requirements: "Requirement", setup: "Setup", process: "Process", sequence: "Order", feasibility: "Feasibility", tools: "Tool", execution: "Execution" };
-
-function describeSource(src) {
-  const what = src.kind === "standard" ? src.ref : src.kind === "practice" ? "recognised practice" : "step2cam's own judgement";
-  const via = src.via ? ` (${src.via})` : "";
-  const note = src.note ? `: ${src.note}` : "";
-  return `${what}${note}${via}`;
-}
-
 function decisionItem(d, rules, compact = false) {
   const li = document.createElement("li");
   li.className = `decision${d.superseded_by ? " superseded" : ""}`;
@@ -916,25 +873,7 @@ function decisionItem(d, rules, compact = false) {
 // Show current recorded tool choices, even without alternatives. Do not infer
 // rejections from the library or treat cutting-data source labels as tool ids.
 function toolChoice(op, decisions, tools) {
-  const choices = (op.because || []).map((id) => decisions.get(id))
-    .filter((d) => d?.stage === "tools" && !d.superseded_by
-      && (d.considered?.length || (typeof d.chosen === "string" && d.chosen === op.tool)));
-  if (!choices.length) return null;
-  const rows = new Map();
-  for (const d of choices) {
-    const considered = d.considered || [];
-    if (typeof d.chosen === "string") {
-      const others = considered.filter((c) => c.candidate !== d.chosen);
-      const preference = ["the largest", "the smallest", "the first in the library"].find((p) =>
-        others.some((c) => c.rejected === `qualifies, but ${d.chosen} is preferred (${p})`));
-      const only = others.length && others.every((c) => c.rejected?.trim() && !c.rejected.startsWith("qualifies, but"));
-      const reason = preference ? `${preference} that qualifies` : only ? "the only one that qualifies" : d.says || "chosen";
-      rows.set(d.chosen, { chosen: true, reason });
-    }
-    for (const c of considered) {
-      if (!rows.get(c.candidate)?.chosen) rows.set(c.candidate, { chosen: false, reason: c.rejected });
-    }
-  }
+  const rows = toolChoiceRows(op, decisions);
   if (!rows.size) return null;
   const section = document.createElement("section");
   section.innerHTML = "<h3>Tool choice</h3>";
@@ -1015,16 +954,7 @@ async function buildPlan(m) {
       const chosen = c.id === w.chosen;
       const row = document.createElement(c.available && !chosen ? "button" : "div");
       row.className = "workholding-option";
-      const seconds = Math.round(c.estimated_seconds || 0);
-      const duration = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-      const leftOut = c.features_left_out?.length || 0;
-      const needs = [...new Set((c.tools_needed || []).map((n) => n.description.split(/,? or /)
-        .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
-      const softJaws = c.grips?.some((g) => g.finished_wall) ? " · soft jaws advised" : "";
-      const summary = c.available
-        ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setup${c.setups === 1 ? "" : "s"} · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${softJaws}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
-        : c.short_reason || c.reason;
-      const label = c.id === "fixture_plate" ? "Fixture plate" : c.label;
+      const { label, summary } = workholdingText(c);
       row.textContent = `${chosen ? "✓" : c.available ? "○" : "✕"} ${label} — ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
       row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`, ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].join("\n") : `${c.label}: ${c.reason}`;
       if (c.available && !chosen) {
@@ -1149,10 +1079,10 @@ function updatePlanSelection() {
     const metadata = document.createElement("details");
     metadata.className = "operation-metadata";
     metadata.innerHTML = "<summary>Features, setup and ISO 14649 ▸</summary>";
-    const setup = o.setup, lo = setup.stock.min, hi = setup.stock.max;
+    const setup = o.setup;
     const onMachine = (m.data.plan.decisions || []).find((d) => d.rule.startsWith("machine.for_setup@") && d.subject === setup.id);
     metadata.append(facts([
-      ["Setup", `${escapeHtml(setup.id)}${m.data.programs.some((p) => p.setup === setup.id) ? "" : " · not run"}. ${onMachine ? escapeHtml(onMachine.says) + ". " : ""}Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${trim(hi[0] - lo[0])} × ${trim(hi[1] - lo[1])} × ${trim(hi[2] - lo[2])} mm.`],
+      ["Setup", `${escapeHtml(setup.id)}${m.data.programs.some((p) => p.setup === setup.id) ? "" : " · not run"}. ${onMachine ? escapeHtml(onMachine.says) + ". " : ""}${setupZero(setup)}`],
       ["Features", o.features?.length ? escapeHtml(o.features.map((id) => m.features.get(id)?.name || id).join(", ")) : "Whole part"],
       ["ISO 14649", o.iso14649 ? `${escapeHtml(o.iso14649.operation || "no operation")} on ${escapeHtml(o.iso14649.feature)}${o.iso14649.bottom_condition ? `, ${escapeHtml(o.iso14649.bottom_condition)}` : ""}${o.iso14649.exact ? "" : " · closest"}${o.iso14649.note ? ` · ${escapeHtml(o.iso14649.note)}` : ""}` : null],
       ["Cutting data", describeTechnology(tech)],
@@ -1498,66 +1428,16 @@ function showChecks(data) {
   host.hidden = !programs.length;
   host.open = false;
   if (!programs.length) return;
-  const setupName = (id) => `${id[0].toUpperCase()}${id.slice(1)} setup`;
-  const checked = programs.filter((p) => p.material), unchecked = programs.filter((p) => !p.material);
-  const headline = [];
-  if (checked.length) headline.push(`<span class="ok">✓ ${checked.map((p) => setupName(p.setup)).join(", ")}: compared with the part, no gouge found.</span>`);
-  if (unchecked.length) headline.push(`<span class="unchecked">${unchecked.map((p) => setupName(p.setup)).join(", ")}: not compared with the part.</span>`);
-  $("checks-summary").innerHTML = headline.join(" ");
+  const text = checkText(programs);
+  $("checks-summary").innerHTML = text.headline;
   const compact = document.createElement("span");
   compact.className = "phone-only";
-  compact.textContent = checked.length
-    ? `✓ no gouge${unchecked.length ? ` · ${unchecked.length} unchecked` : ""}`
-    : "⚠ unchecked";
+  compact.textContent = text.compact;
   $("checks-summary").append(compact);
-  const number = (x) => Math.round(x).toLocaleString("en-GB");
-  const items = [];
-  for (const p of checked) {
-    const { limits, gouge, residual } = p.material;
-    const where = checked.length > 1 ? `${setupName(p.setup)}: ` : "";
-    const say = (text) => items.push(where ? where + text : text[0].toUpperCase() + text.slice(1));
-    const cell = limits.sideways_mm;
-    say(`too small for the check to see: errors under about ${limits.height_mm.toFixed(2)} mm in height or ${cell.toFixed(2)} mm sideways, and misplaced cuts narrower than about ${(4 * cell).toFixed(1)} mm.`);
-    say(`it can't tell for ${number(gouge.volume_mm3[1])} mm³ beside walls and curved faces, because it sees the part from above.`);
-    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes the web left around the part, and anything a later setup cuts.`);
-    if (limits.before_threads) say(`threads are not compared, because they go beyond the bore the model shows.`);
-  }
-  if (unchecked.length) items.push("Not compared: only the setup with roughing holds the part's model in its position, so side holes and the like rely on the other checks.");
-  $("checks-detail").innerHTML = `<ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
+  $("checks-detail").innerHTML = `<ul>${text.items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
 }
 
 // Warning identity and links come from the trace, never from warning prose.
-function planWarnings(m) {
-  return (m.data.plan.decisions || []).filter((d) => d.outcome === "warning" && !d.superseded_by);
-}
-
-function warningOperations(m, d) {
-  return [...m.operations.values()].filter((o) => o.because?.includes(d.id));
-}
-
-function warningText(m, d, brief = false) {
-  let text = d.says.replace("no source-admitted entry/route for component 0; choose a smaller radius or another entry strategy", "camlib found no way for that tool to enter it");
-  if (brief && d.depth_diameter_ratio != null) text = `${Number(d.depth_diameter_ratio).toFixed(1)} × diameter deep: full-retract pecks`;
-  else if (brief && d.rule.startsWith("machine.clamping@") && d.jaw_cap_z != null) text = d.subject.endsWith(":roughing")
-    ? `side cutting stops at Z${trim(d.jaw_cap_z)} (jaws)`
-    : `below Z${trim(d.jaw_cap_z)} jaw clearance: left for a later setup`;
-  else if (brief && d.radius != null) text = `Inside corners left r${trim(d.radius)} (${d.model_radius ? `model r${trim(d.model_radius)}` : "sharp in the model"})`;
-  // Older subject-specific warnings still include their subject in the prose.
-  for (const id of d.features || []) {
-    text = text.replaceAll(id, m.features.get(id)?.name || "the requested feature");
-  }
-  if (d.rule.startsWith("execution.refused@")) text = text.replaceAll(d.subject, "This operation");
-  if (brief) return text;
-  const ops = warningOperations(m, d);
-  const names = ops.length ? ops.map((o) => {
-    const family = m.features.get(o.features?.[0])?.family;
-    const count = family ? o.features.filter((id) => m.features.get(id)?.family === family).length : 0;
-    return o.name + (count > 1 ? ` ×${count}` : "");
-  })
-    : (d.features || []).map((id) => m.features.get(id)?.name).filter(Boolean);
-  return names.length ? `${[...new Set(names)].join(", ")}: ${text}` : text;
-}
-
 function linkWarning(el, m, d) {
   const key = warningOperations(m, d)[0]?.id || (d.features || []).find((id) => m.features.has(id));
   if (key) rowEvents(el, key);
@@ -1601,6 +1481,7 @@ function show(data) {
   setPlaying(false);
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
+  $("setup-sheet").disabled = false;
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
   $("phone-name").textContent = data.name.replace(/\.(step|stp)$/i, "");
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
@@ -1820,6 +1701,7 @@ function layoutPhone(open) {
       if (el !== cameraButtons) placePhone(el, $("phone-menu-content"));
     }
     placePhone($("plan-save"), $("phone-menu-content"));
+    placePhone($("setup-sheet"), $("phone-menu-content"));
     placePhone(document.querySelector(".about"), $("phone-menu-content"));
     placePhone($("meta"), $("phone-meta"));
     placePhone($("banner"), $("phone-alerts"));
@@ -1896,6 +1778,7 @@ function layoutDesktop() {
     if (el !== cameraButtons) moveDesktop(el, $("desktop-menu-content"));
   }
   moveDesktop($("plan-save"), $("desktop-menu-content"));
+  moveDesktop($("setup-sheet"), $("desktop-menu-content"));
   moveDesktop(document.querySelector(".about"), $("desktop-menu-content"));
   for (const id of ["banner", "checks", "story"]) moveDesktop($(id), $("desktop-status"));
   const panes = document.querySelector(".panes");
@@ -2064,6 +1947,28 @@ resized.observe($("cad").parentElement);
 new ResizeObserver(() => drawCode()).observe($("code"));
 
 $("plan-save").addEventListener("click", savePlan);
+$("setup-sheet").addEventListener("click", async () => {
+  if (!model) return;
+  const m = model, button = $("setup-sheet");
+  button.disabled = true;
+  $("status").textContent = "Generating setup sheet PDF…";
+  try {
+    const [rules, library, { downloadReportPdf }] = await Promise.all([
+      loadRules(), fetch(m.data.library.file).then((r) => { if (!r.ok) throw new Error("machine library unavailable"); return r.json(); }),
+      import("./report-pdf.js"),
+    ]);
+    const report = reportDocument(m.data, { rules, library, operations: m.operations, features: m.features, estimatedSeconds: m.machining });
+    const name = (m.data.name || "part").replace(/\.(step|stp)$/i, "");
+    await downloadReportPdf(report, `${name}-setup-sheet.pdf`);
+    count("setup-sheet");
+    $("status").textContent = "Setup sheet PDF downloaded.";
+  } catch (error) {
+    // A fixed category prevents URLs, file names or user data reaching analytics.
+    const reason = error.name === "TimeoutError" ? "download timed out" : "PDF generation unavailable";
+    $("status").textContent = `Could not create setup sheet PDF: ${reason}. Please try again.`;
+    count(`setup-sheet failed: ${reason}`);
+  } finally { button.disabled = !model; }
+});
 
 initRight();
 initCadLinks();
