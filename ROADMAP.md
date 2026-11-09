@@ -8,9 +8,9 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Done
 
 - #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
-  benchmark (`tools/benchmark`); #46 camlib at its main (4034290).
-- Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (the stopgap;
-  camlib #122 still open); #35 the tool a left-out feature needs; #34 drills that reach, pecks
+  benchmark (`tools/benchmark`); #46 camlib at its main (5d78021).
+- Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (cap retained;
+  camlib #122 fixed); #35 the tool a left-out feature needs; #34 drills that reach, pecks
   by depth over diameter (deep-hole drilling warned, not planned); #51 ISO 13399 field names.
 - #47 in part: modelled 45° chamfers round a whole loop or a hole or slot mouth; single-edge
   chamfers are #80.
