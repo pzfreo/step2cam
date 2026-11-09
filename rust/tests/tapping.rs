@@ -234,7 +234,7 @@ fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() 
     let mut mesh = fixture("plate.mesh.json");
     mesh["binding"] = analysis["binding"].clone();
     let p = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-    let no_tap = fixture("../../demo/tools.json");
+    let no_tap = fixture("placeholder-tools.json");
     let mut with_tap = no_tap.clone();
     with_tap["tools"].as_array_mut().unwrap().push(example_tap(5., 0.8, 4.));
     let (before, _) = step2cam::job::jobs(&finished(&p, &no_tap), &no_tap).unwrap();
