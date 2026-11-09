@@ -2400,6 +2400,10 @@
     "chosen": {
      "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
     },
+    "default": {
+     "description": "setup.workholding's preferred candidate before supplied choices, or null when none is available.",
+     "enum": ["vise_ordinary", "vise_flip_face", "fixture_plate", "margins_tabs", null]
+    },
     "considered": {
      "type": "array",
      "items": {
