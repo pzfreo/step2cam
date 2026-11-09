@@ -79,6 +79,17 @@ fn rp(p: V3) -> Value {
 pub fn show(x: f64) -> String {
     format!("{x:?}")
 }
+/// Display a position with the plan's precision, without trailing zeroes.
+pub fn display_position(value: f64) -> String {
+    r(value).to_string()
+}
+
+/// Join a tool query to camlib's assembly clearance requirement in one sentence.
+pub fn assembly_requirement(query: &str, part: &str, depth: f64) -> String {
+    let join = if query.contains(" with ") { "and" } else { "with" };
+    format!("{query} {join} its {part} at least {:.0} mm above the tip", (depth + 0.001).ceil())
+}
+
 /// A short operation noun for reader-facing reasons; identifiers belong to the trace.
 pub fn operation_noun(kind: &str) -> &'static str {
     match kind {

@@ -186,8 +186,8 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
         let part = match f.part { Some(ToolPart::Cutter) => "flutes", Some(ToolPart::Neck) => "neck", Some(ToolPart::Shank) => "shank", Some(ToolPart::Holder) => "holder", None => "tool assembly" };
         let section = f.holder_section.map(|n| format!(" section {n}")).unwrap_or_default();
         let point = c.contact_point_mm.or_else(|| f.witness.as_ref().map(|w| w.tip_mm));
-        let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{:.1}", p[0], p[1], p[2])).unwrap_or_default();
-        let mut text = format!("{}'s {part}{section} hits the stock{at}", tool.id);
+        let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{}", p[0], p[1], capp::plan::display_position(p[2]))).unwrap_or_default();
+        let mut text = format!("{}'s {part}{section} hits the remaining stock beside the {}{at}", tool.id, capp::plan::operation_noun(kind));
         let tool_kind = match tool.cutter.shape {
             camlib::tool::CutterShape::Drill { .. } => "a drill",
             camlib::tool::CutterShape::Chamfer { .. } => "a chamfer mill",
@@ -196,8 +196,8 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
         };
         if matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank | ToolPart::Neck))
             && let (Some(top), Some(tip)) = (c.obstruction_top_mm, c.lowest_tip_z_mm) {
-                let reach = (top - tip + 0.001).ceil();
-                text.push_str(&format!(": needs {tool_kind} of ⌀{} with {part} starting at least {reach:.0} mm above the tip", tool.cutter.diameter_mm));
+                let query = format!("{tool_kind} of ⌀{}", tool.cutter.diameter_mm);
+                text.push_str(&format!(": needs {}", capp::plan::assembly_requirement(&query, part, top - tip)));
                 if let Some(radius) = c.max_clear_radius_mm {
                     // Round down: camlib's radius is already a conservative clearance bound.
                     let diameter = (2. * radius * 100.).floor() / 100.;
@@ -367,15 +367,15 @@ mod contact_wording_tests {
     fn relays_assembly_part_section_and_camlib_position() {
         let (tool, mut report) = contact_fixture();
         let text = stock_contact_reason("notch", &report, &tool).unwrap();
-        assert!(text.starts_with("camlib refused the notch: em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0: needs "), "{text}");
+        assert!(text.starts_with("camlib refused the notch: em6's holder section 0 hits the remaining stock beside the notch at X3.0 Y4.0 Z-1: needs "), "{text}");
         assert!(!text.contains(&report.operation), "{text}");
-        assert!(text.contains(": needs an end mill of ⌀6 with holder starting at least 55 mm above the tip, or holder diameter at most 8.25 mm"), "{text}");
+        assert!(text.contains(": needs an end mill of ⌀6 with its holder at least 55 mm above the tip, or holder diameter at most 8.25 mm"), "{text}");
         for (part, name) in [(ToolPart::Shank,"shank"), (ToolPart::Neck,"neck"), (ToolPart::Cutter,"flutes")] {
             report.findings[0].finding.part = Some(part);
             report.findings[0].finding.holder_section = None;
             report.findings[0].contact_point_mm = None;
             let text = stock_contact_reason("notch", &report, &tool).unwrap();
-            assert!(text.contains(&format!("em6's {name} hits the stock at X1.0 Y2.0 Z-64.2")), "{text}");
+            assert!(text.contains(&format!("em6's {name} hits the remaining stock beside the notch at X1.0 Y2.0 Z-64.2")), "{text}");
             assert_eq!(text.contains(": needs "), matches!(part, ToolPart::Shank | ToolPart::Neck));
         }
         assert!(stock_contact_reason("unknown", &report, &tool).unwrap().starts_with("camlib refused the operation: "));
@@ -406,9 +406,9 @@ mod contact_wording_tests {
                 report.findings[0].finding.holder_section = (part == ToolPart::Holder).then_some(0);
                 let reason = stock_contact_reason("holes", &report, &tool).unwrap();
                 let kind = match name { "drill6" => "a drill", "cm6" => "a chamfer mill", _ => "a thread mill" };
-                assert!(reason.starts_with(&format!("camlib refused the holes: {name}'s {label} hits the stock at X3.0 Y4.0 Z-1.0: needs {kind} of ⌀6")), "{reason}");
+                assert!(reason.starts_with(&format!("camlib refused the holes: {name}'s {label} hits the remaining stock beside the holes at X3.0 Y4.0 Z-1: needs {kind} of ⌀6")), "{reason}");
                 assert!(!reason.contains("end mill"), "{reason}");
-                assert!(reason.contains("starting at least 55 mm above the tip"), "{reason}");
+                assert!(reason.contains("at least 55 mm above the tip"), "{reason}");
                 let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-70],"max":[60,40,0]}, "operations":[
                     {"kind":"holes", "diameter":6., "top_z":0., "bottom_z":-64., "features":["holes:0"]}
                 ]}]});

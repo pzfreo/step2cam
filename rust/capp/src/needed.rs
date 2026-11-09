@@ -101,9 +101,17 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool
         let z = evidence["z_mm"].as_f64().unwrap_or(top - depth);
         let obstruction = evidence["top_z_mm"].as_f64().unwrap_or(top);
         let section = evidence["holder_section"].as_u64().map(|n| format!(" section {n}")).unwrap_or_default();
-        return Ok(format!("camlib refused the {noun}: {tool_id}'s {part}{section} cannot clear stock at Z{} (tip Z{}): needs {} with {part} starting at least {} mm above the tip",
-            crate::plan::show(obstruction), crate::plan::show(z),
-            for_operation_with_context(op, top, library, tool.and_then(|t| t["flute_length"].as_f64()), setup, plan["material"]["iso513"].as_str())?.unwrap_or_else(|| "a tool".into()), reach(depth)));
+        // Assembly reach is not flute reach. Thread mills have a tooth height instead.
+        let cutter_length = tool.and_then(|t| t["flute_length"].as_f64()
+            .or_else(|| t["tooth_height"].as_f64()).or_else(|| t["thread_length"].as_f64()));
+        let mut query = for_operation_with_context(op, top, library, Some(cutter_length.unwrap_or(0.)), setup,
+            plan["material"]["iso513"].as_str())?.unwrap_or_else(|| "a tool".into());
+        if cutter_length.is_none() && let Some((base, _)) = query.split_once(" with flutes of at least ") {
+            query = base.to_string();
+        }
+        let need = crate::plan::assembly_requirement(&query, part, depth);
+        return Ok(format!("camlib refused the {noun}: {tool_id}'s {part}{section} cannot clear the remaining stock beside the {noun} at Z{} (tip Z{}): needs {need}",
+            crate::plan::display_position(obstruction), crate::plan::display_position(z)));
     }
     let flutes = evidence["depth_available_mm"].as_f64().or_else(|| tool.and_then(|t| t["flute_length"].as_f64()));
     let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| z < op["top_z"].as_f64().unwrap_or(top) - 0.001) { "material top" } else { "stock top" };
@@ -147,4 +155,26 @@ pub(crate) fn collect(plan: &mut Value) {
         add(&decision["says"], vec![], decision["subject"].as_str().map(String::from));
     }
     plan["tools_needed"] = json!(needs);
+}
+
+#[cfg(test)]
+mod assembly_wording_tests {
+    use super::*;
+
+    #[test]
+    fn thread_mill_without_flute_length_uses_its_cutter_length_not_holder_reach() {
+        let data: Value = serde_json::from_str(include_str!("../../../libraries/haas-vf2.json")).unwrap();
+        let library = Library::new(&data).unwrap();
+        let tool = data["tools"].as_array().unwrap().iter().find(|t| t["id"] == "tmM4").unwrap();
+        assert!(tool.get("flute_length").is_none());
+        assert_eq!(tool["tooth_height"], 0.693);
+        // Exercise the refusal formatter independently of operation/tool selection.
+        let plan = json!({"setups":[{"id":"top","stock":{"max":[20,20,0]},
+            "operations":[{"kind":"notch","width":6.,"top_z":0.,"floor_z":-64.}]}]});
+        let evidence = json!({"limit":"holder","holder_section":0,"depth_needed_mm":64.00001,
+            "depth_available_mm":14.,"top_z_mm":-0.99999,"z_mm":-65.});
+        let reason = refusal(&plan, "top-1-notch", "original evidence", Some("tmM4"), &evidence, &library).unwrap();
+        assert_eq!(reason, "camlib refused the notch: tmM4's holder section 0 cannot clear the remaining stock beside the notch at Z-1 (tip Z-65): needs an end mill under ⌀5.95 with flutes of at least 1 mm and its holder at least 65 mm above the tip");
+        assert_eq!(evidence["top_z_mm"], -0.99999, "display rounding must not alter evidence");
+    }
 }
