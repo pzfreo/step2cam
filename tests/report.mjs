@@ -1,6 +1,6 @@
 // Content and escaping checks; no output hashes or dependency on a browser.
 import assert from 'node:assert/strict';
-import { reportHtml, checkText } from '../demo/report.js';
+import { reportHtml, checkText, featureName, operationName } from '../demo/report.js';
 const data = {
   name: '<part & "test">.step', library: { machine: 'mill' }, tools: [
     { id: 'a', number: 7, type: 'end_mill', diameter: 6, shank_diameter: 6 },
@@ -27,3 +27,6 @@ assert.ok(!html.includes('undefined') && !html.includes('NaN'));
 assert.deepEqual(checkText([{ setup: 'top' }]).compact, '⚠ unchecked');
 assert.equal(reportHtml(data, options), html, 'fixed inputs and date produce fixed content');
 console.log('Report content, missing fields, escaping, ordering, collet changes and repeatability passed.');
+
+assert.equal(featureName({ family: 'holes' }), '⌀— hole');
+assert.equal(operationName({ kind: 'counterbore' }, { id: 'top' }, data.plan), '⌀— counterbore');

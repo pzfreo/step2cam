@@ -1,6 +1,6 @@
 // Shared plan wording and a DOM-independent printable report. All interpolated data is escaped.
 
-export const trim = (x) => String(Math.round(Number(x) * 10) / 10);
+export const trim = (x) => x == null ? "—" : String(Math.round(Number(x) * 10) / 10);
 
 export function featureName(f) {
   const r = f.record || {};
@@ -9,9 +9,9 @@ export function featureName(f) {
     case "slots": return `Slot, ${trim(r.width)} wide`;
     case "pockets": return r.open_sign ? `Notch, ${trim(r.width)} wide × ${trim(r.depth)} deep` : `Pocket, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
     case "v_channels": return `V-channel, ${trim(r.width)} wide × ${trim(r.depth)} deep`;
-    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${trim(r.across_flats)} across flats` : `${r.side_count}-sided boss`;
+    case "polygonal_bosses": return r.side_count === 6 ? `Hex boss, ${trim(r.across_flats)} across flats` : `${r.side_count ?? "—"}-sided boss`;
     case "fillets": return r.side === "convex" ? `r${trim(r.radius)} edge round` : `r${trim(r.radius)} fillet`;
-    default: return f.family.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+    default: return (f.family || "—").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   }
 }
 
@@ -20,15 +20,15 @@ export function operationName(op, setup, plan) {
   if (op.kind === "spot_drill") return "Spot drill" + where;
   if (op.kind === "facing") return "Facing" + where;
   if (op.kind === "roughing") return "Roughing" + where;
-  if (op.kind === "counterbore") return `⌀${op.diameter} counterbore` + where;
-  if (op.kind === "thread") return `${op.spec} thread` + where;
-  if (op.kind === "slot") return `${op.width} × ${op.length} slot` + where;
+  if (op.kind === "counterbore") return `⌀${op.diameter ?? "—"} counterbore` + where;
+  if (op.kind === "thread") return `${op.spec ?? "—"} thread` + where;
+  if (op.kind === "slot") return `${op.width ?? "—"} × ${op.length ?? "—"} slot` + where;
   if (op.kind === "notch") return `${trim(op.width)} × ${trim(op.length)} ${op.open ? "notch" : "slot"}` + where;
   if (op.kind === "v_channel") return `V-channel, ${trim(op.width)} wide` + where;
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
-  if (op.kind === "edge_chamfer") return (op.radius == null ? `${op.width} mm 45° edge chamfer` : `${op.width} chamfer on r${op.radius} edges`) + where;
-  return `⌀${op.diameter} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
+  if (op.kind === "edge_chamfer") return (op.radius == null ? `${op.width ?? "—"} mm 45° edge chamfer` : `${op.width ?? "—"} chamfer on r${op.radius ?? "—"} edges`) + where;
+  return `⌀${op.diameter ?? "—"} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 
 export const describeTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
@@ -109,7 +109,7 @@ export function workholdingText(c) {
     .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
   const softJaws = c.grips?.some((g) => g.finished_wall) ? " · soft jaws advised" : "";
   const summary = c.available
-    ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setup${c.setups === 1 ? "" : "s"} · +${c.extra_stock_mm == null ? "—" : Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${softJaws}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
+    ? `${c.finished ? "finished" : c.reason ?? "—"}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups ?? "—"} setup${c.setups === 1 ? "" : "s"} · +${c.extra_stock_mm == null ? "—" : Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${softJaws}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
     : c.short_reason || c.reason;
   const label = c.id === "fixture_plate" ? "Fixture plate" : c.label;
   return { label, summary };
