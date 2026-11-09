@@ -17,7 +17,8 @@ in `answers/`:
   with runout 0.02 on its ⌀24 and ⌀10.
 
 The answers keep each plan as it was before the GD&T: holes specify-core would call tapped are
-answered `general`, except in `plate-m5`, which exists to be tapped. The planner does not use the
+answered `general`, except in `plate-m5`, which exists to be tapped, and the stepped plate's four
+⌀2.5 front holes, which are tapped M3 (8.5 mm full thread). The planner does not use the
 tolerances yet (issues #40–#42).
 
 | Part | Geometry from |

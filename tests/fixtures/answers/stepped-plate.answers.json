@@ -13,7 +13,7 @@
  "hole.position:hole_patterns.rectangle:16.29.35.45": "0.4",
  "hole.function:hole_patterns.rectangle:17.22.30.31": "general",
  "hole.position:hole_patterns.rectangle:17.22.30.31": "0.25",
- "hole.function:hole_patterns.set:48.49.57.58": "general",
+ "hole.function:hole_patterns.set:48.49.57.58": "tapped:M3",
  "hole.position:hole_patterns.set:48.49.57.58": "0.2",
  "datum.A": [
   4
