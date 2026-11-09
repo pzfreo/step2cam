@@ -188,19 +188,20 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
         let point = c.contact_point_mm.or_else(|| f.witness.as_ref().map(|w| w.tip_mm));
         let at = point.map(|p| format!(" at X{:.1} Y{:.1} Z{:.1}", p[0], p[1], p[2])).unwrap_or_default();
         let mut text = format!("{}'s {part}{section} hits the stock{at}", tool.id);
-        // The adapter gives thread mills a non-center-cutting flat profile with a neck.
-        // Only offer the end-mill query for its unambiguous end-mill profiles.
-        let end_mill = tool.cutter.center_cutting && tool.cutter.neck.is_none() && matches!(tool.cutter.shape,
-            camlib::tool::CutterShape::Flat | camlib::tool::CutterShape::Ball | camlib::tool::CutterShape::Bull { .. });
-        if end_mill && matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank))
-            && let Some(w) = &f.witness {
-                let reach = (report.stock.max_mm[2] - w.tip_mm[2] + 1.).ceil();
-                text.push_str(&format!(": needs an end mill of ⌀{} with stickout of at least {reach:.0} mm", tool.cutter.diameter_mm));
-                if f.part == Some(ToolPart::Holder) {
-                    let holder = f.holder_section.and_then(|n| tool.holders.get(n));
-                    if let Some(h) = holder {
-                        text.push_str(&format!(", or a narrower holder than the current ⌀{} mm", 2. * h.radius_min_mm.max(h.radius_max_mm)));
-                    }
+        let tool_kind = match tool.cutter.shape {
+            camlib::tool::CutterShape::Drill { .. } => "a drill",
+            camlib::tool::CutterShape::Chamfer { .. } => "a chamfer mill",
+            _ if !tool.cutter.center_cutting && tool.cutter.neck.is_some() => "a thread mill",
+            _ => "an end mill",
+        };
+        if matches!(f.part, Some(ToolPart::Holder | ToolPart::Shank | ToolPart::Neck))
+            && let (Some(top), Some(tip)) = (c.obstruction_top_mm, c.lowest_tip_z_mm) {
+                let reach = (top - tip + 0.001).ceil();
+                text.push_str(&format!(": needs {tool_kind} of ⌀{} with {part} starting at least {reach:.0} mm above the tip", tool.cutter.diameter_mm));
+                if let Some(radius) = c.max_clear_radius_mm {
+                    // Round down: camlib's radius is already a conservative clearance bound.
+                    let diameter = (2. * radius * 100.).floor() / 100.;
+                    text.push_str(&format!(", or {part} diameter at most {diameter:.2} mm"));
                 }
         }
         text
@@ -217,7 +218,35 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
 /// Run an adapter job while excluding artificial through-tap backing from the
 /// material comparison. The unmodified camlib manifest still drives every motion.
 pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm))
+    simulate_prepared_job(&mut job.clone())
+}
+
+/// Retain any camlib-admitted local pocket tops in the manifest shown with the moves.
+pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Failure> {
+    let mut original_refusals = std::collections::HashMap::new();
+    loop {
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm));
+        let Err(failure) = result else { return result; };
+        let reach = camlib::reach::ReachRefusal::parse(&failure.message);
+        let operation = failure.operation.as_deref().unwrap_or("");
+        if reach.as_ref().is_some_and(|r| r.limit == camlib::reach::ReachLimit::CuttingLength)
+            && let Some(top) = job.local_pocket_tops.remove(operation)
+            && let Some(op) = job.manifest["operations"].as_array_mut().and_then(|ops|
+                ops.iter_mut().find(|op| op["id"] == operation))
+            && op["top_z_mm"].as_f64().is_some_and(|old| top < old) {
+                // Retry only a typed reach refusal. The whole job is replayed from its
+                // initial stock, with the same checks. Keep the actual admitted manifest.
+                op["top_z_mm"] = serde_json::json!(top);
+                original_refusals.insert(operation.to_string(), failure);
+                continue;
+        }
+        // A lower top that camlib cannot prove exposed does not replace the original
+        // reach verdict with a stock-preparation complaint.
+        if reach.is_none() && let Some(original) = original_refusals.remove(operation) {
+            return Err(original);
+        }
+        return Err(failure);
+    }
 }
 
 fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>) -> Result<Run, Failure> {
@@ -328,7 +357,7 @@ mod contact_wording_tests {
             findings:vec![ContactFinding {
                 finding:Finding {status:Status::Violation, kind:FindingKind::StockContact, object_id:"stock".into(), part:Some(ToolPart::Holder), holder_section:Some(0), fraction_interval:[0.,1.],
                     witness:Some(Witness {fraction:0.5, tip_mm:[1.,2.,-64.2], section_height_mm:Some(90.), margin_lower_mm:0.1}), detail:"camlib evidence".into()},
-                cell_range:[0,0,1,1], solid_lower_mm:0., possible_upper_mm:0., contact_point_mm:Some([3.,4.,-1.])
+                cell_range:[0,0,1,1], solid_lower_mm:0., possible_upper_mm:0., contact_point_mm:Some([3.,4.,-1.]), obstruction_top_mm:Some(-10.), lowest_tip_z_mm:Some(-64.2), max_clear_radius_mm:Some(4.125)
             }], stats:Default::default(), numerical_policy:String::new()
         };
         (tool, report)
@@ -340,14 +369,14 @@ mod contact_wording_tests {
         let text = stock_contact_reason("notch", &report, &tool).unwrap();
         assert!(text.starts_with("camlib refused the notch: em6's holder section 0 hits the stock at X3.0 Y4.0 Z-1.0: needs "), "{text}");
         assert!(!text.contains(&report.operation), "{text}");
-        assert!(text.contains(": needs an end mill of ⌀6 with stickout of at least 66 mm, or a narrower holder than the current ⌀40 mm"), "{text}");
+        assert!(text.contains(": needs an end mill of ⌀6 with holder starting at least 55 mm above the tip, or holder diameter at most 8.25 mm"), "{text}");
         for (part, name) in [(ToolPart::Shank,"shank"), (ToolPart::Neck,"neck"), (ToolPart::Cutter,"flutes")] {
             report.findings[0].finding.part = Some(part);
             report.findings[0].finding.holder_section = None;
             report.findings[0].contact_point_mm = None;
             let text = stock_contact_reason("notch", &report, &tool).unwrap();
             assert!(text.contains(&format!("em6's {name} hits the stock at X1.0 Y2.0 Z-64.2")), "{text}");
-            assert_eq!(text.contains(": needs "), part == ToolPart::Shank);
+            assert_eq!(text.contains(": needs "), matches!(part, ToolPart::Shank | ToolPart::Neck));
         }
         assert!(stock_contact_reason("unknown", &report, &tool).unwrap().starts_with("camlib refused the operation: "));
         report.findings[0].finding.status = Status::Uncertain;
@@ -355,7 +384,7 @@ mod contact_wording_tests {
     }
 
     #[test]
-    fn non_end_mill_contacts_do_not_request_an_end_mill() {
+    fn non_end_mill_contacts_request_their_own_tool_kind() {
         use camlib::tool::{CutterShape, Neck};
         let mut library: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         library.as_object_mut().unwrap().remove("machines");
@@ -376,16 +405,17 @@ mod contact_wording_tests {
                 report.findings[0].finding.part = Some(part);
                 report.findings[0].finding.holder_section = (part == ToolPart::Holder).then_some(0);
                 let reason = stock_contact_reason("holes", &report, &tool).unwrap();
-                assert_eq!(reason, format!("camlib refused the holes: {name}'s {label} hits the stock at X3.0 Y4.0 Z-1.0"));
+                let kind = match name { "drill6" => "a drill", "cm6" => "a chamfer mill", _ => "a thread mill" };
+                assert!(reason.starts_with(&format!("camlib refused the holes: {name}'s {label} hits the stock at X3.0 Y4.0 Z-1.0: needs {kind} of ⌀6")), "{reason}");
                 assert!(!reason.contains("end mill"), "{reason}");
-                assert!(!reason.contains(": needs "), "{reason}");
+                assert!(reason.contains("starting at least 55 mm above the tip"), "{reason}");
                 let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-70],"max":[60,40,0]}, "operations":[
                     {"kind":"holes", "diameter":6., "top_z":0., "bottom_z":-64., "features":["holes:0"]}
                 ]}]});
                 capp::exclude(&mut plan, "top-1-holes", &reason).unwrap();
                 capp::finish(&mut plan, &library, &[]).unwrap();
                 assert_eq!(plan["skipped"][0]["reason"], format!("left out: {reason}"));
-                assert_eq!(plan["tools_needed"], json!([]), "{plan}");
+                assert!(plan["tools_needed"][0]["description"].as_str().unwrap().starts_with(kind), "{plan}");
             }
         }
     }

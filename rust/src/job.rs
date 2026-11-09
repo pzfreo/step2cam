@@ -265,6 +265,7 @@ fn surface(op: &Value) -> Result<Value, String> {
     Ok(out)
 }
 
+#[derive(Clone)]
 pub struct Job {
     pub setup: String,
     /// camlib's manifest.
@@ -272,6 +273,8 @@ pub struct Job {
     /// Real setup stock bottom; the camlib simulation may include tap backing below it.
     pub stock_bottom_mm: f64,
     pub notes: Vec<String>,
+    /// Pocket mouths that preceding roughing may have exposed. Camlib must admit each.
+    pub local_pocket_tops: HashMap<String, f64>,
 }
 
 /// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
@@ -330,6 +333,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let clearance = top + clearance_above;
         let retract = (top + retract_above).min(clearance);
 
+        let mut local_pocket_tops = HashMap::new();
         let (mut operations, mut used, mut notes): (Vec<Value>, Vec<&Value>, Vec<String>) = (vec![], vec![], vec![]);
         // How deep each hole is open at its full diameter, once cut: a thread must not go lower.
         let mut full_diameter_z: HashMap<String, f64> = HashMap::new();
@@ -591,6 +595,12 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     if op["bottom"] == "through" {
                         floor = stock_bottom.max(floor - breakthrough);
                     }
+                    // A prior roughing pass may have exposed the local pocket mouth.
+                    // Camlib scans the remaining stock and proves assembly clearance before
+                    // admitting this lower top; this declaration is not a clearance verdict.
+                    let local_top = op["wall_top"].as_f64().filter(|z| operations.iter().any(|o|
+                        o["kind"] == "roughing" && o["floor_z_mm"].as_f64().is_some_and(|floor| floor <= *z)));
+                    if let Some(z) = local_top { local_pocket_tops.insert(op_id.clone(), z); }
                     let mut out = json!({
                         "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
                         "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
@@ -758,7 +768,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,
         });
-        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes });
+        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
     }
     Ok((jobs, log))
 }

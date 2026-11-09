@@ -212,7 +212,8 @@ fn the_per_motion_proof_reports_when_mesh_error_spends_its_tolerance() {
     assert_eq!(proof["proven_moves"], 0);
     assert_eq!(proof["unproven_moves"].as_u64().unwrap(), program["moves"].as_array().unwrap().len() as u64);
     assert_eq!(proof["decided_cells"], 0);
-    assert!(proof["unavailable"].as_str().unwrap().contains("does not exceed the target mesh's surface error"));
+    let unavailable = proof["unavailable"].as_str().unwrap();
+    assert!(unavailable.contains("target mesh surface error") && unavailable.contains("leave no proof budget after numerical guards"), "{unavailable}");
     assert!(out["log"].to_string().contains("per-motion gouge proof"));
 }
 

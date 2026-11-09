@@ -24,7 +24,7 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     crate::spots::create(plan, &Library::new(library)?)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
-        let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), exclusion["tool"].as_str(), &Library::new(library)?)?;
+        let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), exclusion["tool"].as_str(), &exclusion["reach"], &Library::new(library)?)?;
         exclude(plan, operation, &message)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
         // Preserve the engine's unedited evidence independently of the reader-facing wording.

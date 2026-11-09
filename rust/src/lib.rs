@@ -30,9 +30,9 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, fl
 fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), simulate::Failure> {
     let (jobs, notes) = job::jobs(plan, library)?;
     log.extend(notes);
-    for job in jobs {
+    for mut job in jobs {
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let run = simulate::simulate_job(&job).map_err(|f| simulate::Failure {
+        let run = simulate::simulate_prepared_job(&mut job).map_err(|f| simulate::Failure {
             message: format!("setup {}: {}", job.setup, f.message),
             ..f
         })?;
@@ -117,7 +117,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let tool = refused_op.map(|op| op["tool"].clone()).unwrap_or(Value::Null);
         let selection = plan["decisions"].as_array().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
             && refused_op.is_some_and(|op| op["because"].as_array().is_some_and(|ids| ids.contains(&d["id"]))))).cloned();
-        exclusions.push(json!({"operation": operation, "message": failure.message, "tool": tool, "selection": selection}));
+        let reach = camlib::reach::ReachRefusal::parse(&failure.message);
+        exclusions.push(json!({"operation": operation, "message": failure.message, "tool": tool, "selection": selection, "reach": reach}));
     }
     let needs: Vec<&str> = plan["tools_needed"].as_array().into_iter().flatten()
         .filter_map(|n| n["description"].as_str()).collect();

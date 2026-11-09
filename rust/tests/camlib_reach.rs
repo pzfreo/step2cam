@@ -134,12 +134,51 @@ fn assert_cut(out: &Value) {
     );
 }
 #[test]
-fn long_stickout_wide_holder_clears() {
-    // At this pin, accepted pocket reach/stickout keeps the holder above the stock top.
-    // A holder refusal here cannot happen until the drafted camlib change lands.
+fn long_stickout_wide_holder_clears_above_the_wall() {
     let out = run(80., 100.);
     assert_cut(&out);
     assert!(!out["plan"]["warnings"].to_string().contains("holder"));
+}
+// Roughing uses a long, wide cutter; the narrow pocket needs a second assembly.
+fn local_pocket(flutes: f64, holder: f64) -> Value {
+    let mut library = tools(flutes, holder);
+    library["tools"][0]["stickout"] = json!(30.);
+    let mut rougher = read("tests/fixtures/placeholder-tools.json")["tools"].as_array().unwrap()
+        .iter().find(|t| t["id"] == "em12").unwrap().clone();
+    rougher["flute_length"] = json!(80.);
+    rougher["stickout"] = json!(90.);
+    rougher["overall_length"] = json!(130.);
+    library["roughing_tool"] = json!("em12");
+    library["tools"].as_array_mut().unwrap().push(rougher);
+    let out = step2cam::process(&read("tests/fixtures/synthetic/tall-wall-pocket.analysis.json"),
+        &read("tests/fixtures/synthetic/tall-wall-pocket.mesh.json"), &library).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    out
+}
+#[test]
+fn local_pocket_holder_and_flutes_are_judged_by_camlib() {
+    for (flutes, holder, limit) in [(2.,12.,"cutting_length"), (20.,100.,"holder")] {
+        let out = local_pocket(flutes, holder);
+        let d = out["plan"]["decisions"].as_array().unwrap().iter().find(|d|
+            d["rule"] == "execution.refused@1" && d["outcome"] == "removed"
+                && d["subject"].as_str().is_some_and(|s| s.ends_with("-notch")))
+            .expect("camlib must refuse this pocket assembly");
+        let evidence = camlib::reach::ReachRefusal::parse(d["message"].as_str().unwrap()).unwrap();
+        assert_eq!(serde_json::to_value(evidence.limit).unwrap(), limit);
+        assert_eq!(evidence.tool, "em6");
+        let reasons = out["plan"]["skipped"].to_string();
+        assert!(reasons.contains(if limit == "holder" { "em6's holder" } else { "em6's flutes" }), "{reasons}");
+        assert!(reasons.contains(": needs "), "{reasons}");
+    }
+    let fitting = local_pocket(20.,12.);
+    assert_cut(&fitting);
+    let operation = fitting["programs"].as_array().unwrap().iter()
+        .flat_map(|p| p["job"]["operations"].as_array().unwrap()).find(|o|
+            o["id"].as_str().is_some_and(|id| id.ends_with("-notch"))).unwrap();
+    let planned = fitting["plan"]["setups"].as_array().unwrap().iter()
+        .flat_map(|s| s["operations"].as_array().unwrap()).find(|o| o["kind"] == "notch").unwrap();
+    assert_eq!(operation["top_z_mm"], planned["wall_top"], "record the mouth camlib actually admitted");
+    assert!(operation["top_z_mm"].as_f64().unwrap() < planned["top_z"].as_f64().unwrap());
 }
 #[test]
 fn fitting_tool_cuts_the_pocket() {

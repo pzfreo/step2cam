@@ -83,28 +83,31 @@ pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library
     }))
 }
 
-/// Only camlib's explicit depth/flute refusal is a missing tool. In particular a stepdown
-/// refusal can be fixed with cutting data, and says nothing about the required tool's reach.
-pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool: Option<&str>, library: &Library) -> Result<String, String> {
+/// Reach evidence is decoded by the camlib adapter, never inferred from error prose.
+/// Stepdown and other untyped refusals do not request a different tool.
+pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool: Option<&str>, evidence: &Value, library: &Library) -> Result<String, String> {
     let mut parts = operation.splitn(3, '-');
     let setup_id = parts.next().unwrap_or("");
     let number = parts.next().and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
     let Some(setup) = plan["setups"].as_array().into_iter().flatten().find(|s| s["id"] == setup_id) else { return Ok(message.into()); };
     let Some(op) = number.checked_sub(1).and_then(|n| setup["operations"].get(n)) else { return Ok(message.into()); };
     let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
-    let depth = message.split_once(" exceeds the cutting length ").and_then(|(before, _)| {
-        ["bore depth ", "hole depth ", "contour depth ", "pocket depth ", "slot depth ", "facing depth ", "parameters: depth "]
-            .iter().find_map(|prefix| before.split_once(prefix).and_then(|(_, rest)| rest.split_whitespace().next()?.parse::<f64>().ok()))
-    }).or_else(|| {
-        if op["kind"] != "edge_chamfer" || !message.contains("is deeper below the stock top than the cutting length ") { return None; }
-        let tip = message.split_once("tool tip Z")?.1.split_whitespace().next()?.parse::<f64>().ok()?;
-        Some(top - tip)
-    });
-    let Some(depth) = depth.filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
+    let Some(depth) = evidence["depth_needed_mm"].as_f64().filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
     let tool_id = refused_tool.or(op["tool"].as_str()).unwrap_or("the tool");
     let tool = library.data["tools"].as_array().and_then(|ts| ts.iter().find(|t| t["id"] == tool_id));
     let noun = crate::plan::operation_noun(op["kind"].as_str().unwrap_or(""));
-    let plain = tool.and_then(|t| t["flute_length"].as_f64()).map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the stock top and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
+    if evidence["limit"] != "cutting_length" {
+        let part = evidence["limit"].as_str().unwrap_or("tool assembly");
+        let z = evidence["z_mm"].as_f64().unwrap_or(top - depth);
+        let obstruction = evidence["top_z_mm"].as_f64().unwrap_or(top);
+        let section = evidence["holder_section"].as_u64().map(|n| format!(" section {n}")).unwrap_or_default();
+        return Ok(format!("camlib refused the {noun}: {tool_id}'s {part}{section} cannot clear stock at Z{} (tip Z{}): needs {} with {part} starting at least {} mm above the tip",
+            crate::plan::show(obstruction), crate::plan::show(z),
+            for_operation_with_context(op, top, library, tool.and_then(|t| t["flute_length"].as_f64()), setup, plan["material"]["iso513"].as_str())?.unwrap_or_else(|| "a tool".into()), reach(depth)));
+    }
+    let flutes = evidence["depth_available_mm"].as_f64().or_else(|| tool.and_then(|t| t["flute_length"].as_f64()));
+    let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| (z - op["top_z"].as_f64().unwrap_or(top)).abs() > 0.001) { "material top" } else { "stock top" };
+    let plain = flutes.map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the {reference} and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
     Ok(match for_operation_with_context(op, top, library, Some(depth), setup, plan["material"]["iso513"].as_str())? {
         Some(need) => format!("{plain}: needs {need}"),
         None => message.into(),
