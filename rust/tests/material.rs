@@ -17,7 +17,7 @@ fn fixture(path: &str) -> Value {
 }
 // The demo's tools on no particular machine: these tests are about planning, not the Carvera.
 fn tools() -> Value {
-    let mut tools = fixture("../../demo/tools.json");
+    let mut tools = fixture("../../tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
     tools
 }
@@ -221,7 +221,7 @@ fn the_per_motion_proof_decides_the_channels_wall_cells() {
     let out = step2cam::process(
         &fixture("synthetic/walls/channel.analysis.json"),
         &fixture("synthetic/walls/channel.mesh.json"),
-        &fixture("../../demo/tools.json"),
+        &fixture("../../tests/fixtures/placeholder-tools.json"),
     ).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let program = &out["programs"][0];

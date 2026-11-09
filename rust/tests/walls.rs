@@ -16,7 +16,7 @@ fn fixture(path: &str) -> Value {
 }
 // The demo's tools on no particular machine: these tests are about planning, not the Carvera.
 fn tools() -> Value {
-    let mut tools = fixture("demo/tools.json");
+    let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
     tools
 }

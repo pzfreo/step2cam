@@ -12,7 +12,7 @@ fn read(path: &str) -> Value {
     .unwrap()
 }
 fn tools(flutes: f64, holder: f64) -> Value {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library.as_object_mut().unwrap().remove("machines");
     library["roughing_tool"] = json!("em6");
     library["tools"]
@@ -149,7 +149,7 @@ fn fitting_tool_cuts_the_pocket() {
 #[test]
 fn supplied_short_pocket_and_drill_choices_still_go_to_camlib() {
     let mut library = tools(20., 20.);
-    let mut drill = read("demo/tools.json")["tools"]
+    let mut drill = read("tests/fixtures/placeholder-tools.json")["tools"]
         .as_array()
         .unwrap()
         .iter()
@@ -161,7 +161,7 @@ fn supplied_short_pocket_and_drill_choices_still_go_to_camlib() {
     let diameter = drill["diameter"].clone();
     library["tools"].as_array_mut().unwrap().push(drill);
     // Supplied short tools remain explicit choices even when a normal alternative qualifies.
-    let mut alternate = read("demo/tools.json")["tools"]
+    let mut alternate = read("tests/fixtures/placeholder-tools.json")["tools"]
         .as_array()
         .unwrap()
         .iter()
@@ -241,7 +241,7 @@ fn mesh_blocked_roughing_does_not_withhold_the_pocket() {
 #[test]
 fn short_drill_preserves_a_cuttable_bore_and_is_deferred_without_one() {
     for can_bore in [true, false] {
-        let mut library = read("demo/tools.json");
+        let mut library = read("tests/fixtures/placeholder-tools.json");
         library.as_object_mut().unwrap().remove("machines");
         library["tools"]
             .as_array_mut()

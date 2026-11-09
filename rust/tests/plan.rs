@@ -388,7 +388,7 @@ fn refusing_a_spot_does_not_supersede_the_drills_shared_feature_warning() {
     let analysis = holes_only(&[down(0., 0., 4.2, 3., "through")]);
     let mesh = mesh_of(&square(-5., 5., 0., 0.), BOX);
     let mut plan = plan(&analysis, Some(&mesh), &top_stock(0.)).unwrap();
-    capp::finish(&mut plan, &fixture("../../demo/tools.json"), &[]).unwrap();
+    capp::finish(&mut plan, &fixture("../../tests/fixtures/placeholder-tools.json"), &[]).unwrap();
     let warning = list(&plan["decisions"]).iter().find(|d| d["rule"] == "process.hole.short_of_far_face@1").unwrap().clone();
     assert_eq!(warning["subject"], "holes:0");
     assert!(warning.get("superseded_by").is_none());

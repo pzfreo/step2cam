@@ -318,7 +318,7 @@ mod contact_wording_tests {
     #[test]
     fn non_end_mill_contacts_do_not_request_an_end_mill() {
         use camlib::tool::{CutterShape, Neck};
-        let mut library: serde_json::Value = serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut library: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         library.as_object_mut().unwrap().remove("machines");
         for (name, shape, neck, center_cutting) in [
             ("drill6", CutterShape::Drill { point_angle_rad: 118f64.to_radians() }, None, true),

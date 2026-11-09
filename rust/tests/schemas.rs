@@ -44,7 +44,7 @@ fn plans_match_the_plan_schema() {
         let mesh = meshed.then(|| read(&format!("{name}.mesh.json")));
         let mut planned = plan(&analysis, mesh.as_ref(), &Options::default()).unwrap();
         check("schemas/plan-1.schema.json", name, &planned);
-        capp::finish(&mut planned, &read("demo/tools.json"), &[]).unwrap();
+        capp::finish(&mut planned, &read("tests/fixtures/placeholder-tools.json"), &[]).unwrap();
         check("schemas/plan-1.schema.json", &format!("{name}, finished"), &planned);
     }
     for golden in ["plate", "plate-thread", "spindle"] {

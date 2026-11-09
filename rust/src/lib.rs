@@ -153,7 +153,7 @@ mod flip_tests {
     use super::*;
     #[test]
     fn default_demo_programs_and_notes_match_ordinary_planning() {
-        let resources: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let resources: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         for (a,m) in [
             (include_str!("../../tests/fixtures/plate.analysis.json"),include_str!("../../tests/fixtures/plate.mesh.json")),
             (include_str!("../../tests/fixtures/mounting-plate.analysis.json"),include_str!("../../tests/fixtures/mounting-plate.mesh.json")),
@@ -178,7 +178,7 @@ mod flip_tests {
     fn excluded_roughing_cannot_leave_a_finished_grip_and_process_replans() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let planned=capp::flip::plan(&a,&m,&t).unwrap();
         let mut resolved=planned.clone();capp::finish(&mut resolved,&t,&[]).unwrap();
@@ -209,7 +209,7 @@ mod flip_tests {
     fn no_top_cuts_or_missing_seating_cannot_establish_a_flip_grip() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let mut empty=capp::flip::plan(&a,&m,&t).unwrap();
         empty["setups"][0]["operations"]=json!([]);
@@ -232,7 +232,7 @@ mod flip_tests {
     fn refused_preparation_replans_without_the_flip_and_resets_exclusions() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
-        let mut t: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         t["overrides"]["workholding_option"]=json!("vise_flip_face");
         let mut p=capp::flip::plan(&a,&m,&t).unwrap();
         // Distort a lower corner arc while preserving the straight grip faces: camlib must refuse it, after

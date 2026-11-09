@@ -7,7 +7,7 @@ fn fixture(name: &str) -> Value {
 }
 
 fn library() -> Value {
-    let mut tools = fixture("../../demo/tools.json");
+    let mut tools = fixture("../../tests/fixtures/placeholder-tools.json");
     // These tall synthetic stocks exercise missing tools, independently of vise grip limits.
     tools["machines"][0].as_object_mut().unwrap().remove("workholding");
     tools

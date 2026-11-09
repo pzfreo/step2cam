@@ -52,7 +52,7 @@ fn width_passes_split_load_but_do_not_extend_the_cone() {
 
 #[test]
 fn a_large_chamfer_names_the_missing_tool() {
-    let out = run(&read("demo/tools.json"));
+    let out = run(&read("tests/fixtures/placeholder-tools.json"));
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ops = chamfers(&out);
     assert_eq!(ops.len(), 1, "{}", out["plan"]);
@@ -63,7 +63,7 @@ fn a_large_chamfer_names_the_missing_tool() {
 
 #[test]
 fn the_largest_covering_mill_cuts_a_large_chamfer_in_passes_without_gouging() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["machines"] = json!([]); // These test tools exceed the demo machine's collet.
     let base = library["tools"].as_array().unwrap().iter().find(|t| t["id"] == "cm6").unwrap().clone();
     for (id, diameter, number) in [("cm12", 12., 12), ("cm16", 16., 16), ("cm14", 14., 14)] {
@@ -117,7 +117,7 @@ fn mouth_part() -> (Value, Value) {
 #[test]
 fn slot_and_recognised_hole_mouths_are_cut_at_size() {
     let (analysis, mesh) = mouth_part();
-    let out = step2cam::process(&analysis, &mesh, &read("demo/tools.json")).unwrap();
+    let out = step2cam::process(&analysis, &mesh, &read("tests/fixtures/placeholder-tools.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ops = chamfers(&out);
     assert_eq!(ops.len(), 2, "{}", out["plan"]["skipped"]);
@@ -128,7 +128,7 @@ fn slot_and_recognised_hole_mouths_are_cut_at_size() {
 
 #[test]
 fn the_existing_chamfered_plate_cuts_with_sufficient_flute_reach() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     let cm6 = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "cm6").unwrap();
     cm6["flute_length"] = json!(10.);
     let out = step2cam::process(
@@ -149,7 +149,7 @@ fn the_existing_chamfered_plate_cuts_with_sufficient_flute_reach() {
 fn a_geometry_refused_chamfer_does_not_request_a_tool() {
     let analysis = read("tests/fixtures/synthetic/stepped-plate-large-chamfer.analysis.json");
     let mut plan = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
-    capp::finish(&mut plan, &read("demo/tools.json"), &[]).unwrap();
+    capp::finish(&mut plan, &read("tests/fixtures/placeholder-tools.json"), &[]).unwrap();
     let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter().filter(|s| s["feature"].as_str().unwrap().starts_with("chamfers:")).collect();
     assert_eq!(skipped.len(), 8);
     for skip in skipped {
@@ -187,7 +187,7 @@ fn geometry_causes_keep_the_hand_chamfer_instruction() {
             }
         }
         let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-        capp::finish(&mut plan, &read("demo/tools.json"), &[]).unwrap();
+        capp::finish(&mut plan, &read("tests/fixtures/placeholder-tools.json"), &[]).unwrap();
         let skipped: Vec<_> = plan["skipped"].as_array().unwrap().iter().filter(|s| s["feature"].as_str().unwrap().starts_with("chamfers:")).collect();
         assert_eq!(skipped.len(), 8, "{cause}");
         for skip in skipped {
@@ -207,7 +207,7 @@ fn emitted_chamfers(plan: &Value, library: &Value) -> usize {
 #[test]
 fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() {
     let (analysis, mesh) = mouth_part();
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "cm6");
     library["tools"][0]["tip_diameter"] = json!(0.);
     assert!(capp::resources::Library::new(&library).unwrap().chamfer_mill(1.).is_some());
@@ -224,7 +224,7 @@ fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() 
     }
     assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
     let mut restored = out["plan"].clone();
-    let full = read("demo/tools.json");
+    let full = read("tests/fixtures/placeholder-tools.json");
     capp::finish(&mut restored, &full, &[]).unwrap();
     assert_eq!(emitted_chamfers(&restored, &full), 2);
 }
@@ -232,7 +232,7 @@ fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() 
 #[test]
 fn a_refused_opening_blocks_only_its_modelled_mouth_chamfer() {
     let (analysis, mesh) = mouth_part();
-    let library = read("demo/tools.json");
+    let library = read("tests/fixtures/placeholder-tools.json");
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     capp::finish(&mut plan, &library, &[]).unwrap();
     let top = &plan["setups"][0];
@@ -254,7 +254,7 @@ fn a_refused_opening_blocks_only_its_modelled_mouth_chamfer() {
 fn round_as_chamfer_mouths_also_require_opening_tools() {
     let analysis = read("tests/fixtures/mounting-plate.analysis.json");
     let mesh = read("tests/fixtures/mounting-plate.mesh.json");
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "cm6");
     library["tools"][0]["tip_diameter"] = json!(0.);
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
