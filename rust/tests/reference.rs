@@ -1,5 +1,5 @@
 //! The reference tables in `capp/rulebase/reference/`: each says where its values came from and
-//! that they have not been checked against the standard itself, and agrees with spot values read
+//! whether they have been checked against the standard itself, and agrees with spot values read
 //! from its sources.
 use capp::reference::{TABLES, coarse_pitch, full_thread};
 use serde_json::Value;
@@ -11,7 +11,12 @@ fn every_table_says_where_it_came_from() {
         assert_eq!(table["format"], "capp-reference", "{name}");
         let source = &table["source"];
         assert!(source["obtained_from"].as_array().is_some_and(|s| !s.is_empty()), "{name}: no sources");
-        assert_eq!(source["checked_against_standard"], false, "{name}: only public sources are used");
+        // The new cut-tap rows were checked directly in the published ISO 2306 preview.
+        assert_eq!(source["checked_against_standard"], name == "tap-drills.json", "{name}");
+        if name == "tap-drills.json" {
+            assert!(source["obtained_from"].as_array().unwrap().iter().any(|s| s.as_str().unwrap().contains("iso-2306-1972.pdf")));
+            assert_eq!(table["form"]["checked_against_standard"], false);
+        }
     }
 }
 
@@ -92,4 +97,15 @@ fn a_finished_plan_names_each_operation_in_iso14649() {
     for h in &holes {
         assert_eq!(h["iso14649"]["exact"], h["iso14649"]["operation"] == "drilling", "a bored hole's names are only the closest");
     }
+}
+
+#[test]
+fn cut_tap_rows_match_iso2306_table1_and_form_is_separately_sourced() {
+    for (major, pitch, drill) in [(3., 0.5, 2.5), (4., 0.7, 3.3), (5., 0.8, 4.2), (6., 1., 5.)] {
+        assert_eq!(capp::reference::tap_drill(major, pitch, false), Some(drill));
+        assert!((major - pitch - drill).abs() < 1e-9);
+    }
+    assert_eq!(capp::reference::tap_drill(3., 0.5, true), Some(2.78));
+    assert_eq!(capp::reference::tap_drill(5., 0.8, true), Some(4.65));
+    assert_eq!(capp::reference::tap_drill(5., 0.25, false), None);
 }

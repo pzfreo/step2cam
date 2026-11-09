@@ -1146,6 +1146,7 @@
       "kind": {
        "const": "thread"
       },
+      "hand": {"enum": ["right", "left"], "default": "right"},
       "spec": {
        "type": "string"
       },

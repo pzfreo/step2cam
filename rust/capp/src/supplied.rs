@@ -75,5 +75,5 @@ impl Trace {
     }
 }
 pub fn supported(rule: &str) -> bool {
-    matches!(rule, "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.thread_mill" | "tool.v_channel.v_bit" | "tool.edge_chamfer.chamfer_mill")
+    matches!(rule, "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.thread_mill" | "tool.thread.tap_or_mill" | "tool.v_channel.v_bit" | "tool.edge_chamfer.chamfer_mill")
 }

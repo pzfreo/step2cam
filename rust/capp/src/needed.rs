@@ -42,8 +42,17 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
             }
         },
         "v_channel" => format!("{} {long}", library.needed("v_bit", &[("angle", num(op, "angle")?)])?),
-        "thread" => library.needed("thread_mill", &[("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?),
-            ("pitch", num(op, "pitch")?), ("stock_top", top), ("bottom_z", bottom)])?,
+        "thread" => {
+            let major = num(op, "major")?;
+            let pitch = num(op, "pitch")?;
+            let full = num(op, "top_z")? - bottom;
+            let query = library.needed("thread_mill", &[("major", major), ("start_diameter", num(op, "start_diameter")?),
+                ("pitch", pitch), ("stock_top", top), ("bottom_z", bottom)])?;
+            match crate::reference::tap_drill(major, pitch, false).filter(|d| (*d - num(op, "start_diameter").unwrap_or(0.)).abs() <= 0.02 + 1e-9) {
+                Some(drill) => format!("an M{}×{} cut tap for the ⌀{} pre-drill, with thread length at least {} mm plus chamfer length and stock-top allowance {} mm (and numerical guard); chamfer plus {} mm bottom clearance must fit the drilled full-diameter depth; subject to the M3–M6 / ISO N tap policy, or {query}", major, crate::plan::show(pitch), crate::plan::show(drill), crate::plan::show(full), crate::plan::show(top - num(op, "top_z")?), crate::plan::show(pitch)),
+                None => query,
+            }
+        },
         _ => return Ok(None),
     }))
 }

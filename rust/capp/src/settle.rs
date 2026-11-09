@@ -442,17 +442,22 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     (library.bore_mill(d).ok_or_else(|| Some(format!("no end mill small enough for the ⌀{} counterbore", show(d)))), "tool.counterbore.bore_mill")
                 }
                 "thread" => {
+                    let (tap, taps) = library.tap(op, top, library.thread_open_z(op, &view, top)?, group.as_deref())?;
                     let (mill, why) = library.thread_mill(op, top)?;
                     considered = why.iter().map(|(candidate, text)| {
                         let rejected = text.strip_prefix(&format!("{candidate}: ")).unwrap_or(text);
                         json!({"candidate": candidate, "rejected": rejected})
                     }).collect();
-                    let tool = mill.ok_or_else(|| {
+                    considered.extend(taps);
+                    if tap.is_some() && let Some(mill) = mill {
+                        considered.push(json!({"candidate": id(mill), "rejected": "qualifies, but matching small-thread tap in ISO N material is preferred"}));
+                    }
+                    let tool = tap.or(mill).ok_or_else(|| {
                         let texts: Vec<&str> = why.iter().map(|(_, t)| t.as_str()).collect();
                         let reasons = if texts.is_empty() { String::new() } else { format!(" ({})", texts.join("; ")) };
                         Some(format!("{} ({}): no thread mill can cut it{reasons}", op["spec"].as_str().unwrap_or(""), features()))
                     });
-                    (tool, "tool.thread_mill")
+                    (tool, if library.has_taps() { "tool.thread.tap_or_mill" } else { "tool.thread_mill" })
                 }
                 "slot" => {
                     let width = num(op, "width")?;
@@ -491,13 +496,14 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             let subject = format!("{setup_id}:{kind}");
             let operation = format!("{setup_id}-{}-{kind}", index + 1);
             let mut supplied = None;
+            let supplied_rule = if rule == "tool.thread.tap_or_mill" && trace.supplied_for(rule, &subject, Some(&operation)).is_none() && trace.supplied_for("tool.thread_mill", &subject, Some(&operation)).is_some() { "tool.thread_mill" } else { rule };
             if view["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == kind).count() > 1
-                && let Some(n) = trace.supplied_for(rule, &subject, None) {
+                && let Some(n) = trace.supplied_for(supplied_rule, &subject, None) {
                 trace.refuse(n, "subject matches more than one operation; name operation explicitly");
             }
-            if let Some(n) = trace.supplied_for(rule, &subject, Some(&operation))
+            if let Some(n) = trace.supplied_for(supplied_rule, &subject, Some(&operation))
                 && crate::supplied::supported(rule) {
-                    match library.supplied_tool(op, top, &trace.supplied[n]["choice"]) {
+                    match library.supplied_thread_tool(op, top, &trace.supplied[n]["choice"], &view, group.as_deref()) {
                         Ok((tool, candidates)) => {
                             considered = candidates;
                             chosen = Ok(tool);
@@ -509,13 +515,13 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
             let (tool, note, decided) = match chosen {
                 Ok(tool) => {
                     let deferred = considered.iter().any(|c| c["candidate"] == id(tool) && c["rejected"].as_str().is_some_and(|r| r.contains("flutes")));
-                    let says = if deferred { format!("{} selected; reach is left to camlib's check", id(tool)) } else { format!("{} cuts it", id(tool)) };
+                    let says = if deferred { format!("{} selected; reach is left to camlib's check", id(tool)) } else if tool["type"] == "tap" { format!("{} taps the small metric thread in ISO N material: matching pitch, hand and pre-drill; chamfer, one-pitch bottom clearance and reach fit", id(tool)) } else { format!("{} cuts it", id(tool)) };
                     let decided = trace.decide(rule, &subject, "chosen", &says, json!({"chosen": id(tool), "considered": considered}));
                     (json!(id(tool)), Value::Null, decided)
                 }
                 Err(note) => {
                     let note = match note {
-                        Some(text) if !text.contains(": needs ") && matches!(rule, "tool.clearing" | "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.thread_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.edge_chamfer.chamfer_mill" | "feasibility.v_channel.needs_bit" | "feasibility.wall.needs_mill") => {
+                        Some(text) if !text.contains(": needs ") && matches!(rule, "tool.clearing" | "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.thread_mill" | "tool.thread.tap_or_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.edge_chamfer.chamfer_mill" | "feasibility.v_channel.needs_bit" | "feasibility.wall.needs_mill") => {
                             Some(match crate::needed::for_operation(op, top, &library, None)? {
                                 Some(need) => format!("{text}: needs {need}"),
                                 None => text,
@@ -554,6 +560,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     }
                 }
                 let (mut technology, source) = technology(spec, group.as_deref());
+                if spec["type"] == "tap" { technology.as_object_mut().unwrap().remove("feed_mm_min"); }
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),
                     Some(g) => format!("{name}'s own cutting data: it has none for ISO 513 group {g}"),

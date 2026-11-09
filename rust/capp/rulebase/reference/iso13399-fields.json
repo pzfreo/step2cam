@@ -22,7 +22,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -39,7 +40,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -85,7 +87,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": "OAL",
    "unit": "mm",
@@ -102,7 +105,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -119,7 +123,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -136,7 +141,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -170,7 +176,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -187,7 +194,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -204,7 +212,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": "DCONMS",
    "unit": "mm",
@@ -221,7 +230,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -255,7 +265,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -342,7 +353,8 @@
     "drill",
     "thread_mill",
     "chamfer_mill",
-    "spot_drill"
+    "spot_drill",
+    "tap"
    ],
    "symbol": null,
    "unit": null,
@@ -492,6 +504,110 @@
    "symbol": null,
    "unit": null,
    "reason": "Chamfer flat tip, possibly non-cutting. Ford DC is a cutting tip diameter; its countersink non-cutting tip convention differs. No agreed exact alias.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "diameter",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "pitch",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "hand",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "tap_type",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "chamfer_form",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "chamfer_pitches",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "thread_length",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "flute_style",
+   "types": [
+    "tap"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Nominal tap/thread or lead geometry and shop policy; no confirmed exact ISO alias with matching measurement convention.",
    "sources": [
     "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
     "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"

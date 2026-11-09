@@ -103,13 +103,28 @@ impl<'a> Library<'a> {
                 "end_mill" => &["flute_length", "plunge_mm_min", "stepdown_mm", "stepover_mm"],
                 "drill" | "spot_drill" => &["flute_length", "point_angle"],
                 // A single-profile thread mill: `diameter` is the tooth's, on a narrower neck.
+                "tap" => &["pitch", "tap_type", "chamfer_form", "chamfer_pitches", "thread_length", "shank_diameter"],
                 "thread_mill" => &["tooth_height", "neck_diameter", "neck_length", "plunge_mm_min"],
                 "chamfer_mill" => &["flute_length", "angle", "tip_diameter", "plunge_mm_min"],
-                other => return Err(format!("tool {name}: type must be one of end_mill, drill, spot_drill, thread_mill, chamfer_mill, not {other:?}")),
+                other => return Err(format!("tool {name}: type must be one of end_mill, drill, spot_drill, thread_mill, tap, chamfer_mill, not {other:?}")),
             };
-            let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| tool.get(**k).is_none()).copied().collect();
+            let missing: Vec<&str> = TOOL_KEYS.iter().chain(extra).filter(|k| !(kind == "tap" && **k == "feed_mm_min") && tool.get(**k).is_none()).copied().collect();
             if !missing.is_empty() {
                 return Err(format!("tool {name}: missing {}", missing.join(", ")));
+            }
+            if kind == "tap" {
+                for key in ["diameter", "pitch", "chamfer_pitches", "thread_length", "shank_diameter", "overall_length", "stickout", "holder_length", "holder_diameter", "spindle_rpm"] {
+                    if !num(tool, key)?.is_finite() || num(tool, key)? <= 0. { return Err(format!("tool {name}: {key} must be positive")); }
+                }
+                if !matches!(tool["tap_type"].as_str(), Some("cut" | "form"))
+                    || tool.get("hand").is_some_and(|v| !matches!(v.as_str(), Some("right" | "left")))
+                    || tool["chamfer_form"].as_str().is_none_or(str::is_empty)
+                    || tool.get("flute_style").is_some_and(|v| !matches!(v.as_str(), Some("straight" | "spiral_flute" | "spiral_point"))) {
+                    return Err(format!("tool {name}: invalid tap type, hand, chamfer form or flute style"));
+                }
+                if tool.get("feed_mm_min").is_some() || tool["cutting_data"].as_object().is_some_and(|g| g.values().any(|v| v.get("feed_mm_min").is_some())) {
+                    return Err(format!("tool {name}: tap feed is derived from pitch × rpm"));
+                }
             }
             let shank = tool.get("shank_diameter").and_then(Value::as_f64).unwrap_or(num(tool, "diameter")?);
             if num(tool, "holder_diameter")? < shank {
@@ -213,10 +228,21 @@ impl<'a> Library<'a> {
     }
     /// Run the ordinary selector over exactly one supplied tool, with the operation's inputs.
     pub(crate) fn supplied_tool(&self, op: &Value, top: f64, choice: &Value) -> Result<(&'a Value, Vec<Value>), String> {
+        self.supplied_thread_tool(op, top, choice, &Value::Null, None)
+    }
+    pub(crate) fn supplied_thread_tool(&self, op: &Value, top: f64, choice: &Value, setup: &Value, group: Option<&str>) -> Result<(&'a Value, Vec<Value>), String> {
         let name = choice.as_str().ok_or("tool choice must be a tool id string")?;
         let tool = self.tools.iter().copied().find(|t| id(t) == name).ok_or_else(|| {
             self.too_big.iter().find(|(t, _)| id(t) == name).map(|(_, why)| why.clone()).unwrap_or_else(|| format!("{name} is not in the library"))
         })?;
+        if op["kind"] == "thread" && tool["type"] == "tap" {
+            if let Some(reason) = self.tap_rejection(tool, op, top, self.thread_open_z(op, setup, top)?, group)? {
+                return Err(format!("{name}: {reason}"));
+            }
+            let (_, mut considered) = self.tap(op, top, self.thread_open_z(op, setup, top)?, group)?;
+            considered.retain(|c| c["candidate"] != name);
+            return Ok((tool, considered));
+        }
         let (selector, inputs) = match op["kind"].as_str().unwrap_or("") {
             "holes" if tool["type"] == "drill" => ("drill", vec![("diameter", num(op, "diameter")?), ("depth", self.drill_depth(op, top)?)]),
             "holes" | "counterbore" => ("bore_mill", vec![("diameter", num(op, "diameter")?)]),
@@ -253,6 +279,70 @@ impl<'a> Library<'a> {
         }
         Ok((kept, considered))
     }
+    pub fn has_taps(&self) -> bool { self.tools.iter().any(|t| t["type"] == "tap") }
+
+    /// Full-diameter floor expected from the hole operations. The job repeats this against
+    /// the actual executed drill/bore, including exit restrictions and supplied choices.
+    pub fn thread_open_z(&self, op: &Value, setup: &Value, top: f64) -> Result<f64, String> {
+        let mut floor = f64::NEG_INFINITY;
+        for feature in op["features"].as_array().into_iter().flatten() {
+            let Some(hole) = setup["operations"].as_array().into_iter().flatten().find(|h| h["kind"] == "holes" && h["features"].as_array().is_some_and(|fs| fs.contains(feature))) else { return Ok(f64::INFINITY) };
+            let mut z = num(hole, "bottom_z")?;
+            if hole["bottom"] == "through" {
+                z -= self.breakthrough.max(0.);
+            } else if hole["bottom"] != "drill_point"
+                && let Some(drill) = self.drill(num(hole, "diameter")?, self.drill_depth(hole, top)?) {
+                z += drill_tip_length(drill)?;
+            }
+            floor = floor.max(z);
+        }
+        Ok(floor)
+    }
+
+    /// Process rule tool.thread.tap_or_mill; first qualifying tap in library order.
+    pub fn tap(&self, op: &Value, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Value>), String> {
+        let mut chosen = None;
+        let mut considered = vec![];
+        for tool in self.tools.iter().copied().filter(|t| t["type"] == "tap") {
+            let reason = self.tap_rejection(tool, op, top, open_z, group)?;
+            if let Some(reason) = reason {
+                considered.push(serde_json::json!({"candidate": id(tool), "rejected": reason}));
+            } else if chosen.is_none() { chosen = Some(tool); }
+            else { considered.push(serde_json::json!({"candidate": id(tool), "rejected": "qualifies, but first matching tap is preferred"})); }
+        }
+        Ok((chosen, considered))
+    }
+
+    fn tap_rejection(&self, tool: &Value, op: &Value, top: f64, open_z: f64, group: Option<&str>) -> Result<Option<String>, String> {
+        let major = num(op, "major")?;
+        let pitch = num(op, "pitch")?;
+        let policy = &crate::reference::tap_drills()["policy"];
+        let why = if group != policy["iso513"].as_str() || major < policy["min_major_mm"].as_f64().unwrap() || major > policy["max_major_mm"].as_f64().unwrap() {
+            Some("thread milling preferred: step2cam tap policy is M3–M6 in ISO 513 group N".into())
+        } else if num(tool, "diameter")? != major || num(tool, "pitch")? != pitch {
+            Some(format!("nominal diameter/pitch do not match M{major}×{pitch}"))
+        } else if tool.get("hand").and_then(Value::as_str).unwrap_or("right") != op.get("hand").and_then(Value::as_str).unwrap_or("right") {
+            Some("thread hand does not match".into())
+        } else {
+            let Some(drill) = crate::reference::tap_drill(major, pitch, tool["tap_type"] == "form") else {
+                return Ok(Some("no verified tap drill reference for this diameter/pitch; use thread milling".into()));
+            };
+            let start = num(op, "start_diameter")?;
+            let tip = num(op, "bottom_z")? - num(tool, "chamfer_pitches")? * pitch;
+            let tol = crate::reference::tap_drills()["diameter_tolerance_mm"].as_f64().unwrap();
+            if (start - drill).abs() > tol + 1e-9 {
+                Some(format!("wrong pre-drill: {} tap requires ⌀{drill:.2} ±{tol} mm; model hole is ⌀{start} mm", tool["tap_type"].as_str().unwrap()))
+            } else if op["through"] != true && tool["flute_style"] == "spiral_point" {
+                Some("spiral point pushes chips ahead: through holes only".into())
+            } else if op["through"] != true && tip - pitch < open_z - 1e-9 {
+                Some(format!("full thread {:.2} mm + chamfer {:.2} mm + bottom clearance {pitch:.2} mm requires {:.2} mm; drilled full diameter is {:.2} mm", num(op, "top_z")? - num(op, "bottom_z")?, num(tool, "chamfer_pitches")? * pitch, num(op, "top_z")? - tip + pitch, num(op, "top_z")? - open_z))
+            } else if num(tool, "thread_length")? < top - tip + DRILLING_GUARD || num(tool, "stickout")? < top - tip + DRILLING_GUARD {
+                Some(format!("thread length and stickout must reach {:.3} mm below stock top (including chamfer and guard)", top - tip + DRILLING_GUARD))
+            } else { None }
+        };
+        Ok(why)
+    }
+
     /// The thread mill for this thread operation, and why the others were turned down.
     pub fn thread_mill(&self, op: &Value, stock_top: f64) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
         let inputs = [

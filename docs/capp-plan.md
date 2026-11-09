@@ -334,7 +334,7 @@ There is no access to the standards themselves. The rulebase holds values, never
 | ISO 513 groups | Done: groups from Seco and Mitsubishi Materials; placing by name is a stand-in |
 | ISO 14649 / AP238 names | Done: STEP Tools' published lists |
 | ISO 68-1 / 724 minor diameter | Planned: formula |
-| ISO 2306 tap drills | Planned: table from catalogues, D − P as a check |
+| ISO 2306 tap drills | M3–M6 coarse Table 1 values checked against published preview; D − P check |
 | ISO 286 fits | Planned: specify-core already computes fit limits |
 | ISO 2768 general tolerances | Planned: recorded; nothing uses them yet |
 | ISO 13399 tool property symbols | Done: exact aliases by type, public manufacturer lists; current names retained |
@@ -378,9 +378,35 @@ Planned:
   clamping; spindle power limiting cutting data.
 - **Fits** (ISO 286, from Specify's `fit:H7` answers): drill under size and ream; camlib has a
   reaming operation. This needs a reamer tool type.
-- **Tapping** as an alternative to thread milling; camlib has a tapping operation.
 - **Surface finish and ISO 2768**, once a rule uses them.
 - **Optional:** an AP238 (STEP-NC) export; a second execution engine.
+
+### Tapping
+
+For 3-axis milling, `tool.thread.tap_or_mill` prefers matching M3–M6 taps in ISO 513
+N material; the size/material cutoff is step2cam judgement, informed by
+[Sandvik’s tapping guidance](https://www.sandvik.coromant.com/en-gb/knowledge/threading/tapping).
+The library `tap` needs nominal `diameter`, `pitch`, `tap_type` (`cut`/`form`),
+`chamfer_form`, maximum `chamfer_pitches`, `thread_length`, `shank_diameter`, mounted
+lengths/holder and spindle rpm. Hand defaults right; no independent feed is accepted.
+Spiral-point flutes are through-only. OAL and DCONMS aliases have the same dimension
+conventions as other tools; thread/lead properties remain unmapped.
+
+[`tap-drills.json`](../rust/capp/rulebase/reference/tap-drills.json) holds the cut drill
+table checked in the ISO 2306 Table 1 preview, alongside the ISO minor diameter limits and the separately sourced
+[Tapmatic form formula](https://www.tapmatic.com/tapping-formulas.php) at a shop assumption
+of 65% thread. Only the cut rows are checked against the standard preview; the form formula is not. The model bore
+must be within 0.02 mm of the reference; drilling diameters are never changed.
+A blind tap must cover full thread plus its chamfer and leave one pitch of drilled
+bottom clearance. Thread length and stickout reach from stock top to tip plus camlib’s
+guard. Rejections include the numeric depths. With no suitable tap the existing
+thread-mill selector runs; missing-tool text offers both processes with their conditions.
+
+Camlib receives rigid `tapping`, with synchronized feed = pitch × rpm. Through travel
+includes chamfer plus one pitch: the job conservatively extends simulated solid backing
+below the exit and drills that space first, checking actual exit restrictions before tapping.
+Unlike thread milling, tapping keeps the normal part/stock comparison because its
+simulation cutter is the pre-drill diameter and retains thread flanks.
 
 ### Drilling depth
 
