@@ -79,14 +79,15 @@ fn demo_defaults_and_independent_consequences() {
             for candidate in [ordinary, flip] {
                 let need = list(&candidate["tools_needed"])
                     .iter()
-                    .find(|n| {
-                        n["description"]
-                            .as_str()
-                            .unwrap()
-                            .starts_with("a thread mill")
-                    })
-                    .expect("both holding routes must report the missing M3 thread mill");
-                assert!(need["description"].as_str().unwrap().contains("0.5 mm"));
+                    .find(|n| list(&n["operations"]).contains(&json!("front-3-thread")))
+                    .expect(
+                        "both holding routes must report the missing M3 tapping or milling tool",
+                    );
+                let description = need["description"].as_str().unwrap();
+                assert!(description.starts_with("an M3×0.5 cut tap (⌀2.5 tap drill)"));
+                assert!(
+                    description.contains(", or a thread mill whose pitch range includes 0.5 mm")
+                );
                 assert_eq!(need["features"], json!(["holes:48.57", "holes:49.58"]));
                 assert!(list(&need["operations"]).contains(&json!("front-3-thread")));
             }
@@ -205,6 +206,12 @@ fn vise_options_require_dimensions_and_no_other_mill_is_substituted() {
                 .all(|c| !c["id"].as_str().unwrap().starts_with("vise_"))
         );
         assert_eq!(out["plan"]["supplied_decisions"][0]["accepted"], false);
+        assert!(
+            out["plan"]["supplied_decisions"][0]["refusal_reason"]
+                .as_str()
+                .unwrap()
+                .contains("no dimensioned vise")
+        );
     }
 }
 #[test]
@@ -251,4 +258,30 @@ fn choosing_rule_is_lexicographic_in_the_approved_order() {
     unfinished["finished"] = json!(false);
     unfinished["estimated_seconds"] = json!(1.);
     assert!(capp::candidates::compare(&slower, &unfinished).is_lt());
+}
+
+#[test]
+fn tall_part_exposes_attached_outline_and_bare_flip_unavailability() {
+    let out = run("synthetic/tall-wall-pocket", &tools());
+    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_ordinary");
+    assert_eq!(option(&out, "vise_ordinary")["finished"], false);
+    assert_close(
+        number(&option(&out, "vise_ordinary")["outline_left_mm"]),
+        32.,
+    );
+    let flip = option(&out, "vise_flip_face");
+    assert_eq!(flip["available"], false);
+    let reason = flip["reason"].as_str().unwrap();
+    assert!(!reason.contains("selected"));
+    assert!(!reason.contains("option is unavailable"));
+    assert_eq!(
+        option(&out, "fixture_plate")["short_reason"],
+        "no suitable through holes"
+    );
+    assert!(
+        option(&out, "fixture_plate")["reason"]
+            .as_str()
+            .unwrap()
+            .starts_with("no suitable through holes")
+    );
 }

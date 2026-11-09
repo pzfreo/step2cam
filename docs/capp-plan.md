@@ -130,14 +130,19 @@ preparation checks. `capp::flip::plan` remains the lower-level #86 route constru
 Both vise options require positive finite jaw width, height and opening on the first
 mill's first listed vise. Vise options are omitted when these are missing. Unavailable
 flip candidates carry the actual availability or execution failure reason. Only available
-routes are simulated. If none are available, `chosen` is null and the legacy plan is
+routes are simulated. A candidate planning/execution error makes that candidate unavailable;
+other candidates continue. If no candidate is selected, an existing ordinary run is reused. If none are available, `chosen` is null and the legacy plan is
 retained for review with an explicit trace explanation that holding is not validated.
 
 Fixture-plate holding is withheld even on parts with through holes: screw-head/tool
 clearance, supported seating and residual stock transfer across the flip cannot yet
-be represented and checked soundly. No hole-size/spread rule, plate fixture simulation,
-or new machine-description kind is claimed. A later implementation must validate those
-before offering this route. No resource schema extension is needed in this change.
+be represented and checked soundly. For the unavailable row only, potential screw holes are unthreaded Z-axis through
+holes, 3.2–9 mm diameter, with two centres at least 25% of the XY bounding-box
+diagonal apart (step2cam judgement, not a fixture validation). Otherwise its reason
+is "no suitable through holes". No plate fixture simulation or new machine-description
+kind is claimed. A later implementation must validate those
+before offering this route. The page shows a short reason and keeps the full explanation
+in the tooltip and plan JSON. No resource schema extension is needed in this change.
 
 Each available candidate records `finished`, `outline_left_mm`, distinct
 `features_left_out` with all skipped reasons, `features_cut`, `covered_by_roughing`,
@@ -183,7 +188,10 @@ path, then the rule chooses. Accepted and refused requests remain in
 `vise_ordinary`; `"vise_flip_face"` means that candidate; its reason names the override.
 Explicit decisions take precedence. Other override values still fail normalization.
 The Plan tab's Workholding block shows the choice, costs and alternative reasons;
-clicking an available alternative replans with a user decision. Changing part or
+the chosen option has ✓, clickable available alternatives have ○, and unavailable ones
+have ✕. Finished-wall grips say "soft jaws advised" on the row. If the chosen route
+leaves the outline attached, the block explicitly says the part will not come off finished.
+Clicking an available alternative replans with a user decision. Changing part or
 machine clears that choice and returns to the default rule.
 
 Stock in this option includes bottom stock B, solved from

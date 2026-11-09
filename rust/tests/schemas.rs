@@ -83,6 +83,9 @@ fn simulated_workholding_candidates_match_schema_and_catch_missing_costs() {
     bad["workholding"]["candidates"][0].as_object_mut().unwrap().remove("estimated_seconds");
     assert!(!jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap().is_valid(&bad));
     let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
+    let mut obsolete=out["plan"].clone();
+    obsolete["workholding"]["candidates"][0]["simulation"]=serde_json::json!("camlib passed");
+    assert!(!validator.is_valid(&obsolete),"a blanket simulation claim is not part of the candidate schema");
     let mut missing=out["plan"].clone();
     missing["workholding"]["candidates"][0].as_object_mut().unwrap().remove("tools_needed");
     assert!(!validator.is_valid(&missing));

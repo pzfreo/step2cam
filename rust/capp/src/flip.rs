@@ -381,18 +381,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     let defaults = Options::default();
     let original = crate::plan::plan(analysis, Some(mesh), &defaults)?;
     let availability: Result<(f64, Value, Point, Point), String> = (|| {
-        let vise = crate::machines::mill(resources)
-            .and_then(|m| {
-                m["workholding"]
-                    .as_array()?
-                    .iter()
-                    .find(|w| w["kind"] == "vise")
-            })
-            .filter(|v| {
-                ["jaw_width_mm", "jaw_height_mm", "max_jaw_opening_mm"]
-                    .iter()
-                    .all(|k| v[*k].as_f64().is_some_and(|n| n.is_finite() && n > 0.))
-            })
+        let vise = crate::machines::dimensioned_vise(resources)
             .ok_or("a mill with a dimensioned vise is required (jaw width, height and opening)")?;
         if resources["overrides"]["clamping"]
             .as_object()
@@ -472,7 +461,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         };
         let mut p = original;
         let mut trace = Trace::take(&mut p);
-        trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available}}));
+        trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available,"unavailable_reason":availability.as_ref().err()}}));
         trace.store(&mut p);
         return Ok(p);
     }

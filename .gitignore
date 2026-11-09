@@ -10,3 +10,5 @@ site/
 demo/pkg/
 !tests/fixtures/rust-golden/*.nc
 .claude/
+
+.bench-cache/

@@ -2549,6 +2549,10 @@
     "reason": {
      "type": "string"
     },
+    "short_reason": {
+     "type": "string",
+     "description": "Short unavailable-option text; reason retains the full explanation."
+    },
     "comparison": {
      "type": "string"
     },
@@ -2610,9 +2614,6 @@
      "items": {
       "type": "string"
      }
-    },
-    "simulation": {
-     "type": "string"
     },
     "grips": {
      "type": "array",
@@ -2690,7 +2691,6 @@
      "tools_needed",
      "risks",
      "shop_needs",
-     "simulation",
      "grips",
      "extra_stock_mm",
      "stock_height_mm",

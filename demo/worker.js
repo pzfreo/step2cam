@@ -23,7 +23,7 @@ self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => 
     const [, toolsText] = await Promise.all([ready, loadLibrary(library.file)]);
     const tools = JSON.parse(toolsText);
     if (workholding) {
-      tools.decisions = [...(tools.decisions || []).filter((d) => d.rule !== "setup.workholding"),
+      tools.decisions = [...(tools.decisions || []).filter((d) => d.rule.split("@")[0] !== "setup.workholding"),
         { rule: "setup.workholding", subject: "part", choice: workholding, source: "user", reason: "chosen in the page Workholding block" }];
     }
     const input = new Uint8Array(bytes);

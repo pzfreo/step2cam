@@ -108,7 +108,10 @@ pub fn choose(
                 .iter()
                 .find(|c| c["id"] == *choice)
                 .and_then(|c| c["reason"].as_str())
-                .unwrap_or("unknown workholding candidate")
+                .unwrap_or_else(|| if matches!(choice.as_str(),Some("vise_ordinary" | "vise_flip_face"))
+                    && crate::machines::dimensioned_vise(resources).is_none() {
+                    "no dimensioned vise in the first mill (jaw width, height and opening required)"
+                } else {"unknown workholding candidate"})
                 .to_string();
             trace.refuse(n, &reason);
         }

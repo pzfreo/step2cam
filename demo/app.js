@@ -1008,6 +1008,8 @@ async function buildPlan(m) {
       ? "Default rule's choice; alternatives are listed below. Select an available option to replan."
       : `Chosen by ${w.source}; select an available alternative to replan.`;
     if (!w.chosen) note.textContent = "No validated holding option is available. This plan needs a workholding decision.";
+    const selected = w.candidates.find((c) => c.id === w.chosen);
+    if (selected && !selected.finished) note.textContent += " The part will not come off finished: " + selected.reason + ".";
     block.append(note);
     for (const c of w.candidates) {
       const chosen = c.id === w.chosen;
@@ -1018,11 +1020,13 @@ async function buildPlan(m) {
       const leftOut = c.features_left_out?.length || 0;
       const needs = [...new Set((c.tools_needed || []).map((n) => n.description.split(/,? or /)
         .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
+      const softJaws = c.grips?.some((g) => g.finished_wall) ? " · soft jaws advised" : "";
       const summary = c.available
-        ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setups · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
-        : c.reason;
-      row.textContent = `${chosen ? "✓" : "✗"} ${c.label} — ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
-      row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`, ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].join("\n") : c.reason;
+        ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setup${c.setups === 1 ? "" : "s"} · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${softJaws}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
+        : c.short_reason || c.reason;
+      const label = c.id === "fixture_plate" ? "Fixture plate" : c.label;
+      row.textContent = `${chosen ? "✓" : c.available ? "○" : "✕"} ${label} — ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
+      row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`, ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].join("\n") : `${c.label}: ${c.reason}`;
       if (c.available && !chosen) {
         row.type = "button";
         row.addEventListener("click", () => {

@@ -11,6 +11,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import family, normalise, summarise_part, totals
 from compare import compare
 from fetch import RemoteZip, cache_path, extract
+from run import valid_cache, REPO
+
+
+class CacheLocationTests(unittest.TestCase):
+    def test_only_the_private_clone_cache_is_allowed_inside_the_repo(self):
+        self.assertTrue(valid_cache(REPO / '.bench-cache'))
+        self.assertFalse(valid_cache(REPO / 'reports'))
+        self.assertFalse(valid_cache(REPO / '.bench-cache' / 'nested'))
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(valid_cache(Path(tmp)))
 
 
 class AccountingTests(unittest.TestCase):
