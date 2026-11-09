@@ -12,11 +12,12 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
     let library = read("demo/tools.json");
     let tools = library["tools"].as_array().unwrap();
     let machine = &library["machines"][0];
-    assert_eq!(machine["spindle"]["max_tool_diameter_mm"], 3.175);
+    assert_eq!(machine["spindle"]["max_tool_diameter_mm"], 6.35);
+    assert_eq!(machine["spindle"]["taper"], "1/4\" collet");
     assert_eq!(machine["spindle"]["max_rpm"], 15000);
     assert_eq!(machine["tool_changer"]["pockets"], 6);
     for tool in tools {
-        assert!(tool["shank_diameter"].as_f64().unwrap() <= 3.175, "{tool}");
+        assert!(tool["shank_diameter"].as_f64().unwrap() <= 6.35, "{tool}");
         assert!(tool["spindle_rpm"].as_f64().unwrap() <= 15000., "{tool}");
         assert!(tool["flute_length"].as_f64().unwrap_or(0.) <= tool["overall_length"].as_f64().unwrap());
     }
@@ -35,7 +36,7 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
             for op in setup["operations"].as_array().unwrap() {
                 if let Some(id) = op["tool"].as_str() {
                     let tool = tools.iter().find(|t| t["id"] == id).unwrap_or_else(|| panic!("unknown selected tool {id}"));
-                    assert!(tool["shank_diameter"].as_f64().unwrap() <= 3.175);
+                    assert!(tool["shank_diameter"].as_f64().unwrap() <= 6.35);
                     assert!(op["technology"]["spindle_rpm"].as_f64().unwrap() <= 15000.);
                 }
             }
@@ -43,15 +44,14 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
         if name == "synthetic/stepped-plate" {
             let slot = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
                 .find(|op| op["kind"] == "slot" && op["width"] == 5.0 && op["tool"].is_string());
-            if let Some(slot) = slot {
-                let tool = tools.iter().find(|t| t["id"] == slot["tool"]).unwrap();
-                assert!(tool["diameter"].as_f64().unwrap() <= 2.4, "{slot}");
-            } else {
-                // The kit's 2 x 8 mm metal cutter cannot reach this 19 mm deep slot.
-                assert!(out["plan"]["tools_needed"].as_array().unwrap().iter().any(|need|
-                    need["features"].as_array().unwrap().iter().any(|f| f == "slots:19.20")
-                    && need["description"].as_str().unwrap().contains("19 mm")));
-            }
+            let slot = slot.expect("the complex plate's 5 mm slot must be cut");
+            let tool = tools.iter().find(|t| t["id"] == slot["tool"]).unwrap();
+            assert!(tool["diameter"].as_f64().unwrap() <= 2.4, "{slot}");
+            let cut_operations = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
+                .filter(|op| op["tool"].is_string()).count();
+            assert!(cut_operations >= 17, "complex plate: only {cut_operations} cut operations");
+            let left_out = out["plan"]["skipped"].as_array().unwrap().len();
+            assert!(left_out <= 18, "complex plate: {left_out} left-out entries");
         }
         let programs = out["programs"].as_array().unwrap();
         assert_eq!(programs.len(), setups.len(), "{name}: {}", out["log"]);

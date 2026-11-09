@@ -76,35 +76,74 @@ non-ferrous row, including the chart's 50% vertical-plunge reduction.
 
 ## Carvera demo
 
-The demo assumes the standard 1/8 inch (3.175 mm) collet and the aluminium-relevant
-subset of Makera's **Essential Milling Bit Set - Standard (26 pcs)**. The free
-starter toolkit is confirmed by Makera, but no complete itemised in-box cutting
-inventory was verified. The set's itemised reseller listing is linked in the
-library. It supplies metal O-flute end mills (3.175 x 12, 2 x 8, 1 x 3 mm),
-drills (1, 2, 2.5, 3 mm), the 90° chamfer bit, metal engravers (60° x .1,
-30° x .2/.3), and M3/M5 thread mills. The M5 cutter's 4 mm head has a
-3.175 mm shank. No optional collet is needed. Six pockets describe the changer,
-not the whole inventory; load each setup's selection.
+The demo models the optional **1/4 inch maximum shank capacity (6.35 mm)**
+Carvera configuration, with the original 1/8 inch Essential set tools retained.
+It is a shop inventory supplemented for aluminium plate work, not a claim that
+the machine ships with these twenty tools. Makera confirms a free starter
+kit, but a complete itemised in-box cutting inventory was not verified.
 
-Geometry and generic **Aluminum** presets were read from Makera's Fusion files
-on 2026-11-09, cited per tool. They are not specifically 6082 data. The main
-end mill uses 12,000 rpm / F500 / plunge200 / DOC0.2 mm; the 2 mm uses DOC0.15,
-and 1 mm DOC0.1. Small real flute lengths can leave deep features uncut;
-larger holes are helix-milled where reach permits. These shallow cuts make plate
-roughing take much longer than on the VF-2. Ball ends have no supported resource
-or camlib adapter type. Wood/composite bits are excluded.
+Collets must match each shank: the 6 mm and 4 mm Makera cutters require the
+corresponding optional collets; kit cutters use 1/8 inch; the supplementary
+thread mill uses the optional 3 mm collet; the spot drill and pointed engraver
+use 1/4 inch. A 1/4 inch collet cannot grip all these sizes. Manual collet changes
+are required. The schema's maximum-capacity check does not establish mixed-shank
+ATC compatibility. Six pockets describe the changer, not the whole inventory;
+load tools for the setup and arrange the manual changes before running it.
 
-Makera's file supplies no enabled end-mill stepover; 0.4D is step2cam judgement.
-Flute counts are recorded as `_flutes` metadata because the resource format has
-no flute-count field; feeds already incorporate the actual counts. Assembly
-projection/envelopes and thread-pass assumptions are marked in `_policy`.
-Tool coolant is off (the enum cannot express air); use the Carvera's external
-air assist for chip clearing. The placeholder vise is retained unchanged.
-Vendor files are not redistributed, only cited dimensional/cutting facts.
+Makera's metal O-flute cutters now include **4 x 22 mm** and **6 x 25 mm**,
+alongside the Essential set's 3.175 x 12, 2 x 8 and 1 x 3 mm cutters. Their
+published generic **Aluminum** presets remain 12,000 rpm / F500 / plunge200 /
+DOC0.2 mm for the larger sizes (DOC0.15 for 2 mm, DOC0.1 for 1 mm). These are
+not specifically 6082 data. Each tool cites the Fusion file and read date.
+The kit drills, chamfer/engraving bits and M3/M5 thread mills are retained.
+Ball ends have no supported resource/adapter type; wood/composite bits are excluded.
 
-The stepped plate's 5 mm slot needs 19 mm flute reach. The Essential set's
-2 mm metal cutter has only 8 mm LOC, so this inventory does **not** finish that
-slot or its r1.2 corners. The planner reports the missing reach; a longer small
-diameter metal cutter outside this set would be needed. This limitation is
-retained in the Carvera integration test rather than disguising it with invented
-geometry or changing planner rules.
+Supplementary catalogue tools, with geometry and cutting derivations cited per
+tool in `demo/tools.json`, are:
+
+- Harvey 35862 uncoated square long-flute mill: actual diameter .0620 inch
+  (1.5748 mm), LOC24.13 mm, OAL63.5 mm, shank3.175 mm, three flutes. This
+  reaches the stepped plate's 19 mm-deep slot and fits its r1.2 corners. The
+  maker's 15D finishing chart supplies aluminium chip load; shallow-layer
+  pocketing engagement/plunge are explicitly step2cam judgement, not a maker
+  slotting recommendation. This slender tool is intentionally fed slowly.
+- Guhring 5515 carbide non-through-coolant drill: D3.3 mm, 6 mm shank,
+  LOC28 mm / OAL66 mm / maximum cutting depth23.05 mm, 140° point. This
+  supplies the deep pilot holes the kit drills cannot reach. Speed/feed/peck
+  reductions for the 200 W air-assisted spindle are step2cam judgement,
+  derived from the maker's 5515 wrought-aluminium row.
+- Harvey 949516 uncoated spot drill: D/shank6.35 mm, LOC19.05 mm, 150° point,
+  suitable for spotting the 140° drill and the kit's 118° drills. Cutting data
+  are reduced from its own aluminium recommendation and labelled judgement.
+- Harvey 25030 pointed engraver: 30°, 6.35 mm shank, catalogue LOC11.8364 mm.
+  The usable cutting diameter is conservatively derived from that LOC and
+  angle, rather than extending the rounded catalogue length to fit an ideal
+  cone. Its narrower angle leaves some of the wider V-channel's walls
+  unfinished, as the planner warns; it is not claimed to finish that channel.
+- Harvey 737624 single-form M3x0.5 thread mill: D2.30 mm, 9.5 mm maximum
+  thread depth, 3 mm shank. It reaches the front threads with more pilot-entry
+  clearance than the kit's 2.42 mm head. Its own 7x-neck aluminium chart is used,
+  with actual four-flute chip load and internal-circle feed correction.
+
+Two existing supported supplied-tool decisions are part of this default shop
+policy: use the small long mill for top slots (the default largest-fitting
+selector would otherwise choose D4 and leave r2 corners), and the longer
+single-form mill for front threads. They preserve decision provenance without
+changing planner rules. The 0.07 mm stock grid is step2cam judgement: its
+0.099 mm diagonal is below the supplementary M3 cutter's 0.10 mm radial entry
+clearance in a 2.5 mm pilot, so camlib can prove the entry open.
+
+Makera publishes no enabled end-mill stepover; 0.4D is step2cam judgement.
+Flute counts are `_flutes` metadata because the resource format has no native
+flute-count field; feed calculations use actual counts. Assembly envelopes,
+manual-collet requirements and other policies are recorded in `_comment` and
+`_policy`. Tool coolant is off (the enum cannot express air); use external air
+assist for chip clearing. The placeholder vise is unchanged. Vendor files are
+not redistributed, only cited dimensional/cutting facts.
+
+This improves coverage rather than making an industrial-speed cycle. Makera's
+0.2 mm DOC and F500 require many roughing passes. The long miniature cutter's
+low published chip load adds a substantial slot cycle. A couple-of-hours target
+cannot be claimed from these starting data; it would require separately validated
+more aggressive cutting data or a different process/tool combination. Some stock
+below the jaws and edge rounds still require later workholding or hand finishing.
