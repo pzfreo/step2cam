@@ -44,7 +44,7 @@ fn plans_match_the_plan_schema() {
         let mesh = meshed.then(|| read(&format!("{name}.mesh.json")));
         let mut planned = plan(&analysis, mesh.as_ref(), &Options::default()).unwrap();
         check("schemas/plan-1.schema.json", name, &planned);
-        capp::finish(&mut planned, &read("demo/tools.json"), &[]).unwrap();
+        capp::finish(&mut planned, &read("tests/fixtures/placeholder-tools.json"), &[]).unwrap();
         check("schemas/plan-1.schema.json", &format!("{name}, finished"), &planned);
     }
     for golden in ["plate", "plate-thread", "spindle"] {
@@ -72,6 +72,19 @@ fn controller_metadata_is_optional_and_machine_typos_are_rejected() {
     assert!(!validator.is_valid(&library));
     library["machines"][0]["controller"] = serde_json::json!("haas_ngc");
     library["machines"][0]["controler"] = serde_json::json!("haas_ngc");
+    assert!(!validator.is_valid(&library));
+}
+
+#[test]
+fn spindle_collet_change_mode_is_optional_but_checked() {
+    let mut library = read("demo/tools.json");
+    let validator = jsonschema::validator_for(&read("schemas/resources-1.schema.json")).unwrap();
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"].as_object_mut().unwrap().remove("collet_change");
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"]["collet_change"] = serde_json::json!("automatic");
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"]["collet_change"] = serde_json::json!("maybe");
     assert!(!validator.is_valid(&library));
 }
 

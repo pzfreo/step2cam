@@ -585,6 +585,18 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                         json!({"chosen": cycle})));
                     technology.as_object_mut().unwrap().extend(cycle.as_object().unwrap().clone());
                 }
+                if kind == "wall_finish" {
+                    let depth = (top - num(op, "floor_z")?).max(0.);
+                    let flute = num(spec, "flute_length")?;
+                    if depth > 0. {
+                        let passes = (depth / flute).ceil().max(1.);
+                        let stepdown = depth / passes;
+                        technology["stepdown_mm"] = json!(stepdown);
+                        why.push(trace.decide("process.wall_finish.axial_passes", &subject, "chosen",
+                            "Finish the wall in the fewest equal axial passes its flute length allows; roughing stepdown does not limit the finishing allowance cut. Camlib still checks reach and stock contact.",
+                            json!({"chosen": {"passes": passes as u64, "stepdown_mm": stepdown, "depth_mm": depth, "flute_length_mm": flute}})));
+                    }
+                }
                 op["technology"] = technology;
             }
             op["tool"] = tool;

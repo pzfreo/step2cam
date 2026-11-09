@@ -103,6 +103,10 @@ fn the_plates_job_is_python_s_job() {
     // one plunge. Change only the expected pecks; compare every other manifest field.
     python["operations"][4]["peck_mm"] = Value::Null;
     python["operations"][5]["peck_mm"] = Value::Null;
+    // Deliberate change: wall finishing takes its full 10.5 mm depth in one
+    // flute-supported pass, independently of the 1.5 mm roughing stepdown.
+    assert_eq!(python["operations"][7]["kind"], "contour");
+    python["operations"][7]["stepdown_mm"] = serde_json::json!(10.5);
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -151,6 +155,9 @@ fn a_tapped_holes_job_is_python_s_job() {
     // one plunge. Change only the expected pecks; compare every other manifest field.
     python["operations"][4]["peck_mm"] = Value::Null;
     python["operations"][5]["peck_mm"] = Value::Null;
+    // The same deliberate full-depth wall-finishing change as the plain plate.
+    assert_eq!(python["operations"][7]["kind"], "contour");
+    python["operations"][7]["stepdown_mm"] = serde_json::json!(10.5);
     same(&mine, &python, "manifest").unwrap();
 }
 

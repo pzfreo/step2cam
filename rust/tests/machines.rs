@@ -20,11 +20,18 @@ fn ops(plan: &Value) -> Vec<&Value> {
     plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).collect()
 }
 
-/// The Carvera holds shanks up to 1/4": the larger tools are never chosen, and the trace says
+/// The default Carvera collet holds shanks up to 1/4 inch: larger tools are never chosen, and the trace says
 /// why each was left out.
 #[test]
 fn the_carvera_uses_only_tools_its_collet_holds() {
-    let library = read("demo/tools.json");
+    let mut library = read("demo/tools.json");
+    // Deliberately offer an oversized tool to retain the rejection/trace regression.
+    let mut oversized = library["tools"][0].clone();
+    oversized["id"] = json!("em12");
+    oversized["diameter"] = json!(12);
+    oversized["shank_diameter"] = json!(12);
+    oversized["holder_diameter"] = json!(16);
+    library["tools"].as_array_mut().unwrap().push(oversized);
     let plan = finished("synthetic/stepped-plate", &library);
     let shank = |id: &str| {
         let t = library["tools"].as_array().unwrap().iter().find(|t| t["id"] == id).unwrap();
@@ -67,7 +74,7 @@ fn the_carvera_caps_the_spindle_speed() {
 /// A setup that needs more tools than the changer's 6 pockets is flagged.
 #[test]
 fn more_tools_than_pockets_is_flagged() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["machines"][0]["tool_changer"]["pockets"] = json!(2);
     let plan = finished("synthetic/stepped-plate", &library);
     assert!(plan["warnings"].to_string().contains("the changer holds 2"), "{}", plan["warnings"]);
@@ -76,7 +83,7 @@ fn more_tools_than_pockets_is_flagged() {
 /// A mill too small for the stock does not cut that setup, and says why for every feature.
 #[test]
 fn stock_larger_than_the_travel_is_not_cut() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     let normal = finished("synthetic/stepped-plate", &library);
     let covered = normal["covered_by_roughing"].as_array().unwrap();
     assert!(!covered.is_empty(), "the normal plan must cover features by roughing");
@@ -100,7 +107,7 @@ fn stock_larger_than_the_travel_is_not_cut() {
 /// Losing one roughing setup must not invalidate coverage while another roughing survives.
 #[test]
 fn coverage_remains_when_another_setup_keeps_roughing() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["machines"][0]["axes"]["travel_mm"] = json!({"x": 80, "y": 240, "z": 140});
     let setup = |id: &str, width: u32| json!({
         "id": id, "stock": {"min": [0, 0, 0], "max": [width, 50, 10]},
@@ -120,7 +127,7 @@ fn coverage_remains_when_another_setup_keeps_roughing() {
 /// With no machine described, nothing is checked, and the trace says so.
 #[test]
 fn without_a_machine_the_trace_says_nothing_was_checked() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library.as_object_mut().unwrap().remove("machines");
     let plan = finished("plate", &library);
     let none = decisions(&plan, "machine.for_setup@");
@@ -136,4 +143,29 @@ fn the_stepped_plate_runs_on_the_carvera() {
     let out = step2cam::process(&analysis, &mesh, &read("demo/tools.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(!out["programs"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn manual_collet_note_uses_only_selected_shanks_and_is_independent_of_atc_capacity() {
+    let plan = json!({"setups":[{"id":"top", "operations":[{"tool":"a"}, {"tool":"b"}, {"tool":"a"}]}]});
+    let mut library = json!({"machines":[{"id":"mill", "kind":"mill", "spindle":{"collet_change":"manual"}, "tool_changer":{"kind":"automatic", "pockets":6}}],
+        "tools":[{"id":"a", "shank_diameter":3.175}, {"id":"b", "shank_diameter":6}, {"id":"unused", "shank_diameter":4}]});
+    let mut trace = capp::trace::Trace::default();
+    capp::machines::check_changer(&plan, &library, &mut trace);
+    let note = trace.decisions.iter().find(|d| d["rule"] == "machine.spindle.manual_collets@1").unwrap();
+    assert_eq!(note["subject"], "top");
+    assert_eq!(note["shank_sizes_mm"], json!([3.175, 6.]));
+    assert!(note["says"].as_str().unwrap().contains("ATC cannot"));
+    assert!(!trace.decisions.iter().any(|d| d["rule"] == "machine.tool_changer.pockets@1"));
+    library["tools"][1]["shank_diameter"] = json!(3.175);
+    let mut one_shank = capp::trace::Trace::default();
+    capp::machines::check_changer(&plan, &library, &mut one_shank);
+    assert!(!one_shank.decisions.iter().any(|d| d["rule"] == "machine.spindle.manual_collets@1"));
+    library["tools"][1]["shank_diameter"] = json!(6);
+    for setting in [json!("automatic"), Value::Null] {
+        library["machines"][0]["spindle"]["collet_change"] = setting;
+        let mut unreported = capp::trace::Trace::default();
+        capp::machines::check_changer(&plan, &library, &mut unreported);
+        assert!(!unreported.decisions.iter().any(|d| d["rule"] == "machine.spindle.manual_collets@1"));
+    }
 }

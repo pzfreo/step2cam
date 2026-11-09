@@ -16,7 +16,9 @@ fn assert_close(a: f64, b: f64) {
     assert!((a - b).abs() < 1e-6, "{a} != {b}");
 }
 fn tools() -> Value {
-    fixture("../../demo/tools.json")
+    // The planner's behaviour, pinned on the frozen placeholder library (#88); the real Carvera
+    // library's default is checked in carvera.rs.
+    fixture("placeholder-tools.json")
 }
 fn run(name: &str, t: &Value) -> Value {
     let out = step2cam::process(

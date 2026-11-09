@@ -2462,6 +2462,16 @@
      "type": "number",
      "description": "Corner radius in the model, in mm."
     },
+    "shank_sizes_mm": {
+      "type": "array",
+      "items": {"type": "number"},
+      "description": "machine.spindle.manual_collets: the distinct shank sizes one setup needs, in mm."
+    },
+    "tools": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "machine.spindle.manual_collets: the setup's tool IDs."
+    },
     "corners": {
      "type": "integer",
      "minimum": 0

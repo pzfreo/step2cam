@@ -94,7 +94,7 @@ fn check(plan: &Value, part: &str) {
 
 #[test]
 fn every_warning_skip_and_operation_goes_back_to_its_rules() {
-    for library in ["demo/tools.json", "examples/tools.example.json"] {
+    for library in ["tests/fixtures/placeholder-tools.json", "examples/tools.example.json"] {
         for part in PARTS {
             let analysis = read(&format!("tests/fixtures/{part}.analysis.json"));
             let mesh = read(&format!("tests/fixtures/{part}.mesh.json"));
@@ -119,7 +119,7 @@ fn a_hole_says_which_setup_and_which_tool() {
 
 #[test]
 fn the_same_inputs_give_the_same_plan() {
-    let library = read("demo/tools.json");
+    let library = read("tests/fixtures/placeholder-tools.json");
     for part in PARTS {
         let analysis = read(&format!("tests/fixtures/{part}.analysis.json"));
         let mesh = read(&format!("tests/fixtures/{part}.mesh.json"));
@@ -189,7 +189,7 @@ fn an_unlabelled_rule_cannot_warn() {
 #[test]
 fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
     let out = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
-        &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("demo/tools.json")).unwrap();
+        &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("tests/fixtures/placeholder-tools.json")).unwrap();
     let plan = &out["plan"];
     let active: Vec<_> = plan["decisions"].as_array().unwrap().iter()
         .filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()).collect();

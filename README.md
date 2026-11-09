@@ -15,7 +15,7 @@ makes it hard:
 - **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
   rigidity. Its rules are simple, and "the largest tool that fits" is often not what a machinist
   would choose.
-- **Real cutting data:** every feed, speed and tool in the demo is a placeholder.
+- **Calculated cutting data:** the demo now cites Makera aluminium presets; material/tool physics and calculated cutting data remain #38.
 - **Real parts:** interacting features, drafts and freeform shapes break its recognition and
   planning. The samples are friendly.
 
@@ -105,7 +105,7 @@ It runs entirely in your browser, so your file is not uploaded: `specify-core`'s
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
 toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
 (`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`):
-**placeholder tools and cutting data, not for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
+The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic library retains placeholders. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 
@@ -319,7 +319,7 @@ supplied decision takes precedence. With neither, the default rule chooses; all 
 demo plates now select flip-and-face to remove the ordinary grip's attached outline.
 See [the CAPP planning documentation](docs/capp-plan.md) for consequences and limits.
 
-**Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
+The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
 on purpose.
 
 - There is no controller here: step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
@@ -331,10 +331,13 @@ on purpose.
   - `spindle.max_tool_diameter_mm`: a tool with a wider shank is never chosen;
   - `tool_changer`: its `pockets` (a setup needing more tools is flagged), or `"kind": "manual"`.
 
+  `spindle.collet_change: "manual"` adds a setup warning when selected tools have
+  different shank sizes, independently of the tool changer; it does not alter tool choice.
+
   Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
   trace says so. The demo's default machine is the **Makera Carvera**, from its published specifications:
   360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
-  changer. So the demo leaves out its larger tools and bores the larger holes.
+  changer. The demo supplements the kit with sourced 4/6 mm Makera cutters and a long small cutter as optional inventory for deep small features. Matching 6, 4, 3 mm and 1/8" collets require manual changes; the 1/4" capacity is not mixed-shank ATC compatibility. Larger holes are bored. See [library assumptions](libraries/README.md#carvera-demo).
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks
