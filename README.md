@@ -323,10 +323,13 @@ on purpose.
   - `spindle.max_tool_diameter_mm`: a tool with a wider shank is never chosen;
   - `tool_changer`: its `pockets` (a setup needing more tools is flagged), or `"kind": "manual"`.
 
+  `spindle.collet_change: "manual"` adds a setup warning when selected tools have
+  different shank sizes, independently of the tool changer; it does not alter tool choice.
+
   Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
   trace says so. The demo's default machine is the **Makera Carvera**, from its published specifications:
   360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
-  changer. The demo supplements the kit with sourced 4/6 mm Makera cutters and a long small cutter for deep slot corners. Matching 6, 4, 3 mm and 1/8" collets require manual changes; the 1/4" capacity is not mixed-shank ATC compatibility. Larger holes are bored. See [library assumptions](libraries/README.md#carvera-demo).
+  changer. The demo supplements the kit with sourced 4/6 mm Makera cutters and a long small cutter as optional inventory for deep small features. Matching 6, 4, 3 mm and 1/8" collets require manual changes; the 1/4" capacity is not mixed-shank ATC compatibility. Larger holes are bored. See [library assumptions](libraries/README.md#carvera-demo).
 - **Tool changes:** after each tool change the machine must leave the spindle's gauge line
   at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
   M6 that moves there). camlib plans every new tool's first move down from there and checks

@@ -42,3 +42,21 @@ fn industrial_fixtures_plan_and_simulate_without_definite_gouges() {
         assert!(compared > 0, "{name}: no material comparisons");
     }
 }
+
+#[test]
+fn catalogue_m5_cut_tap_is_used_and_checked_on_the_threaded_plate() {
+    let library = read("libraries/haas-vf2.json");
+    let analysis = read("tests/fixtures/plate-m5.analysis.json");
+    let mut mesh = read("tests/fixtures/plate.mesh.json");
+    mesh["binding"] = analysis["binding"].clone();
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let tap = out["programs"].as_array().unwrap().iter()
+        .flat_map(|p| p["job"]["operations"].as_array().unwrap())
+        .find(|op| op["kind"] == "tapping").unwrap_or_else(|| panic!("{}", out["plan"]["warnings"]));
+    assert_eq!(tap["tool"], "tapM5");
+    assert_eq!(tap["pitch_mm"], 0.8);
+    assert_eq!(tap["spindle_rpm"], 381.);
+    assert!(out["programs"].as_array().unwrap().iter().flat_map(|p| p["moves"].as_array().unwrap())
+        .any(|m| m["kind"] == "tap" && (m["feed"].as_f64().unwrap() - 381. * 0.8).abs() < 1e-8));
+}

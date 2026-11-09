@@ -12,6 +12,9 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
     let library = read("demo/tools.json");
     let tools = library["tools"].as_array().unwrap();
     let machine = &library["machines"][0];
+    assert!(library.get("decisions").is_none(), "a shared library has no fixture decisions");
+    assert!(library.get("cell_size_mm").is_none(), "a shared library has no fixture stock-grid override");
+    assert!(!tools.iter().any(|t| t["type"] == "tap"), "no documented Carvera rigid tapping");
     assert_eq!(machine["spindle"]["max_tool_diameter_mm"], 6.35);
     assert_eq!(machine["spindle"]["taper"], "1/4\" collet");
     assert_eq!(machine["spindle"]["max_rpm"], 15000);
@@ -42,16 +45,23 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
             }
         }
         if name == "synthetic/stepped-plate" {
-            let slot = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
-                .find(|op| op["kind"] == "slot" && op["width"] == 5.0 && op["tool"].is_string());
-            let slot = slot.expect("the complex plate's 5 mm slot must be cut");
-            let tool = tools.iter().find(|t| t["id"] == slot["tool"]).unwrap();
-            assert!(tool["diameter"].as_f64().unwrap() <= 2.4, "{slot}");
+            let notch = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
+                .find(|op| op["kind"] == "notch" && op["features"].as_array().is_some_and(|f| f.iter().any(|id| id == "slots:37.40.41.44")))
+                .expect("the 6 mm notch is cut");
+            assert_eq!(notch["corner_radius"], 1.2, "the r1.2 corners belong to the notch");
+            let tool = tools.iter().find(|t| t["id"] == notch["tool"]).unwrap();
+            assert_eq!(tool["diameter"], 4, "largest fitting/reaching tool, not corner-aware selection");
+            assert!(out["plan"]["decisions"].as_array().unwrap().iter().any(|d|
+                d["rule"] == "process.notch.corner_radius@1" && d["radius"] == 2.0
+                && d["model_radius"] == 1.2 && d["features"].as_array().is_some_and(|f| f.iter().any(|id| id == "slots:37.40.41.44"))),
+                "the r2 outcome must be reported against model r1.2");
             let cut_operations = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
                 .filter(|op| op["tool"].is_string()).count();
-            assert!(cut_operations >= 17, "complex plate: only {cut_operations} cut operations");
+            // Removing fixture-specific thread/grid overrides honestly loses the two front
+            // thread features; ordinary coverage must still be retained.
+            assert!(cut_operations >= 16, "complex plate: only {cut_operations} cut operations");
             let left_out = out["plan"]["skipped"].as_array().unwrap().len();
-            assert!(left_out <= 18, "complex plate: {left_out} left-out entries");
+            assert!(left_out <= 20, "complex plate: {left_out} left-out entries");
         }
         let programs = out["programs"].as_array().unwrap();
         assert_eq!(programs.len(), setups.len(), "{name}: {}", out["log"]);

@@ -1,11 +1,11 @@
 {
- "_comment": "Carvera aluminium inventory: aluminium-relevant subset of Essential Milling Bit Set - Standard (26 pcs), supplemented with Makera 4/6 mm metal O-flute cutters and supplementary catalogue tools: Harvey long-flute miniature cutter for deep small corners, pointed engraver, spot drill and long M3 single-form mill; Guhring3.3mm drill for deep pilots, not a claim that six cutting bits ship with the machine. Read 2026-11-09: https://global.makera.com/products/carvera-tool-kits confirms a free starter toolkit but does not itemise bits; https://core-electronics.com.au/guides/cnc-milling/getting-started-with-the-makera-carvera-setup-and-first-cut/ lists mixed-material starter tools and a test rod in slot 6. Use the itemised 26-pc set instead: https://core-electronics.com.au/makera-common-milling-bits-26-pcs.html . Optional 1/4 inch maximum capacity configuration; matching collets and manual changes are required, see machine comment. Geometry and Aluminum presets read directly from Makera Fusion libraries (per-tool URLs), facts transcribed, no vendor files redistributed. Aluminum is a generic preset, not specifically 6082. Ball ends omitted: no resources/camlib adapter type. Corn/wood bits omitted. M5 has a 4 mm cutting head on a 3.175 mm shank. Inventory exceeds six pockets; load per setup. All source read dates 2026-11-09.",
+ "_comment": "Carvera aluminium inventory: aluminium-relevant subset of Essential Milling Bit Set - Standard (26 pcs), supplemented with Makera 4/6 mm metal O-flute cutters and supplementary catalogue tools: Harvey long-flute miniature cutter for deep small corners, pointed engraver, spot drill and long M3 single-form mill; Guhring3.3mm drill for deep pilots, not a claim that six cutting bits ship with the machine. Read 2026-11-09: https://global.makera.com/products/carvera-tool-kits confirms a free starter toolkit but does not itemise bits; https://core-electronics.com.au/guides/cnc-milling/getting-started-with-the-makera-carvera-setup-and-first-cut/ lists mixed-material starter tools and a test rod in slot 6. Use the itemised 26-pc set instead: https://core-electronics.com.au/makera-common-milling-bits-26-pcs.html . Optional 1/4 inch maximum capacity configuration; matching collets and manual changes are required, see machine comment. Geometry and Aluminum presets read directly from Makera Fusion libraries (per-tool URLs), facts transcribed, no vendor files redistributed. Aluminum is a generic preset, not specifically 6082. Ball ends omitted: no resources/camlib adapter type. Corn/wood bits omitted. M5 has a 4 mm cutting head on a 3.175 mm shank. Inventory exceeds six pockets; load per setup. All source read dates 2026-11-09. Shared inventory: no fixture-specific supplied decisions or stock-grid override. No taps: Makera's published Carvera specifications, manual/software page https://wiki.makera.com/en/carvera/manual/software and profiles https://github.com/MakeraInc/CarveraProfiles were checked 2026-11-09; no documented rigid-tapping/spindle-feed synchronization capability was found. This is not a claim that no firmware could support it. Carvera estimated cutting times remain limited by Makera's conservative aluminium presets until #38/#37.",
  "machines": [
   {
    "id": "carvera",
    "name": "the Makera Carvera",
    "kind": "mill",
-   "_comment": "Read 2026-11-09 https://www.makera.com/products/carvera : travel 360x240x140 mm, spindle 200 W / 15000 rpm, custom integrated 1/8 inch collet (optional 1/4 inch, 6/4/3 mm), tool library size 6, maximum travel speed 6000 mm/min. Configured for optional 1/4 inch maximum shank capacity (6.35 mm). Inventory also requires matching 6 mm, 4 mm, 3 mm and 1/8 inch collets; a 1/4 inch collet does not grip these smaller shanks. Manual collet changes are required; the schema checks maximum shank capacity, not mixed-collet ATC compatibility. Placeholder vise: rectangular jaws, thickness conservatively equal to height; not validated workholding.",
+   "_comment": "Read 2026-11-09 https://www.makera.com/products/carvera : travel 360x240x140 mm, spindle 200 W / 15000 rpm, custom integrated 1/8 inch collet (optional 1/4 inch, 6/4/3 mm), tool library size 6, maximum travel speed 6000 mm/min. Configured for optional 1/4 inch maximum shank capacity (6.35 mm). Inventory also requires matching 6 mm, 4 mm, 3 mm and 1/8 inch collets; a 1/4 inch collet does not grip these smaller shanks. Manual collet changes are required; the schema checks maximum shank capacity, not mixed-collet ATC compatibility. Placeholder vise: rectangular jaws, thickness conservatively equal to height; not validated workholding. Manual spindle-collet changes: Makera How To Change the Spindle Collet, read 2026-11-09 https://wiki.makera.com/en/carvera/How-To (video https://youtu.be/J8edCDsmz8I). Different shanks need matching collets or verified bit-collet adapters; no adapters are assumed in this inventory. The ATC swaps collared tools, not spindle collets.",
    "axes": {
     "linear": [
      "x",
@@ -22,7 +22,8 @@
     "max_rpm": 15000,
     "power_kw": 0.2,
     "taper": "1/4\" collet",
-    "max_tool_diameter_mm": 6.35
+    "max_tool_diameter_mm": 6.35,
+    "collet_change": "manual"
    },
    "tool_changer": {
     "kind": "automatic",
@@ -217,8 +218,8 @@
    "stickout": 25.5,
    "holder_length": 10,
    "holder_diameter": 8,
-   "feed_mm_min": 498.42689,
-   "spindle_rpm": 11962.23591,
+   "feed_mm_min": 498,
+   "spindle_rpm": 11962,
    "coolant": "off",
    "_flutes": 1,
    "_comment": "Single Flute Engraving Metal 60 deg*.1mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
@@ -238,8 +239,8 @@
    "stickout": 25.5,
    "holder_length": 10,
    "holder_diameter": 8,
-   "feed_mm_min": 498.42689,
-   "spindle_rpm": 11962.23591,
+   "feed_mm_min": 498,
+   "spindle_rpm": 11962,
    "coolant": "off",
    "_flutes": 1,
    "_comment": "Single Flute Engraving Metal 30 deg*.2mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
@@ -259,8 +260,8 @@
    "stickout": 25.5,
    "holder_length": 10,
    "holder_diameter": 8,
-   "feed_mm_min": 498.42689,
-   "spindle_rpm": 11962.23591,
+   "feed_mm_min": 498,
+   "spindle_rpm": 11962,
    "coolant": "off",
    "_flutes": 1,
    "_comment": "Single Flute Engraving Metal 30 deg*.3mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
@@ -425,8 +426,8 @@
    "stickout": 24,
    "holder_length": 10,
    "holder_diameter": 8,
-   "feed_mm_min": 256.032,
-   "plunge_mm_min": 128.016,
+   "feed_mm_min": 256,
+   "plunge_mm_min": 128,
    "spindle_rpm": 12000,
    "coolant": "off",
    "angle": 30,
@@ -462,22 +463,5 @@
  ],
  "format": "step2cam-resources",
  "version": 1,
- "_policy": "step2cam judgement: end-mill stepover 0.4D (Makera does not enable a stepover); stickout=Fusion assemblyGaugeLength, treated as tool projection, holder_length=10 mm and holder_diameter=8 mm are conservative collar/collet envelopes, not measured assemblies. Coolant off follows disabled presets; use external air assist for chip evacuation (machine air capability is separate; schema has no air tool coolant). Thread presets have contradictory flood/disabled expression: use off, not flood on this machine. Thread radial_passes=2, spring_passes=1 are step2cam judgement; published LCF is used as axial tooth envelope, not a measured single tooth. Global allowances/clearances/tolerances and rapid=5000 remain step2cam judgement (below sourced 6000 mm/min travel speed). End-mill RPM/feed round Fusion conversion noise to nearest integer. step2cam judgement: stock grid0.07mm resolves the2.30mm supplementary M3 cutter entering a2.5mm pilot: cutter radial margin0.10mm exceeds the cell diagonal0.099mm. The default grid based only on neck clearance cannot prove this entry open. This refines checking, not the hole dimensions or planner rules.",
- "decisions": [
-  {
-   "rule": "tool.slot.bore_mill",
-   "subject": "top:slot",
-   "choice": "em1.5748-long",
-   "source": "agent:shop",
-   "reason": "step2cam judgement: use the long small cutter to preserve r1.2 slot corners. The default largest-fitting slot selector would choose the 4 mm cutter and leave r2 corners; this existing supported supplied-tool decision changes no planner rule."
-  },
-  {
-   "rule": "tool.thread_mill",
-   "subject": "front:thread",
-   "choice": "tmM3-long",
-   "source": "agent:shop",
-   "reason": "step2cam judgement: the long single-form M3 mill reaches the thread and leaves more entry clearance in the 2.5 mm pilot than the Makera2.42 mm head. Retain the Makera kit tools for other jobs."
-  }
- ],
- "cell_size_mm": 0.07
+ "_policy": "step2cam judgement: end-mill stepover 0.4D (Makera does not enable end-mill stepover; its engraving/chamfer presets do specify stepover); stickout=Fusion assemblyGaugeLength, treated as tool projection, holder_length=10 mm and holder_diameter=8 mm are conservative collar/collet envelopes, not measured assemblies. Coolant off follows disabled presets; use external air assist for chip evacuation (machine air capability is separate; schema has no air tool coolant). Thread presets have contradictory flood/disabled expression: use off, not flood on this machine. Thread radial_passes=2, spring_passes=1 are step2cam judgement; published LCF is used as axial tooth envelope, not a measured single tooth. Global allowances/clearances/tolerances and rapid=5000 remain step2cam judgement (below sourced 6000 mm/min travel speed). End-mill RPM/feed round Fusion conversion noise to nearest integer."
 }

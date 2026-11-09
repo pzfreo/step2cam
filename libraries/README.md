@@ -34,7 +34,7 @@ weight limit, which have no schema fields and are recorded in `_comment`.
 The shop inventory has six Guhring aluminium end mills (single-flute 6793 at 3–16 mm,
 four-flute RF100 A 3202 at 20 mm), fifteen Guhring 206 metric tap/clearance drills
 including 4.4, 4.5 and 10 mm, a Guhring 723 10 mm 90° spot drill, a TOYO
-TCM90-12 90° chamfer mill, a Harvey 30302 90° tipped-off engraver, and seven Harvey 8821xx single-form thread mills for
+TCM90-12 90° chamfer mill, a Harvey 30302 90° tipped-off engraver, four Dormer E559 NO3 cut taps (M3/M4/M5/M6), and seven Harvey 8821xx single-form thread mills for
 M3, M4, M5, M6, M8, M10 and M12 coarse pitches. This inventory exceeds 20 tools;
 load only the tools a setup needs. Tool numbers identify inventory entries, not
 a promise that all entries are in carousel pockets simultaneously. The planner
@@ -78,7 +78,7 @@ non-ferrous row, including the chart's 50% vertical-plunge reduction.
 
 The demo models the optional **1/4 inch maximum shank capacity (6.35 mm)**
 Carvera configuration, with the original 1/8 inch Essential set tools retained.
-It is a shop inventory supplemented for aluminium plate work, not a claim that
+It is a shared shop inventory supplemented for aluminium plate work, not a claim that
 the machine ships with these twenty tools. Makera confirms a free starter
 kit, but a complete itemised in-box cutting inventory was not verified.
 
@@ -86,8 +86,10 @@ Collets must match each shank: the 6 mm and 4 mm Makera cutters require the
 corresponding optional collets; kit cutters use 1/8 inch; the supplementary
 thread mill uses the optional 3 mm collet; the spot drill and pointed engraver
 use 1/4 inch. A 1/4 inch collet cannot grip all these sizes. Manual collet changes
-are required. The schema's maximum-capacity check does not establish mixed-shank
-ATC compatibility. Six pockets describe the changer, not the whole inventory;
+are required. The machine declares `spindle.collet_change: "manual"`. Every setup selecting
+more than one shank size receives a traced setup warning independently of ATC
+pocket count; neither this warning nor the maximum-capacity check changes tools
+or establishes mixed-shank ATC compatibility. Six pockets describe the changer, not the whole inventory;
 load tools for the setup and arrange the manual changes before running it.
 
 Makera's metal O-flute cutters now include **4 x 22 mm** and **6 x 25 mm**,
@@ -103,7 +105,7 @@ tool in `demo/tools.json`, are:
 
 - Harvey 35862 uncoated square long-flute mill: actual diameter .0620 inch
   (1.5748 mm), LOC24.13 mm, OAL63.5 mm, shank3.175 mm, three flutes. This
-  reaches the stepped plate's 19 mm-deep slot and fits its r1.2 corners. The
+  is optional inventory for deep small features; no fixture-specific choice forces it. The
   maker's 15D finishing chart supplies aluminium chip load; shallow-layer
   pocketing engagement/plunge are explicitly step2cam judgement, not a maker
   slotting recommendation. This slender tool is intentionally fed slowly.
@@ -125,13 +127,22 @@ tool in `demo/tools.json`, are:
   clearance than the kit's 2.42 mm head. Its own 7x-neck aluminium chart is used,
   with actual four-flute chip load and internal-circle feed correction.
 
-Two existing supported supplied-tool decisions are part of this default shop
-policy: use the small long mill for top slots (the default largest-fitting
-selector would otherwise choose D4 and leave r2 corners), and the longer
-single-form mill for front threads. They preserve decision provenance without
-changing planner rules. The 0.07 mm stock grid is step2cam judgement: its
-0.099 mm diagonal is below the supplementary M3 cutter's 0.10 mm radial entry
-clearance in a 2.5 mm pilot, so camlib can prove the entry open.
+The shared library has **no supplied decisions and no stock-grid override**.
+The 5 mm slot `slots:19.20` is an obround with r2.5 ends. Its former forced
+small cutter was aimed at the wrong feature and is removed. The r1.2 corners
+belong to the 6 mm notch `slots:37.40.41.44`. The existing notch selector chooses
+the largest cutter fitting the width and reaching the depth: with this inventory
+that is D4, leaving r2 corners, explicitly warned against the model's r1.2.
+It does not choose by corner radius. Improving that outcome without a
+part-specific override requires separate corner-aware selection/rest-machining
+work; this PR leaves the established selector unchanged.
+
+The front M3 thread may be refused under the default stock grid: the planner's
+ordinary kit-mill selection is not replaced with a fixture-specific tool, and
+camlib must still prove its entry open. No Carvera taps are supplied: Makera's
+manual/software documentation and published profiles were checked, but no
+manufacturer documentation of rigid tapping/spindle-feed synchronization was
+found. This is an inventory decision, not a claim about all possible firmware.
 
 Makera publishes no enabled end-mill stepover; 0.4D is step2cam judgement.
 Flute counts are `_flutes` metadata because the resource format has no native
@@ -142,8 +153,24 @@ assist for chip clearing. The placeholder vise is unchanged. Vendor files are
 not redistributed, only cited dimensional/cutting facts.
 
 This improves coverage rather than making an industrial-speed cycle. Makera's
-0.2 mm DOC and F500 require many roughing passes. The long miniature cutter's
-low published chip load adds a substantial slot cycle. A couple-of-hours target
+0.2 mm DOC and F500 require many roughing passes. The miniature cutter is no longer forced onto the ordinary obround slot. A couple-of-hours target
 cannot be claimed from these starting data; it would require separately validated
 more aggressive cutting data or a different process/tool combination. Some stock
 below the jaws and edge rounds still require later workholding or hand finishing.
+
+Wall finishing now uses the fewest equal axial passes allowed by flute length,
+normally one pass for an admitted wall, independently of roughing stepdown.
+The selected depth and pass count are traced; camlib still checks full reach,
+stock contact and material. Carvera estimates remain limited by Makera's
+conservative presets until #38/#37.
+
+The Haas taps use Dormer's manufacturer-authored 2024 threading catalogue,
+p32/p36, linked in `_sources.taps`. E559 NO3 is a straight-flute bright HSS
+bottoming cut tap suitable for machine use, form C (2–3 pitches). The full
+three-pitch lead is modelled. Geometry is verified individually, including the
+M6's **6.00 mm** shank, rather than the suggested 6.3 mm. The conservative
+hard-wrought-aluminium starting row is Vc6 m/min; synchronous feed is derived
+from rpm and pitch. A shallow blind pilot can still reject this lead, and that
+rejection must not be hidden by using the lower end of the lead range. Haas
+rigid tapping must be enabled; use compatible tapping collets in the sourced
+CAT40 envelope. Assembly stickouts are step2cam judgement.
