@@ -267,6 +267,8 @@ fn surface(op: &Value) -> Result<Value, String> {
 
 #[derive(Clone)]
 pub struct Job {
+    /// Export the finished stock only when a successor needs it.
+    pub return_stock: bool,
     pub setup: String,
     /// camlib's manifest.
     pub manifest: Value,
@@ -768,7 +770,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,
         });
-        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
+        jobs.push(Job { return_stock: false, setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
     }
     Ok((jobs, log))
 }

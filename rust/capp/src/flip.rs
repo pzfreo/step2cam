@@ -474,7 +474,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     let mut p = crate::plan::plan(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take(&mut p);
     let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
-    let warning = trace.warn(RULE,"bottom",format!("bottom setup starts from the part box plus bottom stock (camlib#121 / #45): stock history and Op 1's residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Stock history and holding strength are not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the box does not represent the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
+    let warning = trace.warn(RULE,"bottom",format!("bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing overlaps to clear the residual margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Holding strength is not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the conservative height-field stock can fill voids within the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
     let setups = p["setups"].as_array_mut().unwrap();
     let top = setups.iter_mut().find(|s| s["id"] == "top").unwrap();
     top["flip_role"] = json!("sacrificial_grip");
@@ -535,7 +535,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         "face sacrificial bottom stock to the part bottom at thickness",
         Value::Null,
     );
-    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup zeroed on the part bottom; part box plus sacrificial stock, not Op 1 stock history", json!({"zero":"part","stock":bottom["stock"]}));
+    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup zeroed on the part bottom; request the preceding finished stock, with part box plus sacrificial stock only as an explicit fallback", json!({"zero":"part","stock":bottom["stock"]}));
     let order = trace.decide(
         "sequence.fixed_order",
         "bottom",
