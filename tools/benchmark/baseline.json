@@ -526,8 +526,7 @@
           {
             "family": "plates",
             "id": "plates:6.14",
-            "outcome": "left_out",
-            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
+            "outcome": "covered"
           },
           {
             "family": "step_levels",
@@ -617,9 +616,8 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
-          "setup top: # mm holes, depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
-          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut"
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated",
+          "setup top: # mm holes, depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
         ]
       },
       {
@@ -1979,8 +1977,7 @@
           {
             "family": "plates",
             "id": "plates:7.13",
-            "outcome": "left_out",
-            "reason": "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup"
+            "outcome": "covered"
           }
         ],
         "label_counts": {
@@ -2018,8 +2015,7 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
-          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut"
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Stock history and holding strength are not simulated"
         ]
       },
       {
@@ -5009,9 +5005,8 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut",
-          "setup top: # mm notch: its # inside corners are left r# by em# (the model has r#)",
-          "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut"
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated",
+          "setup top: # mm notch: its # inside corners are left r# by em# (the model has r#)"
         ]
       },
       {
@@ -11975,7 +11970,7 @@
           "part material above its opening from top: a three-axis tool cannot reach it": 3
         },
         "plates": {
-          "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup": 5
+          "plates: no operation of its own; side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup": 3
         },
         "section_recesses": {
           "no operation of its own, and roughing was refused": 6
@@ -12013,7 +12008,8 @@
           "left_out": 125
         },
         "plates": {
-          "left_out": 5
+          "covered": 2,
+          "left_out": 3
         },
         "pockets": {
           "cut": 65
@@ -12063,548 +12059,554 @@
       },
       "warnings": {
         "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance": 16,
+        "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Stock history and holding strength are not simulated": 1,
+        "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated": 2,
         "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)": 6,
         "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm": 49,
-        "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut": 45,
+        "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut": 42,
         "roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); stock below this level is left uncut": 55,
         "setup top: # mm holes, depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks": 9,
         "setup top: # mm notch: its # inside corners are left r# by em# (the model has r#)": 17,
         "setup top: # mm notch: its # square inside corners are left r# by em# (the model has them sharp)": 11,
         "setup top: outside wall above Z-# left out: no roughing has cleared the stock beside the wall, so it is not finished": 10,
         "setup top: outside wall above Z-# left out: this wall band is below the jaw clearance cap; left for a later setup": 6,
-        "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut": 45,
+        "side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; stock below this level is left uncut": 42,
         "top-#-holes left out: camlib refused the holes: the cut is # mm below the stock top and em#'s flutes are # mm: needs a drill of \u2300#\u2013# with flutes of at least # mm plus point length, or an end mill under \u2300# with flutes of at least # mm": 91,
         "top-#-roughing left out: setup top: helical entry exceeds #-turn bound; increase radius/angle or reduce depth": 5,
         "top-#-wall_finish left out: setup top: contour protected-part continuous admission Uncertain; change cutter/lead/geometry or tolerance: Some(Finding { status: Uncertain, kind: Gouge, objec": 175
       }
     }
   },
+  "fetch": {
+    "bytes_received": 0,
+    "range_requests": 0
+  },
   "instructions": {
     "parts": {
       "featured_part_00036": {
-        "analyse": 4754051903,
-        "mesh": 382851320,
-        "process": 17783345208
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00165": {
-        "analyse": 1523406773,
-        "mesh": 405575307,
-        "process": 48524365378
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00222": {
-        "analyse": 1526418863,
-        "mesh": 422468412,
-        "process": 21949211341
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00396": {
-        "analyse": 2171513222,
-        "mesh": 512686751,
-        "process": 22600455895
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00411": {
-        "analyse": 8408774724,
-        "mesh": 449202561,
-        "process": 28666636287
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00466": {
-        "analyse": 1411397965,
-        "mesh": 410547745,
-        "process": 28983069658
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00518": {
-        "analyse": 1330465534,
-        "mesh": 376786201,
-        "process": 23448233850
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00530": {
-        "analyse": 10956242190,
-        "mesh": 462080950,
-        "process": 49627387762
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00539": {
-        "analyse": 5868097302,
-        "mesh": 422837026,
-        "process": 42619730091
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00558": {
-        "analyse": 1274127692,
-        "mesh": 414466551,
-        "process": 41608546294
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00633": {
-        "analyse": 1828829484,
-        "mesh": 398409773,
-        "process": 18892402063
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_00807": {
-        "analyse": 1593647402,
-        "mesh": 466343115,
-        "process": 48037357931
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_01169": {
-        "analyse": 1863897687,
-        "mesh": 347464483,
-        "process": 18488557717
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_01614": {
-        "analyse": 622409564,
-        "mesh": 309572187,
-        "process": 6376632485
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_01746": {
-        "analyse": 6801051526,
-        "mesh": 422307079,
-        "process": 32180043699
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_01861": {
-        "analyse": 5971706086,
-        "mesh": 461876965,
-        "process": 37123421208
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_01906": {
-        "analyse": 964607549,
-        "mesh": 409380854,
-        "process": 22147271643
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_02017": {
-        "analyse": 1673960330,
-        "mesh": 458437850,
-        "process": 41272373671
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_02212": {
-        "analyse": 3307805112,
-        "mesh": 481057464,
-        "process": 49613021573
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_02270": {
-        "analyse": 1189576164,
-        "mesh": 391831513,
-        "process": 53433250968
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_02517": {
-        "analyse": 4747245634,
-        "mesh": 358808840,
-        "process": 15674304465
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03074": {
-        "analyse": 3962451082,
-        "mesh": 527552913,
-        "process": 94760029674
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03166": {
-        "analyse": 9766341600,
-        "mesh": 422700697,
-        "process": 27837162437
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03199": {
-        "analyse": 1404278874,
-        "mesh": 401858003,
-        "process": 27790251777
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03248": {
-        "analyse": 1744103268,
-        "mesh": 418269923,
-        "process": 52972512183
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03487": {
-        "analyse": 945554858,
-        "mesh": 347715249,
-        "process": 15002863604
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03557": {
-        "analyse": 592666814,
-        "mesh": 323059901,
-        "process": 10254970035
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03743": {
-        "analyse": 1079390795,
-        "mesh": 329318160,
-        "process": 8220888007
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_03944": {
-        "analyse": 1232327297,
-        "mesh": 402939993,
-        "process": 63844188290
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04074": {
-        "analyse": 7754819674,
-        "mesh": 446322695,
-        "process": 31873412726
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04111": {
-        "analyse": 1097466786,
-        "mesh": 353767124,
-        "process": 29990648455
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04168": {
-        "analyse": 11708798247,
-        "mesh": 528893116,
-        "process": 63361893797
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04267": {
-        "analyse": 13270611393,
-        "mesh": 405705550,
-        "process": 28707007805
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04301": {
-        "analyse": 7850821394,
-        "mesh": 421871684,
-        "process": 20161617653
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04343": {
-        "analyse": 2295478707,
-        "mesh": 378599024,
-        "process": 22438968838
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04365": {
-        "analyse": 13703681292,
-        "mesh": 513955662,
-        "process": 19867169758
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04381": {
-        "analyse": 7531308189,
-        "mesh": 459884713,
-        "process": 54499460079
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04561": {
-        "analyse": 1187597564,
-        "mesh": 387925177,
-        "process": 16647713501
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04785": {
-        "analyse": 912898304,
-        "mesh": 329325804,
-        "process": 12880691368
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_04989": {
-        "analyse": 2381336030,
-        "mesh": 379712397,
-        "process": 30347610336
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05321": {
-        "analyse": 1337462856,
-        "mesh": 451975254,
-        "process": 56880592927
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05431": {
-        "analyse": 746012147,
-        "mesh": 342799521,
-        "process": 9900510534
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05548": {
-        "analyse": 5690308544,
-        "mesh": 533324607,
-        "process": 56682587020
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05677": {
-        "analyse": 1617993320,
-        "mesh": 392173494,
-        "process": 48413749002
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05774": {
-        "analyse": 4325600332,
-        "mesh": 511683751,
-        "process": 92141749543
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_05938": {
-        "analyse": 981551484,
-        "mesh": 340772378,
-        "process": 15928518473
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06236": {
-        "analyse": 1526901539,
-        "mesh": 421605037,
-        "process": 35545396052
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06455": {
-        "analyse": 606135668,
-        "mesh": 310984384,
-        "process": 14360787885
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06488": {
-        "analyse": 2232788083,
-        "mesh": 391814409,
-        "process": 20547173614
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06632": {
-        "analyse": 1385556942,
-        "mesh": 434551257,
-        "process": 33525229675
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06887": {
-        "analyse": 2268006531,
-        "mesh": 386154807,
-        "process": 16386752217
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_06952": {
-        "analyse": 4580956016,
-        "mesh": 367819769,
-        "process": 32407198868
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07030": {
-        "analyse": 857366954,
-        "mesh": 362482688,
-        "process": 27583389541
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07118": {
-        "analyse": 1347520219,
-        "mesh": 463272594,
-        "process": 76934308323
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07147": {
-        "analyse": 682015982,
-        "mesh": 338163802,
-        "process": 30517912458
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07312": {
-        "analyse": 1628682444,
-        "mesh": 424607930,
-        "process": 67154415680
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07379": {
-        "analyse": 1206378928,
-        "mesh": 411264398,
-        "process": 23130594201
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07380": {
-        "analyse": 8637235038,
-        "mesh": 400499048,
-        "process": 30086878728
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07384": {
-        "analyse": 3183795558,
-        "mesh": 446743041,
-        "process": 48360001191
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07584": {
-        "analyse": 462213006,
-        "mesh": 295715761,
-        "process": 6518390672
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07588": {
-        "analyse": 743254489,
-        "mesh": 322508894,
-        "process": 12608821075
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07774": {
-        "analyse": 1909535702,
-        "mesh": 352453010,
-        "process": 8714902919
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07812": {
-        "analyse": 680353889,
-        "mesh": 312965816,
-        "process": 20137326679
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_07923": {
-        "analyse": 5586142195,
-        "mesh": 392638183,
-        "process": 22227937468
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08116": {
-        "analyse": 3842611216,
-        "mesh": 438669548,
-        "process": 29038136904
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08204": {
-        "analyse": 3841927014,
-        "mesh": 466712352,
-        "process": 33463165970
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08221": {
-        "analyse": 475650850,
-        "mesh": 298022243,
-        "process": 3739994086
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08336": {
-        "analyse": 1727807659,
-        "mesh": 374169354,
-        "process": 19864154232
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08413": {
-        "analyse": 1104431014,
-        "mesh": 386505940,
-        "process": 33954031936
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08595": {
-        "analyse": 1305642962,
-        "mesh": 412824348,
-        "process": 56383856062
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08784": {
-        "analyse": 732169465,
-        "mesh": 333660993,
-        "process": 17119920099
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08841": {
-        "analyse": 5826605759,
-        "mesh": 333655501,
-        "process": 6225501449
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_08987": {
-        "analyse": 1819137518,
-        "mesh": 332222029,
-        "process": 11001561436
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09125": {
-        "analyse": 1041161077,
-        "mesh": 382175687,
-        "process": 33953331607
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09158": {
-        "analyse": 635486723,
-        "mesh": 324930034,
-        "process": 14215195023
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09263": {
-        "analyse": 3017166977,
-        "mesh": 463037150,
-        "process": 29160177994
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09270": {
-        "analyse": 1072030221,
-        "mesh": 384146679,
-        "process": 16703416276
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09336": {
-        "analyse": 1859645874,
-        "mesh": 442792859,
-        "process": 65551329137
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09364": {
-        "analyse": 1701026262,
-        "mesh": 408218075,
-        "process": 26729526158
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09390": {
-        "analyse": 1293668330,
-        "mesh": 433445114,
-        "process": 36907623400
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09449": {
-        "analyse": 715160522,
-        "mesh": 322137480,
-        "process": 7136643145
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09497": {
-        "analyse": 1763605311,
-        "mesh": 492219706,
-        "process": 126685023164
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09510": {
-        "analyse": 983594278,
-        "mesh": 372988791,
-        "process": 48332852012
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09615": {
-        "analyse": 3025680613,
-        "mesh": 438268708,
-        "process": 29031693793
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09750": {
-        "analyse": 725595959,
-        "mesh": 343628836,
-        "process": 15736466791
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_09871": {
-        "analyse": 897974113,
-        "mesh": 373769970,
-        "process": 18478911783
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10091": {
-        "analyse": 2019325140,
-        "mesh": 365787070,
-        "process": 20741822033
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10124": {
-        "analyse": 4765771173,
-        "mesh": 516170987,
-        "process": 23305524626
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10255": {
-        "analyse": 3536966102,
-        "mesh": 440467484,
-        "process": 9633362020
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10267": {
-        "analyse": 2463602548,
-        "mesh": 464166069,
-        "process": 36379227267
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10351": {
-        "analyse": 6313753013,
-        "mesh": 400062679,
-        "process": 40390823340
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10420": {
-        "analyse": 1561952389,
-        "mesh": 390982237,
-        "process": 17311368539
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10653": {
-        "analyse": 5307434027,
-        "mesh": 414764225,
-        "process": 21996245722
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10809": {
-        "analyse": 1370688291,
-        "mesh": 411809212,
-        "process": 17701341688
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10816": {
-        "analyse": 811006325,
-        "mesh": 340429673,
-        "process": 18096334448
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_10987": {
-        "analyse": 755316842,
-        "mesh": 321942227,
-        "process": 13143820976
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_11012": {
-        "analyse": 900786512,
-        "mesh": 340758125,
-        "process": 17040919783
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_11053": {
-        "analyse": 471851922,
-        "mesh": 297985554,
-        "process": 9570712485
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_11096": {
-        "analyse": 7039489541,
-        "mesh": 440258921,
-        "process": 27064260064
+        "analyse": null,
+        "mesh": null,
+        "process": null
       },
       "featured_part_11360": {
-        "analyse": 871463492,
-        "mesh": 321054365,
-        "process": 17491263619
+        "analyse": null,
+        "mesh": null,
+        "process": null
       }
     },
     "stages": {
       "analyse": {
-        "measured_parts": 100,
-        "median": 1623337882.0,
+        "measured_parts": 0,
+        "median": null,
         "parts": 100,
-        "total": 292032119774
+        "total": null
       },
       "mesh": {
-        "measured_parts": 100,
-        "median": 400280863.5,
+        "measured_parts": 0,
+        "median": null,
         "parts": 100,
-        "total": 39978184790
+        "total": null
       },
       "process": {
-        "measured_parts": 100,
-        "median": 26896893111.0,
+        "measured_parts": 0,
+        "median": null,
         "parts": 100,
-        "total": 3076483343322
+        "total": null
       }
     }
   },
   "schema_version": 2,
   "timing": {
-    "wall_seconds": 65.272132
+    "wall_seconds": 185.766638
   }
 }
