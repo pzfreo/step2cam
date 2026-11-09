@@ -115,6 +115,12 @@ def run_part(part, z, cache, tools, fetch_lock, process, meter):
     return row, counts
 
 
+def valid_cache(cache):
+    """Allow the ignored per-checkout cache; reject other generated data in the repo."""
+    cache = cache.resolve()
+    return not cache.is_relative_to(REPO) or cache == REPO / '.bench-cache'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--zip', type=Path, help='use a local dataset ZIP instead of HTTP ranges')
@@ -132,8 +138,8 @@ def main():
     if any(not re.fullmatch(r'featured_part_\d{5}', p) for p in parts) or len(set(parts)) != len(parts):
         parser.error('sample must contain unique featured_part_NNNNN names')
     cache = args.cache.expanduser().resolve()
-    if cache.is_relative_to(REPO):
-        parser.error('--cache must be outside the repository')
+    if not valid_cache(cache):
+        parser.error('--cache must be outside the repository or its private .bench-cache directory')
     cache.mkdir(parents=True, exist_ok=True)
     tools = args.tools.resolve()
     # Build once before workers, avoiding concurrent initial Cargo builds.

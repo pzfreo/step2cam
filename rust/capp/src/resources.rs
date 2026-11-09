@@ -18,8 +18,7 @@ fn same_property(a: &Value, b: &Value) -> bool {
         || exact.parse::<u64>().is_ok_and(|n| Some(n) == integer.as_u64())
 }
 
-/// Explicit workholding choice. Availability and selection are separate; #94
-/// owns any future rule choosing between options.
+/// Legacy workholding switch; process translates it into a supplied setup.workholding choice.
 pub(crate) fn workholding_option(data: &Value) -> Result<Option<&str>, String> {
     match data["overrides"].get("workholding_option") {
         None => Ok(None),

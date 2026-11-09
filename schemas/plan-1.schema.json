@@ -194,6 +194,35 @@
    "items": {
     "$ref": "#/$defs/supplied_decision"
    }
+  },
+  "workholding": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "chosen",
+    "source",
+    "candidates"
+   ],
+   "properties": {
+    "chosen": {
+     "enum": [
+      "vise_ordinary",
+      "vise_flip_face",
+      "fixture_plate",
+      "margins_tabs",
+      null
+     ]
+    },
+    "source": {
+     "type": "string"
+    },
+    "candidates": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/workholding_candidate"
+     }
+    }
+   }
   }
  },
  "additionalProperties": false,
@@ -2376,6 +2405,10 @@
     "chosen": {
      "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
     },
+    "default": {
+     "description": "setup.workholding's preferred candidate before supplied choices, or null when none is available.",
+     "enum": ["vise_ordinary", "vise_flip_face", "fixture_plate", "margins_tabs", null]
+    },
     "considered": {
      "type": "array",
      "items": {
@@ -2488,6 +2521,185 @@
     }
    },
    "additionalProperties": false
+  },
+  "workholding_candidate": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "label",
+    "available",
+    "reason"
+   ],
+   "properties": {
+    "id": {
+     "enum": [
+      "vise_ordinary",
+      "vise_flip_face",
+      "fixture_plate",
+      "margins_tabs"
+     ]
+    },
+    "label": {
+     "type": "string"
+    },
+    "available": {
+     "type": "boolean"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "short_reason": {
+     "type": "string",
+     "description": "Short unavailable-option text; reason retains the full explanation."
+    },
+    "comparison": {
+     "type": "string"
+    },
+    "finished": {
+     "type": "boolean",
+     "description": "The holding route releases the outline and grip stock with no grip/travel omissions or execution failure. Missing tools and unsupported details are reported separately."
+    },
+    "features_cut": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "covered_by_roughing": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "features_left_out": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "feature",
+       "reasons"
+      ],
+      "properties": {
+       "feature": {
+        "type": "string"
+       },
+       "reasons": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    },
+    "tools": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "tools_needed": {
+     "$ref": "#/properties/tools_needed"
+    },
+    "risks": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "shop_needs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "grips": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "setup",
+       "height_mm",
+       "stock_fraction",
+       "finished_wall"
+      ],
+      "properties": {
+       "setup": {
+        "type": "string"
+       },
+       "height_mm": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "stock_fraction": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "finished_wall": {
+        "type": "boolean"
+       }
+      }
+     }
+    },
+    "extra_stock_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "stock_height_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "estimated_seconds": {
+     "type": "number",
+     "minimum": 0
+    },
+    "outline_left_mm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "setups": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "tool_changes": {
+     "type": "integer",
+     "minimum": 0
+    }
+   },
+   "if": {
+    "properties": {
+     "available": {
+      "const": true
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "id",
+     "label",
+     "available",
+     "reason",
+     "finished",
+     "features_cut",
+     "covered_by_roughing",
+     "features_left_out",
+     "tools",
+     "tools_needed",
+     "risks",
+     "shop_needs",
+     "grips",
+     "extra_stock_mm",
+     "stock_height_mm",
+     "estimated_seconds",
+     "outline_left_mm",
+     "setups",
+     "tool_changes"
+    ]
+   }
   }
  }
 }

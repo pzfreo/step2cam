@@ -1,5 +1,5 @@
 //! The vise flip-and-face option (#86). Callers can offer or withhold this function
-//! independently of machine-independent planning (#94); no supplied decision protocol.
+//! independently of machine-independent planning; setup.workholding owns the choice.
 use crate::{
     plan::{Options, r},
     trace::{Trace, because},
@@ -381,18 +381,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     let defaults = Options::default();
     let original = crate::plan::plan(analysis, Some(mesh), &defaults)?;
     let availability: Result<(f64, Value, Point, Point), String> = (|| {
-        let vise = crate::machines::mill(resources)
-            .and_then(|m| {
-                m["workholding"]
-                    .as_array()?
-                    .iter()
-                    .find(|w| w["kind"] == "vise")
-            })
-            .filter(|v| {
-                ["jaw_width_mm", "jaw_height_mm", "max_jaw_opening_mm"]
-                    .iter()
-                    .all(|k| v[*k].as_f64().is_some_and(|n| n.is_finite() && n > 0.))
-            })
+        let vise = crate::machines::dimensioned_vise(resources)
             .ok_or("a mill with a dimensioned vise is required (jaw width, height and opening)")?;
         if resources["overrides"]["clamping"]
             .as_object()
@@ -466,13 +455,13 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     if !selected || availability.is_err() {
         let available = availability.is_ok();
         let reason=match &availability {
-            Ok(_) => "vise flip-and-face option is available but was not selected; selection belongs to the caller, with choosing rules deferred to #94".to_string(),
+            Ok(_) => "vise flip-and-face option is available but was not selected; selection belongs to the caller (setup.workholding compares simulated runs)".to_string(),
             Err(reason) if selected => format!("selected vise flip-and-face option is unavailable: {reason}"),
             Err(reason) => format!("vise flip-and-face option was not selected and is unavailable: {reason}"),
         };
         let mut p = original;
         let mut trace = Trace::take(&mut p);
-        trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available}}));
+        trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available,"unavailable_reason":availability.as_ref().err()}}));
         trace.store(&mut p);
         return Ok(p);
     }
@@ -484,7 +473,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
     };
     let mut p = crate::plan::plan(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take(&mut p);
-    let chosen = trace.decide(RULE,"part","chosen", "explicitly selected vise flip-and-face option: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
+    let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
     let warning = trace.warn(RULE,"bottom",format!("bottom setup starts from the part box plus bottom stock (camlib#121 / #45): stock history and Op 1's residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Stock history and holding strength are not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the box does not represent the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
     let setups = p["setups"].as_array_mut().unwrap();
     let top = setups.iter_mut().find(|s| s["id"] == "top").unwrap();

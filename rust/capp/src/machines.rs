@@ -21,6 +21,13 @@ pub fn mill(resources: &Value) -> Option<&Value> {
     resources["machines"].as_array()?.iter().find(|m| m["kind"] == "mill")
 }
 
+/// The first mill's first vise, only when all geometric dimensions can be checked.
+pub fn dimensioned_vise(resources: &Value) -> Option<&Value> {
+    mill(resources)?["workholding"].as_array()?.iter().find(|w|w["kind"]=="vise")
+        .filter(|v|["jaw_width_mm","jaw_height_mm","max_jaw_opening_mm"].iter()
+            .all(|k|v[*k].as_f64().is_some_and(|n|n.is_finite() && n>0.)))
+}
+
 fn name(m: &Value) -> String {
     m["name"].as_str().or(m["id"].as_str()).unwrap_or("the mill").to_string()
 }

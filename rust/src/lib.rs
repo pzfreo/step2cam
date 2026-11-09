@@ -6,6 +6,7 @@
 //! adapter) -> [`simulate::simulate`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
 pub mod simulate;
+mod workholding;
 
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -64,8 +65,7 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
-    let planned = capp::flip::plan(analysis, mesh, library)?;
-    process_planned(analysis, mesh, library, planned, vec![])
+    workholding::process(analysis, mesh, library)
 }
 
 /// Both positive preparation evidence and an executable facing are required.
@@ -152,7 +152,7 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String,
 mod flip_tests {
     use super::*;
     #[test]
-    fn default_demo_programs_and_notes_match_ordinary_planning() {
+    fn explicit_ordinary_demo_programs_and_notes_match_ordinary_planning() {
         let resources: Value=serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
         for (a,m) in [
             (include_str!("../../tests/fixtures/plate.analysis.json"),include_str!("../../tests/fixtures/plate.mesh.json")),
@@ -162,9 +162,9 @@ mod flip_tests {
             let a: Value=serde_json::from_str(a).unwrap();let m: Value=serde_json::from_str(m).unwrap();
             let ordinary=capp::plan::plan(&a,Some(&m),&Default::default()).unwrap();
             let ordinary=process_planned(&a,&m,&resources,ordinary,vec![]).unwrap();
-            for choice in [None,Some("none")] {
-                let mut t=resources.clone();
-                if let Some(choice)=choice {t["overrides"]["workholding_option"]=json!(choice);}
+            let mut legacy=resources.clone();legacy["overrides"]["workholding_option"]=json!("none");
+            let mut supplied=resources.clone();supplied["decisions"]=json!([{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"ordinary parity check"}]);
+            for t in [legacy,supplied] {
                 let out=process(&a,&m,&t).unwrap();
                 assert!(out["error"].is_null(),"{}",out["error"]);
                 assert_eq!(out["programs"],ordinary["programs"]);

@@ -74,11 +74,8 @@
      "description": "The material the part is cut from, in place of Specify's part.material."
     },
     "workholding_option": {
-     "enum": [
-      "none",
-      "vise_flip_face"
-     ],
-     "description": "Explicit workholding selection. Absent or none retains ordinary planning; vise_flip_face requests the flip option subject to its availability and checks. Choosing rules belong to #94."
+     "enum": ["none", "vise_flip_face"],
+     "description": "Legacy supplied user choice for setup.workholding: none requests vise_ordinary; vise_flip_face requests that candidate. Absent uses the default choosing rule. Explicit resources.decisions takes precedence; unavailable choices are refused."
     },
     "clamping": {
      "type": "object",

@@ -4,11 +4,24 @@
  "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
  "rules": [
   {
+   "id": "setup.workholding",
+   "version": 1,
+   "stage": "setup",
+   "rationale": "Compare independently planned and simulated available candidates in order: finishes the part; fewest distinct features left out; fewest setups; least extra stock thickness; shortest estimated machining time. Stable candidate order breaks exact ties. Finished means the holding route releases the outline and grip stock with no grip/travel omissions or failed execution checks; missing-tool operations do not change this status and each candidate reports its own tools_needed descriptions, features and operations. Unrelated unsupported details remain listed and ranked as features left out; it is not a dimensional or holding-force proof. Vise candidates require a dimensioned vise in the first mill. Fixture plate is withheld: screw-head/tool clearance, supported seating and transfer of residual stock are not implemented; no simulated plate holding is claimed. For unavailable-row eligibility only, step2cam judgement requires two unthreaded Z-axis through holes of 3.2–9 mm diameter spread at least 25% of the XY bounding-box diagonal; otherwise report no suitable through holes. No new machine workholding kind is introduced until this can be validated. Margins and tabs await #87.",
+   "code": "candidates.rs; rust/src/workholding.rs",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "ref": "Judgement: lexicographic choosing policy approved in #94; full comparison uses the same motion length/feed time estimate as the page, excluding setup and tool-change labour."
+    }
+   ]
+  },
+  {
    "id": "setup.flip_face",
    "warning_label": "flip-and-face setup",
    "version": 3,
    "stage": "setup",
-   "rationale": "Explicitly selected vise flip option (overrides.workholding_option): trace availability separately without choosing an option; choosing rules belong to #94. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
+   "rationale": "Vise flip candidate: trace availability separately; setup.workholding chooses among simulated candidates. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
    "code": "flip.rs; workholding.rs; clamping_history.rs",
    "data": ["rules/workholding.json"],
    "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."}]
