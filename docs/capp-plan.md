@@ -131,7 +131,7 @@ Both vise options require positive finite jaw width, height and opening on the f
 mill's first listed vise. Vise options are omitted when these are missing. Unavailable
 flip candidates carry the actual availability or execution failure reason. Only available
 routes are simulated. If none are available, `chosen` is null and the legacy plan is
-retained for review with an explicit trace warning that holding is not validated.
+retained for review with an explicit trace explanation that holding is not validated.
 
 Fixture-plate holding is withheld even on parts with through holes: screw-head/tool
 clearance, supported seating and residual stock transfer across the flip cannot yet

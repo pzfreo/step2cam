@@ -138,7 +138,7 @@ fn consequences(
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let mut run_library = library.clone();
     // The candidate decision is checked after all runs, not refused by per-operation finish.
-    if let Some(ds) = run_library["decisions"].as_array_mut() {
+    if let Some(ds) = run_library.get_mut("decisions").and_then(Value::as_array_mut) {
         ds.retain(|s| {
             !s["rule"]
                 .as_str()
