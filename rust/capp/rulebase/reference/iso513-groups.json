@@ -7,7 +7,8 @@
   "standard": "ISO 513",
   "obtained_from": [
    "https://secotools.com/article/120339",
-   "https://www.mmc-carbide.com/permanent/courses/78/classification.html"
+   "https://www.mmc-carbide.com/permanent/courses/78/classification.html",
+   "https://www.hydro.com/globalassets/08-about-hydro/hydro-worldwide/germany/extrusion-germany/alloy-data-sheets/hydro-en-aw-6082.pdf"
   ],
   "agreement": "both give the six groups and what each holds (read 2026-11-07)",
   "checked_against_standard": false
@@ -21,7 +22,7 @@
   "H": "hardened steel and chilled cast iron"
  },
  "placing": {
-  "_comment": "A stand-in until specify-core gives the material's family (step2cam docs/upstream-needs.md, S2): specify-core's answer is the material's name (part.material), so its words are matched. The name is split into lower-case words; an entry matches when one of its words, or phrases of words, appears whole. A name with a word in `never` (a printing process, or no material) gets no group; otherwise the first entry that matches places it. Tool steel goes in P, as supplied; hardened it is H, which the name does not say. A name nothing matches gets no group, and the tools' own cutting data are used.",
+  "_comment": "A stand-in until specify-core gives the material's family (step2cam docs/upstream-needs.md, S2): specify-core's answer is the material's name (part.material), so its words are matched. The name is split into lower-case words; an entry matches when one of its words, or phrases of words, appears whole. A name with a word in `never` (a printing process, or no material) gets no group; otherwise the first entry that matches places it. Tool steel goes in P, as supplied; hardened it is H, which the name does not say. A name nothing matches gets no group, and the tools' own cutting data are used. Alloy 6082 (including 6082-T6) is explicitly aluminium from Hydro’s EN AW-6082 datasheet; other unqualified alloy numbers remain unknown.",
   "never": [
    "fdm",
    "sla",
@@ -72,6 +73,7 @@
     [
      "aluminium",
      "aluminum",
+     "6082",
      "brass",
      "copper",
      "bronze",

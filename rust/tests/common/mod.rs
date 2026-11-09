@@ -128,3 +128,11 @@ pub fn finished(plan: &Value, library: &Value) -> Value {
     capp::finish(&mut plan, library, &[]).unwrap();
     plan
 }
+
+pub fn example_tap(major: f64, pitch: f64, chamfer: f64) -> Value {
+    json!({"id":"tap", "type":"tap", "number":20, "diameter":major, "pitch":pitch,
+        "tap_type":"cut", "chamfer_form":"bottoming", "chamfer_pitches":chamfer,
+        "thread_length":20, "shank_diameter":6, "overall_length":70, "stickout":25,
+        "holder_length":30, "holder_diameter":20, "spindle_rpm":700, "coolant":"flood",
+        "flute_style":"spiral_flute"})
+}

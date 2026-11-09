@@ -261,7 +261,8 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
   answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
   Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
   (`rulebase/reference/full-thread.json`).
-- **How:** milled with a single-profile thread mill to the thread's major diameter, after the
+- **How:** tapped when a matching M3–M6 tap is available in ISO 513 group N material,
+  otherwise milled with a single-profile thread mill to the thread's major diameter, after the
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
   otherwise the thread is left out and the log says why. Check the fit with a plug gauge or
   a screw before taking the part off the machine.
@@ -273,8 +274,22 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
 - **Threads written by other CAD tools:** these state no size in the file, so they are a
   warning and are not cut. Answer the hole in Specify to have it threaded.
 
-Thread milling is used, not tapping, because it is safer on a machine that is not proven:
-a thread mill takes a light cut, and does not snap off in the hole if something is wrong.
+Tap selection checks the model pre-drill, pitch, hand, chamfer, bottom clearance and reach.
+The M3–M6 / ISO N preference is step2cam judgement, traced as `tool.thread.tap_or_mill`;
+without taps the thread-mill plan is unchanged. Cut-tap drills use ISO 2306 Table 1
+values checked in the published preview (D − P check); form-tap drills use Tapmatic’s formula at 65% thread, explicitly
+not checked against a standard. See [tap references](rust/capp/rulebase/reference/tap-drills.json).
+A blind tap tip extends below full thread by `chamfer_pitches × pitch`, with one more pitch
+of drilled clearance. Through tapping adds the required drilling travel and conservative
+simulated backing below the exit to satisfy camlib’s stock bounds; obstructed exits are checked
+again against the actual drilled floor. Through thread operations retain their measured
+exit clearance; insufficient room for the tap, bottom clearance and drill point selects
+thread milling at plan time. Supplied plan `hand: "left"` is honored by both tapping and
+thread milling; Specify LH designations are not parsed yet. Other operations and the comparison base retain
+exactly the real stock bottom; the stock/part comparison clips out simulated backing.
+The tapping note gives tap-tip and drill-tip travel below the part so parallels stay clear.
+Tapping retains the normal stock/part target:
+camlib represents it at the pre-drill diameter and leaves the thread flanks in the stock.
 
 ## The tool library
 
@@ -317,11 +332,17 @@ on purpose.
   M6 that moves there). camlib plans every new tool's first move down from there and checks
   it; a post must start from the same position, so the program and the plan agree. By default it is over X0 Y0, at the clearance height
   plus the longest gauge length, so every tool's tip is above the clearance height.
-- `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `thread_mill` or `chamfer_mill`), `number`,
+- `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `spot_drill`, `tap`, `thread_mill` or `chamfer_mill`), `number`,
   `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
-  `feed_mm_min`, `spindle_rpm` and `coolant`. Also, by type:
+  `spindle_rpm` and `coolant`; tools other than taps also need `feed_mm_min`. By type:
   - **End mills:** `flute_length`, `plunge_mm_min`, `stepdown_mm` and `stepover_mm`.
   - **Drills:** `flute_length` and `point_angle`.
+  - **Taps:** `diameter` is nominal thread diameter; also require `pitch`, `tap_type`
+    (`cut` or `form`), `chamfer_form` (e.g. bottoming/plug), `chamfer_pitches` (maximum
+    incomplete lead), `thread_length` and `shank_diameter`. `hand` defaults to `right`.
+    Optional `flute_style`: `straight`, `spiral_flute`, or `spiral_point` (through only).
+    Supply `spindle_rpm`, including optional group cutting data; omit `feed_mm_min`:
+    rigid tapping derives feed as pitch × rpm. Reach includes chamfer and stock above the hole.
   - **Thread mills:** single-profile. `diameter` is the tooth's, so they also need
     `tooth_height`, `neck_diameter` (narrower than the tooth), `neck_length` and
     `plunge_mm_min`.
@@ -427,7 +448,7 @@ first run.**
 
 Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for flats and walls the
 roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, counterbores at the far end
-of through holes, tapping, left-hand, inch and external threads, contouring with tabs, fixtures and
+of through holes, left-hand Specify answers, inch and external threads, contouring with tabs, fixtures and
 avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work, more than
 one machine (`docs/capp-plan.md`, Planned), fits (reaming).
 
