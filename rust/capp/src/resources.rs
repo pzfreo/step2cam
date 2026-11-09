@@ -67,6 +67,15 @@ pub const TIP_CLEARANCE: f64 = 0.5;
 pub const DRILLING_TOLERANCE: f64 = 1e-5;
 /// Include 1 nm for roundoff when camlib subtracts its guard from the flute length.
 pub const DRILLING_GUARD: f64 = 16. * DRILLING_TOLERANCE + 1e-6;
+/// Clearance kept between a through drill tip and part material beyond the exit.
+pub const EXIT_MARGIN: f64 = 0.2;
+
+/// Full-diameter travel beyond the exit needed to cover the tap lead, camlib's
+/// one-pitch bottom clearance, and the same numerical guard in plan and job.
+pub fn tap_through_travel(tool: &Value, pitch: f64) -> Result<f64, String> {
+    Ok((num(tool, "chamfer_pitches")? + 1.) * pitch + DRILLING_GUARD)
+}
+
 
 /// Point height of the conical drill shape the job passes to camlib.
 pub fn drill_tip_length(tool: &Value) -> Result<f64, String> {
@@ -307,6 +316,17 @@ impl<'a> Library<'a> {
         Ok(floor)
     }
 
+    /// Full-diameter space past a through exit after allowing for the selected
+    /// pre-drill's point and the job's exit margin. A bored hole has no drill point.
+    pub(crate) fn tap_exit_room(&self, op: &Value, top: f64) -> Result<Option<f64>, String> {
+        if op["through"] != true { return Ok(None); }
+        let Some(clear) = op["exit_clear_mm"].as_f64() else { return Ok(None); };
+        let diameter = num(op, "start_diameter")?;
+        let depth = top - num(op, "bottom_z")? + self.breakthrough.max(0.);
+        let point = self.drill(diameter, depth).map(drill_tip_length).transpose()?.unwrap_or(0.);
+        Ok(Some((clear - EXIT_MARGIN).max(0.) - point))
+    }
+
     /// Process rule tool.thread.tap_or_mill; first qualifying tap in library order.
     pub fn tap(&self, op: &Value, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Value>), String> {
         let mut chosen = None;
@@ -341,6 +361,9 @@ impl<'a> Library<'a> {
                 Some(format!("wrong pre-drill: {} tap requires ⌀{drill:.2} ±{tol} mm; model hole is ⌀{start} mm", tool["tap_type"].as_str().unwrap()))
             } else if op["through"] != true && tool["flute_style"] == "spiral_point" {
                 Some("spiral point pushes chips ahead: through holes only".into())
+            } else if let Some(room) = self.tap_exit_room(op, top)?
+                && tap_through_travel(tool, pitch)? > room + 1e-9 {
+                Some(format!("through tapping needs {:.6} mm full-diameter travel beyond the exit (chamfer + one pitch + numerical guard); available {room:.6} mm after the exit margin and drill point", tap_through_travel(tool, pitch)?))
             } else if op["through"] != true && tip - pitch < open_z - 1e-9 {
                 Some(format!("full thread {:.2} mm + chamfer {:.2} mm + bottom clearance {pitch:.2} mm requires {:.2} mm; drilled full diameter is {:.2} mm", num(op, "top_z")? - num(op, "bottom_z")?, num(tool, "chamfer_pitches")? * pitch, num(op, "top_z")? - tip + pitch, num(op, "top_z")? - open_z))
             } else if num(tool, "thread_length")? < top - tip + DRILLING_GUARD || num(tool, "stickout")? < top - tip + DRILLING_GUARD {

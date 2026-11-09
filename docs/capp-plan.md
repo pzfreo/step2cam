@@ -389,7 +389,12 @@ N material; the size/material cutoff is step2cam judgement, informed by
 The library `tap` needs nominal `diameter`, `pitch`, `tap_type` (`cut`/`form`),
 `chamfer_form`, maximum `chamfer_pitches`, `thread_length`, `shank_diameter`, mounted
 lengths/holder and spindle rpm. Hand defaults right; no independent feed is accepted.
-Spiral-point flutes are through-only. OAL and DCONMS aliases have the same dimension
+Spiral-point flutes are through-only. Supplied thread operations may set `hand: "left"`;
+camlib then mills internal climb threads CCW from top to bottom. Specify LH designations
+are not parsed yet. Through threads carry `exit_clear_mm` from the hole and group separately
+when exit clearances differ. Tap selection compares the shared `(chamfer_pitches + 1) ×
+pitch + guard` travel with that clearance after allowing for the drill point and exit margin;
+insufficient room selects a thread mill instead of dropping the thread in the job. OAL and DCONMS aliases have the same dimension
 conventions as other tools; thread/lead properties remain unmapped.
 
 [`tap-drills.json`](../rust/capp/rulebase/reference/tap-drills.json) holds the cut drill

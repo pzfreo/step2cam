@@ -282,7 +282,10 @@ not checked against a standard. See [tap references](rust/capp/rulebase/referenc
 A blind tap tip extends below full thread by `chamfer_pitches × pitch`, with one more pitch
 of drilled clearance. Through tapping adds the required drilling travel and conservative
 simulated backing below the exit to satisfy camlib’s stock bounds; obstructed exits are checked
-again against the actual drilled floor. Other operations and the comparison base retain
+again against the actual drilled floor. Through thread operations retain their measured
+exit clearance; insufficient room for the tap, bottom clearance and drill point selects
+thread milling at plan time. Supplied plan `hand: "left"` is honored by both tapping and
+thread milling; Specify LH designations are not parsed yet. Other operations and the comparison base retain
 exactly the real stock bottom; the stock/part comparison clips out simulated backing.
 The tapping note gives tap-tip and drill-tip travel below the part so parallels stay clear.
 Tapping retains the normal stock/part target:

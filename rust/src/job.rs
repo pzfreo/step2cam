@@ -2,12 +2,10 @@
 //! library -> camlib jobs, how each tool cuts and how deep. A job is camlib's manifest, plain
 //! JSON, one per setup.
 use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, drill_tip_length, id, num};
+use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
-/// Kept between a drill tip and material found beyond a through hole's exit (mm).
-const EXIT_MARGIN: f64 = 0.2;
 /// Twice a triangle's area (mm²) at or below which camlib's surface mesh calls it degenerate, at
 /// the tolerance of 1e-5 mm that the job gives it.
 const NO_AREA: f64 = 1e-10;
@@ -310,7 +308,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let mut tap_travel: HashMap<String, f64> = HashMap::new();
         for op in setup["operations"].as_array().into_iter().flatten().filter(|o| o["kind"] == "thread" && o["through"] == true) {
             if let Some(tap) = tools.iter().find(|t| t["id"] == op["tool"] && t["type"] == "tap") {
-                let extra = (num(tap, "chamfer_pitches")? + 1.) * num(op, "pitch")? + capp::resources::DRILLING_GUARD;
+                let extra = tap_through_travel(tap, num(op, "pitch")?)?;
                 for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
                     tap_travel.insert(feature.to_owned(), extra);
                 }
@@ -537,16 +535,20 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         spec = mill;
                         let mill_cut = cutting_data(mill, op);
                         let mill = &mill_cut;
+                        // camlib retains CCW internal climb milling and reverses Z feed
+                        // for a left-hand helix (top-down instead of bottom-up).
+                        let right_hand = op["hand"] != "left";
+                        let hand = if right_hand { "right" } else { "left" };
                         let mut out = json!({
                             "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
-                            "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": true, "climb": true,
+                            "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": right_hand, "climb": true,
                             "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
                             "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
                             "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
                             "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
                         });
                         cutting(&mut out, mill, true)?;
-                        notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, right hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
+                        notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, {hand} hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
                         out
                     }
                 }

@@ -271,3 +271,94 @@ fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() 
     }
     assert!(compared >= 6, "must compare the unrelated bores and the rest of the job");
 }
+
+#[test]
+fn review_left_hand_fallback_mills_the_requested_helix() {
+    let library = tools(example_tap(5., 0.8, 2.)); // right-hand tap only
+    let mut p = plan("plate-m5.analysis.json");
+    for setup in p["setups"].as_array_mut().unwrap() {
+        for op in setup["operations"].as_array_mut().unwrap().iter_mut().filter(|o| o["kind"] == "thread") {
+            op["hand"] = json!("left");
+        }
+    }
+    let settled = finished(&p, &library);
+    assert_eq!(thread(&settled)["tool"], "tm3");
+    assert!(decisions(&settled).contains("thread hand does not match"));
+    let (jobs, _) = step2cam::job::jobs(&settled, &library).unwrap();
+    let job = &jobs[0];
+    let op = list(&job.manifest["operations"]).iter().find(|o| o["kind"] == "thread_mill").unwrap();
+    assert_eq!(op["right_hand"], false);
+    assert_eq!(op["climb"], true);
+    assert!(any_note(&job.notes, "pitch 0.8, left hand"));
+    let run = step2cam::simulate::simulate_job(job).unwrap();
+    let helices: Vec<_> = run.moves.iter().filter(|m| m.op == op["id"] && m.curve == "helix").collect();
+    assert!(!helices.is_empty());
+    let center = &op["centers_mm"][0];
+    for helix in helices {
+        let dz = helix.points.last().unwrap()[2] - helix.points[0][2];
+        assert!(dz < 0., "left-hand internal climb milling must descend");
+        let angle: f64 = helix.points.windows(2).map(|pair| {
+            let xy = |p: [f64; 3]| [p[0] - number(&center[0]), p[1] - number(&center[1])];
+            let (a, b) = (xy(pair[0]), xy(pair[1]));
+            (a[0] * b[1] - a[1] * b[0]).atan2(a[0] * b[0] + a[1] * b[1])
+        }).sum();
+        assert!(angle > 0., "internal climb milling must remain counter-clockwise");
+        assert!((dz / angle + 0.8 / std::f64::consts::TAU).abs() < 1e-4, "wrong helix pitch/hand");
+    }
+}
+
+#[test]
+fn review_limited_exit_selects_milling_before_the_job_is_built() {
+    let library = tools(example_tap(5., 0.8, 2.));
+    for clearance in [2., 3., 4.] {
+        // One M5 breaks into a cavity; an otherwise identical second hole has a clear exit.
+        let mut a = tapped(json!({"hole.function:holes:0":"tapped:M5", "hole.function:holes:1":"tapped:M5", "part.material":"Aluminium"}),
+            holes_only(&[down(0., 0., 4.2, 6., "through"), down(10., 0., 4.2, 6., "through")]));
+        a["features"][0]["faces"] = json!([1]);
+        a["features"][1]["faces"] = json!([2]);
+        let mesh = mesh_of(&square(-6. - clearance, 3., 0., 0.), BOX);
+        let p = capp::plan::plan(&a, Some(&mesh), &top_stock(0.)).unwrap();
+        let threads: Vec<_> = list(&p["setups"][0]["operations"]).iter().filter(|o| o["kind"] == "thread").collect();
+        assert_eq!(threads.len(), 2, "different exit clearances must not merge");
+        let limited = threads.iter().find(|o| o["features"] == json!(["holes:0"])).unwrap();
+        assert_eq!(limited["exit_clear_mm"], clearance, "copy the measured hole exit clearance");
+        let settled = finished(&p, &library);
+        let ops = list(&settled["setups"][0]["operations"]);
+        let limited = ops.iter().find(|o| o["kind"] == "thread" && o["features"] == json!(["holes:0"])).unwrap();
+        let clear = ops.iter().find(|o| o["kind"] == "thread" && o["features"] == json!(["holes:1"])).unwrap();
+        assert_eq!(limited["tool"], if clearance < 4. { "tm3" } else { "tap" });
+        assert_eq!(clear["tool"], "tap");
+        if clearance < 4. {
+            let trace = decisions(&settled);
+            assert!(trace.contains("through tapping needs 2.400161 mm"), "{trace}");
+            assert!(trace.contains("drill point"), "{trace}");
+        }
+        let (jobs, _) = step2cam::job::jobs(&settled, &library).unwrap();
+        let job = &jobs[0];
+        let output = list(&job.manifest["operations"]);
+        let milled = output.iter().find(|o| o["kind"] == "thread_mill");
+        if clearance < 4. {
+            assert_eq!(milled.unwrap()["centers_mm"], limited["centers"]);
+        } else { assert!(milled.is_none()); }
+        assert_eq!(output.iter().filter(|o| o["kind"] == "tapping").count(), if clearance < 4. { 1 } else { 2 });
+        assert!(!any_note(&job.notes, "not tapped"));
+        if clearance < 4. {
+            let mut no_mill = library.clone();
+            no_mill["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "thread_mill");
+            let missing = finished(&p, &no_mill);
+            let limited = list(&missing["setups"][0]["operations"]).iter().find(|o| o["kind"] == "thread" && o["features"] == json!(["holes:0"])).unwrap();
+            let note = limited["tool_note"].as_str().unwrap();
+            if clearance == 2. { assert!(!note.contains("cut tap"), "no lead fits: {note}"); }
+            else { assert!(note.contains("chamfer of at most 0.73 mm (0.91 pitches) for the exit clearance"), "{note}"); }
+        }
+        let validator = jsonschema::validator_for(&fixture("../../schemas/plan-1.schema.json")).unwrap();
+        assert!(validator.is_valid(&settled), "{:?}", validator.iter_errors(&settled).collect::<Vec<_>>());
+        let run = step2cam::simulate::simulate_job(job).unwrap();
+        if let Some(milled) = milled {
+            assert!(run.operations.iter().any(|o| o.id == milled["id"]));
+            assert!(run.moves.iter().any(|m| m.op == milled["id"] && m.curve == "helix"));
+        } else {
+            assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 4);
+        }
+    }
+}

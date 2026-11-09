@@ -62,7 +62,12 @@ pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library
                     let tap = format!("an M{}×{} cut tap (⌀{} tap drill)", number(major), number(pitch), number(drill));
                     let reach = top - bottom + crate::resources::DRILLING_GUARD;
                     if op["through"] == true {
-                        format!("{tap} with thread length at least {} mm plus its chamfer, or {query}", number(crate::rules::up2(reach)))
+                        let maximum = library.tap_exit_room(op, top)?.map(|room| crate::rules::down2(room - pitch - crate::resources::DRILLING_GUARD));
+                        match maximum {
+                            Some(chamfer) if chamfer <= 0. => query,
+                            Some(chamfer) => format!("{tap} with thread length at least {} mm plus its chamfer, and a chamfer of at most {} mm ({} pitches) for the exit clearance, or {query}", number(crate::rules::up2(reach)), number(chamfer), number(crate::rules::down2(chamfer / pitch))),
+                            None => format!("{tap} with thread length at least {} mm plus its chamfer, or {query}", number(crate::rules::up2(reach))),
+                        }
                     } else {
                         let open_z = library.thread_open_z(op, setup, top)?;
                         let chamfer = crate::rules::down2(bottom - open_z - pitch);
