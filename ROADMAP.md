@@ -8,7 +8,7 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Done
 
 - #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
-  benchmark (`tools/benchmark`); #46 camlib at its main (5d78021).
+  benchmark (`tools/benchmark`); #46 camlib at its main (df75918).
 - Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (cap retained;
   camlib #122 fixed); #35 the tool a left-out feature needs; #34 drills that reach, pecks
   by depth over diameter (deep-hole drilling warned, not planned); #51 ISO 13399 field names.
@@ -23,7 +23,8 @@ order favours what makes the plans correct and honest before what makes them fas
   sourced common tool set; #58 supplied decisions (tool and clamping choices from a person or
   an agent, checked and traced with their source).
 - #111 in part: pocket and drill reach judged by camlib, its refusal relayed in plain words
-  with the tool that would do (a holder verdict *waits on* stevecad/camlib#129).
+  with the tool that would do; typed reach refusals and local stock-contact obstruction data
+  give the holder/shank/neck verdict (#129, camlib #144).
 - The page: #96 a machine menu (Carvera, Haas VF-2, generic machining centre); #99 a phone
   layout with a menu and bottom tabs; #102 a compact feature list; #104 the two linked 3D views
   side by side above one tabbed panel; #106 features in columns; #110 the Plan tab as a list
@@ -64,11 +65,12 @@ dog-bone relief if the design allows), and the ⌀3.3 holes 6 × D deep drilled 
 
 Done (above). What is left from it:
 
-1. camlib bump to main (5d78021), with fixes for camlib #122 and #123: done. #36's roughing
+1. camlib bump to main (df75918), with fixes for camlib #122 and #123: done. #36's roughing
    cap stays until camlib can prove shank clearance inside a pocket it has already cleared;
    relaxing the cap still caused roughing refusals in the deep-part experiment.
-2. #111's holder verdict ("the holder hits the upright"), once stevecad/camlib#129 lets camlib
-   judge the whole tool assembly.
+2. #111's holder verdict: done for independent operations. Camlib judges the assembly against
+   remaining stock; after roughing exposes a pocket mouth, its local top can be admitted by
+   camlib. Features with no operation of their own still depend on roughing.
 3. #115's remainder: record the tools considered for flats, spot drills and wall finishing, so
    Tool choice can show the alternatives for every operation.
 4. Deep-hole drilling (pilot plus deep-hole drill).
@@ -141,8 +143,8 @@ needs is in.
 
 - camlib: fixed on its main: #122 (roughing layer depth), #123 (roughing refused since #104),
   #64 (which mesh check failed), #66 (undercut-neck clearance); being worked on there: #120
-  (post G-code from Rust), #121 (start from given stock), #129 (reach judged by the whole tool
-  assembly, with typed refusals); and our comment on #23 (engagement-based feeds).
+  (post G-code from Rust), #121 (start from given stock); #129 is fixed (whole-tool reach
+  and typed refusals); and our comment on #23 (engagement-based feeds).
 - specify-core: `docs/upstream-needs.md` (a schema for the analysis, the material's family);
   #162 (a finer mesh, and dimensioning for parts with no planar face); #163 (a pocket with a
   floor fillet recognised as a slot).

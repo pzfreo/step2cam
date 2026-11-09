@@ -98,7 +98,7 @@ fn non_tool_refusals_and_stepdown_do_not_name_a_tool() {
 fn refused_roughing_passes_its_tool_query_to_covered_features() {
     let mut plan = simple(json!([{"kind":"roughing", "top_z":0, "floor_z":-131.7, "features":[]}]));
     plan["covered_by_roughing"] = json!(["pockets:0", "pockets:1"]);
-    capp::finish(&mut plan, &library(), &[json!({"operation":"top-1-roughing", "message":"invalid pocket parameters: pocket depth 131.7 exceeds the cutting length 75"})]).unwrap();
+    capp::finish(&mut plan, &library(), &[json!({"operation":"top-1-roughing", "message":"invalid pocket parameters: pocket depth 131.7 exceeds the cutting length 75", "reach":{"limit":"cutting_length","depth_needed_mm":131.7,"depth_available_mm":75.,"top_z_mm":0.}})]).unwrap();
     assert_eq!(plan["tools_needed"], json!([{"description":"an end mill with flutes of at least 132 mm", "features":["pockets:0", "pockets:1"], "operations":["top-1-roughing"]} ]));
     assert_eq!(plan["skipped"][0]["reason"], "no operation of its own, and roughing was refused: needs an end mill with flutes of at least 132 mm");
 }
@@ -114,7 +114,7 @@ fn v_channel_and_chamfer_reach_refusals_name_suitable_bits() {
          "a 90° chamfer mill with (diameter - tip diameter) / 2 at least 1.00 mm, with zero tip diameter and flutes of at least 4 mm"),
     ] {
         let mut plan = simple(json!([op]));
-        capp::finish(&mut plan, &library(), &[json!({"operation":operation, "message":reason})]).unwrap();
+        capp::finish(&mut plan, &library(), &[json!({"operation":operation, "message":reason, "reach":{"limit":"cutting_length","depth_needed_mm":if operation.ends_with("v_channel") {20.1} else {3.},"top_z_mm":0.}})]).unwrap();
         assert_eq!(plan["tools_needed"][0]["description"], expected);
         assert!(plan["skipped"][0]["reason"].as_str().unwrap().ends_with(&format!(": needs {expected}")));
     }

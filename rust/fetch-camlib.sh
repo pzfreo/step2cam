@@ -1,7 +1,7 @@
 #!/bin/sh
 # camlib at the pinned commit: it is not published.
 set -eu
-COMMIT=5d78021b1635bd0bb8479b66d933b25c4662c42a
+COMMIT=df759184ee8d8cedf2fcf5044476cc1edb900166
 cd "$(dirname "$0")/.."
 if [ "$(git -C vendor/camlib rev-parse HEAD 2>/dev/null)" = "$COMMIT" ]; then
     exit 0
