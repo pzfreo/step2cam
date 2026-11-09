@@ -45,3 +45,9 @@ Write the mesh with the specify-core WebAssembly release the site ships (`SPECIF
 
 The plain geometry of the specify-core and Thompson Labs parts is in those projects;
 `stepped_plate.py` writes the stepped plates' again.
+
+`placeholder-tools.json` is a verbatim snapshot of `demo/tools.json` before issue #88
+(origin/main at 8ead00b). Generic planner tests retain these deliberately generous
+placeholder tools and their assertions independently of the real demo inventory.
+Machine-specific tests and library/schema compatibility tests still read the
+shipped libraries.

@@ -15,7 +15,7 @@ makes it hard:
 - **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
   rigidity. Its rules are simple, and "the largest tool that fits" is often not what a machinist
   would choose.
-- **Real cutting data:** every feed, speed and tool in the demo is a placeholder.
+- **Calculated cutting data:** the demo now cites Makera aluminium presets; material/tool physics and calculated cutting data remain #38.
 - **Real parts:** interacting features, drafts and freeform shapes break its recognition and
   planning. The samples are friendly.
 
@@ -105,7 +105,7 @@ It runs entirely in your browser, so your file is not uploaded: `specify-core`'s
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
 toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
 (`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`):
-**placeholder tools and cutting data, not for a real machine.** An operation camlib refuses, or that no tool fits, is left out and reported.
+The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic library retains placeholders. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 
@@ -295,7 +295,7 @@ trace records availability separately from selection, and explains any unavailab
 selection or fallback. Other values are rejected. Choosing rules between workholding
 options belong to #94; see [the CAPP planning documentation](docs/capp-plan.md).
 
-**Every number in it is a placeholder.** camlib has no defaults for cutting data or machines,
+The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
 on purpose.
 
 - There is no controller here: step2cam writes no G-code. `rapid_mm_min` is only for the page's

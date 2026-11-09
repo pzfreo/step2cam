@@ -20,11 +20,18 @@ fn ops(plan: &Value) -> Vec<&Value> {
     plan["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).collect()
 }
 
-/// The Carvera holds shanks up to 1/4": the larger tools are never chosen, and the trace says
+/// The default Carvera collet holds 1/8 inch shanks: larger tools are never chosen, and the trace says
 /// why each was left out.
 #[test]
 fn the_carvera_uses_only_tools_its_collet_holds() {
-    let library = read("demo/tools.json");
+    let mut library = read("demo/tools.json");
+    // Deliberately offer an oversized tool to retain the rejection/trace regression.
+    let mut oversized = library["tools"][0].clone();
+    oversized["id"] = json!("em12");
+    oversized["diameter"] = json!(12);
+    oversized["shank_diameter"] = json!(12);
+    oversized["holder_diameter"] = json!(16);
+    library["tools"].as_array_mut().unwrap().push(oversized);
     let plan = finished("synthetic/stepped-plate", &library);
     let shank = |id: &str| {
         let t = library["tools"].as_array().unwrap().iter().find(|t| t["id"] == id).unwrap();
@@ -32,7 +39,7 @@ fn the_carvera_uses_only_tools_its_collet_holds() {
     };
     let used: Vec<&str> = ops(&plan).iter().filter_map(|o| o["tool"].as_str()).collect();
     assert!(!used.is_empty());
-    assert!(used.iter().all(|id| shank(id) <= 6.35), "{used:?}");
+    assert!(used.iter().all(|id| shank(id) <= 3.175), "{used:?}");
     let left_out = decisions(&plan, "machine.spindle.tool_size@");
     assert!(left_out.iter().any(|d| d["subject"] == "em12"), "{left_out:?}");
     assert!(plan["setups"].as_array().unwrap().iter().all(|s| s["machine"] == "carvera"));
@@ -43,8 +50,8 @@ fn the_carvera_uses_only_tools_its_collet_holds() {
 #[test]
 fn the_carvera_caps_the_spindle_speed() {
     let mut library = read("demo/tools.json");
-    // em6 asks for more than the spindle gives.
-    let em6 = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em6").unwrap();
+    // em3.175 asks for more than the spindle gives.
+    let em6 = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3.175").unwrap();
     em6["spindle_rpm"] = json!(20000);
     let plan = finished("synthetic/stepped-plate", &library);
     for op in ops(&plan) {
@@ -54,7 +61,7 @@ fn the_carvera_caps_the_spindle_speed() {
     }
     let all = ops(&plan);
     let capped: Vec<&&Value> = all.iter().filter(|o| o["technology"]["capped"] == true).collect();
-    assert!(!capped.is_empty(), "em6 is capped");
+    assert!(!capped.is_empty(), "em3.175 is capped");
     if let Some(op) = capped.first() {
         let tool = library["tools"].as_array().unwrap().iter().find(|t| t["id"] == op["tool"]).unwrap();
         let k = 15000. / tool["spindle_rpm"].as_f64().unwrap();
@@ -67,7 +74,7 @@ fn the_carvera_caps_the_spindle_speed() {
 /// A setup that needs more tools than the changer's 6 pockets is flagged.
 #[test]
 fn more_tools_than_pockets_is_flagged() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["machines"][0]["tool_changer"]["pockets"] = json!(2);
     let plan = finished("synthetic/stepped-plate", &library);
     assert!(plan["warnings"].to_string().contains("the changer holds 2"), "{}", plan["warnings"]);
@@ -76,7 +83,7 @@ fn more_tools_than_pockets_is_flagged() {
 /// A mill too small for the stock does not cut that setup, and says why for every feature.
 #[test]
 fn stock_larger_than_the_travel_is_not_cut() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     let normal = finished("synthetic/stepped-plate", &library);
     let covered = normal["covered_by_roughing"].as_array().unwrap();
     assert!(!covered.is_empty(), "the normal plan must cover features by roughing");
@@ -100,7 +107,7 @@ fn stock_larger_than_the_travel_is_not_cut() {
 /// Losing one roughing setup must not invalidate coverage while another roughing survives.
 #[test]
 fn coverage_remains_when_another_setup_keeps_roughing() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library["machines"][0]["axes"]["travel_mm"] = json!({"x": 80, "y": 240, "z": 140});
     let setup = |id: &str, width: u32| json!({
         "id": id, "stock": {"min": [0, 0, 0], "max": [width, 50, 10]},
@@ -120,7 +127,7 @@ fn coverage_remains_when_another_setup_keeps_roughing() {
 /// With no machine described, nothing is checked, and the trace says so.
 #[test]
 fn without_a_machine_the_trace_says_nothing_was_checked() {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library.as_object_mut().unwrap().remove("machines");
     let plan = finished("plate", &library);
     let none = decisions(&plan, "machine.for_setup@");

@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "Tools, machine capabilities and shop policy for step2cam planning and camlib jobs. Real machine libraries live in libraries/; demo and example tooling remain placeholders. Optional controller names a camlib post for future use; step2cam currently writes no G-code.",
+ "description": "Tools, machine capabilities and shop policy for step2cam planning and camlib jobs. Real machine libraries live in libraries/ and demo/tools.json; example tooling remains placeholder. Optional controller names a camlib post for future use; step2cam currently writes no G-code.",
  "type": "object",
  "required": [
   "tools"
