@@ -644,9 +644,15 @@ Camlib alone decides tool contact and material acceptance.
 
 `process` adds two optional setup fields: `stock_note`, the actual initial-stock premise
 (or an explicit freed, part-sized block assumption with the carry refusal), and
-`before_setup`, a manual `break_out` instruction immediately before reclamping. Its
-`witness` records the source setup, bottom/top Z and approximate thickness at the bottom
-perimeter. The setup list and setup sheet display the instruction. Manual separation is
-not simulated: the next job retains the web and surrounding stock conservatively rather
-than pretending a manual cut was checked. The flip-and-face route removes its sacrificial
-stock by machining and does not receive a web break-out instruction.
+`before_setup`, a manual separation instruction immediately before reclamping. A `break_out`
+entry describes a thin web below the part bottom and its witness. A `cut_free` entry says
+that the part is not free, names the uncut wall band from the settled roughing floor, and
+requires cutting free (for example sawing) and finishing that band in a later setup.
+
+Before the part is free, the complete finished stock is carried. After the flip route's
+facing, or a declared manual separation, cells outside the source-frame part footprint
+expanded by one source cell are cleared to no material. Camlib's public height-field mesh
+builder rebuilds the closed mesh on that source grid. The receiving stock note declares:
+"the part is free; stock outside its footprint left with the frame". This is an explicit
+separation premise, not a simulated manual toolpath or an added machining plan.
+Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.

@@ -37,18 +37,19 @@ struct CompletedSetup {
 }
 
 fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>) -> Result<(), simulate::Failure> {
-    let (jobs, notes) = job::jobs(plan, library)?;
-    log.extend(notes);
-    let count = jobs.len();
-    let mut previous: Option<(Value, Result<camlib::stock_mesh::FinishedStock, String>)> = None;
     // Keep the original coordinate/stock descriptions while reporting the actual premise.
     let frames = plan["setups"].as_array().cloned().unwrap_or_default();
+    let plan_part = plan["part"].clone();
     for (index, setup) in plan["setups"].as_array_mut().into_iter().flatten().enumerate().skip(1) {
-        setup["stock_note"] = json!(setup_stock::assumption("this setup has no executable camlib job"));
-        if let Some(step) = setup_stock::breakout(&frames[index - 1]) {
+        setup.as_object_mut().unwrap().remove("stock_note");
+        if let Some(step) = setup_stock::breakout(&frames[index - 1], &plan_part) {
             setup["before_setup"] = step;
         }
     }
+    let (jobs, notes) = job::jobs(plan, library)?;
+    log.extend(notes);
+    let count = jobs.len();
+    let mut previous: Option<(Value, Result<camlib::stock_mesh::FinishedStock, String>, bool, bool)> = None;
     for (index, mut job) in jobs.into_iter().enumerate() {
         job.return_stock = index + 1 < count;
         let box_manifest = job.manifest.clone();
@@ -57,23 +58,27 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
         let setup_index = frames.iter().position(|s| s["id"] == job.setup).unwrap();
         if setup_index > 0 {
             let carried = match &previous {
-                Some((from, Ok(stock))) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, &plan["part"], library)),
-                Some((_, Err(reason))) => Err(reason.clone()),
+                Some((from, Ok(stock), _, _)) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, &plan["part"], library)),
+                Some((_, Err(reason), _, _)) => Err(reason.clone()),
                 None => Err("the previous setup returned no finished stock".into()),
             };
             let note = match carried {
                 Ok(mut adapted) => {
                     adapted.return_stock = job.return_stock;
                     job = adapted;
-                    format!("Starting stock carried from {}: {}", previous.as_ref().unwrap().0["id"].as_str().unwrap_or("previous setup"), camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION)
+                    let from = previous.as_ref().unwrap();
+                    setup_stock::carried_note(from.0["id"].as_str().unwrap_or("previous setup"), from.2, from.3)
                 }
                 Err(reason) => setup_stock::assumption(&reason),
             };
             plan["setups"][setup_index]["stock_note"] = json!(note);
         }
+        if setup_stock::released(frame, &plan_part) {
+            job.crop_stock_to = Some(setup_stock::part_bounds(&plan_part, frame)?);
+        }
         let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && (!job.return_stock || c.job.return_stock)) {
+        let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.crop_stock_to == job.crop_stock_to && (!job.return_stock || c.job.return_stock)) {
             job = saved.job.clone();
             if setup_index > 0 { plan["setups"][setup_index]["stock_note"] = saved.stock_note.clone(); }
             saved.run.clone()
@@ -96,18 +101,10 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
             if job.return_stock { cache.push(CompletedSetup { input, job: job.clone(), run: run.clone(), stock_note: plan["setups"][setup_index]["stock_note"].clone() }); }
             run
         };
-        if setup_index > 0 {
-            if job.manifest["stock"]["mesh"].is_object() {
-                plan["setups"][setup_index]["stock"] = json!({"min": job.manifest["stock"]["min_mm"], "max": job.manifest["stock"]["max_mm"]});
-            }
-            let note = plan["setups"][setup_index]["stock_note"].clone();
-            let stock = plan["setups"][setup_index]["stock"].clone();
-            for decision in plan["decisions"].as_array_mut().into_iter().flatten().filter(|d| d["subject"] == job.setup && d["rule"].as_str().is_some_and(|r| r.starts_with("setup.stock.part_box_with_margins@"))) {
-                decision["says"] = note.clone();
-                decision["chosen"]["stock"] = stock.clone();
-            }
+        if setup_index > 0 && job.manifest["stock"]["mesh"].is_object() {
+            plan["setups"][setup_index]["stock"] = json!({"min": job.manifest["stock"]["min_mm"], "max": job.manifest["stock"]["max_mm"]});
         }
-        previous = Some((frame.clone(), run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into()))));
+        previous = Some((frame.clone(), run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into())), job.crop_stock_to.is_some(), setup_index > 0 && job.manifest["stock"]["mesh"].is_null()));
         if run.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }

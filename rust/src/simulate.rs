@@ -219,7 +219,7 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(manifest_json, None, false)
+    simulate_with_stock_bottom(manifest_json, None, false, None)
 }
 
 /// Run an adapter job while excluding artificial through-tap backing from the
@@ -232,7 +232,7 @@ pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
 pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Failure> {
     let mut original_refusals = std::collections::HashMap::new();
     loop {
-        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock);
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to);
         let Err(failure) = result else { return result; };
         let reach = camlib::reach::ReachRefusal::parse(&failure.message);
         let operation = failure.operation.as_deref().unwrap_or("");
@@ -256,11 +256,20 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Fa
     }
 }
 
-fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool) -> Result<Run, Failure> {
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
+    manifest.validate()?;
     let binding = Binding::new(&manifest)?;
-    let mut producer = StreamProducer::new(manifest.clone()).map_err(|e| Failure::from(format!("initial stock: {e}")))?;
+    let mut producer = StreamProducer::new(manifest.clone()).map_err(|message| {
+        // Only a demonstrated mesh conversion failure permits the box fallback.
+        // Validation, identity and verifier errors keep their original meaning.
+        if matches!(manifest.stock, camlib::stream::RunStockSpec::Mesh(_))
+            && let Err(reason) = manifest.stock.initial_stock(&|| false)
+            && reason == message {
+            Failure::from(format!("initial stock: {reason}"))
+        } else { Failure::from(message) }
+    })?;
     let cancel = AtomicBool::new(false);
     let raw = serde_json::json!({"operations": manifest.operations, "tools": manifest.tools});
     let (mut moves, mut operations, mut uncertain) = (vec![], vec![], 0);
@@ -347,20 +356,21 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
     let finished_stock = return_stock.then(|| {
         let stock = producer.stock()?;
+        let mut snapshot = stock.snapshot();
         if let Some(bottom) = physical {
-            // The adapter's artificial through-tap backing is not physical stock.
-            // Apply the same bottom restriction as the existing material comparison,
-            // then let camlib export its own stock representation.
-            let mut snapshot = stock.snapshot();
             snapshot.spec.min_mm[2] = bottom;
             for cell in &mut snapshot.cells {
                 cell.lower_mm = cell.lower_mm.max(bottom);
                 cell.upper_mm = cell.upper_mm.max(bottom);
             }
-            camlib::stock::Stock::from_snapshot(snapshot)?.finished_mesh(&cancel)
-        } else {
-            stock.finished_mesh(&cancel)
         }
+        if let Some(bounds) = crop {
+            crate::setup_stock::crop_cells(&mut snapshot, bounds)?;
+        }
+        Ok(camlib::stock_mesh::FinishedStock {
+            mesh: camlib::stock_mesh::height_field_mesh(&snapshot.spec, &snapshot.cells, &cancel)?,
+            approximation: Some(camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION),
+        })
     });
     Ok(Run { moves, operations, uncertain, material: material.map(std::sync::Arc::new), sweep_proof, finished_stock })
 }

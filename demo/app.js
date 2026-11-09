@@ -977,9 +977,9 @@ async function buildPlan(m) {
   fact(`${plural(plan.setups.length, "setup")} · ${plural(m.operations.size, "operation")} · ${plural(plan.skipped.length, "feature")} not cut · ${plural(plan.warnings.length, "warning")}`);
   m.planView = { rules, decisions, cards: new Map(), selected: null };
   for (const setup of plan.setups) {
-    if (setup.before_setup) host.insertAdjacentHTML("beforeend", `<p>${escapeHtml(setup.before_setup.says)}</p>`);
+    if (setup.before_setup) fact(escapeHtml(setup.before_setup.says));
     host.insertAdjacentHTML("beforeend", `<h3 class="plan-setup" title="${materialLabel}">${escapeHtml(setup.id)} setup <span>${materialLabel}</span></h3>`);
-    if (setup.stock_note) host.insertAdjacentHTML("beforeend", `<p>${escapeHtml(setup.stock_note)}</p>`);
+    if (setup.stock_note) fact(escapeHtml(setup.stock_note));
     setup.operations.forEach((op, n) => {
       const key = `${setup.id}-${n + 1}-${op.kind}`, o = m.operations.get(key);
       const warned = planWarnings(m).some((d) => op.because?.includes(d.id));

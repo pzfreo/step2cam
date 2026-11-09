@@ -1,8 +1,4 @@
 {
-  "comparison": {
-    "execution": "main and branch process calls interleaved per part, alternating which runs first",
-    "instruction_counters": "unavailable: sandbox denies time -l sysctl kern.clockrate"
-  },
   "data": {
     "dataset": "doi:10.5281/zenodo.21653081",
     "parts": [
@@ -620,7 +616,7 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Holding strength is not simulated",
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated",
           "setup top: # mm holes, depth/D #: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks"
         ]
       },
@@ -2019,7 +2015,7 @@
         },
         "recognition_complete": true,
         "warnings": [
-          "bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Holding strength is not simulated"
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Stock history and holding strength are not simulated"
         ]
       },
       {
@@ -5009,7 +5005,7 @@
         "recognition_complete": true,
         "warnings": [
           "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance",
-          "bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Holding strength is not simulated",
+          "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated",
           "setup top: # mm notch: its # inside corners are left r# by em# (the model has r#)"
         ]
       },
@@ -12063,8 +12059,8 @@
       },
       "warnings": {
         "an outside wall above Z-# is not upright planes and cylinders, so it keeps its roughing allowance": 16,
-        "bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Holding strength is not simulated": 1,
-        "bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Holding strength is not simulated": 2,
+        "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.x.max\",\"fraction\":#}]. Stock history and holding strength are not simulated": 1,
+        "bottom setup starts from the part box plus bottom stock (camlib## / ##): stock history and Op #'s residual margin below the jaw line are not modeled. Facing overlaps to clear that margin. Edge supports seat at model Z#, width # mm, offsets [{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#},{\"area_mm#\":#,\"fraction\":#,\"offset_mm\":#}]; measured side contact [{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.min\",\"fraction\":#},{\"area_mm#\":#,\"effective_length_mm\":#,\"face_model\":\"part.y.max\",\"fraction\":#}]. Stock history and holding strength are not simulated": 2,
         "flats below Z-# left out: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance)": 6,
         "outside wall limited to Z-#: roughing reaches only Z-# (# mm below the stock top, em#'s # mm flutes, # mm stickout, # mm clearance); its finishing allowance below this level is left uncut: needs an end mill with flutes of at least # mm, and stickout of at least # mm": 49,
         "outside wall limited to Z-#: side cutting stops at Z-#: jaw top plus # mm clearance; the gripped stock and material below the jaws need a later setup; its finishing allowance below this level is left uncut": 42,
@@ -12611,6 +12607,6 @@
   },
   "schema_version": 2,
   "timing": {
-    "wall_seconds": 124.080112
+    "wall_seconds": 185.766638
   }
 }

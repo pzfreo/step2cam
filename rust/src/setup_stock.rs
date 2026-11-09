@@ -72,12 +72,77 @@ pub(crate) fn adapt(
     Ok(job)
 }
 
+pub(crate) fn carried_note(id: &str, cropped: bool, box_run: bool) -> String {
+    format!(
+        "Starting stock carried from {id}{}{}. {}",
+        if box_run { "’s box run" } else { "" },
+        if cropped {
+            "; the part is free; stock outside its footprint left with the frame (one source cell retained around the footprint)"
+        } else {
+            ""
+        },
+        camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION
+    )
+}
+
 pub(crate) fn assumption(reason: &str) -> String {
     format!("Assumes a freed, part-sized block; stock carry unavailable: {reason}")
 }
 
 /// A manual instruction before the next setup, attached to the existing setup list.
-pub(crate) fn breakout(previous: &Value) -> Option<Value> {
+pub(crate) fn part_bounds(part: &Value, frame: &Value) -> Result<[[f64; 3]; 2], String> {
+    let model = json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]], "origin_model":[0,0,0]});
+    let (rotation, translation) = capp::plan::between_setups(&model, frame)?;
+    let mut bounds = [[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]];
+    for bits in 0..8 {
+        let p: [f64; 3] = std::array::from_fn(|i| {
+            part[if bits & (1 << i) == 0 { "min" } else { "max" }][i]
+                .as_f64()
+                .unwrap()
+        });
+        for i in 0..3 {
+            let v = translation[i] + (0..3).map(|j| rotation[i][j] * p[j]).sum::<f64>();
+            bounds[0][i] = bounds[0][i].min(v);
+            bounds[1][i] = bounds[1][i].max(v);
+        }
+    }
+    Ok(bounds)
+}
+
+/// Declared manual separation removes the frame, not material inside the part.
+/// Retain only whole source cells within the footprint expanded by one cell.
+/// Camlib supplies the cells and rebuilds their closed surface.
+pub(crate) fn crop_cells(
+    snapshot: &mut camlib::stock::StockSnapshot,
+    bounds: [[f64; 3]; 2],
+) -> Result<(), String> {
+    let grid = camlib::stock::Stock::from_snapshot(snapshot.clone())?;
+    let [nx, ny] = grid.dimensions();
+    let step = grid.cell_widths_mm();
+    drop(grid);
+    for j in 0..ny {
+        for i in 0..nx {
+            let outside = [i, j].into_iter().enumerate().any(|(axis, index)| {
+                let lo = snapshot.spec.min_mm[axis] + index as f64 * step[axis];
+                let hi = if index + 1 == [nx, ny][axis] {
+                    snapshot.spec.max_mm[axis]
+                } else {
+                    lo + step[axis]
+                };
+                lo < bounds[0][axis] - step[axis] || hi > bounds[1][axis] + step[axis]
+            });
+            if outside {
+                snapshot.cells[j * nx + i] = camlib::stock::HeightBounds {
+                    lower_mm: snapshot.spec.min_mm[2],
+                    upper_mm: snapshot.spec.min_mm[2],
+                };
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn breakout(previous: &Value, part: &Value) -> Option<Value> {
     if previous.get("flip_role").is_some() {
         return None;
     }
@@ -90,12 +155,27 @@ pub(crate) fn breakout(previous: &Value) -> Option<Value> {
         return None;
     }
     let floor = rough["floor_z"].as_f64()?;
+    let bottom = part_bounds(part, previous).ok()?[0][2];
     let id = previous["id"].as_str()?;
-    Some(json!({
-        "kind": "break_out", "after_setup": id,
-        "witness": {"setup": id, "bottom_z_mm": floor - thickness, "top_z_mm": floor, "thickness_mm": thickness},
-        "says": format!("After {id}, support the part and break it out of the web before reclamping. Clean the web witness around the bottom perimeter, approximately {thickness} mm thick, between Z{} and Z{floor} in the {id} frame. Simulation retains the web and surrounding stock conservatively; manual separation is not simulated.", floor - thickness)
-    }))
+    if floor > bottom + 1e-6 {
+        Some(json!({"kind":"cut_free", "after_setup":id,
+            "remaining_band":{"setup":id, "bottom_z_mm":bottom, "top_z_mm":floor, "thickness_mm":capp::plan::r(floor-bottom)},
+            "says":format!("After {id}, the part is not free: its walls are uncut below Z{floor} in the {id} frame. Support it and cut it free (for example, saw it free) before reclamping. Finish the remaining band from Z{bottom} to Z{floor}, about {} mm, in a later setup.", capp::plan::r(floor-bottom))}))
+    } else {
+        Some(json!({"kind":"break_out", "after_setup":id,
+            "witness":{"setup":id,"bottom_z_mm":floor-thickness,"top_z_mm":floor,"thickness_mm":thickness},
+            "says":format!("After {id}, support the part and break the part out of the web before reclamping; clean the witness, about {thickness} mm, around the bottom perimeter between Z{} and Z{floor} in the {id} frame.",floor-thickness)}))
+    }
+}
+
+pub(crate) fn released(frame: &Value, part: &Value) -> bool {
+    (frame["flip_seating"].is_object()
+        && frame["operations"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|o| o["kind"] == "facing" && o["tool"].is_string()))
+        || breakout(frame, part).is_some()
 }
 
 #[cfg(test)]
@@ -114,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn front_starts_with_top_finished_stock_and_records_the_web_witness() {
+    fn front_starts_with_released_top_stock_and_records_the_uncut_band() {
         let analysis = fixture("tests/fixtures/synthetic/stepped-plate.analysis.json");
         let mesh = fixture("tests/fixtures/synthetic/stepped-plate.mesh.json");
         let mut library = fixture("tests/fixtures/placeholder-tools.json");
@@ -142,6 +222,7 @@ mod tests {
         let mut job = crate::job::Job {
             setup: "top".into(),
             return_stock: true,
+            crop_stock_to: Some(part_bounds(&plan["part"], &plan["setups"][0]).unwrap()),
             manifest: top["job"].clone(),
             stock_bottom_mm: plan["setups"][0]["stock"]["min"][2].as_f64().unwrap(),
             notes: vec![],
@@ -176,8 +257,32 @@ mod tests {
             }
         }
 
+        let original = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+        let stock_decision = |p: &Value| {
+            p["decisions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|d| {
+                    d["subject"] == "front"
+                        && d["rule"]
+                            .as_str()
+                            .unwrap()
+                            .starts_with("setup.stock.part_box_with_margins@")
+                })
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(
+            stock_decision(plan)["says"],
+            stock_decision(&original)["says"]
+        );
+        assert_eq!(
+            stock_decision(plan)["chosen"],
+            stock_decision(&original)["chosen"]
+        );
         let step = &front["before_setup"];
-        assert_eq!(step["kind"], "break_out");
+        assert_eq!(step["kind"], "cut_free");
         assert_eq!(step["after_setup"], "top");
         let rough = plan["setups"][0]["operations"]
             .as_array()
@@ -185,12 +290,18 @@ mod tests {
             .iter()
             .find(|o| o["kind"] == "roughing")
             .unwrap();
-        assert_eq!(step["witness"]["thickness_mm"], rough["web_mm"]);
-        assert_eq!(step["witness"]["top_z_mm"], rough["floor_z"]);
-        let measured = step["witness"]["top_z_mm"].as_f64().unwrap()
-            - step["witness"]["bottom_z_mm"].as_f64().unwrap();
+        assert_eq!(step["remaining_band"]["thickness_mm"], rough["web_mm"]);
+        assert_eq!(step["remaining_band"]["top_z_mm"], rough["floor_z"]);
+        let measured = step["remaining_band"]["top_z_mm"].as_f64().unwrap()
+            - step["remaining_band"]["bottom_z_mm"].as_f64().unwrap();
         assert!((measured - rough["web_mm"].as_f64().unwrap()).abs() < 1e-9);
-        assert!(step["says"].as_str().unwrap().contains("bottom perimeter"));
+        assert!(
+            step["says"]
+                .as_str()
+                .unwrap()
+                .contains("walls are uncut below Z")
+        );
+        assert!(!step["says"].as_str().unwrap().contains("web"));
         let manifest: StreamManifest = serde_json::from_value(manifest).unwrap();
         let carried = manifest.stock.initial_stock(&|| false).unwrap();
         let carried = carried.height().unwrap();
@@ -231,11 +342,95 @@ mod tests {
         let text = assumption("camlib refused an open mesh");
         assert!(text.contains("freed, part-sized block"));
         assert!(text.contains("camlib refused an open mesh"));
-        assert!(breakout(&json!({"flip_role":"sacrificial_grip"})).is_none());
-        let web = breakout(&json!({"id":"top", "operations":[{"kind":"roughing", "tool":"em6", "web_mm":0.5, "floor_z":-18.5}]})).unwrap();
+        assert!(breakout(&json!({"flip_role":"sacrificial_grip"}), &Value::Null).is_none());
+        let frame = json!({"id":"top", "rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,19], "operations":[{"kind":"roughing", "tool":"em6", "web_mm":0.5, "floor_z":-19.} ]});
+        let web = breakout(&frame, &json!({"min":[0,0,0],"max":[4,2,18]})).unwrap();
+        assert_eq!(web["kind"], "break_out");
+        assert!(
+            web["says"]
+                .as_str()
+                .unwrap()
+                .contains("clean the witness, about 0.5 mm")
+        );
         assert_eq!(
             web["witness"],
-            json!({"setup":"top", "bottom_z_mm":-19., "top_z_mm":-18.5, "thickness_mm":0.5})
+            json!({"setup":"top", "bottom_z_mm":-19.5, "top_z_mm":-19., "thickness_mm":0.5})
+        );
+    }
+    #[test]
+    fn release_crops_source_cells_and_camlib_rebuilds_the_closed_mesh() {
+        let stock = Stock::new(StockSpec {
+            version: 1,
+            units: "mm".into(),
+            min_mm: [0., 0., -2.],
+            max_mm: [6., 6., 0.],
+            cell_size_mm: 1.,
+            max_cells: 100,
+        })
+        .unwrap();
+        let mut snapshot = stock.snapshot();
+        crop_cells(&mut snapshot, [[2., 2., -2.], [4., 4., 0.]]).unwrap();
+        for j in 0..6 {
+            for i in 0..6 {
+                let expected = if (1..5).contains(&i) && (1..5).contains(&j) {
+                    0.
+                } else {
+                    -2.
+                };
+                assert_eq!(snapshot.cells[j * 6 + i].upper_mm, expected);
+                assert_eq!(snapshot.cells[j * 6 + i].lower_mm, expected);
+            }
+        }
+        let mesh =
+            camlib::stock_mesh::height_field_mesh(&snapshot.spec, &snapshot.cells, &|| false)
+                .unwrap();
+        assert_eq!(mesh.bounds(), [[1., 1., -2.], [5., 5., 0.]]);
+        assert_eq!(mesh.volume_mm3(), 32.);
+        let reread = camlib::stock_mesh::MeshStockSpec::new(snapshot.spec, mesh)
+            .unwrap()
+            .initial_stock(&|| false)
+            .unwrap();
+        assert_eq!(reread.cells(), snapshot.cells);
+        assert!(!released(
+            &json!({"flip_role":"sacrificial_grip"}),
+            &Value::Null
+        ));
+        assert!(carried_note("bottom", true, true).contains("bottom’s box run; the part is free"));
+    }
+
+    #[test]
+    fn unrelated_validation_is_not_initial_stock_and_unrun_setups_have_no_assumption() {
+        let a = fixture("tests/fixtures/synthetic/stepped-plate.analysis.json");
+        let m = fixture("tests/fixtures/synthetic/stepped-plate.mesh.json");
+        let mut library = fixture("tests/fixtures/placeholder-tools.json");
+        let mut plan = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
+        capp::finish(&mut plan, &library, &[]).unwrap();
+        let (jobs, _) = crate::job::jobs(&plan, &library).unwrap();
+        let mut invalid = jobs[0].manifest.clone();
+        invalid["version"] = json!(999);
+        let failure = crate::simulate::simulate(&invalid.to_string())
+            .err()
+            .unwrap();
+        assert!(
+            !failure.message.starts_with("initial stock:"),
+            "{}",
+            failure.message
+        );
+        plan["setups"][1]["stock_note"] = json!("stale assumption");
+        library["cell_size_mm"] = json!(-1.);
+        let mut programs = vec![];
+        let mut log = vec![];
+        let mut cache = vec![];
+        assert!(
+            crate::simulate_all(&mut plan, &library, &mut programs, &mut log, &mut cache).is_err()
+        );
+        assert!(
+            plan["setups"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .skip(1)
+                .all(|s| s["stock_note"].is_null())
         );
     }
 }
