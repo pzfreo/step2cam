@@ -1,6 +1,6 @@
 // Content and escaping checks; no output hashes or dependency on a browser.
 import assert from 'node:assert/strict';
-import { reportHtml, checkText, featureName, operationName } from '../demo/report.js';
+import { reportHtml, checkText, featureName, operationName, NOT_FEATURES } from '../demo/report.js';
 const data = {
   name: '<part & "test">.step', library: { machine: 'mill' }, tools: [
     { id: 'a', number: 7, type: 'end_mill', diameter: 6, shank_diameter: 6 },
@@ -79,4 +79,31 @@ const missingTools = setupSheet.split('<h2>Tools needed but not in the library</
 assert.equal(missingTools.split('special drill').length - 1, 1, 'deduplicate tool needs across plan and candidates');
 for (const context of ['Current plan', 'Ordinary grip', 'Flip option']) assert.ok(missingTools.includes(context));
 assert.ok(compact.includes('Flute length mm') && !compact.includes('Flutes mm'));
-console.log('Report content, compact appendix, escaping, missing fields, ordering, collet changes and repeatability passed.');
+// Whole-part descriptions are not machining features, whether the report builds
+// its feature map or receives the page's filtered and annotated map.
+const grouped = structuredClone(data);
+grouped.analysis.features.push(
+  { id: 'pattern-description', family: 'hole_patterns', record: {} },
+  { id: 'plate-description', family: 'plates', record: {} },
+  { id: 'narrow', family: 'slots', record: { width: 2 } },
+  { id: 'rough-note', family: 'pockets', record: { width: 6, depth: 2 } },
+);
+grouped.plan.skipped = [];
+grouped.plan.setups[0].operations[1].features = ['hole'];
+const pageFeatures = new Map(grouped.analysis.features.filter(f => !NOT_FEATURES.has(f.family))
+  .map(f => [f.id, { ...f, name: featureName(f) }]));
+pageFeatures.get('narrow').note = 'narrower than the ⌀6 mill, so not cut to size';
+pageFeatures.get('rough-note').note = 'roughed, keeps the roughing allowance';
+for (const features of [undefined, pageFeatures]) {
+  const report = reportHtml(grouped, { ...options, features });
+  const recognised = report.match(/<table class="features">([\s\S]*?)<\/table>/)[1];
+  assert.ok(!recognised.includes('pattern-description') && !recognised.includes('Hole patterns'));
+  assert.ok(!recognised.includes('plate-description') && !recognised.includes('Plates'));
+  const holeRow = recognised.match(/<tr><td>hole<\/td>([\s\S]*?)<\/tr>/)[1];
+  assert.ok(holeRow.includes('Spot drill') && !holeRow.includes('not cut'), 'drilled hole retains its operation');
+  assert.equal((recognised.match(/<tbody><tr>|<\/tr><tr>/g) || []).length, pageFeatures.size);
+  if (features) for (const id of ['narrow', 'rough-note']) {
+    assert.ok(recognised.includes(pageFeatures.get(id).note), `retain page status for ${id}`);
+  }
+}
+console.log('Report content, compact appendix, feature filtering/notes, escaping, missing fields, ordering, collet changes and repeatability passed.');

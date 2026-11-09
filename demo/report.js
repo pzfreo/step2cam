@@ -1,5 +1,8 @@
 // Shared plan wording and a DOM-independent printable report. All interpolated data is escaped.
 
+// specify-core's descriptions of the part as a whole, not features a person would point at.
+export const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
+
 export const trim = (x) => x == null ? "—" : String(Math.round(Number(x) * 10) / 10);
 
 export function featureName(f) {
@@ -145,7 +148,7 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
     times.set(id, (times.get(id) || 0) + seconds);
     total += seconds;
   }
-  const fs = features || new Map((data.analysis?.features || []).map((f) => [f.id, { ...f, name: featureName(f) }]));
+  const fs = features || new Map((data.analysis?.features || []).filter((f) => !NOT_FEATURES.has(f.family)).map((f) => [f.id, { ...f, name: featureName(f) }]));
   const ops = operations || new Map(plan.setups.flatMap((s) => s.operations.map((o, i) => {
     const id = `${s.id}-${i + 1}-${o.kind}`;
     return [id, { ...o, id, setup: s, name: operationName(o, s, plan), time: times.get(id) || 0 }];
@@ -236,12 +239,12 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
   if (!warnings.length && !extra.length) sections.push("<p>—</p>");
   const refused = (plan.decisions || []).filter((d) => d.rule?.startsWith("execution.refused@") && d.outcome === "removed");
   if (refused.length) sections.push("<h3>Refused by camlib</h3>", list(refused.map((d) => `${text(d.subject)}: ${text(d.says)}`)));
-  sections.push('<section class="appendix"><h1>APPENDIX — FULL REPORT</h1><h2>Recognised features</h2>', table(["Id", "Feature", "What happens to it"], (data.analysis?.features || []).map((f) => {
+  sections.push('<section class="appendix"><h1>APPENDIX — FULL REPORT</h1><h2>Recognised features</h2>', table(["Id", "Feature", "What happens to it"], [...fs.values()].map((f) => {
     const cutBy = [...ops.values()].filter((o) => o.features?.includes(f.id));
-    const disposition = cutBy.length ? [...new Set(cutBy.map((o) => o.name))].join("; ")
+    const disposition = f.note || (cutBy.length ? [...new Set(cutBy.map((o) => o.name))].join("; ")
       : (plan.skipped || []).some((s) => s.feature === f.id) || fs.get(f.id)?.notCut ? "not cut"
-      : (plan.covered_by_roughing || []).includes(f.id) ? "covered by roughing" : "not cut";
-    return row([text(f.id), text(featureName(f)), text(disposition)]);
+      : (plan.covered_by_roughing || []).includes(f.id) ? "covered by roughing" : "not cut");
+    return row([text(f.id), text(f.name || featureName(f)), text(disposition)]);
   }), "features"));
   sections.push("<h2>Workholding options and consequences</h2>");
   sections.push(list((plan.workholding?.candidates || []).map((c) => {

@@ -9,14 +9,12 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { Display, Viewer } from "three-cad-viewer";
 import { createStock } from "./stock.js";
-import { reportHtml, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
+import { NOT_FEATURES, reportHtml, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
 
 const $ = (id) => document.getElementById(id);
 const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
 const PALETTE = ["#2dd4bf", "#5aa9ff", "#ffb020", "#f472b6", "#a78bfa", "#a3e635", "#fb7185", "#38bdf8"];
 const ROUGHED = "#7fb7a8", NOT_CUT = "#ff7a4d";
-// specify-core's descriptions of the part as a whole, not features a person would point at.
-const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
 const PLAYBACK_SECONDS = 45;
 const ROW_HEIGHT = 20;
 
