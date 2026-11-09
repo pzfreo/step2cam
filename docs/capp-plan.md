@@ -142,11 +142,16 @@ before offering this route. No resource schema extension is needed in this chang
 Each available candidate records `finished`, `outline_left_mm`, distinct
 `features_left_out` with all skipped reasons, `features_cut`, `covered_by_roughing`,
 `setups`, `extra_stock_mm`, `stock_height_mm`, `estimated_seconds`, `tools`,
-`tool_changes`, `grips`, `risks`, and `shop_needs`. **Finished** means the planned outline
-has no web left, no grip or travel omission remains, all retained operations have tools,
-a roughing operation establishes the outline, and camlib execution succeeds. It means
+`tool_changes`, `tools_needed`, `grips`, `risks`, and `shop_needs`. `tools_needed` copies
+that candidate run's full missing-tool queries (descriptions, feature IDs and operation
+IDs), independently of workholding completion. **Finished** means the planned outline
+has no web left, no grip or travel omission remains, a roughing operation establishes
+the outline, and camlib execution succeeds. Operations missing tools do not change this
+status: they are resource needs, reported separately for each candidate. It means
 the workholding route releases the outline and grip stock; unsupported details such as
-edge rounds still appear in `features_left_out`. This is not a dimensional inspection,
+edge rounds still appear in `features_left_out`. The page keeps "finished" first, then
+shows the left-out feature count and a short tool need (for example "needs a thread
+mill"); full tool queries appear in the row's tooltip. This is not a dimensional inspection,
 proof of holding force, or proof that the material comparison resolved every cell.
 Grip fractions divide grip height by that setup's starting stock height; finished-wall
 grips are identified and soft jaws advised. Existing simulation limitations remain in

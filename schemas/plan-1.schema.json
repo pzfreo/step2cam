@@ -2548,7 +2548,8 @@
      "type": "string"
     },
     "finished": {
-     "type": "boolean"
+     "type": "boolean",
+     "description": "The holding route releases the outline and grip stock with no grip/travel omissions or execution failure. Missing tools and unsupported details are reported separately."
     },
     "features_cut": {
      "type": "array",
@@ -2589,6 +2590,9 @@
      "items": {
       "type": "string"
      }
+    },
+    "tools_needed": {
+     "$ref": "#/properties/tools_needed"
     },
     "risks": {
      "type": "array",
@@ -2678,6 +2682,7 @@
      "covered_by_roughing",
      "features_left_out",
      "tools",
+     "tools_needed",
      "risks",
      "shop_needs",
      "simulation",

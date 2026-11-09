@@ -1015,11 +1015,14 @@ async function buildPlan(m) {
       row.className = "workholding-option";
       const seconds = Math.round(c.estimated_seconds || 0);
       const duration = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      const leftOut = c.features_left_out?.length || 0;
+      const needs = [...new Set((c.tools_needed || []).map((n) => n.description.split(/,? or /)
+        .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
       const summary = c.available
-        ? `${c.finished ? "finished" : c.reason} · ${c.setups} setups · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}`
+        ? `${c.finished ? "finished" : c.reason}${c.finished && leftOut ? ` · ${leftOut} features left out` : ""} · ${c.setups} setups · +${Number(c.extra_stock_mm.toFixed(3))} mm stock · ${duration}${needs.length ? ` · needs ${needs.join("; ")}` : ""}`
         : c.reason;
-      row.textContent = `${chosen ? "✓" : "✗"} ${c.label}   ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
-      row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`].join("\n") : c.reason;
+      row.textContent = `${chosen ? "✓" : "✗"} ${c.label} — ${summary}${c.available && !chosen ? ` · ${c.comparison}` : ""}`;
+      row.title = c.available ? [...c.risks, `Needs: ${c.shop_needs.join(", ")}`, ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].join("\n") : c.reason;
       if (c.available && !chosen) {
         row.type = "button";
         row.addEventListener("click", () => {

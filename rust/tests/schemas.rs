@@ -82,4 +82,11 @@ fn simulated_workholding_candidates_match_schema_and_catch_missing_costs() {
     let mut bad=out["plan"].clone();
     bad["workholding"]["candidates"][0].as_object_mut().unwrap().remove("estimated_seconds");
     assert!(!jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap().is_valid(&bad));
+    let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
+    let mut missing=out["plan"].clone();
+    missing["workholding"]["candidates"][0].as_object_mut().unwrap().remove("tools_needed");
+    assert!(!validator.is_valid(&missing));
+    let mut malformed=out["plan"].clone();
+    malformed["workholding"]["candidates"][0]["tools_needed"]=serde_json::json!([{"description":"a thread mill"}]);
+    assert!(!validator.is_valid(&malformed),"tool needs must retain features and operations");
 }

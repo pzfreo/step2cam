@@ -54,6 +54,7 @@ fn demo_defaults_and_independent_consequences() {
         assert_eq!(flip["available"], true);
         assert_eq!(ordinary["finished"], false);
         assert_eq!(flip["finished"], true);
+        assert_eq!(flip["reason"], "finished");
         assert!(number(&ordinary["outline_left_mm"]) > 4.);
         assert_eq!(flip["outline_left_mm"], 0.);
         assert_eq!(ordinary["extra_stock_mm"], 0.);
@@ -74,6 +75,21 @@ fn demo_defaults_and_independent_consequences() {
         );
         assert_eq!(option(&out, "fixture_plate")["available"], false);
         if name.ends_with("stepped-plate") {
+            assert_eq!(ordinary["reason"], "bottom 4.8 mm of outline left attached");
+            for candidate in [ordinary, flip] {
+                let need = list(&candidate["tools_needed"])
+                    .iter()
+                    .find(|n| {
+                        n["description"]
+                            .as_str()
+                            .unwrap()
+                            .starts_with("a thread mill")
+                    })
+                    .expect("both holding routes must report the missing M3 thread mill");
+                assert!(need["description"].as_str().unwrap().contains("0.5 mm"));
+                assert_eq!(need["features"], json!(["holes:48.57", "holes:49.58"]));
+                assert!(list(&need["operations"]).contains(&json!("front-3-thread")));
+            }
             assert_close(number(&ordinary["outline_left_mm"]), 4.8);
             assert_close(number(&flip["extra_stock_mm"]), 7.25);
             assert_eq!(ordinary["setups"], 2);
@@ -119,12 +135,38 @@ fn each_available_choice_is_checked_traced_and_replayable() {
             .unwrap();
         assert_eq!(decision["source"], source);
         assert_eq!(decision["reason"], "test shop choice");
+        assert_eq!(selected["tools_needed"], out["plan"]["tools_needed"]);
         let mut replay = tools();
         replay["decisions"] = out["plan"]["supplied_decisions"].clone();
         let again = run("synthetic/stepped-plate", &replay);
         assert_eq!(again["programs"], out["programs"]);
         assert_eq!(again["plan"]["workholding"], out["plan"]["workholding"]);
     }
+}
+#[test]
+fn haas_flip_finishes_despite_missing_spot_tools() {
+    let out = run(
+        "synthetic/stepped-plate",
+        &fixture("../../libraries/haas-vf2.json"),
+    );
+    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
+    let flip = option(&out, "vise_flip_face");
+    assert_eq!(flip["finished"], true);
+    assert_eq!(flip["reason"], "finished");
+    assert_eq!(flip["tools_needed"], out["plan"]["tools_needed"]);
+    assert!(
+        list(&out["plan"]["setups"])
+            .iter()
+            .any(|s| list(&s["operations"])
+                .iter()
+                .any(|o| o["kind"] == "spot_drill" && o["tool"].is_null())),
+        "spot drilling must exercise an operation without a tool"
+    );
+    assert!(list(&flip["tools_needed"]).iter().any(|n| {
+        list(&n["operations"])
+            .iter()
+            .any(|op| op.as_str().unwrap().ends_with("-spot_drill"))
+    }));
 }
 #[test]
 fn unavailable_unknown_and_malformed_choices_are_refused() {

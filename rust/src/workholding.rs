@@ -45,7 +45,6 @@ fn consequences(
         .filter(|o| o["kind"] == "roughing")
         .filter_map(|o| o["web_mm"].as_f64())
         .fold(0_f64, f64::max);
-    let missing = operations.iter().any(|o| !o["tool"].is_string());
     let grip_omission = p["skipped"].as_array().into_iter().flatten().any(|s| {
         p["decisions"].as_array().into_iter().flatten().any(|d| {
             d["id"] == s["decision"]
@@ -57,7 +56,6 @@ fn consequences(
     });
     let finished = out["error"].is_null()
         && !grip_omission
-        && !missing
         && remaining <= 1e-6
         && operations
             .iter()
@@ -104,7 +102,7 @@ fn consequences(
         let grip=s["clamping"]["grip_height_mm"].as_f64()?;
         let height=s["stock"]["max"][2].as_f64()? - s["stock"]["min"][2].as_f64()?;
         let wall=s["flip_seating"].is_object();
-        risks.push(format!("{}: grips {grip:.3} mm ({:.1}% of setup stock height){}",s["id"].as_str().unwrap_or("setup"),100.*grip/height,if wall {" on finished wall; soft jaws advised"} else {""}));
+        risks.push(format!("{}: grips {grip} mm ({:.1}% of setup stock height){}",s["id"].as_str().unwrap_or("setup"),100.*grip/height,if wall {" on finished wall; soft jaws advised"} else {""}));
         Some(json!({"setup":s["id"],"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall}))
     }).collect();
     risks.extend(
@@ -116,21 +114,19 @@ fn consequences(
             .map(String::from),
     );
     risks.push("Holding force and support flatness are not simulated. Without modeled parallels, through cuts are not checked against supports or the bed.".into());
-    let reason = if remaining > 1e-6 {
-        format!("bottom {remaining:.3} mm of outline left attached")
+    let reason = if finished {
+        "finished".into()
+    } else if remaining > 1e-6 {
+        format!("bottom {remaining} mm of outline left attached")
     } else if !left.is_empty() {
         format!("{} features left out", left.len())
-    } else if missing {
-        "operations lack tools".into()
-    } else if !finished {
-        "finished outline not established".into()
     } else {
-        "finished".into()
+        "finished outline not established".into()
     };
     json!({"id":id,"label":label,"available":true,"finished":finished,"reason":reason,
         "outline_left_mm":remaining,"features_cut":cut,"covered_by_roughing":p["covered_by_roughing"],"features_left_out":left,
         "setups":setups(p).count(),"extra_stock_mm":(stock_height(p)-ordinary_height).max(0.),
-        "stock_height_mm":stock_height(p),"estimated_seconds":seconds,"tools":tools,"tool_changes":changes,
+        "stock_height_mm":stock_height(p),"estimated_seconds":seconds,"tools":tools,"tool_changes":changes,"tools_needed":p["tools_needed"],
         "grips":grips,"risks":risks,"shop_needs":["dimensioned vise","parallels or equivalent supports"],
         "simulation":"camlib passed; see chosen run for detailed checks"})
 }
@@ -138,7 +134,10 @@ fn consequences(
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let mut run_library = library.clone();
     // The candidate decision is checked after all runs, not refused by per-operation finish.
-    if let Some(ds) = run_library.get_mut("decisions").and_then(Value::as_array_mut) {
+    if let Some(ds) = run_library
+        .get_mut("decisions")
+        .and_then(Value::as_array_mut)
+    {
         ds.retain(|s| {
             !s["rule"]
                 .as_str()
