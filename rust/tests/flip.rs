@@ -12,7 +12,7 @@ fn list(value: &Value) -> &Vec<Value> {
 use serde_json::{Value, json};
 
 fn tools() -> Value {
-    let mut t = fixture("../../demo/tools.json");
+    let mut t = fixture("../../tests/fixtures/placeholder-tools.json");
     t["overrides"]["workholding_option"] = json!("vise_flip_face");
     t
 }
@@ -288,7 +288,7 @@ fn default_and_none_trace_availability_without_changing_the_machine_independent_
     let (a, m) = input();
     let original = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
     for choice in [None, Some("none")] {
-        let mut t = fixture("../../demo/tools.json");
+        let mut t = fixture("../../tests/fixtures/placeholder-tools.json");
         if let Some(choice) = choice {
             t["overrides"]["workholding_option"] = json!(choice);
         }

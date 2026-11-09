@@ -12,7 +12,7 @@ fn process() -> Value {
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
     let mesh = fixture("tests/fixtures/mounting-plate.mesh.json");
     // The demo's tools on no particular machine: this is about planning, not the Carvera.
-    let mut tools = fixture("demo/tools.json");
+    let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
     step2cam::process(&analysis, &mesh, &tools).unwrap()
 }
@@ -105,7 +105,7 @@ fn the_top_edges_are_chamfered_where_they_meet_the_round_and_never_inside_it() {
 /// must not be reported as covered.
 #[test]
 fn nothing_is_covered_by_a_roughing_that_was_refused() {
-    let mut library = fixture("demo/tools.json");
+    let mut library = fixture("tests/fixtures/placeholder-tools.json");
     // Keep coverage until the deliberate execution refusal; jaws otherwise uncover it first.
     library["machines"][0].as_object_mut().unwrap().remove("workholding");
     let analysis = fixture("tests/fixtures/mounting-plate.analysis.json");
@@ -134,7 +134,7 @@ fn nothing_is_covered_by_a_roughing_that_was_refused() {
 fn rectangular_plan() -> (Value, Value) {
     let analysis = fixture("tests/fixtures/synthetic/square-slots.analysis.json");
     let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
-    let mut tools = fixture("demo/tools.json");
+    let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     capp::finish(&mut plan, &tools, &[]).unwrap();
@@ -232,7 +232,7 @@ fn radiused_recess_still_checks_for_material_inside_its_outline() {
 fn a_cutter_larger_than_the_model_corner_warns_and_short_flutes_do_not_qualify() {
     let (analysis, _) = rectangular_plan();
     let mesh = fixture("tests/fixtures/synthetic/square-slots.mesh.json");
-    let mut tools = fixture("demo/tools.json");
+    let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
     let mut larger = tools["tools"].as_array().unwrap().iter().find(|t| t["id"] == "em6").unwrap().clone();
     larger["id"] = "em7".into();

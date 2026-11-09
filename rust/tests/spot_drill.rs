@@ -18,7 +18,7 @@ fn spot(lib: &Value, diameter: f64, angle: f64, name: &str) -> Value {
 
 #[test]
 fn plate_spots_are_grouped_before_twist_drills_and_match_the_formula() {
-    let lib = fixture("../../demo/tools.json");
+    let lib = fixture("../../tests/fixtures/placeholder-tools.json");
     let mut p = plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Options::default()).unwrap();
     capp::finish(&mut p, &lib, &[]).unwrap();
     let spots = ops(&p,"spot_drill");

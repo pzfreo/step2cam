@@ -86,7 +86,7 @@ fn symbol_libraries_validate_and_normalize_without_changing_inputs() {
 
 #[test]
 fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
-    let mut library = fixture("../../demo/tools.json");
+    let mut library = fixture("../../tests/fixtures/placeholder-tools.json");
     let index = library["tools"].as_array().unwrap().iter().position(|t| t["id"] == "em6").unwrap();
     library["tools"][index]["DC"] = json!(8);
     let mut plan = json!({});
@@ -110,8 +110,8 @@ fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
 
 #[test]
 fn alias_constraints_and_required_fields_match_the_primary_fields() {
-    let mut current = fixture("../../demo/tools.json");
-    // The production library remains tap-free; exercise the added schema variant here.
+    let mut current = fixture("../../tests/fixtures/placeholder-tools.json");
+    // Exercise the added tap schema variant independently of the production inventories.
     current["tools"].as_array_mut().unwrap().push(example_tap(5., 0.8, 2.));
     let iso = symbols(&current);
     let schema = fixture("../../schemas/resources-1.schema.json");
@@ -148,7 +148,7 @@ fn alias_constraints_and_required_fields_match_the_primary_fields() {
 
 #[test]
 fn plate_has_identical_plans_jobs_and_reason_texts_with_symbols() {
-    let library = fixture("../../demo/tools.json");
+    let library = fixture("../../tests/fixtures/placeholder-tools.json");
     let iso = symbols(&library);
     let analysis = fixture("plate.analysis.json");
     let mesh = fixture("plate.mesh.json");

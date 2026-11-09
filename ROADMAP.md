@@ -30,6 +30,8 @@ order favours what makes the plans correct and honest before what makes them fas
   beside the selected operation's detail; #115 its Tool choice and plain Why in place of Full
   view; on phones, Toolpaths shows the current move, not the list. Anonymous usage counts
   (GoatCounter): return visits, own-file outcomes, which explanations are read.
+- #94 workholding options (vise ordinary and flip and face) chosen by rule or by a person; #88
+  real Carvera and Haas tool libraries; #50 tapping as an alternative to thread milling.
 
 ## Parked
 
@@ -40,11 +42,15 @@ order favours what makes the plans correct and honest before what makes them fas
 The complex test plate (`tests/fixtures/synthetic/stepped-plate.step`, the page's "Complex plate")
 is planned and checked, but can't yet be made as it is. In order:
 
-1. #94 Workholding options: plan each candidate (the #86 vise route, done, and #87 holding the
-   stock by its margins and cutting the outline through with tabs, which suits the Carvera's
-   bed), show each one's consequences, and let a person or an agent choose.
-2. #88 The Carvera's real tools and aluminium cutting data in the demo library, with a ⌀2 mm
-   end mill for the slot's r1.2 corners.
+1. #94 Workholding options: done for the vise. The planner plans and simulates each candidate,
+   picks by rule (finishes the part, then fewest left out, setups, extra stock, time) and lets a
+   person or an agent choose; the complex plate defaults to flip and face. Still to come: #87
+   margins and tabs (suits the Carvera's bed), and a fixture plate screwed through the part's
+   own holes, a design to work through first (screw-head and tool clearance, seating, the
+   stock the first setup leaves).
+2. #88 The Carvera's real tools: done (Makera's kit and aluminium presets, the 1/4" collet).
+   The notches' r1.2 corners are left r2 by the ⌀4 (smaller tool or rest pass: planner work),
+   and times are long under Makera's conservative presets until #37 and #38.
 3. The front holes: hold the finished part on its side (the rest of #43), checked against the
    stock the top setup left once #45 can (*waits on* stevecad/camlib#121).
 4. #48 The six r0.8 edge rounds, with a corner-rounding end mill (or break them by hand).
@@ -74,7 +80,7 @@ Done (above). What is left from it:
    what the library has, with a warning, and asking approval for a suboptimal step.
 7. #33 Holes with no matching drill: pilot and enlarge, or an insert drill.
 8. #42 Holes with a fit: drill under size and ream.
-9. #50 Tapping as an alternative to thread milling.
+9. #50 Tapping as an alternative to thread milling: done (cut taps M3–M6 on the Haas).
 
 ## Phase 3: features left uncut
 
@@ -92,7 +98,7 @@ Done (above). What is left from it:
 15. #41 Keep features toleranced to the same datum in one setup.
 16. #45 Start each later setup from the stock the previous one left.
     *Waits on* stevecad/camlib#121 (in progress there).
-17. #94 Workholding options (see the goal above).
+17. #94 Workholding options: the fixture plate and #87 margins and tabs (see the goal above).
 
 ## Phase 5: cutting data and the machine
 

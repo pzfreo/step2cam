@@ -3,7 +3,7 @@ mod common;
 use common::*;
 use serde_json::{Value, json};
 
-fn library() -> Value { fixture("../../demo/tools.json") }
+fn library() -> Value { fixture("../../tests/fixtures/placeholder-tools.json") }
 fn planned(name: &str, tools: &Value) -> Value {
     let mut p = capp::plan::plan(&fixture(&format!("{name}.analysis.json")), Some(&fixture(&format!("{name}.mesh.json"))), &Default::default()).unwrap();
     capp::finish(&mut p, tools, &[]).unwrap();

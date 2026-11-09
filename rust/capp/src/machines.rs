@@ -120,6 +120,20 @@ pub fn check_changer(plan: &Value, resources: &Value, trace: &mut Trace) {
         if tools.is_empty() {
             continue;
         }
+        if mill["spindle"]["collet_change"] == "manual" {
+            let mut shanks: Vec<f64> = tools.iter().filter_map(|id| {
+                let tool = resources["tools"].as_array()?.iter().find(|t| t["id"] == *id)?;
+                tool["shank_diameter"].as_f64().or(tool["diameter"].as_f64())
+            }).collect();
+            shanks.sort_by(f64::total_cmp);
+            shanks.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+            if shanks.len() > 1 {
+                let sizes = shanks.iter().map(|s| show(*s)).collect::<Vec<_>>().join(", ");
+                trace.warn("machine.spindle.manual_collets", setup_id,
+                    format!("setup {setup_id}: tools need shanks of {sizes} mm; spindle collets are changed by hand. The ATC cannot perform these collet changes; arrange manual changes or verified adapters before running this setup"),
+                    json!({"shank_sizes_mm": shanks, "tools": tools}));
+            }
+        }
         if changer["kind"] == "manual" {
             trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()), json!({}));
             continue;

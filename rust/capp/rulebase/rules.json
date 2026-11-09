@@ -1077,6 +1077,33 @@
    "data": [
     "rules/tools.json#thread_mill"
    ]
+  },
+  {
+   "id": "process.wall_finish.axial_passes",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Finish a wall in one full-depth pass where the flute reaches, otherwise the fewest equal passes no deeper than its flute length. This axial finishing policy does not inherit roughing stepdown; camlib reach and stock-contact checks remain mandatory.",
+   "code": "settle.rs resolve_with",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "finishing the radial allowance after roughing, not clearing full-width stock"
+    }
+   ]
+  },
+  {
+   "id": "machine.spindle.manual_collets",
+   "version": 1,
+   "stage": "machine",
+   "warning_label": "manual spindle collet changes",
+   "rationale": "When spindle.collet_change is manual and a setup selects more than one shank size, report operator intervention independently of ATC pocket capacity; make no tool substitutions.",
+   "code": "machines.rs check_changer",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "machine capability and selected tool shank dimensions from resources"
+    }
+   ]
   }
  ]
 }

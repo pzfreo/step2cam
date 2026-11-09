@@ -6,7 +6,7 @@ fn read(path: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 fn tools(flutes: f64, stickout: f64) -> Value {
-    let mut library = read("demo/tools.json");
+    let mut library = read("tests/fixtures/placeholder-tools.json");
     library.as_object_mut().unwrap().remove("machines");
     library["roughing_tool"] = json!("em12");
     let mill = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em12").unwrap();
@@ -94,7 +94,7 @@ fn without_jaw_data_normal_library_does_not_change_fixture_floors_or_coverage() 
             Some(&read(&format!("tests/fixtures/{name}.mesh.json"))), &Default::default()).unwrap();
         let before = plan.clone();
         // Isolate the reach rule: clamping intentionally caps these floors when jaw data exists.
-        let mut library = read("demo/tools.json");
+        let mut library = read("tests/fixtures/placeholder-tools.json");
         library["machines"][0].as_object_mut().unwrap().remove("workholding");
         capp::finish(&mut plan, &library, &[]).unwrap();
         assert_eq!(plan["covered_by_roughing"], before["covered_by_roughing"]);
