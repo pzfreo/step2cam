@@ -123,7 +123,7 @@ export function setupZero(setup) {
 const value = (x) => x == null || x === "" ? "—" : typeof x === "object" ? JSON.stringify(x) : String(x);
 const text = (x) => escapeHtml(value(x));
 const list = (items) => items.length ? `<ul>${items.map((x) => `<li>${x}</li>`).join("")}</ul>` : "<p>—</p>";
-const table = (heads, rows) => `<table><thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${heads.length}">—</td></tr>`}</tbody></table>`;
+const table = (heads, rows, className = "") => `<table${className ? ` class="${className}"` : ""}><thead><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.join("") : `<tr><td colspan="${heads.length}">—</td></tr>`}</tbody></table>`;
 const row = (cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 
 /** A self-contained document, with no page DOM or browser dependencies.
@@ -163,6 +163,13 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
   };
   const missing = [...needs.map((n) => ({ ...n, context: "Current plan" })),
     ...(plan.workholding?.candidates || []).flatMap((c) => (c.tools_needed || []).map((n) => ({ ...n, context: c.label || c.id })))];
+  const missingByTool = new Map();
+  for (const n of missing) {
+    if (!missingByTool.has(n.description)) missingByTool.set(n.description, { contexts: new Set(), features: new Set() });
+    const entry = missingByTool.get(n.description);
+    entry.contexts.add(n.context);
+    for (const id of n.features || []) entry.features.add(id);
+  }
   const sections = [];
   sections.push(`<h1>SETUP SHEET</h1><h2>${text(data.name)}</h2><p class="draft">Draft — check before cutting</p>`);
   sections.push(table(["Machine", "Date", "Material", "Stock size (mm)", "Feed-rate estimate"], [row([
@@ -174,13 +181,13 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
   if (data.notice) sections.push(`<p>${text(data.notice)}</p>`);
   sections.push("<h2>TOOLS — load before starting</h2>");
   if (machine?.spindle?.manual_collets) sections.push("<p>Manual collets: check the collet at every tool change. Changes of recorded shank size are flagged below.</p>");
-  sections.push(table(["T / tool id", "Type / ⌀ mm", "Flutes mm", "Stickout / overall mm", "RPM", "Feed mm/min"], used.map((id) => {
+  sections.push(table(["T / tool id", "Type / ⌀ mm", "Flute length mm", "Stickout / overall mm", "RPM", "Feed mm/min"], used.map((id) => {
     const t = tools.find((t) => t.id === id);
     const uses = [...ops.values()].filter((o) => o.tool === id);
     const settings = (key) => [...new Set(uses.map((o) => value(o.technology?.[key])))].map(text).join(" / ");
     return row([toolLabel(id), `${text(t?.type)} / ${text(t?.diameter)}`, text(t?.flute_length), `${text(t?.stickout)} / ${text(t?.overall_length)}`, settings("spindle_rpm"), settings("feed_mm_min")]);
   })));
-  sections.push("<h2>Tools needed but not in the library</h2>", list(missing.map((n) => `${text(n.context)}: ${text(n.description)}${n.features?.length ? ` — ${n.features.map((id) => text(fs.get(id)?.name || id)).join(", ")}` : ""}`)));
+  sections.push("<h2>Tools needed but not in the library</h2>", list([...missingByTool].map(([description, n]) => `${text(description)} — needed by ${[...n.contexts].map(text).join("; ")}${n.features.size ? ` — ${[...n.features].map((id) => text(fs.get(id)?.name || id)).join(", ")}` : ""}`)));
   let previousTool;
   for (const setup of plan.setups) {
     const grip = chosen?.grips?.find((g) => g.setup === setup.id);
@@ -190,7 +197,9 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
       const id = `${setup.id}-${i + 1}-${op.kind}`, o = ops.get(id), t = op.technology || {};
       const notes = [];
       const choices = toolChoiceRows(op, decisions);
-      for (const [id, choice] of choices) notes.push(`Tool choice: ${choice.chosen ? "✓" : "✗"} ${text(id)} — ${text(choice.reason)}`);
+      for (const [id, choice] of choices) if (choice.chosen && id === op.tool) notes.push(`Tool choice: ✓ ${text(id)} — ${text(choice.reason)}`);
+      if (t.peck_mode != null) notes.push(`Peck mode: ${text(t.peck_mode)}`);
+      if (t.peck_mm != null) notes.push(`Peck depth: ${text(t.peck_mm)} mm`);
       if (op.tool_note) notes.push(text(op.tool_note));
       if (op.notes) notes.push(text(op.notes));
       if (op.iso14649?.note) notes.push(text(op.iso14649.note));
@@ -227,20 +236,31 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
   if (!warnings.length && !extra.length) sections.push("<p>—</p>");
   const refused = (plan.decisions || []).filter((d) => d.rule?.startsWith("execution.refused@") && d.outcome === "removed");
   if (refused.length) sections.push("<h3>Refused by camlib</h3>", list(refused.map((d) => `${text(d.subject)}: ${text(d.says)}`)));
-  sections.push('<section class="appendix"><h1>APPENDIX — FULL REPORT</h1><h2>Recognised features</h2>', table(["Id", "Feature", "Recognised data"], (data.analysis?.features || []).map((f) => row([text(f.id), text(featureName(f)), text(f.record)]))));
+  sections.push('<section class="appendix"><h1>APPENDIX — FULL REPORT</h1><h2>Recognised features</h2>', table(["Id", "Feature", "What happens to it"], (data.analysis?.features || []).map((f) => {
+    const cutBy = [...ops.values()].filter((o) => o.features?.includes(f.id));
+    const disposition = cutBy.length ? [...new Set(cutBy.map((o) => o.name))].join("; ")
+      : (plan.skipped || []).some((s) => s.feature === f.id) || fs.get(f.id)?.notCut ? "not cut"
+      : (plan.covered_by_roughing || []).includes(f.id) ? "covered by roughing" : "not cut";
+    return row([text(f.id), text(featureName(f)), text(disposition)]);
+  }), "features"));
   sections.push("<h2>Workholding options and consequences</h2>");
   sections.push(list((plan.workholding?.candidates || []).map((c) => {
     const { label, summary } = workholdingText(c);
     return `<b>${c.id === plan.workholding.chosen ? "✓ " : ""}${text(label)}</b> — ${text(summary)}<br>${text(c.comparison)}${list([...(c.risks || []), ...(c.shop_needs || []).map((n) => `Needs: ${n}`), ...(c.tools_needed || []).map((n) => `Needs: ${n.description}`)].map(text))}`;
   })));
   sections.push(`<p>Choice source: ${text(plan.workholding?.source)}</p><h2>Every decision</h2>`);
-  sections.push(table(["Decision / stage / subject", "Decision", "Rule and sources", "Decision source"], (plan.decisions || []).map((d) => {
-    const r = rules.get(d.rule);
-    return row([`${text(d.id)}<br>${text(STAGES[d.stage] || d.stage)}<br>${text(d.subject)}`,
-      `${text(d.says)}${d.chosen != null ? `<br>Chosen: ${text(d.chosen)}` : ""}${d.superseded_by ? `<br>Replaced by ${text(d.superseded_by)}` : ""}${list((d.considered || []).map((c) => `${text(c.candidate)}: ${text(c.rejected)}`))}`,
-      `${text(d.rule)}<br>${text(r?.statement || r?.name || r?.rationale)}${r?.rationale && r.rationale !== r.statement ? `<br>${text(r.rationale)}` : ""}<br>${r ? (r.sources || []).map((s) => text(describeSource(s))).join("; ") : "Rule text unavailable."}`,
-      `${text(d.source)}${d.reason ? `<br>${text(d.reason)}` : ""}`]);
-  })));
+  sections.push(table(["Id · stage · subject", "Decision", "Rule · source"], (plan.decisions || []).map((d) => {
+    const alternatives = typeof d.chosen === "string" ? [...new Set((d.considered || []).map((c) => c.candidate).filter((c) => c !== d.chosen))] : [];
+    const choice = alternatives.length ? ` Chose ${text(d.chosen)} over ${alternatives.map(text).join(", ")}.` : "";
+    const source = `${text(d.source)}${d.source && d.source !== "rule" && d.reason ? `: ${text(d.reason)}` : ""}`;
+    return row([`${text(d.id)} · ${text(STAGES[d.stage] || d.stage)} · ${text(d.subject)}`,
+      `${text(d.says)}${choice}${d.superseded_by ? ` Replaced by ${text(d.superseded_by)}.` : ""}`,
+      `${text(d.rule)} · ${source}`]);
+  }), "decisions"));
+  sections.push("<h2>Rules cited</h2>", table(["Rule id", "Rule text", "Sources"], [...new Set((plan.decisions || []).map((d) => d.rule))].map((id) => {
+    const r = rules.get(id);
+    return row([text(id), r ? text(r.rationale) : "Rule text unavailable.", r ? text((r.sources || []).map(describeSource).join("; ")) : "—"]);
+  }), "rules"));
   sections.push("<h2>Camlib checks and limits</h2>", `<p>${check.headline || text(data.error || "—")}</p>`, list(check.items.map(text)));
   sections.push(table(["Setup", "Material check", "Stock-contact / uncertain motions"], plan.setups.map((s) => {
     const p = programs.find((p) => p.setup === s.id);
@@ -254,7 +274,11 @@ export function reportHtml(data, { rules = new Map(), library = {}, operations, 
   const pageName = JSON.stringify(String(data.name || "—")).replaceAll("<", "\\3c ");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>${text(data.name)} — Setup sheet</title><style>
 @page { size: A4 portrait; margin: 17mm 12mm; @top-left { content: ${pageName}; font: 9pt sans-serif; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 9pt sans-serif; } }
-* { box-sizing: border-box; } html { color-scheme: light; background: white; color: #111; } body { font: 10pt/1.35 Arial, sans-serif; margin: 0 auto; max-width: 190mm; padding: 5mm; } h1 { font-size: 19pt; } h2 { font-size: 13pt; margin: 5mm 0 2mm; } h3 { font-size: 11pt; } h1,h2,h3 { break-after: avoid; } p { margin: 2mm 0; } table { width: 100%; border-collapse: collapse; margin: 3mm 0; table-layout: fixed; } th,td { text-align: left; vertical-align: top; border: 1px solid #bbb; padding: 1.5mm; overflow-wrap: anywhere; } th { background: #eee; } tr, .operations tbody { break-inside: avoid; page-break-inside: avoid; } thead { display: table-header-group; } .setup,.appendix { break-before: page; page-break-before: always; } .draft { font-weight: bold; border: 2px solid #555; padding: 2mm; } ul { padding-left: 5mm; } .notes { background: #f5f5f5; } @media print { body { max-width: none; padding: 0; } }
+* { box-sizing: border-box; } html { color-scheme: light; background: white; color: #111; } body { font: 10pt/1.35 Arial, sans-serif; margin: 0 auto; max-width: 190mm; padding: 5mm; } h1 { font-size: 19pt; } h2 { font-size: 13pt; margin: 5mm 0 2mm; } h3 { font-size: 11pt; } h1,h2,h3 { break-after: avoid; } p { margin: 2mm 0; } table { width: 100%; border-collapse: collapse; margin: 3mm 0; table-layout: fixed; } th,td { text-align: left; vertical-align: top; border: 1px solid #bbb; padding: 1.5mm; overflow-wrap: anywhere; } th { background: #eee; } tr, .operations tbody { break-inside: avoid; page-break-inside: avoid; } thead { display: table-header-group; } .setup,.appendix { break-before: page; page-break-before: always; } .draft { font-weight: bold; border: 2px solid #555; padding: 2mm; } ul { padding-left: 5mm; } .notes { background: #f5f5f5; }
+.appendix { line-height: 1.2; } .appendix th,.appendix td { padding: 1mm; }
+.decisions th:first-child { width: 22%; } .decisions th:nth-child(2) { width: 53%; } .decisions th:last-child { width: 25%; }
+.rules th:first-child { width: 20%; } .rules th:nth-child(2) { width: 60%; } .rules th:last-child { width: 20%; }
+.features th:first-child { width: 20%; } .features th:nth-child(2) { width: 35%; } @media print { body { max-width: none; padding: 0; } }
 </style></head><body>${sections.join("\n")}</body></html>`;
 }
 
