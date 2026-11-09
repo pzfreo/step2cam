@@ -1481,6 +1481,7 @@ function show(data) {
   setPlaying(false);
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
+  $("setup-sheet").disabled = false;
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
   $("phone-name").textContent = data.name.replace(/\.(step|stp)$/i, "");
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
@@ -1966,7 +1967,7 @@ $("setup-sheet").addEventListener("click", async () => {
     const reason = error.name === "TimeoutError" ? "download timed out" : "PDF generation unavailable";
     $("status").textContent = `Could not create setup sheet PDF: ${reason}. Please try again.`;
     count(`setup-sheet failed: ${reason}`);
-  } finally { button.disabled = false; }
+  } finally { button.disabled = !model; }
 });
 
 initRight();

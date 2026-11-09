@@ -3,7 +3,7 @@
 // specify-core's descriptions of the part as a whole, not features a person would point at.
 export const NOT_FEATURES = new Set(["hole_patterns", "step_levels", "risers", "section_recesses", "plates", "thin_wall_bodies", "sheet_metal_bodies", "turned_bodies", "circular_face_patterns"]);
 
-export const trim = (x) => x == null ? "—" : String(Math.round(Number(x) * 10) / 10);
+export const trim = (x) => Number.isNaN(Number(x)) ? "—" : String(Math.round(Number(x) * 10) / 10);
 
 export function featureName(f, format = trim) {
   const r = f.record || {};
@@ -106,8 +106,8 @@ export function checkText(programs) {
 }
 
 export function workholdingText(c) {
-  const seconds = c.estimated_seconds == null ? null : Math.round(c.estimated_seconds);
-  const duration = seconds == null ? "—" : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const seconds = Math.round(c.estimated_seconds || 0);
+  const duration = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   const leftOut = c.features_left_out?.length || 0;
   const needs = [...new Set((c.tools_needed || []).map((n) => n.description.split(/,? or /)
     .map((option) => option.split(/\s+(?:for|with|whose|under|of|covering)\b/)[0]).join(" or ")))];
@@ -121,12 +121,37 @@ export function workholdingText(c) {
 
 export function setupZero(setup, format = trim) {
   const lo = setup.stock?.min, hi = setup.stock?.max;
-  return `Tool comes down −Z; zero on the ${setup.zero == null ? "—" : setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
+  return `Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
 }
 
 const value = (x) => x == null || x === "" ? "—" : typeof x === "object" ? JSON.stringify(x) : String(x);
 const text = value;
-export const reportLength = (x) => x == null ? "—" : String(Number(x) === 3.175 ? 3.175 : Number(Number(x).toFixed(2)));
+export const reportLength = (x) => {
+  if (x == null) return "—";
+  const n = Number(x);
+  if (!Number.isFinite(n)) return "—";
+  if (Math.abs(n - 3.175) < 1e-10) return "3.175"; // coordinate subtraction can lose a few ulps
+  if (n !== 0 && Math.abs(n) < 0.1) return String(Number(n.toPrecision(3)));
+  return String(Math.sign(n) * Math.round((Math.abs(n) + Number.EPSILON * Math.max(1, Math.abs(n))) * 100) / 100);
+};
+export function operationTime(seconds) {
+  const s = Math.round(seconds);
+  const minutes = Math.round(s / 60);
+  return s >= 3600 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+    : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
+function jsonSummary(x) {
+  if (Array.isArray(x)) return x.map(jsonSummary).join(", ");
+  if (x && typeof x === "object") {
+    // The grip-band trace records implicated operations; retain their exact ids.
+    if (typeof x.operation === "string") {
+      const more = Object.entries(x).filter(([key]) => key !== "operation").map(([key, v]) => `${key.replaceAll("_", " ")}: ${key.endsWith("_mm") && typeof v === "number" ? reportLength(v) : jsonSummary(v)}`);
+      return x.operation + (more.length ? ` (${more.join("; ")})` : "");
+    }
+    return Object.entries(x).map(([key, v]) => `${key.replaceAll("_", " ")}: ${key.endsWith("_mm") && typeof v === "number" ? reportLength(v) : jsonSummary(v)}`).join("; ");
+  }
+  return String(x);
+}
 const rate = (x) => x == null ? "—" : String(Math.round(x));
 export function reportDuration(seconds) {
   const minutes = Math.round(seconds / 60);
@@ -135,6 +160,7 @@ export function reportDuration(seconds) {
 // Keep the page's established wording; only the machinist's sheet simplifies it.
 export function sheetWords(input) {
   let s = value(input);
+  const summaries = [];
   // Balanced JSON objects/arrays can contain nested values and escaped quotes.
   for (let start = 0; start < s.length; start++) {
     if (!"{[".includes(s[start])) continue;
@@ -146,7 +172,7 @@ export function sheetWords(input) {
       else if ("{[".includes(c)) depth++;
       else if ("}]".includes(c) && --depth === 0) {
         const part = s.slice(start, end + 1);
-        try { JSON.parse(part); s = s.slice(0, start) + s.slice(end + 1); start--; } catch { /* ordinary bracketed prose */ }
+        try { const summary = jsonSummary(JSON.parse(part)); const marker = `§JSON${summaries.length}§`; summaries.push(summary); s = s.slice(0, start) + marker + s.slice(end + 1); start += marker.length - 1; } catch { /* ordinary bracketed prose */ }
         break;
       }
     }
@@ -158,8 +184,51 @@ export function sheetWords(input) {
     "Closed_slot": "closed slot", "Radiused_slot_end_type": "rounded ends",
   };
   for (const [id, words] of Object.entries(names)) s = s.replaceAll(id, words);
-  return s.replace(/\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b/g, (id) => id.replaceAll("_", " "))
-    .replace(/-?\d+\.\d+/g, (n) => reportLength(Number(n))).replace(/, offsets\s*; measured side contact\s*\./g, ".").replace(/:\s*;/g, ";").replace(/ {2,}/g, " ").trim();
+  s = s.replace(/\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b/g, (id) => id.replaceAll("_", " "))
+    // Prose is not a bag of lengths: preserve pitches, ratios, ids and other numbers.
+    .replace(/(-?\d+\.\d+)(?=\s*mm\b)/g, (n) => reportLength(n))
+    .replace(/(⌀|\br|\b[XYZ]\s*)(-?\d+\.\d+)/g, (_, prefix, n) => prefix + reportLength(n));
+  return s.replace(/§JSON(\d+)§/g, (_, index) => summaries[Number(index)]).replace(/ {2,}/g, " ").trim();
+}
+function threadSpecification(analysis, feature) {
+  const faces = feature?.faces || [];
+  if (!faces.length) return null;
+  for (const [key, answer] of Object.entries(analysis?.resume?.answers || {})) {
+    if (!key.startsWith("hole.function:") || typeof answer !== "string" || !answer.startsWith("tapped:")) continue;
+    const supported = key.split(":").at(-1).split(".").map(Number);
+    if (faces.every((face) => supported.includes(face))) return answer.slice(7).replace(/x/gi, "×");
+  }
+  return null;
+}
+function setupBox(part, setup) {
+  if (!part?.min || !part?.max || !setup.rotation || !setup.origin_model) return null;
+  const points = Array.from({ length: 8 }, (_, bits) => setup.rotation.map((axis) => axis.reduce((sum, n, i) => sum + n * ((bits & (1 << i) ? part.max[i] : part.min[i]) - setup.origin_model[i]), 0)));
+  return { min: [0, 1, 2].map((i) => Math.min(...points.map((p) => p[i]))), max: [0, 1, 2].map((i) => Math.max(...points.map((p) => p[i]))) };
+}
+export function setupDetails(setup, plan) {
+  const unstated = "not stated in the plan", c = setup.clamping || {};
+  const face = (id) => typeof id !== "string" ? unstated : id.replace(/^(stock|part)\.([xyz])\.(min|max)$/, (_, body, axis, edge) => `${body} ${edge === "min" ? "−" : "+"}${axis.toUpperCase()} face`);
+  const lines = [`Faces in jaws (setup axes): ${c.faces?.length ? c.faces.map(face).join(", ") : unstated}. Jaw-top Z: ${c.jaw_top_z == null ? unstated : reportLength(c.jaw_top_z) + " mm"}. Grip depth: ${c.grip_height_mm == null ? unstated : reportLength(c.grip_height_mm) + " mm"}.`];
+  if (c.contacts?.length) lines.push(`Contact faces (model axes): ${[...new Set(c.contacts.map((contact) => face(contact.face_model)))].join(", ")}.`);
+  lines.push(c.parallels?.length ? c.parallels.map((p, i) => {
+    if (!p.min || !p.max) return `Parallel ${i + 1}: height/width ${unstated}`;
+    const spans = p.max.map((v, n) => v - p.min[n]);
+    return `Parallel ${i + 1}: height ${reportLength(spans[2])} mm, width ${reportLength(Math.min(spans[0], spans[1]))} mm (from support-box dimensions)`;
+  }).join("; ") + "." : `Parallels: none modelled; physical support height/width ${unstated}.`);
+  const name = setup.zero === "stock" ? "stock" : setup.zero === "part" ? "part box" : null;
+  const box = setup.zero === "stock" ? setup.stock : setup.zero === "part" ? setupBox(plan.part, setup) : null;
+  const zero = (x) => Math.abs(x) < 1e-7;
+  let xy = unstated, z = unstated;
+  if (box?.min && box?.max && name) {
+    const edges = [0, 1].map((i) => zero(box.min[i]) ? "minimum" : zero(box.max[i]) ? "maximum" : null);
+    if (edges.every(Boolean)) xy = `${edges[0]}-X/${edges[1]}-Y corner of the ${name} (setup axes)`;
+    else if ([0, 1].every((i) => zero((box.min[i] + box.max[i]) / 2))) xy = `centre of the ${name}`;
+    if (zero(box.max[2])) z = `top of the ${name} in setup coordinates`;
+    else if (zero(box.min[2])) z = `bottom of the ${name} in setup coordinates`;
+    else z = `${reportLength(box.max[2])} mm below the top of the ${name}`;
+  }
+  lines.push(`Work zero (from the recorded setup frame): XY — ${xy}; Z — ${z}.${setup.stock?.max ? ` Stock top Z${reportLength(setup.stock.max[2])} mm.` : ""} Tool comes down −Z.`);
+  return lines;
 }
 const heading = (text, level = 2) => ({ type: "heading", level, text });
 const paragraph = (text) => ({ type: "paragraph", text });
@@ -206,8 +275,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
     const t = tools.find((t) => t.id === id);
     return `${t?.number == null ? "T—" : `T${text(t.number)}`} · ${text(id)}`;
   };
-  const missing = [...needs.map((n) => ({ ...n, context: "Current plan" })),
-    ...(plan.workholding?.candidates || []).flatMap((c) => (c.tools_needed || []).map((n) => ({ ...n, context: c.label || c.id })))];
+  const missing = needs.map((n) => ({ ...n, context: "Current plan" }));
   const missingByTool = new Map();
   for (const n of missing) {
     if (!missingByTool.has(n.description)) missingByTool.set(n.description, { contexts: new Set(), features: new Set() });
@@ -219,7 +287,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
   const stockSize = (stock) => stock ? stock.max.map((v, i) => reportLength(v - stock.min[i])).join(" × ") : "—";
   blocks.push(heading("SETUP SHEET", 1), heading(text(data.name)), paragraph("Draft — check before cutting"));
   blocks.push(table(["Machine", "Date", "Material", "Stock size (mm)", "Feed-rate estimate"], [row([
-    text(machine?.name || data.library?.machine), text(date), text(plan.material?.used), stockSize(plan.setups[0]?.stock),
+    text(machine?.name || data.library?.machine).replace(/^the\s+/i, ""), text(date), text(plan.material?.used), stockSize(plan.setups[0]?.stock),
     programs.length ? reportDuration(estimatedSeconds ?? total) : "—",
   ])], "header"));
   blocks.push(paragraph(sheetWords(`Camlib: ${data.error ? `could not run the plan: ${data.error}` : programs.length ? check.compact : "—"}`)));
@@ -246,17 +314,19 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
     const grip = chosen?.grips?.find((g) => g.setup === setup.id);
     const holding = chosen ? workholdingText(chosen).label : null;
     blocks.push(pageBreak(), heading(`SETUP — ${setup.id}`, 1),
-      paragraph(sheetWords(`Workholding: ${text(holding)} · grip depth ${reportLength(grip?.height_mm ?? setup.clamping?.grip_height_mm)} mm${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}`)),
-      paragraph(`Work zero: ${setupZero(setup, reportLength)}`));
+      paragraph(sheetWords(`Workholding: ${text(holding)}${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}`)),
+      ...setupDetails(setup, plan).map(paragraph));
     const rows = setup.operations.map((op, i) => {
       const id = `${setup.id}-${i + 1}-${op.kind}`, o = ops.get(id), t = op.technology || {};
       const notes = [];
-      for (const [id, choice] of toolChoiceRows(op, decisions)) if (choice.chosen && id === op.tool) notes.push(`Tool choice: ✓ ${id} — ${choice.reason}`);
       if (t.peck_mode != null) notes.push(`Peck mode: ${t.peck_mode}`);
       if (t.peck_mm != null) notes.push(`Peck depth: ${reportLength(t.peck_mm)} mm`);
       if (op.tool_note) notes.push(op.tool_note);
       if (op.notes) notes.push(value(op.notes));
-      if (op.iso14649?.note) notes.push(op.iso14649.note);
+      // Keep geometric shape information; ISO operation-taxonomy rationale stays
+      // in the appendix alongside the original note.
+      if (op.kind === "slot" && op.iso14649?.note?.includes("Radiused_slot_end_type")) notes.push("slot with rounded ends");
+      if (op.kind === "v_channel" && op.iso14649?.note?.includes("Vee_profile")) notes.push("V-channel cut by one V-bit pass along it");
       const old = tools.find((t) => t.id === previousTool), next = tools.find((t) => t.id === op.tool);
       if (manualCollets && previousTool && previousTool !== op.tool) {
         if (old?.shank_diameter != null && next?.shank_diameter != null) {
@@ -264,19 +334,42 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
         } else notes.push(`Check manual collet change: ${previousTool} → ${op.tool}; shank size —.`);
       }
       if (op.tool) previousTool = op.tool;
-      notes.push(...warnings.filter((d) => op.because?.includes(d.id)).map((d) => warningText(m, d, true)));
+      notes.push(...warnings.filter((d) => op.because?.includes(d.id) && !d.rule.startsWith("machine.spindle.manual_collets@") && !d.rule.startsWith("execution.refused@"))
+        .map((d) => t.peck_mode && d.depth_diameter_ratio != null ? warningText(m, d, true).replace(/: full-retract pecks$/, "") : warningText(m, d, true)));
       // Notes stay in the operation's row so the PDF never separates them.
-      return row([text(i + 1), sheetWords(o?.name || operationName(op, setup, plan)) + (notes.length ? "\n" + notes.map(sheetWords).join("\n") : ""), toolLabel(op.tool), rate(t.spindle_rpm), rate(t.feed_mm_min), rate(t.plunge_mm_min), `${reportLength(t.stepdown_mm)} / ${reportLength(t.stepover_mm)}`, o?.time ? describeTime(Math.round(o.time)) : "not run"]);
+      return row([text(i + 1), sheetWords(o?.name || operationName(op, setup, plan)) + (notes.length ? "\n" + notes.map(sheetWords).join("\n") : ""), toolLabel(op.tool).replace(" · ", "\n"), rate(t.spindle_rpm), rate(t.feed_mm_min), rate(t.plunge_mm_min), `${reportLength(t.stepdown_mm)} / ${reportLength(t.stepover_mm)}`, o?.time ? operationTime(o.time) : "not run"]);
     });
-    blocks.push(table(["#", "Operation / notes", "Tool", "RPM", "Feed mm/min", "Plunge mm/min", "↓ / ↔ mm", "Time est."], rows, "operations"));
+    blocks.push(table(["#", "Operation / notes", "Tool", "RPM", "Feed mm/min", "Plunge mm/min", "Stepdown / stepover mm", "Time est."], rows, "operations"));
   }
-  blocks.push(heading("NOT CUT"), table(["Feature", "Reason", "Tool that would cut it"], (plan.skipped || []).map((s) => row([
-    sheetWords(`${fs.get(s.feature)?.name || s.feature} (${s.feature})`), sheetWords(s.reason),
-    sheetWords(needs.filter((n) => n.features?.includes(s.feature)).map((n) => n.description).join("; ")),
-  ])).concat([...fs.values()].filter((f) => f.notCut && !plan.skipped?.some((s) => s.feature === f.id)).map((f) => row([sheetWords(f.name), sheetWords(f.note), "—"]))), "not-cut"));
+  const refused = (plan.decisions || []).filter((d) => d.rule?.startsWith("execution.refused@") && d.outcome === "removed");
+  const skippedRows = (plan.skipped || []).map((skip) => {
+    const decision = decisions.get(skip.decision), f = fs.get(skip.feature);
+    let label = f?.name || skip.feature, reason = skip.reason, affectedOperation = false;
+    if (decision?.rule.startsWith("execution.refused@")) {
+      const removal = refused.find((r) => (plan.decisions || []).some((d) => d.features?.includes(skip.feature)
+        && (d.superseded_by === r.id || d.rule.startsWith("execution.refused@") && d.subject === r.subject)));
+      if (removal?.message) reason = `left out: ${removal.message}`;
+      const id = removal?.subject, kind = id?.match(/-\d+-(.+)$/)?.[1];
+      if (kind === "thread") {
+        const spec = threadSpecification(data.analysis, f);
+        const drilled = [...ops.values()].some((o) => o.kind === "holes" && o.time > 0 && o.features?.includes(skip.feature));
+        label = `${spec ? spec + " " : ""}thread (${id}) — not cut${drilled ? " (hole is drilled)" : ""}`;
+      } else if (id) { label = `${kind?.replaceAll("_", " ") || "Operation"} (${id}) — not cut`; affectedOperation = true; }
+      else if ([...ops.values()].some((o) => o.features?.includes(skip.feature))) label = `Refused machining of ${label} — not cut`;
+    }
+    return { cells: [sheetWords(label), sheetWords(reason), sheetWords(needs.filter((n) => n.features?.includes(skip.feature)).map((n) => n.description).join("; "))], affectedOperation };
+  }).concat([...fs.values()].filter((f) => f.notCut && !plan.skipped?.some((skip) => skip.feature === f.id)).map((f) => ({ cells: [sheetWords(f.name), sheetWords(f.note), "—"] })));
+  const groupedSkips = new Map();
+  for (const { cells, affectedOperation } of skippedRows) {
+    const key = JSON.stringify(cells);
+    if (!groupedSkips.has(key)) groupedSkips.set(key, { cells, count: 0, affectedOperation });
+    groupedSkips.get(key).count++;
+  }
+  blocks.push(heading("NOT CUT"), table(["Feature / operation", "Reason", "Tool that would cut it"], [...groupedSkips.values()].map(({ cells, count, affectedOperation }) => [count > 1 ? affectedOperation ? `${cells[0]} (${count} affected features)` : `${count} × ${cells[0]}` : cells[0], ...cells.slice(1)]), "not-cut"));
   blocks.push(heading("WARNINGS"));
   const groups = new Map();
-  for (const d of warnings) {
+  const sheetWarnings = warnings.filter((d) => !d.rule.startsWith("machine.spindle.manual_collets@") && !d.rule.startsWith("execution.refused@"));
+  for (const d of sheetWarnings) {
     const label = rules.get(d.rule)?.warning_label || "plan needs checking";
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(sheetWords(warningText(m, d)));
@@ -284,8 +377,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
   for (const [label, items] of groups) blocks.push(heading(sheetWords(label), 3), list(items));
   const extra = (plan.warnings || []).filter((w) => !warnings.some((d) => d.says === w));
   if (extra.length) blocks.push(list(extra.map(sheetWords)));
-  if (!warnings.length && !extra.length) blocks.push(paragraph("—"));
-  const refused = (plan.decisions || []).filter((d) => d.rule?.startsWith("execution.refused@") && d.outcome === "removed");
+  if (!sheetWarnings.length && !extra.length) blocks.push(paragraph("—"));
   if (refused.length) blocks.push(heading("Refused by camlib", 3), list(refused.map((d) => sheetWords(`${d.subject}: ${d.says}`))));
   const appendixStart = blocks.length;
   blocks.push(pageBreak(), heading("APPENDIX — FULL REPORT", 1), heading("Recognised features"), table(["Id", "Feature", "What happens to it"], [...fs.values()].map((f) => {
@@ -308,6 +400,10 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
     const source = `${text(d.source)}${d.source && d.source !== "rule" && d.reason ? `: ${d.reason}` : ""}`;
     return row([`${d.id} · ${STAGES[d.stage] || d.stage} · ${text(d.subject)}`, `${d.says}${choice}${d.superseded_by ? ` Replaced by ${d.superseded_by}.` : ""}`, `${d.rule} · ${source}`]);
   }), "decisions"));
+  blocks.push(heading("Operation detail"), table(["Operation", "Chosen tool / reason", "Notes and ISO 14649 rationale"], [...ops.values()].map((o) => {
+    const choices = [...toolChoiceRows(o, decisions)].filter(([id, choice]) => choice.chosen && id === o.tool);
+    return [o.id, choices.map(([id, choice]) => `${id}: ${choice.reason}`).join("; ") || "—", [o.tool_note, o.notes, o.iso14649?.note].filter(Boolean).map(value).join("\n") || "—"];
+  }), "operation-detail"));
   blocks.push(heading("Rules cited"), table(["Rule id", "Rule text", "Sources"], [...new Set((plan.decisions || []).map((d) => d.rule))].map((id) => {
     const r = rules.get(id);
     return row([text(id), r ? text(r.rationale) : "Rule text unavailable.", r ? text((r.sources || []).map(describeSource).join("; ")) : "—"]);

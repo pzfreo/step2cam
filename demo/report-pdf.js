@@ -1,4 +1,6 @@
 // Loaded only by the setup-sheet click. The report model owns all content.
+// jsPDF 2.5.2 is intentional: reported addImage/html CVE paths are unused here;
+// this renderer calls text and AutoTable, never html or addImage.
 const FONT_BASE = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/";
 let dependencies;
 const binary = (bytes) => {
@@ -19,6 +21,19 @@ async function loadDependencies() {
   return dependencies;
 }
 
+// Wrap long identifiers/JSON at existing separators, never through a word or
+// number. Added spaces do not change identifiers when extracted without whitespace.
+function readableBreaks(input, width, measure) {
+  return String(input).split(/(\s+)/).map((token) => {
+    if (!token.trim() || measure(token) <= width) return token;
+    const parts = token.replace(/([._/@:,\-{}\[\]()"';=])/g, "$1 ");
+    for (const part of parts.split(/\s+/)) {
+      if (measure(part) > width) throw new Error("Report column too narrow for a complete word");
+    }
+    return parts;
+  }).join("");
+}
+
 /** Render real Unicode text; dependencies can be injected for offline verification. */
 export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true, putOnlyUsedFonts: true });
@@ -35,7 +50,7 @@ export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
   function write(text, { size = 10, bold = false, gap = 2, indent = 0, keep = 0 } = {}) {
     doc.setFont("DejaVuSans", bold ? "bold" : "normal");
     doc.setFontSize(size);
-    const lines = doc.splitTextToSize(String(text), width - indent);
+    const lines = doc.splitTextToSize(readableBreaks(text, width - indent, (word) => doc.getTextWidth(word)), width - indent);
     const height = size * 0.352778 * 1.2;
     if (y + height * Math.min(lines.length, 2) + keep > bottom) newPage();
     for (const line of lines) {
@@ -55,10 +70,11 @@ export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
     else if (block.type === "table") {
       // Give prose most of the width; narrow columns hold only cutting data.
       const widths = {
-        operations: [6, 57, 19, 17, 20, 20, 22, 19],
+        operations: [9, 47, 26, 17, 20, 20, 22, 19],
         decisions: [39.6, 95.4, 45], rules: [36, 108, 36], features: [36, 63, 81],
+        "not-cut": [54, 81, 45], "operation-detail": [35, 45, 100], checks: [18, 55, 107],
         tools: [30, 34, 25, 37, 25, 29], header: [39, 23, 27, 39, 52],
-      }[block.id];
+      }[block.id] || block.headers.map(() => width / block.headers.length);
       autoTable(doc, {
         startY: y, head: [block.headers], body: block.rows,
         margin: { left, right: left, top, bottom: 20 }, tableWidth: width,
@@ -66,6 +82,11 @@ export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
         headStyles: { font: "DejaVuSans", fontStyle: "bold", fillColor: [235, 238, 240], textColor: 20 },
         alternateRowStyles: { fillColor: [248, 249, 250] },
         columnStyles: widths ? Object.fromEntries(widths.map((w, i) => [i, { cellWidth: w }])) : {},
+        didParseCell: ({ cell, column }) => {
+          doc.setFont("DejaVuSans", cell.styles.fontStyle); doc.setFontSize(cell.styles.fontSize);
+          const padding = cell.padding("left") + cell.padding("right");
+          cell.text = cell.text.map((line) => readableBreaks(line, widths[column.index] - padding, (word) => doc.getTextWidth(word)));
+        },
         rowPageBreak: "avoid", showHead: "everyPage", theme: "grid",
       });
       y = doc.lastAutoTable.finalY + 4;

@@ -1,6 +1,7 @@
 // Content and escaping checks; no output hashes or dependency on a browser.
 import assert from 'node:assert/strict';
-import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, NOT_FEATURES } from '../demo/report.js';
+import { readFileSync } from 'node:fs';
+import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, operationTime, setupDetails, workholdingText, setupZero, NOT_FEATURES } from '../demo/report.js';
 const data = {
   name: '<part & "test">.step', library: { machine: 'mill' }, tools: [
     { id: 'a', number: 7, type: 'end_mill', diameter: 6, shank_diameter: 6 },
@@ -21,7 +22,7 @@ const reportText = (report) => report.blocks.map(block => block.type === 'table'
 const tableText = (table) => table.rows.map(row => row.join(' | ')).join('\n');
 const document = reportDocument(data, options);
 const html = reportText(document);
-for (const phrase of ['SETUP SHEET', 'APPENDIX — FULL REPORT', 'NOT CUT', 'WARNINGS', 'special drill', 'Holding rule', 'shop constraint', 'Manual collet change', '5000', '600', '100', '1 / 3', '0:06', '20 × 30 × 10', 'T7', 'T2', '— / —', 'not compared with the part', 'Uncertain-motion']) {
+for (const phrase of ['SETUP SHEET', 'APPENDIX — FULL REPORT', 'NOT CUT', 'WARNINGS', 'special drill', 'Holding rule', 'shop constraint', 'Manual collet change', '5000', '600', '100', '1 / 3', '0 min 6 s', '20 × 30 × 10', 'T7', 'T2', '— / —', 'not compared with the part', 'Uncertain-motion']) {
   assert.ok(html.toLowerCase().includes(phrase.toLowerCase()), `missing ${phrase}`);
 }
 assert.equal(document.title, data.name, 'PDF model must preserve literal filename characters');
@@ -81,12 +82,17 @@ assert.ok(!compact.includes('rawGeometrySentinel') && !compact.includes('do not 
 const sheetBlocks = compactDocument.blocks.slice(0, compactDocument.appendixStart);
 const setupSheet = reportText({ blocks: sheetBlocks });
 assert.ok(setupSheet.includes('Peck depth: 2 mm') && setupSheet.includes('Peck mode: full-retract pecks'));
-assert.ok(setupSheet.includes('Tool choice: ✓ a — the only one that qualifies'));
+assert.ok(compact.slice(compact.indexOf('APPENDIX — FULL REPORT')).includes('a: the only one that qualifies'), 'chosen tool rationale stays in appendix');
+assert.ok(!setupSheet.includes('Tool choice:'), 'machinist sheet omits selection rationale');
 assert.ok(!setupSheet.includes('rejected-tool') && !setupSheet.includes('Tool choice: ✗'));
 const missingHeading = sheetBlocks.findIndex(b => b.text === 'Tools needed but not in the library');
 const missingTools = sheetBlocks[missingHeading + 1].items.join('\n');
-assert.equal(missingTools.split('special drill').length - 1, 1, 'deduplicate tool needs across plan and candidates');
-for (const context of ['Current plan', 'Ordinary grip', 'Flip option']) assert.ok(missingTools.includes(context));
+assert.equal(missingTools.split('special drill').length - 1, 1, 'current-plan tool needs are deduplicated');
+assert.ok(missingTools.includes('Current plan'));
+for (const context of ['Ordinary grip', 'Flip option']) {
+  assert.ok(!missingTools.includes(context), 'option needs stay out of the tool-loading list');
+  assert.ok(compact.slice(compact.indexOf('APPENDIX — FULL REPORT')).includes(context), 'options and their needs remain in appendix');
+}
 assert.ok(compact.includes('Flute length mm') && !compact.includes('Flutes mm'));
 // Whole-part descriptions are not machining features, whether the report builds
 // its feature map or receives the page's filtered and annotated map.
@@ -122,9 +128,12 @@ for (const features of [undefined, pageFeatures]) {
 assert.equal(reportLength(11.8364), '11.84');
 assert.equal(reportLength(6.343107), '6.34');
 assert.equal(reportLength(3.175), '3.175');
+assert.equal(reportLength(100 - 96.825), '3.175');
+assert.equal(reportLength(-8.825), '-8.83');
+assert.equal(reportLength(16.825), '16.83');
 assert.equal(reportDuration((22 * 60 + 38) * 60 + 16), '22 h 38 min');
 assert.equal(sheetWords('Closed_slot with Radiused_slot_end_type ends; bottom_and_side_finish_milling; Vee_profile; full_retract; unknown_identifier'), 'slot with rounded ends; finish bottom and sides; V-channel; full-retract pecks; unknown identifier');
-assert.equal(sheetWords('Check cut {"detail":{"bad":[1,2]}} before cutting'), 'Check cut before cutting');
+assert.equal(sheetWords('Check cut {"detail":{"bad":[1,2]}} before cutting'), 'Check cut detail: bad: 1, 2 before cutting');
 const tidy = structuredClone(data);
 tidy.tools[0].diameter = 3.175;
 tidy.tools[0].flute_length = 11.8364;
@@ -152,5 +161,66 @@ assert.ok(colletTraceReport.blocks.find(b => b.text?.startsWith('Collet changes 
 assert.ok(reportText({ blocks: colletTraceReport.blocks.slice(0, colletTraceReport.blocks.findIndex(b => b.type === 'page-break')) }).includes('Collets must be changed by hand.'));
 const nearMinute = structuredClone(data);
 nearMinute.programs[0].moves[0].points[1] = [596, 0, 0];
-assert.equal(reportDocument(nearMinute, options).blocks.find(b => b.id === 'operations').rows[0][7], '1:00', 'rounded operation seconds carry into the minute');
+assert.equal(reportDocument(nearMinute, options).blocks.find(b => b.id === 'operations').rows[0][7], '1 min 0 s', 'operation time now uses min/s below one hour, carrying rounded seconds');
+// Review fixes: preserve warning content, small lengths and unrelated numbers.
+assert.equal(operationTime(17 * 3600 + 9 * 60 + 12), '17 h 9 min');
+assert.equal(operationTime(28 * 60 + 56), '28 min 56 s');
+assert.equal(operationTime(17 * 3600 + 9 * 60 + 59), '17 h 10 min');
+assert.equal(operationTime(3599.6), '1 h 0 min');
+assert.equal(reportLength(0.000123456), '0.000123');
+assert.equal(reportLength(-0.0123456), '-0.0123');
+assert.equal(sheetWords('ratio 0.123456; value 1.234567; length 11.8364 mm; tiny 0.000123456 mm'), 'ratio 0.123456; value 1.234567; length 11.84 mm; tiny 0.000123 mm');
+const gripWarning = sheetWords('grip band: [{"operation":"top-2-roughing","faces":["stock.y.min"]},{"operation":"top-5-holes"}]');
+assert.equal(sheetWords('offset {"offset_mm":0.000123456,"fraction":0.123456}'), 'offset offset mm: 0.000123; fraction: 0.123456');
+assert.equal(gripWarning, 'grip band: top-2-roughing (faces: stock.y.min), top-5-holes');
+assert.ok(workholdingText({ available: true, finished: true, setups: 1, extra_stock_mm: 0 }).summary.includes('0:00'), 'page retains main’s missing-time display');
+assert.ok(setupZero({ stock: data.plan.setups[0].stock }).includes("zero on the part's box"), 'page retains main’s missing-zero wording');
+const clamped = { id: 'top', zero: 'stock', stock: { min: [0,0,-10], max: [20,30,0] }, clamping: { faces: ['stock.y.min','stock.y.max'], jaw_top_z: -8, grip_height_mm: 2, parallels: [{ min: [0,0,-20], max: [20,3,-10] }] } };
+const details = setupDetails(clamped, { part: {} }).join(' ');
+for (const phrase of ['stock −Y face', 'stock +Y face', 'Jaw-top Z: -8 mm', 'Grip depth: 2 mm', 'height 10 mm, width 3 mm', 'minimum-X/minimum-Y corner', 'top of the stock']) assert.ok(details.includes(phrase), phrase);
+assert.ok(setupDetails({}, {}).join(' ').includes('not stated in the plan'));
+const namedMachine = reportDocument(data, { ...options, library: { machines: [{ id: 'mill', name: 'the Makera Carvera' }] } });
+assert.equal(namedMachine.blocks.find(b => b.id === 'header').rows[0][0], 'Makera Carvera');
+const refusedThread = structuredClone(data);
+refusedThread.analysis.features[0].faces = [48,57];
+refusedThread.analysis.resume = { answers: { 'hole.function:hole_patterns.set:48.49.57.58': 'tapped:M3x0.5' } };
+refusedThread.plan.setups[0].operations[0] = { kind: 'holes', tool: 'a', diameter: 4, bottom: 'through', features: ['hole'] };
+refusedThread.programs[0].moves[0].op = 'top-1-holes';
+refusedThread.plan.decisions.push(
+  { id: 'removed', stage: 'execution', rule: 'execution.refused@1', outcome: 'removed', source: 'rule', subject: 'top-2-thread', says: 'Thread cutter cannot enter' },
+  { id: 'thread-process', stage: 'process', rule: 'process.thread@1', source: 'rule', subject: 'top:thread', features: ['hole'], superseded_by: 'removed', says: 'Thread planned' },
+  { id: 'thread-skip', stage: 'execution', rule: 'execution.refused@1', source: 'rule', subject: 'hole', says: 'Thread cutter cannot enter' },
+  { id: 'thread-warning', stage: 'execution', rule: 'execution.refused@1', source: 'rule', subject: 'top-2-thread', outcome: 'warning', features: ['hole'], says: 'Thread cutter cannot enter' },
+);
+refusedThread.plan.skipped = [{ feature: 'hole', decision: 'thread-skip', reason: 'Thread cutter cannot enter' }];
+const refusedDoc = reportDocument(refusedThread, options);
+const refusedRow = refusedDoc.blocks.find(b => b.id === 'not-cut').rows[0];
+assert.equal(refusedRow[0], 'M3×0.5 thread (top-2-thread) — not cut (hole is drilled)');
+assert.ok(!refusedRow[0].includes('⌀4 hole'), 'drilled hole is not labelled uncut');
+const refusedSheet = reportText({ blocks: refusedDoc.blocks.slice(0, refusedDoc.appendixStart) });
+assert.equal((refusedSheet.match(/Refused by camlib/g) || []).length, 1);
+assert.ok(!refusedSheet.includes('operations refused'));
+const repeated = structuredClone(data);
+repeated.analysis.features = Array.from({ length: 6 }, (_, n) => ({ id: `edge-${n}`, family: 'fillets', record: { radius: 0.8, side: 'convex' } }));
+repeated.plan.skipped = repeated.analysis.features.map(f => ({ feature: f.id, reason: 'not reached from this setup' }));
+assert.equal(reportDocument(repeated, options).blocks.find(b => b.id === 'not-cut').rows[0][0], '6 × r0.8 edge round');
+const noise = structuredClone(detailed);
+noise.plan.setups[0].operations[0].iso14649 = { note: 'ISO rationale retained only in appendix' };
+noise.plan.decisions.push({ id: 'peck', stage: 'process', rule: 'process.peck@1', outcome: 'warning', says: 'Peck warning', depth_diameter_ratio: 6.1 });
+noise.plan.setups[0].operations[0].because.push('peck');
+const noiseReport = reportDocument(noise, options), firstOperation = noiseReport.blocks.find(b => b.id === 'operations').rows[0][1];
+assert.equal((firstOperation.match(/full-retract pecks/g) || []).length, 1);
+assert.ok(!firstOperation.includes('ISO rationale'));
+assert.ok(reportText({ blocks: noiseReport.blocks.slice(noiseReport.appendixStart) }).includes('ISO rationale retained only in appendix'));
+assert.ok(document.blocks.find(b => b.id === 'operations').headers.includes('Stepdown / stepover mm'));
+const slotShape = structuredClone(data);
+slotShape.plan.setups[0].operations[0] = { kind: 'slot', width: 4, length: 8, tool: 'a', iso14649: { note: 'a Closed_slot with Radiused_slot_end_type ends' } };
+assert.ok(reportDocument(slotShape, options).blocks.find(b => b.id === 'operations').rows[0][1].includes('slot with rounded ends'));
+const onlyOptionNeeds = structuredClone(detailed);
+onlyOptionNeeds.plan.tools_needed = [];
+const onlyOptionReport = reportDocument(onlyOptionNeeds, compactOptions);
+assert.ok(!onlyOptionReport.blocks.slice(0, onlyOptionReport.appendixStart).some(b => b.text === 'Tools needed but not in the library'));
+assert.ok(reportText({ blocks: onlyOptionReport.blocks.slice(onlyOptionReport.appendixStart) }).includes('special drill'));
+const markup = readFileSync(new URL('../demo/index.html', import.meta.url), 'utf8');
+assert.match(markup, /<button(?=[^>]*id="setup-sheet")(?=[^>]*\bdisabled\b)[^>]*>/, 'setup-sheet control starts disabled without a plan');
 console.log('Report model, display formatting, compact appendix, feature filtering/notes, escaping, missing fields, ordering, collet changes and repeatability passed.');
