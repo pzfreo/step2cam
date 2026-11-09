@@ -393,7 +393,7 @@ Spiral-point flutes are through-only. OAL and DCONMS aliases have the same dimen
 conventions as other tools; thread/lead properties remain unmapped.
 
 [`tap-drills.json`](../rust/capp/rulebase/reference/tap-drills.json) holds the cut drill
-table checked in the ISO 2306 Table 1 preview, alongside the ISO minor diameter limits and the separately sourced
+table checked in the ISO 2306 Table 1 preview (which also gives minor diameter limits), and the separately sourced
 [Tapmatic form formula](https://www.tapmatic.com/tapping-formulas.php) at a shop assumption
 of 65% thread. Only the cut rows are checked against the standard preview; the form formula is not. The model bore
 must be within 0.02 mm of the reference; drilling diameters are never changed.

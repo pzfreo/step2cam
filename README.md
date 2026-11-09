@@ -328,7 +328,7 @@ on purpose.
   plus the longest gauge length, so every tool's tip is above the clearance height.
 - `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `spot_drill`, `tap`, `thread_mill` or `chamfer_mill`), `number`,
   `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
-  `feed_mm_min`, `spindle_rpm` and `coolant`. Also, by type:
+  `spindle_rpm` and `coolant`; tools other than taps also need `feed_mm_min`. By type:
   - **End mills:** `flute_length`, `plunge_mm_min`, `stepdown_mm` and `stepover_mm`.
   - **Drills:** `flute_length` and `point_angle`.
   - **Taps:** `diameter` is nominal thread diameter; also require `pitch`, `tap_type`
