@@ -53,11 +53,14 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
                     && need["description"].as_str().unwrap().contains("19 mm")));
             }
         }
-        assert!(!out["plan"]["warnings"].to_string().contains("camlib"), "{name}: {}", out["plan"]["warnings"]);
         let programs = out["programs"].as_array().unwrap();
         assert_eq!(programs.len(), setups.len(), "{name}: {}", out["log"]);
         let mut compared = 0;
         for program in programs {
+            // Earlier candidates can legitimately be refused for insufficient catalogue reach.
+            // Recheck the final executable job, rather than treating that diagnostic as a gouge.
+            assert!(step2cam::simulate::simulate(&program["job"].to_string()).is_ok(),
+                "{name}: final {} job failed camlib checks", program["setup"]);
             // process removes refused operations. Require every selected job to complete.
             for job in program["job"]["operations"].as_array().unwrap() {
                 let id = job["id"].as_str().unwrap();
