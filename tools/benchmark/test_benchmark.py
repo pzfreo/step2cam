@@ -140,3 +140,21 @@ class FetchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PrivateCacheTests(unittest.TestCase):
+    def test_root_private_cache_is_allowed_but_tracked_directories_are_rejected(self):
+        import run
+        class StopBeforeBuild(Exception):
+            pass
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory).resolve()
+            with patch.object(run, 'REPO', repo), patch.object(run, 'build_process', side_effect=StopBeforeBuild):
+                with patch.object(sys, 'argv', ['run.py', '--cache', str(repo / '.bench-cache'), '--out', str(repo / 'unused.json')]):
+                    with self.assertRaises(StopBeforeBuild):
+                        run.main()
+                self.assertTrue((repo / '.bench-cache').is_dir())
+                with patch.object(sys, 'argv', ['run.py', '--cache', str(repo / 'tools'), '--out', str(repo / 'unused.json')]), patch('sys.stderr', io.StringIO()):
+                    with self.assertRaises(SystemExit) as caught:
+                        run.main()
+                self.assertEqual(caught.exception.code, 2)

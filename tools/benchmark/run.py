@@ -132,8 +132,8 @@ def main():
     if any(not re.fullmatch(r'featured_part_\d{5}', p) for p in parts) or len(set(parts)) != len(parts):
         parser.error('sample must contain unique featured_part_NNNNN names')
     cache = args.cache.expanduser().resolve()
-    if cache.is_relative_to(REPO):
-        parser.error('--cache must be outside the repository')
+    if cache.is_relative_to(REPO) and cache != REPO / '.bench-cache':
+        parser.error('--cache must be outside the repository or exactly .bench-cache in its root')
     cache.mkdir(parents=True, exist_ok=True)
     tools = args.tools.resolve()
     # Build once before workers, avoiding concurrent initial Cargo builds.

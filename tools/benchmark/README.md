@@ -38,7 +38,9 @@ The default source is Zenodo's ZIP content endpoint. Only ZIP metadata and selec
 operations JSON and details members are read, through validated HTTP ranges. A server that
 ignores ranges is rejected before its body is read. Use `--zip /path/MachinePlan-10K.zip` for
 a local archive. Extracted members and temporary CLI results stay under
-`~/.cache/step2cam-benchmark` (`--cache PATH`, outside the repo). Members are bounded to 128 MiB
+`~/.cache/step2cam-benchmark` (`--cache PATH`, outside the repo by default). An explicit private copy at
+`--cache .bench-cache` in the clone root is also accepted and Git-ignored; other
+in-repository cache paths are rejected. Use a private copy for concurrent streams. Members are bounded to 128 MiB
 and paths are checked for traversal and escaping symlinks; nothing is executed from the ZIP.
 Fetched ranges (including ZIP metadata) and extracted archive members are cached for this fixed
 record URL; recognition and planning always run again. The first remote run reads roughly 60 MB
