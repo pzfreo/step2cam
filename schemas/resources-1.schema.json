@@ -1444,6 +1444,13 @@
       "max_bar_diameter_mm": {
        "type": "number",
        "exclusiveMinimum": 0
+      },
+      "collet_change": {
+       "enum": [
+        "manual",
+        "automatic"
+       ],
+       "description": "How spindle collets are changed, independently of the tool changer. manual requires operator intervention when selected shank sizes differ; absent leaves this check unspecified. Not needed for ATCs swapping complete preassembled holders."
       }
      }
     },

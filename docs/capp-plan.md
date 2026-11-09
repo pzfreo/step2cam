@@ -560,3 +560,16 @@ are refused with a numbering reason; the rules then choose the layout. A consist
 that uses more of the supplied choices takes precedence. Execution exclusions still only prune
 spot features; surviving features may be regrouped for the actual drills, and a refused spot
 is never recreated.
+
+Wall finishing axial engagement is chosen by `process.wall_finish.axial_passes`:
+stock-top-to-floor depth divided into the fewest equal passes no deeper than the
+selected tool's flute length. This replaces the roughing stepdown for finishing
+only, in operation technology consumed by the camlib adapter. Full reach and
+stock-contact checks still apply; equal layers do not excuse insufficient reach.
+
+An optional machine `spindle.collet_change` (`manual` or `automatic`) describes
+swapping the spindle collet, separately from swapping complete tool holders.
+`manual` produces a traced setup warning (`machine.spindle.manual_collets`) when
+selected tools require multiple shank sizes. Absent leaves this check unspecified;
+preassembled CAT40/ER holders need not claim manual spindle-collet changes.
+Unused inventory tools do not affect the note. No tool choice changes.

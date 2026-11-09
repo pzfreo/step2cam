@@ -144,3 +144,28 @@ fn the_stepped_plate_runs_on_the_carvera() {
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(!out["programs"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn manual_collet_note_uses_only_selected_shanks_and_is_independent_of_atc_capacity() {
+    let plan = json!({"setups":[{"id":"top", "operations":[{"tool":"a"}, {"tool":"b"}, {"tool":"a"}]}]});
+    let mut library = json!({"machines":[{"id":"mill", "kind":"mill", "spindle":{"collet_change":"manual"}, "tool_changer":{"kind":"automatic", "pockets":6}}],
+        "tools":[{"id":"a", "shank_diameter":3.175}, {"id":"b", "shank_diameter":6}, {"id":"unused", "shank_diameter":4}]});
+    let mut trace = capp::trace::Trace::default();
+    capp::machines::check_changer(&plan, &library, &mut trace);
+    let note = trace.decisions.iter().find(|d| d["rule"] == "machine.spindle.manual_collets@1").unwrap();
+    assert_eq!(note["subject"], "top");
+    assert_eq!(note["shank_sizes_mm"], json!([3.175, 6.]));
+    assert!(note["says"].as_str().unwrap().contains("ATC cannot"));
+    assert!(!trace.decisions.iter().any(|d| d["rule"] == "machine.tool_changer.pockets@1"));
+    library["tools"][1]["shank_diameter"] = json!(3.175);
+    let mut one_shank = capp::trace::Trace::default();
+    capp::machines::check_changer(&plan, &library, &mut one_shank);
+    assert!(!one_shank.decisions.iter().any(|d| d["rule"] == "machine.spindle.manual_collets@1"));
+    library["tools"][1]["shank_diameter"] = json!(6);
+    for setting in [json!("automatic"), Value::Null] {
+        library["machines"][0]["spindle"]["collet_change"] = setting;
+        let mut unreported = capp::trace::Trace::default();
+        capp::machines::check_changer(&plan, &library, &mut unreported);
+        assert!(!unreported.decisions.iter().any(|d| d["rule"] == "machine.spindle.manual_collets@1"));
+    }
+}

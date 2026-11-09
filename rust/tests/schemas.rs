@@ -74,3 +74,16 @@ fn controller_metadata_is_optional_and_machine_typos_are_rejected() {
     library["machines"][0]["controler"] = serde_json::json!("haas_ngc");
     assert!(!validator.is_valid(&library));
 }
+
+#[test]
+fn spindle_collet_change_mode_is_optional_but_checked() {
+    let mut library = read("demo/tools.json");
+    let validator = jsonschema::validator_for(&read("schemas/resources-1.schema.json")).unwrap();
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"].as_object_mut().unwrap().remove("collet_change");
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"]["collet_change"] = serde_json::json!("automatic");
+    assert!(validator.is_valid(&library));
+    library["machines"][0]["spindle"]["collet_change"] = serde_json::json!("maybe");
+    assert!(!validator.is_valid(&library));
+}

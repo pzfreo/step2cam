@@ -269,3 +269,28 @@ fn a_v_channel_on_a_flat_goes_with_the_flat() {
     assert!(!out["plan"]["setups"][0]["operations"].to_string().contains("v_channel"));
     assert!(out["plan"]["warnings"].to_string().contains("V-channel left out"), "{}", out["plan"]["warnings"]);
 }
+
+#[test]
+fn finishing_walls_cuts_full_depth_despite_a_shallow_roughing_stepdown() {
+    let (analysis, mesh) = part("walls/round-boss");
+    let mut library = tools();
+    // A shallow roughing value must not create hundreds of finishing laps.
+    for tool in library["tools"].as_array_mut().unwrap() {
+        if tool["type"] == "end_mill" { tool["stepdown_mm"] = json!(0.2); }
+    }
+    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let program = &out["programs"][0];
+    let top = number(&out["plan"]["setups"][0]["stock"]["max"][2]);
+    for contour in program["job"]["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "contour") {
+        let floor = number(&contour["floor_z_mm"]);
+        assert!((number(&contour["stepdown_mm"]) - (top - floor)).abs() < 1e-9);
+        let cuts: Vec<_> = program["moves"].as_array().unwrap().iter().filter(|m| m["op"] == contour["id"] && m["kind"] == "cut").collect();
+        assert!(!cuts.is_empty());
+        assert!(cuts.iter().all(|m| m["points"].as_array().unwrap().iter().all(|p| (number(&p[2]) - floor).abs() < 1e-9)), "{cuts:?}");
+    }
+    assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
+    assert!(out["plan"]["decisions"].as_array().unwrap().iter().any(|d| d["rule"] == "process.wall_finish.axial_passes@1" && d["chosen"]["passes"] == 1));
+}
+
+fn number(value: &Value) -> f64 { value.as_f64().unwrap() }
