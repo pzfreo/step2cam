@@ -1175,6 +1175,11 @@
       "kind": {
        "const": "thread"
       },
+      "hand": {"enum": ["right", "left"], "default": "right", "description": "Supplied plans may request left-hand tapping or milling. Specify LH designations are not parsed yet."},
+      "exit_clear_mm": {
+       "type": ["number", "null"],
+       "description": "Measured clear depth below a through thread's exit; absent or null means no obstruction was found."
+      },
       "spec": {
        "type": "string"
       },

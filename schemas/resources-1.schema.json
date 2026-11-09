@@ -1176,6 +1176,182 @@
        ]
       }
      ]
+    },
+    {
+     "type": "object",
+     "required": [
+      "id",
+      "type",
+      "number",
+      "diameter",
+      "pitch",
+      "tap_type",
+      "chamfer_form",
+      "chamfer_pitches",
+      "thread_length",
+      "stickout",
+      "holder_length",
+      "holder_diameter",
+      "spindle_rpm",
+      "coolant"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "minLength": 1
+      },
+      "number": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "overall_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "stickout": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "holder_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "holder_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "spindle_rpm": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "coolant": {
+       "enum": [
+        "off",
+        "flood",
+        "mist"
+       ]
+      },
+      "shank_diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "length_register": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "type": {
+       "const": "tap"
+      },
+      "diameter": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "Nominal metric thread diameter, not the simulation cutter diameter."
+      },
+      "pitch": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "hand": {
+       "enum": [
+        "right",
+        "left"
+       ],
+       "default": "right"
+      },
+      "tap_type": {
+       "enum": [
+        "cut",
+        "form"
+       ]
+      },
+      "chamfer_form": {
+       "type": "string",
+       "minLength": 1
+      },
+      "chamfer_pitches": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "Maximum chamfered pitches, including any incomplete lead; tip extends this many pitches beyond full thread."
+      },
+      "thread_length": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "flute_style": {
+       "enum": [
+        "straight",
+        "spiral_flute",
+        "spiral_point"
+       ]
+      },
+      "cutting_data": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "P",
+         "M",
+         "K",
+         "N",
+         "S",
+         "H"
+        ]
+       },
+       "additionalProperties": {
+        "type": "object",
+        "properties": {
+         "spindle_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "OAL": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for overall_length; conflicting paired values are refused by the library reader."
+      },
+      "DCONMS": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "description": "ISO 13399 alias for shank_diameter; conflicting paired values are refused by the library reader."
+      }
+     },
+     "allOf": [
+      {
+       "anyOf": [
+        {
+         "required": [
+          "overall_length"
+         ]
+        },
+        {
+         "required": [
+          "OAL"
+         ]
+        }
+       ]
+      },
+      {
+       "anyOf": [
+        {
+         "required": [
+          "shank_diameter"
+         ]
+        },
+        {
+         "required": [
+          "DCONMS"
+         ]
+        }
+       ]
+      }
+     ],
+     "patternProperties": {
+      "^_": {}
+     },
+     "additionalProperties": false
     }
    ]
   },

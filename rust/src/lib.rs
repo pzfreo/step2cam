@@ -32,7 +32,7 @@ fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &
     log.extend(notes);
     for job in jobs {
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let run = simulate::simulate(&job.manifest.to_string()).map_err(|f| simulate::Failure {
+        let run = simulate::simulate_job(&job).map_err(|f| simulate::Failure {
             message: format!("setup {}: {}", job.setup, f.message),
             ..f
         })?;

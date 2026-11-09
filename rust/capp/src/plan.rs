@@ -730,7 +730,7 @@ fn counterbore_operations(holes: &[Hole]) -> Vec<Value> {
 }
 
 fn thread_operations(holes: &[Hole]) -> Vec<Value> {
-    let key = |h: &Hole, t: &Value| (t["spec"].as_str().unwrap_or("").to_string(), t["major"].as_f64().unwrap_or(0.), t["pitch"].as_f64().unwrap_or(0.), h.diameter, t["top_z"].as_f64().unwrap_or(0.), t["bottom_z"].as_f64().unwrap_or(0.), h.bottom == "through");
+    let key = |h: &Hole, t: &Value| (t["spec"].as_str().unwrap_or("").to_string(), t["major"].as_f64().unwrap_or(0.), t["pitch"].as_f64().unwrap_or(0.), h.diameter, t["top_z"].as_f64().unwrap_or(0.), t["bottom_z"].as_f64().unwrap_or(0.), h.bottom == "through", h.exit_clear.flatten());
     let mut groups: Vec<(_, Vec<&Hole>)> = vec![];
     for h in holes {
         let Some(t) = &h.thread else { continue };
@@ -748,16 +748,20 @@ fn thread_operations(holes: &[Hole]) -> Vec<Value> {
             .then(a.4.total_cmp(&b.4))
             .then(a.5.total_cmp(&b.5))
             .then(a.6.cmp(&b.6))
+            .then(a.7.unwrap_or(f64::INFINITY).total_cmp(&b.7.unwrap_or(f64::INFINITY)))
     });
     groups
         .into_iter()
         .map(|(k, members)| {
-            json!({
+            let mut op = json!({
                 "kind": "thread", "spec": k.0, "major": k.1, "pitch": k.2, "start_diameter": k.3,
                 "top_z": k.4, "bottom_z": k.5, "through": k.6,
                 "centers": members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
                 "features": members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
-            })
+            });
+            // Preserve unrestricted legacy plans; only a measured obstruction adds a bound.
+            if k.6 && let Some(clear) = k.7 { op["exit_clear_mm"] = json!(clear); }
+            op
         })
         .collect()
 }

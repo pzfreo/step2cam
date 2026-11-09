@@ -110,7 +110,9 @@ fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
 
 #[test]
 fn alias_constraints_and_required_fields_match_the_primary_fields() {
-    let current = fixture("../../demo/tools.json");
+    let mut current = fixture("../../demo/tools.json");
+    // The production library remains tap-free; exercise the added schema variant here.
+    current["tools"].as_array_mut().unwrap().push(example_tap(5., 0.8, 2.));
     let iso = symbols(&current);
     let schema = fixture("../../schemas/resources-1.schema.json");
     let validator = jsonschema::validator_for(&schema).unwrap();
