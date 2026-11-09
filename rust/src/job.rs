@@ -2,12 +2,10 @@
 //! library -> camlib jobs, how each tool cuts and how deep. A job is camlib's manifest, plain
 //! JSON, one per setup.
 use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, drill_tip_length, id, num};
+use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
-/// Kept between a drill tip and material found beyond a through hole's exit (mm).
-const EXIT_MARGIN: f64 = 0.2;
 /// Twice a triangle's area (mm²) at or below which camlib's surface mesh calls it degenerate, at
 /// the tolerance of 1e-5 mm that the job gives it.
 const NO_AREA: f64 = 1e-10;
@@ -76,6 +74,8 @@ fn assembly(spec: &Value) -> Result<Value, String> {
             "holders": [{"z_min_mm": stickout, "z_max_mm": gauge, "radius_min_mm": radius, "radius_max_mm": radius}],
         }));
     }
+    let tap = spec["type"] == "tap";
+    let cutter_diameter = if tap { capp::reference::tap_drill(diameter, num(spec, "pitch")?, spec["tap_type"] == "form").ok_or("no tap drill reference")? } else { diameter };
     let shape = if drill {
         json!({"kind": "drill", "point_angle_rad": num(spec, "point_angle")?.to_radians()})
     } else {
@@ -84,8 +84,8 @@ fn assembly(spec: &Value) -> Result<Value, String> {
     Ok(json!({
         "id": name,
         "cutter": {
-            "id": name, "name": name, "shape": shape, "diameter_mm": diameter,
-            "cutting_length_mm": num(spec, "flute_length")?, "overall_length_mm": num(spec, "overall_length")?,
+            "id": name, "name": name, "shape": shape, "diameter_mm": cutter_diameter,
+            "cutting_length_mm": num(spec, if tap { "thread_length" } else { "flute_length" })?, "overall_length_mm": num(spec, "overall_length")?,
             "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
             "flutes": if drill { 2 } else { 3 }, "center_cutting": true, "material": "carbide", "neck": null,
         },
@@ -269,6 +269,8 @@ pub struct Job {
     pub setup: String,
     /// camlib's manifest.
     pub manifest: Value,
+    /// Real setup stock bottom; the camlib simulation may include tap backing below it.
+    pub stock_bottom_mm: f64,
     pub notes: Vec<String>,
 }
 
@@ -302,10 +304,26 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
     let (mut jobs, mut log) = (vec![], vec![]);
     for setup in plan["setups"].as_array().ok_or("plan has no setups")? {
         let setup_id = setup["id"].as_str().unwrap_or("");
-        let (lo, hi) = (&setup["stock"]["min"], &setup["stock"]["max"]);
+        let mut stock_lo = setup["stock"]["min"].clone();
+        let mut tap_travel: HashMap<String, f64> = HashMap::new();
+        for op in setup["operations"].as_array().into_iter().flatten().filter(|o| o["kind"] == "thread" && o["through"] == true) {
+            if let Some(tap) = tools.iter().find(|t| t["id"] == op["tool"] && t["type"] == "tap") {
+                let extra = tap_through_travel(tap, num(op, "pitch")?)?;
+                for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+                    tap_travel.insert(feature.to_owned(), extra);
+                }
+                let floor = num(op, "bottom_z")? - extra;
+                stock_lo[2] = json!(stock_lo[2].as_f64().ok_or("bad stock")?.min(floor));
+            }
+        }
+        // camlib requires the tapping tip plus clearance within StockSpec. Model the extra
+        // through travel as conservative solid backing, drilled away before the tap enters.
+        // This lower bound belongs only to simulation: every machining limit and material
+        // comparison still uses the setup's real stock bottom.
+        let (lo, hi) = (&stock_lo, &setup["stock"]["max"]);
         let bound = |v: &Value, i: usize| v[i].as_f64().ok_or("bad stock");
         let top = bound(hi, 2)?;
-        let stock_bottom = bound(lo, 2)?;
+        let stock_bottom = bound(&setup["stock"]["min"], 2)?;
         let breakthrough = if setup["flip_role"] == "sacrificial_grip" {
             breakthrough.min(capp::rules::workholding()["flip_breakthrough_mm"].as_f64().unwrap())
         } else { breakthrough };
@@ -315,6 +333,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let (mut operations, mut used, mut notes): (Vec<Value>, Vec<&Value>, Vec<String>) = (vec![], vec![], vec![]);
         // How deep each hole is open at its full diameter, once cut: a thread must not go lower.
         let mut full_diameter_z: HashMap<String, f64> = HashMap::new();
+        let mut drill_tip_z: HashMap<String, f64> = HashMap::new();
         // The coarsest stock grid the operations can be checked on, if one needs a finer one.
         let mut needs_cell: Option<f64> = None;
         let features_of = |op: &Value| -> Vec<String> { op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect() };
@@ -416,6 +435,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                 }
                 "holes" => {
                     let d = num(op, "diameter")?;
+                    let breakthrough = features_of(op).iter().filter_map(|f| tap_travel.get(f)).copied().fold(breakthrough, f64::max);
                     let chosen = tool_or_skip!(tool, notes);
                     if chosen["type"] == "drill" {
                         let drill = chosen;
@@ -425,6 +445,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         let (depth, reference, allow) = drill_depth(op, drill, breakthrough, stock_bottom, &op_id, &mut notes)?;
                         let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
                         full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
+                        let tip_z = if reference == "full_diameter" { depth - drill_tip_length(drill)? } else { depth };
+                        drill_tip_z.extend(features_of(op).into_iter().map(|f| (f, tip_z)));
                         let mut out = json!({
                             "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
                             "depth_reference": reference, "peck_mm": op["technology"]["peck_mm"], "peck_mode": op["technology"]["peck_mode"],
@@ -467,29 +489,68 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     }
                     let mill = tool_or_skip!(tool, notes);
                     let (major, start, pitch) = (num(op, "major")?, num(op, "start_diameter")?, num(op, "pitch")?);
-                    // The neck's clearance from the drilled wall, on the thread's final path circle.
-                    let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
-                    let cell = neck_room / (2f64.sqrt() * NECK_CELL_SAFETY);
-                    let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
-                    if cells > MAX_STOCK_CELLS {
-                        notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
-                        continue;
+                    if mill["type"] == "tap" {
+                        let tip = bottom_z - num(mill, "chamfer_pitches")? * pitch;
+                        if tip - pitch < open_z - 1e-6 {
+                            notes.push(format!("{op_id}: {thread}: tap tip Z{tip:.3} plus {pitch:.3} mm bottom clearance needs full diameter to Z{:.3}; actual drilled floor Z{open_z:.3}; not tapped", tip - pitch));
+                            continue;
+                        }
+                        spec = mill;
+                        let tap = cutting_data(mill, op);
+                        let out = json!({
+                            "kind": "tapping", "id": op_id, "tool": id(mill), "centers_mm": op["centers"],
+                            "pitch_mm": pitch, "hand": mill.get("hand").and_then(Value::as_str).unwrap_or("right"),
+                            "depth_z_mm": tip, "bottom_clearance_mm": pitch,
+                            "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
+                            "tolerance_mm": DRILLING_TOLERANCE, "spindle_rpm": num(&tap, "spindle_rpm")?,
+                            "work_offset": 1, "tool_number": mill["number"],
+                            "length_register": mill.get("length_register").unwrap_or(&mill["number"]), "coolant": tap["coolant"],
+                        });
+                        // Tapping derives synchronized feed from pitch × rpm; no feed field.
+                        notes.push(format!("{op_id}: {thread}: tapped {} (pitch {}, {} hand), full thread {} mm, tip Z{} with {}; check with a gauge", op["spec"].as_str().unwrap_or(""), show(pitch), mill.get("hand").and_then(Value::as_str).unwrap_or("right"), show(num(op, "top_z")? - bottom_z), show(tip), id(mill)));
+                        if op["through"] == true {
+                            // Transform the part's model-space box into this setup's Z axis.
+                            let part_bottom = (0..3).try_fold(0., |z, i| {
+                                let direction = bound(&setup["rotation"][2], i)?;
+                                let edge = if direction < 0. { "max" } else { "min" };
+                                Ok::<_, String>(z + direction * (bound(&plan["part"][edge], i)? - bound(&setup["origin_model"], i)?))
+                            })?;
+                            let below = |z: f64| format!("{:.2}", ((part_bottom - z).max(0.) * 100. - 1e-6).ceil() / 100.).trim_end_matches('0').trim_end_matches('.').to_string();
+                            let drill_tip = features.iter().filter_map(|f| drill_tip_z.get(f)).copied().reduce(f64::min);
+                            if let Some(drill_tip) = drill_tip {
+                                notes.push(format!("{op_id}: the tap tip goes {} mm and its drill tip {} mm below the part's bottom (drill full diameter {} mm below): keep the hole clear of parallels", below(tip), below(drill_tip), below(open_z)));
+                            }
+                        }
+                        out
+                    } else {
+                        // The neck's clearance from the drilled wall, on the thread's final path circle.
+                        let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
+                        let cell = neck_room / (2f64.sqrt() * NECK_CELL_SAFETY);
+                        let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
+                        if cells > MAX_STOCK_CELLS {
+                            notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
+                            continue;
+                        }
+                        needs_cell = Some(needs_cell.map_or(cell, |c: f64| c.min(cell)));
+                        spec = mill;
+                        let mill_cut = cutting_data(mill, op);
+                        let mill = &mill_cut;
+                        // camlib retains CCW internal climb milling and reverses Z feed
+                        // for a left-hand helix (top-down instead of bottom-up).
+                        let right_hand = op["hand"] != "left";
+                        let hand = if right_hand { "right" } else { "left" };
+                        let mut out = json!({
+                            "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
+                            "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": right_hand, "climb": true,
+                            "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
+                            "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
+                            "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
+                            "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
+                        });
+                        cutting(&mut out, mill, true)?;
+                        notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, {hand} hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
+                        out
                     }
-                    needs_cell = Some(needs_cell.map_or(cell, |c: f64| c.min(cell)));
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    let mut out = json!({
-                        "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
-                        "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": true, "climb": true,
-                        "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
-                        "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
-                        "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
-                        "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, mill, true)?;
-                    notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, right hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
-                    out
                 }
                 "slot" => {
                     let width = num(op, "width")?;
@@ -650,12 +711,14 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         // The whole part is known only where roughing is planned, whether or not camlib accepted it.
         // A thread cuts past the bore the mesh shows, so the stock is compared just before threads.
         let part = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")).or_else(|| setup.get("part_surface"));
+        // Tapping uses the pre-drill diameter and retains thread flanks; unlike thread
+        // milling it does not cut beyond the modelled bore, so comparison stays enabled.
         let first_thread = operations.iter().position(|o| o["kind"] == "thread_mill");
         let material = match part.filter(|_| first_thread != Some(0)) {
             Some(rough) => {
                 let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
                 // The stock can go below the part: everything above the base is what is compared.
-                let base = z.fold(bound(lo, 2)?, f64::min);
+                let base = z.fold(stock_bottom, f64::min);
                 let after = first_thread.map(|i| operations[i - 1]["id"].clone());
                 if first_thread.is_some() {
                     notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
@@ -695,7 +758,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,
         });
-        jobs.push(Job { setup: setup_id.to_string(), manifest, notes });
+        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes });
     }
     Ok((jobs, log))
 }

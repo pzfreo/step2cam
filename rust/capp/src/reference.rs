@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The tables, as shipped with the crate.
-pub const TABLES: [(&str, &str); 6] = [
+pub const TABLES: [(&str, &str); 7] = [
+    ("tap-drills.json", include_str!("../rulebase/reference/tap-drills.json")),
     ("drilling.json", include_str!("../rulebase/reference/drilling.json")),
     ("iso13399-fields.json", include_str!("../rulebase/reference/iso13399-fields.json")),
     ("iso261-coarse-pitch.json", include_str!("../rulebase/reference/iso261-coarse-pitch.json")),
@@ -126,4 +127,18 @@ pub fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
             .map_or(increment, |cap| cap.min(increment)))
     };
     serde_json::json!({"peck_mm": peck, "peck_mode": p["peck_mode"]})
+}
+
+/// Tap drill reference and shop process policy; no hole geometry is changed.
+pub fn tap_drills() -> &'static Value {
+    static DATA: OnceLock<Value> = OnceLock::new();
+    DATA.get_or_init(|| table("tap-drills.json"))
+}
+
+pub fn tap_drill(major: f64, pitch: f64, form: bool) -> Option<f64> {
+    let data = tap_drills();
+    if form {
+        return Some(((major - 0.0068 * data["form"]["percent_thread"].as_f64()? * pitch) * 100.).round() / 100.);
+    }
+    data["cut_rows"].as_array()?.iter().find(|r| r[0].as_f64() == Some(major) && r[1].as_f64() == Some(pitch))?[2].as_f64()
 }

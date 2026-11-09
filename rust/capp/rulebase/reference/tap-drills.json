@@ -1,0 +1,54 @@
+{
+ "format": "capp-reference",
+ "version": 1,
+ "id": "tap.drills",
+ "title": "Metric cut and form tap pre-drills and process policy",
+ "source": {
+  "standard": "ISO 2306:1972 (ISO metric, normal engagement; based on ISO 965-1 minor diameters)",
+  "obtained_from": [
+   "https://www.iso.org/standard/7135.html",
+   "https://cdn.standards.iteh.ai/samples/iso/iso-2306-1972/74de16ecf0d3415489ee16b935a15bc8/iso-2306-1972.pdf"
+  ],
+  "checked_against_standard": true,
+  "note": "M3–M6 rows visually checked in ISO 2306:1972 Table 1 (published preview, printed page 1), 2026-11-09. Drill diameters and the listed ISO minor diameter limits are not interchangeable; D − P is a check for these coarse sizes. Only these diameter/pitch pairs are eligible for cut tapping."
+ },
+ "cut_rows": [
+  [
+   3,
+   0.5,
+   2.5
+  ],
+  [
+   4,
+   0.7,
+   3.3
+  ],
+  [
+   5,
+   0.8,
+   4.2
+  ],
+  [
+   6,
+   1,
+   5
+  ]
+ ],
+ "form": {
+  "source": "https://www.tapmatic.com/tapping-formulas.php",
+  "checked_against_standard": false,
+  "formula": "D - 0.0068 * percent_thread * P",
+  "percent_thread": 65,
+  "note": "Tapmatic inch formula converted to mm. Shop assumption 65% formed thread, rounded to 0.01 mm; manufacturer confirmation remains necessary."
+ },
+ "diameter_tolerance_mm": 0.02,
+ "policy": {
+  "min_major_mm": 3,
+  "max_major_mm": 6,
+  "iso513": "N",
+  "note": "step2cam judgement: prefer a matching tap for small metric threads in known nonferrous material; otherwise retain thread milling. This cutoff is not a standard.",
+  "practice_source": "https://www.sandvik.coromant.com/en-gb/knowledge/threading/tapping",
+  "bottom_clearance_pitches": 1
+ },
+ "diameter_tolerance_note": "±0.02 mm matching tolerance is step2cam judgement, not an ISO tolerance class."
+}

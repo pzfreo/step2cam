@@ -1048,6 +1048,22 @@
      "kind": "step2cam"
     }
    ]
+  },
+  {
+   "id": "tool.thread.tap_or_mill",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Prefer a matching M3–M6 tap in ISO N material; check hand, pre-drill, blind/through, chamfer plus one pitch clearance and stock-top reach. Otherwise use the unchanged thread-mill selector. Size/material cutoff is step2cam judgement.",
+   "code": "resources.rs Library::tap",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "ref": "reference/tap-drills.json: sourced drill table and form formula, explicit M3–M6 / ISO N shop policy"
+    }
+   ],
+   "data": [
+    "rules/tools.json#thread_mill"
+   ]
   }
  ]
 }

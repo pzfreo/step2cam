@@ -110,7 +110,9 @@ fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
 
 #[test]
 fn alias_constraints_and_required_fields_match_the_primary_fields() {
-    let current = fixture("../../tests/fixtures/placeholder-tools.json");
+    let mut current = fixture("../../tests/fixtures/placeholder-tools.json");
+    // Exercise the added tap schema variant independently of the production inventories.
+    current["tools"].as_array_mut().unwrap().push(example_tap(5., 0.8, 2.));
     let iso = symbols(&current);
     let schema = fixture("../../schemas/resources-1.schema.json");
     let validator = jsonschema::validator_for(&schema).unwrap();

@@ -239,13 +239,17 @@
     [
      "reach_min",
      "stock_top - bottom_z + clearance"
+    ],
+    [
+     "neck_subtract",
+     "major - start_diameter + 2 * clearance"
     ]
    ],
    "defaults": {
     "tool.min_pitch_mm": 0,
     "tool.max_pitch_mm": "inf"
    },
-   "needed": "a thread mill whose pitch range includes {pitch} mm, under ⌀{maximum:down2}, with neck diameter under (cutter diameter + {neck_offset:down2}) mm and tooth height + neck length over {reach_min:up2} mm"
+   "needed": "a thread mill whose pitch range includes {pitch} mm, under ⌀{maximum:down2}, with neck diameter under (cutter diameter − {neck_subtract:up2}) mm and tooth height + neck length over {reach_min:up2} mm"
   },
   {
    "id": "spot_drill",

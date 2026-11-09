@@ -4,6 +4,7 @@
 //! stock-contact checks, and compares the finished stock with the part. Nothing here writes
 //! G-code: that is camlib's, from the same job, through its own posts.
 use camlib::{
+    buffers::HeightRead,
     material::Assessment,
     motion::{Curve, Motion, MoveKind},
     operation::OperationPlan,
@@ -133,7 +134,26 @@ struct MaterialComparison {
     sweep_proof: Option<camlib::material::SweepProofReport>,
 }
 
-fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool) -> Result<Option<MaterialComparison>, Failure> {
+/// Restrict comparison to the real stock box. The deeper tap backing is only a
+/// simulation aid, not material the target requires us to preserve. Clamping both
+/// interval endpoints intersects each remaining column with the real stock box.
+struct RealStock<'a> {
+    stock: &'a camlib::stock::Stock,
+    bottom: f64,
+}
+impl HeightRead for RealStock<'_> {
+    fn scalar_len(&self) -> usize { self.stock.scalar_len() }
+    fn read(&self, index: usize) -> f64 { self.stock.read(index).max(self.bottom) }
+}
+
+fn compare_real_stock(check: &camlib::stream_verification::MaterialCheck, stock: &camlib::stock::Stock, bottom: f64, cancel: &AtomicBool) -> Result<camlib::material::Report, String> {
+    let mut spec = stock.spec().clone();
+    spec.min_mm[2] = bottom;
+    let context = camlib::material::Context { stock: spec, generation: stock.generation(), fraction: 0., run: None };
+    check.target.prepare(check.options)?.check(&RealStock { stock, bottom }, &context, cancel)
+}
+
+fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>, cancel: &AtomicBool, physical: Option<(&StreamManifest, f64)>) -> Result<Option<MaterialComparison>, Failure> {
     if producer.start_material_verification(after)?.is_none() {
         return Ok(None);
     }
@@ -141,6 +161,14 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
     let Check::Material { report, sweep_proof, .. } = binding.decode(&bytes, producer.completed(), None)?.check else {
         return Err(Failure::from("camlib's material check gave no report"));
     };
+    let (report, sweep_proof) = if let Some((manifest, bottom)) = physical {
+        let check = manifest.verification.as_ref().and_then(|v| v.material.iter().find(|c| c.after_operation.as_deref() == after)).ok_or("missing real-stock comparison target")?;
+        // Complete/decode the stream check above to retain its verification cursor.
+        // This separate report assesses the real stock subset against the SAME target.
+        // The stream's per-move proof covers extended backing, so it is not attached
+        // to the report for the smaller box.
+        (Box::new(compare_real_stock(check, producer.stock()?, bottom, cancel)?), None)
+    } else { (report, sweep_proof) };
     if report.gouge.definite_cells > 0 {
         return Err(Failure::from(gouge_message(&report)));
     }
@@ -183,7 +211,18 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
+    simulate_with_stock_bottom(manifest_json, None)
+}
+
+/// Run an adapter job while excluding artificial through-tap backing from the
+/// material comparison. The unmodified camlib manifest still drives every motion.
+pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
+    simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm))
+}
+
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
+    let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
     let binding = Binding::new(&manifest)?;
     let mut producer = StreamProducer::new(manifest.clone())?;
     let cancel = AtomicBool::new(false);
@@ -262,11 +301,11 @@ pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
         };
         one().map_err(|message| Failure { operation: Some(operation.id().to_string()), message })?;
         if material.is_none() {
-            material = compare(&mut producer, &binding, Some(operation.id()), &cancel)?;
+            material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
     }
     if material.is_none() {
-        material = compare(&mut producer, &binding, None, &cancel)?;
+        material = compare(&mut producer, &binding, None, &cancel, physical.map(|bottom| (&manifest, bottom)))?;
     }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
@@ -351,4 +390,36 @@ mod contact_wording_tests {
         }
     }
 
+}
+
+#[cfg(test)]
+mod real_stock_tests {
+    use super::*;
+    use camlib::stock::{HeightBounds, Stock, StockSnapshot, StockSpec};
+    use serde_json::json;
+
+    #[test]
+    fn comparison_excludes_only_the_backing_and_still_finds_real_gouges() {
+        let check = |floor| serde_json::from_value(json!({
+            "after_operation":null,
+            "target":{"version":1,"units":"mm","id":"physical-stock","revision":"1",
+                "machining_region":{"version":1,"units":"mm","name":"test","boundary_error_mm":0,
+                    "components":[{"outer":{"vertices":[[0,0,0],[2,0,0],[2,2,0],[0,2,0]]},"holes":[]}]},
+                "floor_z_mm":floor,"floor_error_mm":0}
+        })).unwrap();
+        let stock = |height| Stock::from_snapshot(StockSnapshot {
+            spec: StockSpec {version:1, units:"mm".into(), min_mm:[0.,0.,-15.], max_mm:[2.,2.,0.], cell_size_mm:0.5, max_cells:16},
+            generation:1, cells:vec![HeightBounds {lower_mm:height,upper_mm:height};16],
+        }).unwrap();
+        let cancel = AtomicBool::new(false);
+        // Removal at -12 is wholly below the real stock bottom (-10).
+        let report = compare_real_stock(&check(-10.), &stock(-12.), -10., &cancel).unwrap();
+        assert!(report.complete);
+        assert_eq!(report.context.stock.min_mm[2], -10.);
+        assert_eq!(report.gouge.definite_cells, 0);
+        // Removal at -6 gouges a -5 floor within the real stock: clipping must not hide it.
+        let report = compare_real_stock(&check(-5.), &stock(-6.), -10., &cancel).unwrap();
+        assert!(report.complete);
+        assert!(report.gouge.definite_cells > 0);
+    }
 }
