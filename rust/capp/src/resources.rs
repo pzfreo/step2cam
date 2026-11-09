@@ -80,6 +80,14 @@ pub fn id(t: &Value) -> &str {
     t["id"].as_str().unwrap_or("")
 }
 
+/// Shop process gate shared by tap selection and needed-tool descriptions.
+pub(crate) fn tap_policy_allows(major: f64, group: Option<&str>) -> bool {
+    let policy = &crate::reference::tap_drills()["policy"];
+    group == policy["iso513"].as_str()
+        && major >= policy["min_major_mm"].as_f64().unwrap()
+        && major <= policy["max_major_mm"].as_f64().unwrap()
+}
+
 /// The tool library: which tool cuts what.
 pub struct Library<'a> {
     pub data: &'a Value,
@@ -316,8 +324,7 @@ impl<'a> Library<'a> {
     fn tap_rejection(&self, tool: &Value, op: &Value, top: f64, open_z: f64, group: Option<&str>) -> Result<Option<String>, String> {
         let major = num(op, "major")?;
         let pitch = num(op, "pitch")?;
-        let policy = &crate::reference::tap_drills()["policy"];
-        let why = if group != policy["iso513"].as_str() || major < policy["min_major_mm"].as_f64().unwrap() || major > policy["max_major_mm"].as_f64().unwrap() {
+        let why = if !tap_policy_allows(major, group) {
             Some("thread milling preferred: step2cam tap policy is M3–M6 in ISO 513 group N".into())
         } else if num(tool, "diameter")? != major || num(tool, "pitch")? != pitch {
             Some(format!("nominal diameter/pitch do not match M{major}×{pitch}"))

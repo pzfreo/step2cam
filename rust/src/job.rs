@@ -271,6 +271,8 @@ pub struct Job {
     pub setup: String,
     /// camlib's manifest.
     pub manifest: Value,
+    /// Real setup stock bottom; the camlib simulation may include tap backing below it.
+    pub stock_bottom_mm: f64,
     pub notes: Vec<String>,
 }
 
@@ -318,10 +320,12 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         }
         // camlib requires the tapping tip plus clearance within StockSpec. Model the extra
         // through travel as conservative solid backing, drilled away before the tap enters.
+        // This lower bound belongs only to simulation: every machining limit and material
+        // comparison still uses the setup's real stock bottom.
         let (lo, hi) = (&stock_lo, &setup["stock"]["max"]);
         let bound = |v: &Value, i: usize| v[i].as_f64().ok_or("bad stock");
         let top = bound(hi, 2)?;
-        let stock_bottom = bound(lo, 2)?;
+        let stock_bottom = bound(&setup["stock"]["min"], 2)?;
         let breakthrough = if setup["flip_role"] == "sacrificial_grip" {
             breakthrough.min(capp::rules::workholding()["flip_breakthrough_mm"].as_f64().unwrap())
         } else { breakthrough };
@@ -331,6 +335,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         let (mut operations, mut used, mut notes): (Vec<Value>, Vec<&Value>, Vec<String>) = (vec![], vec![], vec![]);
         // How deep each hole is open at its full diameter, once cut: a thread must not go lower.
         let mut full_diameter_z: HashMap<String, f64> = HashMap::new();
+        let mut drill_tip_z: HashMap<String, f64> = HashMap::new();
         // The coarsest stock grid the operations can be checked on, if one needs a finer one.
         let mut needs_cell: Option<f64> = None;
         let features_of = |op: &Value| -> Vec<String> { op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect() };
@@ -442,6 +447,8 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         let (depth, reference, allow) = drill_depth(op, drill, breakthrough, stock_bottom, &op_id, &mut notes)?;
                         let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
                         full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
+                        let tip_z = if reference == "full_diameter" { depth - drill_tip_length(drill)? } else { depth };
+                        drill_tip_z.extend(features_of(op).into_iter().map(|f| (f, tip_z)));
                         let mut out = json!({
                             "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
                             "depth_reference": reference, "peck_mm": op["technology"]["peck_mm"], "peck_mode": op["technology"]["peck_mode"],
@@ -503,6 +510,19 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         });
                         // Tapping derives synchronized feed from pitch × rpm; no feed field.
                         notes.push(format!("{op_id}: {thread}: tapped {} (pitch {}, {} hand), full thread {} mm, tip Z{} with {}; check with a gauge", op["spec"].as_str().unwrap_or(""), show(pitch), mill.get("hand").and_then(Value::as_str).unwrap_or("right"), show(num(op, "top_z")? - bottom_z), show(tip), id(mill)));
+                        if op["through"] == true {
+                            // Transform the part's model-space box into this setup's Z axis.
+                            let part_bottom = (0..3).try_fold(0., |z, i| {
+                                let direction = bound(&setup["rotation"][2], i)?;
+                                let edge = if direction < 0. { "max" } else { "min" };
+                                Ok::<_, String>(z + direction * (bound(&plan["part"][edge], i)? - bound(&setup["origin_model"], i)?))
+                            })?;
+                            let below = |z: f64| format!("{:.2}", ((part_bottom - z).max(0.) * 100. - 1e-6).ceil() / 100.).trim_end_matches('0').trim_end_matches('.').to_string();
+                            let drill_tip = features.iter().filter_map(|f| drill_tip_z.get(f)).copied().reduce(f64::min);
+                            if let Some(drill_tip) = drill_tip {
+                                notes.push(format!("{op_id}: the tap tip goes {} mm and its drill tip {} mm below the part's bottom (drill full diameter {} mm below): keep the hole clear of parallels", below(tip), below(drill_tip), below(open_z)));
+                            }
+                        }
                         out
                     } else {
                         // The neck's clearance from the drilled wall, on the thread's final path circle.
@@ -696,7 +716,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             Some(rough) => {
                 let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
                 // The stock can go below the part: everything above the base is what is compared.
-                let base = z.fold(bound(lo, 2)?, f64::min);
+                let base = z.fold(stock_bottom, f64::min);
                 let after = first_thread.map(|i| operations[i - 1]["id"].clone());
                 if first_thread.is_some() {
                     notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
@@ -736,7 +756,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,
         });
-        jobs.push(Job { setup: setup_id.to_string(), manifest, notes });
+        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes });
     }
     Ok((jobs, log))
 }

@@ -204,10 +204,10 @@ pub fn eval(text: &str, lookup: &Lookup) -> Result<f64, String> {
 // Ignore binary floating-point noise at an exact hundredth (epsilon is in hundredths).
 // Use the same bounds for display and for deciding whether a drill interval is empty.
 const HUNDREDTH_EPSILON: f64 = 1e-6;
-fn up2(value: f64) -> f64 {
+pub(crate) fn up2(value: f64) -> f64 {
     (value * 100. - HUNDREDTH_EPSILON).ceil() / 100. + 0.0
 }
-fn down2(value: f64) -> f64 {
+pub(crate) fn down2(value: f64) -> f64 {
     (value * 100. + HUNDREDTH_EPSILON).floor() / 100. + 0.0
 }
 

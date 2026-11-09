@@ -522,7 +522,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                 Err(note) => {
                     let note = match note {
                         Some(text) if !text.contains(": needs ") && matches!(rule, "tool.clearing" | "tool.hole.drill_or_bore" | "tool.counterbore.bore_mill" | "tool.thread_mill" | "tool.thread.tap_or_mill" | "tool.slot.bore_mill" | "tool.notch.pocket_mill" | "tool.edge_chamfer.chamfer_mill" | "feasibility.v_channel.needs_bit" | "feasibility.wall.needs_mill") => {
-                            Some(match crate::needed::for_operation(op, top, &library, None)? {
+                            Some(match crate::needed::for_operation_with_context(op, top, &library, None, &view, group.as_deref())? {
                                 Some(need) => format!("{text}: needs {need}"),
                                 None => text,
                             })

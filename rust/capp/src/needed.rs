@@ -9,6 +9,11 @@ pub(crate) fn reach(depth: f64) -> String {
 }
 
 pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: Option<f64>) -> Result<Option<String>, String> {
+    for_operation_with_context(op, top, library, required, &Value::Null, None)
+}
+
+/// Thread queries need the same material and drilled-floor context as tap selection.
+pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library, required: Option<f64>, setup: &Value, group: Option<&str>) -> Result<Option<String>, String> {
     let kind = op["kind"].as_str().unwrap_or("");
     let bottom = op["bottom_z"].as_f64().or(op["floor_z"].as_f64()).or(op["root_z"].as_f64()).unwrap_or(top);
     let depth = required.unwrap_or_else(|| top - bottom + if op["bottom"] == "through" { library.breakthrough.max(0.) } else { 0. });
@@ -45,11 +50,27 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
         "thread" => {
             let major = num(op, "major")?;
             let pitch = num(op, "pitch")?;
-            let full = num(op, "top_z")? - bottom;
             let query = library.needed("thread_mill", &[("major", major), ("start_diameter", num(op, "start_diameter")?),
                 ("pitch", pitch), ("stock_top", top), ("bottom_z", bottom)])?;
-            match crate::reference::tap_drill(major, pitch, false).filter(|d| (*d - num(op, "start_diameter").unwrap_or(0.)).abs() <= 0.02 + 1e-9) {
-                Some(drill) => format!("an M{}×{} cut tap for the ⌀{} pre-drill, with thread length at least {} mm plus chamfer length and stock-top allowance {} mm (and numerical guard); chamfer plus {} mm bottom clearance must fit the drilled full-diameter depth; subject to the M3–M6 / ISO N tap policy, or {query}", major, crate::plan::show(pitch), crate::plan::show(drill), crate::plan::show(full), crate::plan::show(top - num(op, "top_z")?), crate::plan::show(pitch)),
+            let tolerance = crate::reference::tap_drills()["diameter_tolerance_mm"].as_f64().unwrap();
+            let drill = crate::reference::tap_drill(major, pitch, false).filter(|d|
+                crate::resources::tap_policy_allows(major, group)
+                && (*d - num(op, "start_diameter").unwrap_or(0.)).abs() <= tolerance + 1e-9);
+            match drill {
+                Some(drill) => {
+                    let number = |x: f64| format!("{x:.2}").trim_end_matches('0').trim_end_matches('.').to_string();
+                    let tap = format!("an M{}×{} cut tap (⌀{} tap drill)", number(major), number(pitch), number(drill));
+                    let reach = top - bottom + crate::resources::DRILLING_GUARD;
+                    if op["through"] == true {
+                        format!("{tap} with thread length at least {} mm plus its chamfer, or {query}", number(crate::rules::up2(reach)))
+                    } else {
+                        let open_z = library.thread_open_z(op, setup, top)?;
+                        let chamfer = crate::rules::down2(bottom - open_z - pitch);
+                        if !chamfer.is_finite() || chamfer <= 0. { query } else {
+                            format!("{tap} with a chamfer of at most {} mm ({} pitches) and thread length at least {} mm, or {query}", number(chamfer), number(crate::rules::down2(chamfer / pitch)), number(crate::rules::up2(reach + chamfer)))
+                        }
+                    }
+                }
                 None => query,
             }
         },
@@ -79,7 +100,7 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool
     let tool = library.data["tools"].as_array().and_then(|ts| ts.iter().find(|t| t["id"] == tool_id));
     let noun = crate::plan::operation_noun(op["kind"].as_str().unwrap_or(""));
     let plain = tool.and_then(|t| t["flute_length"].as_f64()).map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the stock top and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
-    Ok(match for_operation(op, top, library, Some(depth))? {
+    Ok(match for_operation_with_context(op, top, library, Some(depth), setup, plan["material"]["iso513"].as_str())? {
         Some(need) => format!("{plain}: needs {need}"),
         None => message.into(),
     })

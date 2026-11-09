@@ -107,10 +107,41 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
     tools["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "thread_mill");
     let p = finished(&plan("plate-m5.analysis.json"), &tools);
     let text = thread(&p)["tool_note"].as_str().unwrap();
-    assert!(text.contains("M5×0.8 cut tap"), "{text}");
-    assert!(text.contains("or a thread mill"), "{text}");
+    assert!(text.contains("an M5×0.8 cut tap (⌀4.2 tap drill) with thread length at least 11.01 mm plus its chamfer, or a thread mill"), "{text}");
     assert!(text.contains("cutter diameter − 0.82"), "{text}");
     assert!(!text.contains("+ -"));
+    assert!(!text.contains("subject to"));
+    assert!(!text.contains("0.0 mm"));
+
+    let stepped = plan("synthetic/stepped-plate.analysis.json");
+    let p = finished(&stepped, &tools);
+    let text = thread(&p)["tool_note"].as_str().unwrap();
+    // 8.5 full + 1 maximum lead + camlib guard, rounded upwards to 0.01 mm.
+    assert!(text.contains("an M3×0.5 cut tap (⌀2.5 tap drill) with a chamfer of at most 1 mm (2 pitches) and thread length at least 9.51 mm, or a thread mill"), "{text}");
+    assert!(text.contains("cutter diameter − 0.52"), "{text}");
+    assert!(!text.contains("0.0 mm"));
+    // The advertised dimensions actually pass the tap rule, including its reach guard.
+    let mut matching = tools.clone();
+    let mut tap = example_tap(3., 0.5, 2.);
+    tap["thread_length"] = json!(9.51);
+    matching["tools"].as_array_mut().unwrap().push(tap);
+    assert_eq!(thread(&finished(&stepped, &matching))["tool"], "tap");
+
+    for material in ["hardened steel", "unknown stock"] {
+        tools["overrides"]["material"] = json!(material);
+        let p = finished(&stepped, &tools);
+        let text = thread(&p)["tool_note"].as_str().unwrap();
+        assert!(!text.contains("cut tap"), "{material}: {text}");
+        assert!(text.contains("needs a thread mill"), "{text}");
+    }
+    tools["overrides"]["material"] = json!("Aluminium");
+    let mut wrong_drill = stepped;
+    for setup in wrong_drill["setups"].as_array_mut().unwrap() {
+        for op in setup["operations"].as_array_mut().unwrap().iter_mut().filter(|o| o["kind"] == "thread") { op["start_diameter"] = json!(2.8); }
+    }
+    let p = finished(&wrong_drill, &tools);
+    assert!(!thread(&p)["tool_note"].as_str().unwrap().contains("cut tap"));
+
 }
 
 #[test]
@@ -195,4 +226,48 @@ fn a_matching_form_predrill_can_be_tapped_and_an_obstructed_exit_is_refused() {
     let (jobs, _) = step2cam::job::jobs(&p, &library).unwrap();
     assert!(jobs.iter().all(|j| list(&j.manifest["operations"]).iter().all(|o| o["kind"] != "tapping")));
     assert!(jobs.iter().flat_map(|j| &j.notes).any(|s| s.contains("actual drilled floor") && s.contains("not tapped")));
+}
+
+#[test]
+fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() {
+    let analysis = fixture("plate-m5.analysis.json");
+    let mut mesh = fixture("plate.mesh.json");
+    mesh["binding"] = analysis["binding"].clone();
+    let p = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let no_tap = fixture("../../demo/tools.json");
+    let mut with_tap = no_tap.clone();
+    with_tap["tools"].as_array_mut().unwrap().push(example_tap(5., 0.8, 4.));
+    let (before, _) = step2cam::job::jobs(&finished(&p, &no_tap), &no_tap).unwrap();
+    let settled = finished(&p, &with_tap);
+    assert_eq!(thread(&settled)["tool"], "tap");
+    let (after, _) = step2cam::job::jobs(&settled, &with_tap).unwrap();
+    assert_eq!(before.len(), after.len());
+    let mut compared = 0;
+    for (before, after) in before.iter().zip(&after) {
+        let a = list(&before.manifest["operations"]);
+        let b = list(&after.manifest["operations"]);
+        let tapping = b.iter().find(|o| o["kind"] == "tapping").unwrap();
+        let own_drill = b.iter().find(|o| o["kind"] == "drilling" && o["centers_mm"] == tapping["centers_mm"] && o["tool"] == "drill4.2").unwrap();
+        for op in a.iter().filter(|o| o["kind"] != "thread_mill" && o["id"] != own_drill["id"]) {
+            assert_eq!(Some(op), b.iter().find(|candidate| candidate["id"] == op["id"]), "unrelated {} changed", op["id"]);
+            compared += 1;
+        }
+        assert_eq!(a.len(), b.len());
+        let base = &before.manifest["verification"]["material"][0]["target"]["base_z_mm"];
+        assert_eq!(base, -11.);
+        assert_eq!(base, &after.manifest["verification"]["material"][0]["target"]["base_z_mm"]);
+        for id in ["top-5-holes", "top-6-holes"] {
+            assert_eq!(b.iter().find(|o| o["id"] == id).unwrap()["floor_z_mm"], -11.);
+        }
+        assert_close(number(&tapping["depth_z_mm"]), -14.2);
+        assert_close(number(&own_drill["depth_z_mm"]), -15. - capp::resources::DRILLING_GUARD);
+        let drill = with_tap["tools"].as_array().unwrap().iter().find(|t| t["id"] == own_drill["tool"]).unwrap();
+        let tip = number(&own_drill["depth_z_mm"]) - capp::resources::drill_tip_length(drill).unwrap();
+        // Breakthrough allowance is still measured from the real -11 mm stock bottom.
+        assert_close(number(&own_drill["allow_breakthrough_mm"]), -11. - tip + 0.01);
+        assert!(any_note(&after.notes, "tap tip goes 3.2 mm and its drill tip 5.27 mm below the part's bottom (drill full diameter 4.01 mm below): keep the hole clear of parallels"), "{:?}", after.notes);
+        let run = step2cam::simulate::simulate_job(after).unwrap();
+        assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 2);
+    }
+    assert!(compared >= 6, "must compare the unrelated bores and the rest of the job");
 }
