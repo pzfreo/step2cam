@@ -433,4 +433,38 @@ mod tests {
                 .all(|s| s["stock_note"].is_null())
         );
     }
+    #[test]
+    fn successor_names_the_box_run_when_a_previous_handoff_failed() {
+        let library = fixture("tests/fixtures/placeholder-tools.json");
+        let setup = |id: &str, rotation: Value, width: f64| json!({"id":id,"zero":"part", "rotation":rotation,"origin_model":[0,0,0],"stock":{"min":[0,0,-2],"max":[width,width,0]},"operations":[{"kind":"facing","tool":"em6","floor_z":-0.5}]});
+        let mut plan = json!({"format":capp::plan::PLAN_FORMAT,"part":{"min":[0,0,-2],"max":[10,10,0]},"decisions":[],"setups":[
+            setup("top",json!([[1,0,0],[0,1,0],[0,0,1]]),10.),
+            setup("front",json!([[1,0,0],[0,0,1],[0,-1,0]]),4.),
+            setup("back",json!([[1,0,0],[0,0,-1],[0,1,0]]),4.)]});
+        let mut bounded = library.clone();
+        bounded["cell_size_mm"] = json!(1.);
+        let mut programs = vec![];
+        let mut log = vec![];
+        let mut cache = vec![];
+        // The large first export exceeds camlib's budget; the smaller box run
+        // exports successfully and supplies the third setup's real input.
+        camlib::resources::with_memory_budget(50_000, || {
+            crate::simulate_all(&mut plan, &bounded, &mut programs, &mut log, &mut cache)
+        })
+        .unwrap();
+        assert!(
+            plan["setups"][1]["stock_note"]
+                .as_str()
+                .unwrap()
+                .starts_with("Assumes a freed, part-sized block")
+        );
+        assert!(programs[1]["job"]["stock"]["mesh"].is_null());
+        assert!(programs[2]["job"]["stock"]["mesh"].is_object());
+        assert!(
+            plan["setups"][2]["stock_note"]
+                .as_str()
+                .unwrap()
+                .contains("carried from front’s box run")
+        );
+    }
 }
