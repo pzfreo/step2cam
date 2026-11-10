@@ -39,7 +39,19 @@
      "jaw_width_mm": 100,
      "jaw_height_mm": 20
     }
-   ]
+   ],
+   "controller": "carvera",
+   "controller_settings": {
+    "required_output_units": "mm",
+    "_sources": {
+     "required_output_units": {
+      "url": "https://carvera-community.gitbook.io/docs/firmware/supported-commands/gcodes",
+      "read": "2026-11-10",
+      "note": "G21 millimetres; G20 unsupported/halts, as also recorded in docs/carvera.md. Community firmware documentation, not a verified installed firmware version."
+     }
+    },
+    "_comment": "Unknown: maximum cutting feed (6000 mm/min is travel speed, not a verified cutting limit), addressable tool/offset ranges, final position after M6, acceleration/axis feed limits and collision geometry. Optional-stop mode exists in community firmware but installed state is unknown. Rigid tapping not established. No controller post exists yet. The existing rapid5000 is step2cam time-estimate policy; do not silently replace it with catalogue travel6000. G53 Z-3 in profiles is a commanded retract, not proof of final M6 gauge position."
+   }
   }
  ],
  "rapid_mm_min": 5000,

@@ -37,7 +37,26 @@
      "jaw_height_mm": 150
     }
    ],
-   "controller": "linuxcnc"
+   "controller": "linuxcnc",
+   "controller_settings": {
+    "max_cutting_feed_mm_min": 5000,
+    "highest_tool_number": 24,
+    "highest_length_offset_number": 24,
+    "tool_change_location": "declared_position",
+    "_comment": "All four values are step2cam placeholders, NOT LinuxCNC defaults: cutting feed uses the existing placeholder rapid ceiling; tool/offset identities restricted to existing 24 placeholder pockets; final tool positions must be supplied per setup. LinuxCNC INI TOOL_CHANGE_POSITION/QUILL_UP/AT_G30 configure actual behaviour. No actual INI, acceleration, axis limits or collision geometry supplied. LinuxCNC defaults here: NONE; fixed language semantics belong to the controller implementation, not this object.",
+    "_sources": {
+     "configuration": {
+      "url": "https://linuxcnc.org/docs/2.9/html/config/ini-config.html",
+      "read": "2026-11-10",
+      "note": "[TRAJ]/[AXIS_*] velocities use machine units/s; [EMCIO] selects tool-change motion. Documentation examples are not installed defaults."
+     },
+     "offsets": {
+      "url": "https://linuxcnc.org/docs/2.9/html/gcode/tool-compensation.html",
+      "read": "2026-11-10",
+      "note": "Tool identities and offsets are distinct from pockets. Placeholder identity restriction24 is a shop choice, not the LinuxCNC language maximum."
+     }
+    }
+   }
   }
  ],
  "rapid_mm_min": 5000,
