@@ -240,7 +240,7 @@ The existing library.tool_change_gauge_z_mm / tool_change_xy_mm are setup-frame
 simulation premises. They do not duplicate the new machine-coordinate final
 homing Z setting, and their shapes remain unchanged.
 
-Every nested `Dialect` field is class 2: commands, work_offsets, axes, centers,
+The nested `Dialect` contract is class 2 by default: commands, work_offsets, axes, centers,
 tool_word, length_word, feed_word, speed_word, parentheses_comments, tool_change,
 length_activation, radius_tolerance_mm, radius_relative_tolerance, fixed_modes,
 tap_pitch_word, compensation_word, compensation_with_move, compensation_register,
@@ -249,8 +249,16 @@ chip_break_lift_mm, oriented_edge_deg, beam_s_max, beam_effect, x_diameter,
 thread_lead_word, height_control_word, css_limit_word, probing,
 probe_fast_feed_mm_min, probe_switching. Installed options/peck distances can
 parameterise those behaviours; #52 passes the declared machine settings upstream,
-rather than reimplementing a dialect here. Probing feeds/options are not needed
-by the shipped milling subset and must be declared if probing is added.
+rather than reimplementing a dialect here. Exceptions to fixed behaviour:
+`oriented_edge_deg` is class 4 (the tool's oriented cutting edge in work XY);
+`probing`, `probe_fast_feed_mm_min` and `probe_switching` depend on the installed
+probe backend/macros (class 3), and `beam_s_max` on the installed beam source
+(class 3). These remain null/disabled in the upstream LinuxCNC milling subset;
+none is a claim about an installed probe or beam source. Their resource format
+and setup declarations must be added if those operations are introduced.
+LinuxCNC arc-radius acceptance defaults belong to its canonical dialect; an
+installation overriding those INI values will need an explicit setting adapter.
+Haas peck-return parameters depend on Settings 22/52 as inventoried above.
 
 Haas adds these structural requirements. They remain outside Rust `Machine`
 until its Haas post exists; passing these keys to today's Rust type is invalid.
