@@ -309,11 +309,5 @@ camlib itself. Its dialect is read from camlib's own Rust fixture **only in the
 test**, not copied into production or resources. Unknown optional limits stay
 omitted; successful validation does not prove a collision-safe physical machine.
 
-Draft upstream issue (not posted): **Expose the canonical LinuxCNC dialect in Rust**.
-`GCodeDialect.linuxcnc()` exists in Python, but the pinned Rust `Dialect` has no
-public LinuxCNC/default constructor. Browser callers must currently supply every
-semantic word and cycle parameter themselves. Please expose
-`Dialect::linuxcnc()` (and serialization for WASM callers), tested against Python's
-canonical dialect, so clients can select a controller without owning a duplicate
-command table. step2cam currently uses the upstream Rust fixture's dialect only
-for contract validation; production dialect selection remains blocked for #52.
+camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
+`GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.
