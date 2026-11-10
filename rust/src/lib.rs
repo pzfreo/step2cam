@@ -318,6 +318,6 @@ mod flip_tests {
         assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
         assert_eq!(p["setups"][0]["stock"]["min"][2],-19.);
         assert!(p["decisions"].as_array().unwrap().iter().any(|d|d["chosen"]["available"]==false && d["says"].as_str().unwrap().contains("replanned without sacrificial bottom stock")));
-        assert_eq!(out["programs"].as_array().unwrap().len(),2);
+        assert_eq!(out["programs"].as_array().unwrap().len(),2,"log: {}; warnings: {}",out["log"],out["plan"]["warnings"]);
     }
 }

@@ -714,12 +714,16 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         };
         let first = operations[0]["tool"].as_str().unwrap_or("");
         let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
-        if setup["flip_seating"].is_object() {
-            // Use exactly the tool-change tip height. A fractional stock top can
-            // otherwise create a sub-nanometre lift that camlib refuses as a
-            // zero-length line after gauge subtraction.
-            for op in operations.iter_mut().filter(|o| o["kind"] == "facing") {
-                op["clearance_z_mm"] = json!(gauge_z - first_gauge);
+        for op in &mut operations {
+            let gauge = used.iter().zip(&gauges).find(|(t, _)| t["id"] == op["tool"]).map(|(_, g)| *g).ok_or("operation tool has no gauge length")?;
+            let tip = gauge_z - gauge;
+            let clearance = num(op, "clearance_z_mm")?;
+            // Canonicalize the same intended plane after gauge subtraction.
+            // Fractional carried tops can otherwise introduce a sub-nanometre
+            // lift that camlib correctly refuses as a zero-length line.
+            let roundoff = 8. * f64::EPSILON * gauge_z.abs().max(gauge.abs()).max(clearance.abs()).max(1.);
+            if (setup["flip_seating"].is_object() && op["kind"] == "facing") || (tip-clearance).abs() <= roundoff {
+                op["clearance_z_mm"] = json!(tip);
             }
         }
         // The whole part is known only where roughing is planned, whether or not camlib accepted it.
