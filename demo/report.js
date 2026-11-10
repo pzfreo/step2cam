@@ -98,7 +98,7 @@ export function checkText(programs) {
     const cell = limits.sideways_mm;
     say(`too small for the check to see: errors under about ${limits.height_mm.toFixed(2)} mm in height or ${cell.toFixed(2)} mm sideways, and misplaced cuts narrower than about ${(4 * cell).toFixed(1)} mm.`);
     say(`it can't tell for ${number(gouge.volume_mm3[1])} mm³ beside walls and curved faces, because it sees the part from above.`);
-    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes the web left around the part, and anything a later setup cuts.`);
+    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes stock outside the part, and anything a later setup cuts.`);
     if (limits.before_threads) say(`threads are not compared, because they go beyond the bore the model shows.`);
   }
   if (unchecked.length) items.push("Not compared: only the setup with roughing holds the part's model in its position, so side holes and the like rely on the other checks.");

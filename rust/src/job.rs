@@ -391,7 +391,13 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
                             notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
                         } else {
-                            notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
+                            let separation = crate::setup_stock::breakout(setup, &plan["part"]);
+                            let left = match separation.as_ref() {
+                                Some(step) if step["kind"] == "cut_free" => format!("leaves a {} mm band of uncut walls below Z{}", show(num(op,"web_mm")?), show(num(op,"floor_z")?)),
+                                Some(_) => format!("leaves a {} mm web below the part bottom",show(num(op,"web_mm")?)),
+                                None => format!("leaves stock below Z{}",show(num(op,"floor_z")?)),
+                            };
+                            notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
                         }
                         out
                     }

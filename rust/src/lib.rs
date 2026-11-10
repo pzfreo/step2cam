@@ -21,7 +21,7 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, fl
     // counts as cut: errors smaller than these pass, and they differ from part to part.
     let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
     let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
-    let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "the web and anything a later setup cuts" };
+    let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "uncut stock and anything a later setup cuts" };
     format!(
         "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting {remainder}",
         4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],

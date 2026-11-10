@@ -93,13 +93,24 @@ pub(crate) fn assumption(reason: &str) -> String {
 pub(crate) fn part_bounds(part: &Value, frame: &Value) -> Result<[[f64; 3]; 2], String> {
     let model = json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]], "origin_model":[0,0,0]});
     let (rotation, translation) = capp::plan::between_setups(&model, frame)?;
+    let coordinate = |side: &str, i: usize| {
+        part[side][i]
+            .as_f64()
+            .ok_or_else(|| format!("missing part {side} coordinate {i}"))
+    };
+    let lo = [
+        coordinate("min", 0)?,
+        coordinate("min", 1)?,
+        coordinate("min", 2)?,
+    ];
+    let hi = [
+        coordinate("max", 0)?,
+        coordinate("max", 1)?,
+        coordinate("max", 2)?,
+    ];
     let mut bounds = [[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]];
     for bits in 0..8 {
-        let p: [f64; 3] = std::array::from_fn(|i| {
-            part[if bits & (1 << i) == 0 { "min" } else { "max" }][i]
-                .as_f64()
-                .unwrap()
-        });
+        let p: [f64; 3] = std::array::from_fn(|i| if bits & (1 << i) == 0 { lo[i] } else { hi[i] });
         for i in 0..3 {
             let v = translation[i] + (0..3).map(|j| rotation[i][j] * p[j]).sum::<f64>();
             bounds[0][i] = bounds[0][i].min(v);
