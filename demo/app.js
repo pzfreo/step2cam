@@ -1527,7 +1527,8 @@ const machines = [
 ];
 let machine = machines[0];
 try {
-  machine = machines.find((m) => m.machine === localStorage.getItem("step2cam.machine")) || machine;
+  const saved = localStorage.getItem("step2cam.machine");
+  machine = machines.find((m) => m.machine === (saved === "benchmark-vmc" ? "linuxcnc-vmc" : saved)) || machine;
 } catch { /* Keep the default when storage is unavailable. */ }
 function markMachine() {
   for (const button of document.querySelectorAll("[data-machine]")) {
