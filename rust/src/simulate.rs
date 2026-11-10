@@ -38,7 +38,7 @@ impl From<&str> for Failure {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct OperationRange {
     pub id: String,
     pub start: u64,
@@ -47,7 +47,7 @@ pub struct OperationRange {
 
 /// One of camlib's moves, for drawing: its path as points from its start to its end, an arc or
 /// helix in straight pieces.
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Move {
     pub op: String,
     pub tool: String,
@@ -59,16 +59,23 @@ pub struct Move {
     pub points: Vec<[f64; 3]>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Run {
+    #[serde(skip)]
+    pub finished_stock: Option<Result<camlib::stock_mesh::FinishedStock, String>>,
     pub moves: Vec<Move>,
     pub operations: Vec<OperationRange>,
     /// Motions camlib's stock-contact check could not clear.
     pub uncertain: u64,
     /// The stock after the last move against the part, where the job asks for it.
-    pub material: Option<camlib::material::Report>,
+    #[serde(serialize_with = "serialize_material")]
+    pub material: Option<std::sync::Arc<camlib::material::Report>>,
     /// Per-motion proof, separate from the independent stock-cell comparison.
     pub sweep_proof: Option<camlib::material::SweepProofReport>,
+}
+
+fn serialize_material<S: serde::Serializer>(value: &Option<std::sync::Arc<camlib::material::Report>>, serializer: S) -> Result<S::Ok, S::Error> {
+    value.as_deref().serialize(serializer)
 }
 
 fn round(p: [f64; 3]) -> [f64; 3] {
@@ -212,7 +219,7 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(manifest_json, None)
+    simulate_with_stock_bottom(manifest_json, None, false, None)
 }
 
 /// Run an adapter job while excluding artificial through-tap backing from the
@@ -225,7 +232,7 @@ pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
 pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Failure> {
     let mut original_refusals = std::collections::HashMap::new();
     loop {
-        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm));
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to);
         let Err(failure) = result else { return result; };
         let reach = camlib::reach::ReachRefusal::parse(&failure.message);
         let operation = failure.operation.as_deref().unwrap_or("");
@@ -249,13 +256,22 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Fa
     }
 }
 
-fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>) -> Result<Run, Failure> {
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
+    manifest.validate()?;
     let binding = Binding::new(&manifest)?;
-    let mut producer = StreamProducer::new(manifest.clone())?;
+    let mut producer = StreamProducer::new(manifest.clone()).map_err(|message| {
+        // Only a demonstrated mesh conversion failure permits the box fallback.
+        // Validation, identity and verifier errors keep their original meaning.
+        if matches!(manifest.stock, camlib::stream::RunStockSpec::Mesh(_))
+            && let Err(reason) = manifest.stock.initial_stock(&|| false)
+            && reason == message {
+            Failure::from(format!("initial stock: {reason}"))
+        } else { Failure::from(message) }
+    })?;
     let cancel = AtomicBool::new(false);
-    let raw: serde_json::Value = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
+    let raw = serde_json::json!({"operations": manifest.operations, "tools": manifest.tools});
     let (mut moves, mut operations, mut uncertain) = (vec![], vec![], 0);
     let mut active: Option<&str> = None;
     let mut material = None;
@@ -338,7 +354,25 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>)
     }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
-    Ok(Run { moves, operations, uncertain, material, sweep_proof })
+    let finished_stock = return_stock.then(|| {
+        let stock = producer.stock()?;
+        let mut snapshot = stock.snapshot();
+        if let Some(bottom) = physical {
+            snapshot.spec.min_mm[2] = bottom;
+            for cell in &mut snapshot.cells {
+                cell.lower_mm = cell.lower_mm.max(bottom);
+                cell.upper_mm = cell.upper_mm.max(bottom);
+            }
+        }
+        if let Some(bounds) = crop {
+            crate::setup_stock::crop_cells(&mut snapshot, bounds)?;
+        }
+        Ok(camlib::stock_mesh::FinishedStock {
+            mesh: camlib::stock_mesh::height_field_mesh(&snapshot.spec, &snapshot.cells, &cancel)?,
+            approximation: Some(camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION),
+        })
+    });
+    Ok(Run { moves, operations, uncertain, material: material.map(std::sync::Arc::new), sweep_proof, finished_stock })
 }
 
 #[cfg(test)]

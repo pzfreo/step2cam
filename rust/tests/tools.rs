@@ -48,7 +48,7 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert_eq!(number(&d66["depth_z_mm"]), -12.);
     assert_close(number(&d66["allow_breakthrough_mm"]), 1. + tip(6.6) + 0.01);
     assert!(any_note(&notes, "below the stock bottom"), "{notes:?}");
-    assert!(notes.iter().any(|n| n.contains("web") && n.contains("vise")), "{notes:?}");
+    assert!(notes.iter().any(|n| n.contains("0.5 mm band of uncut walls below Z-10.5") && n.contains("vise")), "{notes:?}");
     assert!(d66["peck_mm"].is_null(), "under 3D: one plunge despite the tool cap");
     // No 8 mm drill: helical bore with the largest end mill that fits, to the stock bottom,
     // which it cannot pass: a skin is expected and said.

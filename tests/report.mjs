@@ -224,3 +224,15 @@ assert.ok(reportText({ blocks: onlyOptionReport.blocks.slice(onlyOptionReport.ap
 const markup = readFileSync(new URL('../demo/index.html', import.meta.url), 'utf8');
 assert.match(markup, /<button(?=[^>]*id="setup-sheet")(?=[^>]*\bdisabled\b)[^>]*>/, 'setup-sheet control starts disabled without a plan');
 console.log('Report model, display formatting, compact appendix, feature filtering/notes, escaping, missing fields, ordering, collet changes and repeatability passed.');
+
+// The manual transition and actual stock premise use the existing setup sheet content.
+const carried = structuredClone(data);
+carried.plan.setups[0].stock_note = 'Starting stock carried from the previous setup (approximate).';
+carried.plan.setups[0].before_setup = {kind: 'break_out', says: 'Break out before reclamping; clean the 0.5 mm witness at the bottom perimeter.'};
+const carriedText = reportText(reportDocument(carried, options));
+assert.ok(carriedText.includes(carried.plan.setups[0].stock_note));
+assert.ok(carriedText.includes(carried.plan.setups[0].before_setup.says));
+assert.ok(carriedText.indexOf('Break out before') < carriedText.indexOf('Faces in jaws'));
+const fallback = structuredClone(data);
+fallback.plan.setups[0].stock_note = 'Assumes a freed, part-sized block; stock carry unavailable: closed mesh refused.';
+assert.ok(reportText(reportDocument(fallback, options)).includes(fallback.plan.setups[0].stock_note));

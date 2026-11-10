@@ -55,7 +55,7 @@ fn plate_jobs_have_clamping_and_camlib_clears_the_fixtures() {
         assert!(!jobs.is_empty());
         for job in jobs {
             if name == "synthetic/stepped-plate" && job.setup == "top" {
-                assert!(job.notes.iter().any(|note| note.contains("leaves a 4.8 mm web")), "{:?}", job.notes);
+                assert!(job.notes.iter().any(|note| note.contains("leaves a 4.8 mm band of uncut walls")), "{:?}", job.notes);
             }
             assert_eq!(list(&job.manifest["verification"]["scene"]["scene"]["bodies"]).len(), 2);
             step2cam::simulate::simulate(&job.manifest.to_string()).unwrap_or_else(|e| panic!("{name}/{}: {}", job.setup, e.message));

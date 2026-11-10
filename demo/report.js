@@ -98,7 +98,7 @@ export function checkText(programs) {
     const cell = limits.sideways_mm;
     say(`too small for the check to see: errors under about ${limits.height_mm.toFixed(2)} mm in height or ${cell.toFixed(2)} mm sideways, and misplaced cuts narrower than about ${(4 * cell).toFixed(1)} mm.`);
     say(`it can't tell for ${number(gouge.volume_mm3[1])} mm³ beside walls and curved faces, because it sees the part from above.`);
-    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes the web left around the part, and anything a later setup cuts.`);
+    say(`at least ${number(residual.volume_mm3[0])} mm³ of stock is still there. That includes stock outside the part, and anything a later setup cuts.`);
     if (limits.before_threads) say(`threads are not compared, because they go beyond the bore the model shows.`);
   }
   if (unchecked.length) items.push("Not compared: only the setup with roughing holds the part's model in its position, so side holes and the like rely on the other checks.");
@@ -208,7 +208,8 @@ function setupBox(part, setup) {
 export function setupDetails(setup, plan) {
   const unstated = "not stated in the plan", c = setup.clamping || {};
   const face = (id) => typeof id !== "string" ? unstated : id.replace(/^(stock|part)\.([xyz])\.(min|max)$/, (_, body, axis, edge) => `${body} ${edge === "min" ? "−" : "+"}${axis.toUpperCase()} face`);
-  const lines = [`Faces in jaws (setup axes): ${c.faces?.length ? c.faces.map(face).join(", ") : unstated}. Jaw-top Z: ${c.jaw_top_z == null ? unstated : reportLength(c.jaw_top_z) + " mm"}. Grip depth: ${c.grip_height_mm == null ? unstated : reportLength(c.grip_height_mm) + " mm"}.`];
+  const lines = [setup.before_setup?.says, setup.stock_note].filter(Boolean);
+  lines.push(`Faces in jaws (setup axes): ${c.faces?.length ? c.faces.map(face).join(", ") : unstated}. Jaw-top Z: ${c.jaw_top_z == null ? unstated : reportLength(c.jaw_top_z) + " mm"}. Grip depth: ${c.grip_height_mm == null ? unstated : reportLength(c.grip_height_mm) + " mm"}.`);
   if (c.contacts?.length) lines.push(`Contact faces (model axes): ${[...new Set(c.contacts.map((contact) => face(contact.face_model)))].join(", ")}.`);
   lines.push(c.parallels?.length ? c.parallels.map((p, i) => {
     if (!p.min || !p.max) return `Parallel ${i + 1}: height/width ${unstated}`;

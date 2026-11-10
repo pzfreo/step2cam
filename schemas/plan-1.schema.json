@@ -264,6 +264,17 @@
     "operations"
    ],
    "properties": {
+    "stock_note": {"type": "string", "description": "Actual carry premise, or explicit freed part-sized block fallback."},
+    "before_setup": {
+     "type": "object", "required": ["kind", "after_setup", "says"], "additionalProperties": false,
+     "oneOf": [{"properties":{"kind":{"const":"break_out"}},"required":["witness"]},{"properties":{"kind":{"const":"cut_free"}},"required":["remaining_band"]}],
+     "properties": {
+      "remaining_band": {"$ref":"#/$defs/setup/properties/before_setup/properties/witness"},
+      "kind": {"enum": ["break_out", "cut_free"]}, "after_setup": {"type": "string"}, "says": {"type": "string"},
+      "witness": {"type": "object", "required": ["setup", "bottom_z_mm", "top_z_mm", "thickness_mm"], "additionalProperties": false,
+       "properties": {"setup": {"type": "string"}, "bottom_z_mm": {"type": "number"}, "top_z_mm": {"type": "number"}, "thickness_mm": {"type": "number", "exclusiveMinimum": 0}}}
+     }
+    },
     "id": {
      "enum": [
       "top",

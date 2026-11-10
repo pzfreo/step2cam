@@ -267,6 +267,10 @@ fn surface(op: &Value) -> Result<Value, String> {
 
 #[derive(Clone)]
 pub struct Job {
+    /// Export the finished stock only when a successor needs it.
+    pub return_stock: bool,
+    /// Source-frame part bounds after a declared release/cut-free step.
+    pub crop_stock_to: Option<[[f64; 3]; 2]>,
     pub setup: String,
     /// camlib's manifest.
     pub manifest: Value,
@@ -387,7 +391,13 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
                             notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
                         } else {
-                            notes.push(format!("{op_id}: clears {} mm from the walls and leaves a {} mm web around the part; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial), show(num(op, "web_mm")?)));
+                            let separation = crate::setup_stock::breakout(setup, &plan["part"]);
+                            let left = match separation.as_ref() {
+                                Some(step) if step["kind"] == "cut_free" => format!("leaves a {} mm band of uncut walls below Z{}", show(num(op,"web_mm")?), show(num(op,"floor_z")?)),
+                                Some(_) => format!("leaves a {} mm web below the part bottom",show(num(op,"web_mm")?)),
+                                None => format!("leaves stock below Z{}",show(num(op,"floor_z")?)),
+                            };
+                            notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
                         }
                         out
                     }
@@ -710,12 +720,16 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         };
         let first = operations[0]["tool"].as_str().unwrap_or("");
         let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
-        if setup["flip_seating"].is_object() {
-            // Use exactly the tool-change tip height. A fractional stock top can
-            // otherwise create a sub-nanometre lift that camlib refuses as a
-            // zero-length line after gauge subtraction.
-            for op in operations.iter_mut().filter(|o| o["kind"] == "facing") {
-                op["clearance_z_mm"] = json!(gauge_z - first_gauge);
+        for op in &mut operations {
+            let gauge = used.iter().zip(&gauges).find(|(t, _)| t["id"] == op["tool"]).map(|(_, g)| *g).ok_or("operation tool has no gauge length")?;
+            let tip = gauge_z - gauge;
+            let clearance = num(op, "clearance_z_mm")?;
+            // Canonicalize the same intended plane after gauge subtraction.
+            // Fractional carried tops can otherwise introduce a sub-nanometre
+            // lift that camlib correctly refuses as a zero-length line.
+            let roundoff = 8. * f64::EPSILON * gauge_z.abs().max(gauge.abs()).max(clearance.abs()).max(1.);
+            if (setup["flip_seating"].is_object() && op["kind"] == "facing") || (tip-clearance).abs() <= roundoff {
+                op["clearance_z_mm"] = json!(tip);
             }
         }
         // The whole part is known only where roughing is planned, whether or not camlib accepted it.
@@ -768,7 +782,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
             "rapid_retracts": true,
         });
-        jobs.push(Job { setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
+        jobs.push(Job { return_stock: false, crop_stock_to: None, setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
     }
     Ok((jobs, log))
 }

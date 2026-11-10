@@ -68,6 +68,21 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
         }
         let programs = out["programs"].as_array().unwrap();
         assert_eq!(programs.len(), setups.len(), "{name}: {}", out["log"]);
+        if name == "synthetic/stepped-plate" {
+            let front = programs.iter().find(|p|p["setup"]=="front").expect("Carvera front job");
+            let drilled: Vec<&Value> = front["job"]["operations"].as_array().unwrap().iter().filter(|o|o["kind"]=="drilling" && o["tool"]=="drill2.5").collect();
+            assert_eq!(drilled.len(), 1);
+            assert_eq!(drilled[0]["centers_mm"].as_array().unwrap().len(), 2);
+            let manifest: camlib::stream::StreamManifest = serde_json::from_value(front["job"].clone()).unwrap();
+            let stock = manifest.stock.initial_stock(&||false).unwrap();
+            let stock = stock.height().unwrap();
+            let cell = stock.spec().cell_size_mm;
+            assert!(stock.cells().iter().all(|c|c.upper_mm <= cell + 1e-4));
+            assert!(front["job"]["stock"]["mesh"]["vertices"].as_array().unwrap().iter().all(|p|
+                p[0].as_f64().unwrap() >= -cell-1e-4 && p[0].as_f64().unwrap() <=100.+cell+1e-4
+                && p[1].as_f64().unwrap() >= -cell-1e-4 && p[1].as_f64().unwrap() <=18.+cell+1e-4));
+            assert!(setups.iter().find(|s|s["id"]=="front").unwrap()["stock_note"].as_str().unwrap().contains("the part is free"));
+        }
         let mut compared = 0;
         for program in programs {
             // Earlier candidates can legitimately be refused for insufficient catalogue reach.

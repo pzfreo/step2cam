@@ -633,3 +633,26 @@ swapping the spindle collet, separately from swapping complete tool holders.
 selected tools require multiple shank sizes. Absent leaves this check unspecified;
 preassembled CAT40/ER holders need not claim manual spindle-collet changes.
 Unused inventory tools do not affect the note. No tool choice changes.
+
+Sequential simulation carries camlib's finished-stock mesh into the next setup using the
+recorded rotation and model origin. The mesh is conservative height-field stock, including
+filled voids and undercuts; it is not a measured part. Only setups with a successor export
+stock. The receiving manifest encloses the carried mesh. The existing adapter derives its grid,
+retract and clearance planes and tool-change position from that envelope, respecting the
+library's configured values. The flip facing needs no second residual-margin overlap.
+Camlib alone decides tool contact and material acceptance.
+
+`process` adds two optional setup fields: `stock_note`, the actual initial-stock premise
+(or an explicit freed, part-sized block assumption with the carry refusal), and
+`before_setup`, a manual separation instruction immediately before reclamping. A `break_out`
+entry describes a thin web below the part bottom and its witness. A `cut_free` entry says
+that the part is not free, names the uncut wall band from the settled roughing floor, and
+requires cutting free (for example sawing) and finishing that band in a later setup.
+
+Before the part is free, the complete finished stock is carried. After the flip route's
+facing, or a declared manual separation, cells outside the source-frame part footprint
+expanded by one source cell are cleared to no material. Camlib's public height-field mesh
+builder rebuilds the closed mesh on that source grid. The receiving stock note declares:
+"the part is free, so stock outside its footprint is dropped". This is an explicit
+separation premise, not a simulated manual toolpath or an added machining plan.
+Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.

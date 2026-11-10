@@ -7,6 +7,7 @@
 pub mod job;
 pub mod simulate;
 mod workholding;
+mod setup_stock;
 
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -20,26 +21,94 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, fl
     // counts as cut: errors smaller than these pass, and they differ from part to part.
     let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
     let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
-    let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "the web and anything a later setup cuts" };
+    let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "uncut stock and anything a later setup cuts" };
     format!(
         "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting {remainder}",
         4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
     )
 }
 
-fn simulate_all(plan: &Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>) -> Result<(), simulate::Failure> {
+#[derive(Clone)]
+struct CompletedSetup {
+    input: Value,
+    job: job::Job,
+    run: simulate::Run,
+    stock_note: Value,
+}
+
+fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>) -> Result<(), simulate::Failure> {
+    // Keep the original coordinate/stock descriptions while reporting the actual premise.
+    let frames = plan["setups"].as_array().cloned().unwrap_or_default();
+    let plan_part = plan["part"].clone();
+    for (index, setup) in plan["setups"].as_array_mut().into_iter().flatten().enumerate().skip(1) {
+        setup.as_object_mut().unwrap().remove("stock_note");
+        if let Some(step) = setup_stock::breakout(&frames[index - 1], &plan_part) {
+            setup["before_setup"] = step;
+        }
+    }
     let (jobs, notes) = job::jobs(plan, library)?;
     log.extend(notes);
-    for mut job in jobs {
+    let count = jobs.len();
+    let mut previous: Option<(Value, Result<camlib::stock_mesh::FinishedStock, String>, bool, bool)> = None;
+    for (index, mut job) in jobs.into_iter().enumerate() {
+        job.return_stock = index + 1 < count;
+        let box_manifest = job.manifest.clone();
+        let box_bottom = job.stock_bottom_mm;
+        let frame = frames.iter().find(|s| s["id"] == job.setup).ok_or("missing setup frame")?;
+        let setup_index = frames.iter().position(|s| s["id"] == job.setup).unwrap();
+        if setup_index > 0 {
+            let carried = match &previous {
+                Some((from, Ok(stock), _, _)) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, &plan["part"], library)),
+                Some((_, Err(reason), _, _)) => Err(reason.clone()),
+                None => Err("the previous setup returned no finished stock".into()),
+            };
+            let note = match carried {
+                Ok(mut adapted) => {
+                    adapted.return_stock = job.return_stock;
+                    job = adapted;
+                    let from = previous.as_ref().unwrap();
+                    setup_stock::carried_note(from.0["id"].as_str().unwrap_or("previous setup"), from.2, from.3)
+                }
+                Err(reason) => setup_stock::assumption(&reason),
+            };
+            plan["setups"][setup_index]["stock_note"] = json!(note);
+        }
+        if setup_stock::released(frame, &plan_part) {
+            job.crop_stock_to = Some(setup_stock::part_bounds(&plan_part, frame)?);
+        }
+        let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
-        let run = simulate::simulate_prepared_job(&mut job).map_err(|f| simulate::Failure {
-            message: format!("setup {}: {}", job.setup, f.message),
-            ..f
-        })?;
+        let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.crop_stock_to == job.crop_stock_to && (!job.return_stock || c.job.return_stock)) {
+            job = saved.job.clone();
+            if setup_index > 0 { plan["setups"][setup_index]["stock_note"] = saved.stock_note.clone(); }
+            saved.run.clone()
+        } else {
+            cache.truncate(index);
+            let attempt = simulate::simulate_prepared_job(&mut job);
+            let attempt = match attempt {
+                Err(f) if f.operation.is_none() && f.message.starts_with("initial stock:") && job.manifest["stock"]["mesh"].is_object() => {
+                    plan["setups"][setup_index]["stock_note"] = json!(setup_stock::assumption(&f.message));
+                    job.manifest = box_manifest;
+                    job.stock_bottom_mm = box_bottom;
+                    simulate::simulate_prepared_job(&mut job)
+                }
+                other => other,
+            };
+            let run = attempt.map_err(|f| simulate::Failure {
+                message: format!("setup {}: {}", job.setup, f.message),
+                ..f
+            })?;
+            if job.return_stock { cache.push(CompletedSetup { input, job: job.clone(), run: run.clone(), stock_note: plan["setups"][setup_index]["stock_note"].clone() }); }
+            run
+        };
+        if setup_index > 0 && job.manifest["stock"]["mesh"].is_object() {
+            plan["setups"][setup_index]["stock"] = json!({"min": job.manifest["stock"]["min_mm"], "max": job.manifest["stock"]["max_mm"]});
+        }
+        previous = Some((frame.clone(), run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into())), job.crop_stock_to.is_some(), setup_index > 0 && job.manifest["stock"]["mesh"].is_null()));
         if run.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }
-        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_ref(), &job.manifest, plan["setups"].as_array().into_iter().flatten().any(|s| s["flip_role"]=="sacrificial_grip"))));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_deref(), &job.manifest, plan["setups"].as_array().into_iter().flatten().any(|s| s["flip_role"]=="sacrificial_grip"))));
         if let Some(proof) = &run.sweep_proof {
             log.push(format!(
                 "note: setup {}: per-motion gouge proof: {} proven, {} unproven; {} possible gouge cells decided at {} mm tolerance{}",
@@ -81,6 +150,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
+    let mut setup_cache = vec![];
     loop {
         programs.clear();
         log.clear();
@@ -98,7 +168,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             exclusions.clear();
             continue;
         }
-        let Err(failure) = simulate_all(&plan, library, &mut programs, &mut log) else {
+        let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {
             break;
         };
         // An operation capp can take out is excluded and the plan finished again; anything else
@@ -248,6 +318,6 @@ mod flip_tests {
         assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
         assert_eq!(p["setups"][0]["stock"]["min"][2],-19.);
         assert!(p["decisions"].as_array().unwrap().iter().any(|d|d["chosen"]["available"]==false && d["says"].as_str().unwrap().contains("replanned without sacrificial bottom stock")));
-        assert_eq!(out["programs"].as_array().unwrap().len(),2);
+        assert_eq!(out["programs"].as_array().unwrap().len(),2,"log: {}; warnings: {}",out["log"],out["plan"]["warnings"]);
     }
 }
