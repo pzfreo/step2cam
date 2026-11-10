@@ -74,14 +74,13 @@ pub(crate) fn adapt(
 
 pub(crate) fn carried_note(id: &str, cropped: bool, box_run: bool) -> String {
     format!(
-        "Starting stock carried from {id}{}{}. {}",
+        "Starting stock carried from {id}{}{}. It is camlib's approximate height-field stock: undercuts and voids are filled, so it may hold more material than is really there, never less.",
         if box_run { "’s box run" } else { "" },
         if cropped {
-            "; the part is free; stock outside its footprint left with the frame (one source cell retained around the footprint)"
+            "; the part is free, so stock outside its footprint is dropped (keeping one cell around it)"
         } else {
             ""
         },
-        camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION
     )
 }
 
