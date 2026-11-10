@@ -56,7 +56,8 @@
    "description": "The stock grid camlib checks on; 0 or absent for the default."
   },
   "tool_change_gauge_z_mm": {
-   "type": "number"
+   "type": "number",
+   "description": "Existing setup-frame gauge Z used by the job simulation, not machine-coordinate home Z after a controller tool change. Setup policy, not an installed machine setting."
   },
   "tool_change_xy_mm": {
    "type": "array",
@@ -64,7 +65,8 @@
     "type": "number"
    },
    "minItems": 2,
-   "maxItems": 2
+   "maxItems": 2,
+   "description": "Existing setup-frame tool-change XY used by the job simulation; setup policy, not a machine-coordinate home position."
   },
   "overrides": {
    "type": "object",

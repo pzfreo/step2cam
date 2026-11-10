@@ -236,6 +236,10 @@ name translation is [`machine_fields`](../rust/src/post_machine.rs).
 | schedule_post_feeds | 2 P | Adapter false; no scheduling without a declared policy |
 | crash_model | 3 + 4 | Machine geometry plus located setup/tools. Unknown on all three; vise dimensions are insufficient. No engine-shaped geometry is stored in resources |
 
+The existing library.tool_change_gauge_z_mm / tool_change_xy_mm are setup-frame
+simulation premises. They do not duplicate the new machine-coordinate final
+homing Z setting, and their shapes remain unchanged.
+
 Every nested `Dialect` field is class 2: commands, work_offsets, axes, centers,
 tool_word, length_word, feed_word, speed_word, parentheses_comments, tool_change,
 length_activation, radius_tolerance_mm, radius_relative_tolerance, fixed_modes,

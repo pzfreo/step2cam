@@ -5,6 +5,7 @@
 //! specify-core's analysis and mesh -> [`capp`] (plan, settle, tools) -> [`job::jobs`] (the camlib
 //! adapter) -> [`simulate::simulate`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
+pub mod post_machine;
 pub mod simulate;
 mod workholding;
 mod setup_stock;
