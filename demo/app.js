@@ -1523,11 +1523,12 @@ let openPart = null; // Keep an owned copy: postMessage transfers and detaches i
 const machines = [
   { machine: "carvera", name: "Makera Carvera", file: "machines/carvera.json" },
   { machine: "haas-vf2", name: "Haas VF-2", file: "machines/haas-vf2.json" },
-  { machine: "benchmark-vmc", name: "Generic machining centre", file: "machines/generic.json" },
+  { machine: "linuxcnc-vmc", name: "LinuxCNC mill (placeholder)", file: "machines/linuxcnc-vmc.json" },
 ];
 let machine = machines[0];
 try {
-  machine = machines.find((m) => m.machine === localStorage.getItem("step2cam.machine")) || machine;
+  const saved = localStorage.getItem("step2cam.machine");
+  machine = machines.find((m) => m.machine === (saved === "benchmark-vmc" ? "linuxcnc-vmc" : saved)) || machine;
 } catch { /* Keep the default when storage is unavailable. */ }
 function markMachine() {
   for (const button of document.querySelectorAll("[data-machine]")) {
@@ -1542,7 +1543,7 @@ for (const entry of machines) {
     return response.json();
   }).then((library) => {
     const controller = library.machines?.[0]?.controller;
-    const label = ({ haas_ngc: "Haas NGC" })[controller] || (controller ? controller.replaceAll("_", " ") : "none");
+    const label = ({ haas_ngc: "Haas NGC", linuxcnc: "LinuxCNC" })[controller] || (controller ? controller.replaceAll("_", " ") : "none");
     document.querySelector(`[data-machine="${entry.machine}"] .tag`).textContent = label;
   }).catch(() => { /* Leave the unavailable label until the library can be loaded. */ });
 }

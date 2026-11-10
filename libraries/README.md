@@ -1,7 +1,7 @@
-# Real machine libraries
+# Machine libraries
 
-This directory contains opt-in resources-format libraries for named machines and
-catalogue tooling. Pass one as the third argument to the Rust `process` example,
+This directory contains resources-format libraries for named machines and
+catalogue tooling, plus the page's generic LinuxCNC mill with placeholder tools and limits. Pass one as the third argument to the Rust `process` example,
 or use `--tools libraries/haas-vf2.json` with the benchmark runner. The demo default (`demo/tools.json`) is the Carvera aluminium library described
 below. The benchmark reference library (`tools/benchmark/tools.json`) is independent
 and unchanged; generic planner regressions use `tests/fixtures/placeholder-tools.json`.
@@ -17,9 +17,26 @@ such, separately from manufacturer recommendations.
 
 `machines[].controller` is an optional string naming a camlib post. The VF-2
 uses `haas_ngc`, corresponding to camlib's `examples/haas_ngc_post.py` for Haas
-Next Generation Control. It is metadata only: no Rust code consumes it, no
-post is selected and no G-code is emitted. It anticipates
-[camlib Rust posting support](https://github.com/stevecad/camlib/issues/120).
+Next Generation Control. The generic LinuxCNC mill uses `linuxcnc`, corresponding
+to `GCodeDialect.linuxcnc()` and camlib's Rust default post. These identifiers
+are metadata only: step2cam does not select a post or emit G-code yet (#52).
+
+## Generic LinuxCNC mill
+
+`linuxcnc-vmc.json` replaces the page's generic machining centre. Its three linear
+axes, limits, vise, tools and cutting data are placeholders copied from the
+independent benchmark library; it describes no specific commercial machine.
+The benchmark library is unchanged so controller identity cannot change its
+plan outcomes or input hash. `_sources.controller` cites LinuxCNC 2.9 and camlib.
+
+The resources-format `controller` string is not a camlib posting machine. When
+#52 constructs a posting input, `machine` must use the full `Machine.to_dict()`
+JSON form documented in [Posting without Python](https://github.com/stevecad/camlib/blob/c6383a5cc9cb64430551867e538af53fbce91e0c/docs/posts.md#posting-without-python):
+a LinuxCNC dialect object, explicit tool settings, frames/offsets, output and
+capability limits, and tool-change behaviour, with the actual crash model for
+machine checking. Passing the resources object or the string `linuxcnc` as
+that machine would be invalid. These setup-specific declarations belong to
+the posting integration, not an invented physical machine here.
 
 ## Haas VF-2
 

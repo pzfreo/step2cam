@@ -18,7 +18,7 @@ fn check(schema: &str, what: &str, doc: &Value) {
 
 #[test]
 fn tool_libraries_match_the_resources_schema() {
-    for path in ["demo/tools.json", "examples/tools.example.json", "libraries/haas-vf2.json"] {
+    for path in ["demo/tools.json", "examples/tools.example.json", "libraries/haas-vf2.json", "libraries/linuxcnc-vmc.json"] {
         check("schemas/resources-1.schema.json", path, &read(path));
     }
 }

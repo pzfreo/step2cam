@@ -104,8 +104,8 @@ step in the bar to open it. On a wider screen, **Expand** does the same.
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
 toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
-(`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`):
-The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic library retains placeholders. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
+(`libraries/haas-vf2.json`), or LinuxCNC mill (`libraries/linuxcnc-vmc.json`):
+The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic LinuxCNC library retains placeholder tools and machine limits. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 
@@ -322,7 +322,7 @@ See [the CAPP planning documentation](docs/capp-plan.md) for consequences and li
 The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
 on purpose.
 
-- There is no controller here: step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
+- The optional `controller` identifies the intended camlib post; step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
 - `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
   - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
     why;
