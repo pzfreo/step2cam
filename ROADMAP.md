@@ -8,7 +8,7 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Done
 
 - #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
-  benchmark (`tools/benchmark`); #46 camlib at its main (df75918).
+  benchmark (`tools/benchmark`); #46 camlib at its main (c6383a5).
 - Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (cap retained;
   camlib #122 fixed); #35 the tool a left-out feature needs; #34 drills that reach, pecks
   by depth over diameter (deep-hole drilling warned, not planned); #51 ISO 13399 field names.
@@ -65,7 +65,7 @@ dog-bone relief if the design allows), and the ⌀3.3 holes 6 × D deep drilled 
 
 Done (above). What is left from it:
 
-1. camlib bump to main (df75918), with fixes for camlib #122 and #123: done. #36's roughing
+1. camlib bump to main (c6383a5), with fixes for camlib #122 and #123: done. #36's roughing
    cap stays until camlib can prove shank clearance inside a pocket it has already cleared;
    relaxing the cap still caused roughing refusals in the deep-part experiment.
 2. #111's holder verdict: done for independent operations. Camlib judges the assembly against
