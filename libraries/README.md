@@ -15,11 +15,12 @@ measured assembly. Cutting data are **starting values**, requiring setup and
 material verification. Assembly choices and shop policies must be identified as
 such, separately from manufacturer recommendations.
 
-`machines[].controller` is an optional string naming a camlib post. The VF-2
-uses `haas_ngc`, corresponding to camlib's `examples/haas_ngc_post.py` for Haas
-Next Generation Control. The generic LinuxCNC mill uses `linuxcnc`, corresponding
-to `GCodeDialect.linuxcnc()` and camlib's Rust default post. These identifiers
-are metadata only: step2cam does not select a post or emit G-code yet (#52).
+`machines[].controller` names the intended control (`haas_ngc`, `linuxcnc`,
+`carvera`). It is metadata pending browser posting (#52); Carvera has no post yet.
+`controller_settings` holds only installed settings and machine limits. Its names
+follow controller manuals or machining meanings, independently of any CAM engine.
+Omission means unknown; `_sources` distinguishes catalogue configurations from
+observed settings. Never substitute an engine default for an unknown machine fact.
 
 ## Generic LinuxCNC mill
 
@@ -29,14 +30,10 @@ independent benchmark library; it describes no specific commercial machine.
 The benchmark library is unchanged so controller identity cannot change its
 plan outcomes or input hash. `_sources.controller` cites LinuxCNC 2.9 and camlib.
 
-The resources-format `controller` string is not a camlib posting machine. When
-#52 constructs a posting input, `machine` must use the full `Machine.to_dict()`
-JSON form documented in [Posting without Python](https://github.com/stevecad/camlib/blob/c6383a5cc9cb64430551867e538af53fbce91e0c/docs/posts.md#posting-without-python):
-a LinuxCNC dialect object, explicit tool settings, frames/offsets, output and
-capability limits, and tool-change behaviour, with the actual crash model for
-machine checking. Passing the resources object or the string `linuxcnc` as
-that machine would be invalid. These setup-specific declarations belong to
-the posting integration, not an invented physical machine here.
+The new cutting ceiling, tool/length-offset ceilings and tool-change location
+are explicitly **placeholders**, not LinuxCNC defaults. Their provenance and the
+LinuxCNC configuration references are in the entry. No new stored value claims to
+be a LinuxCNC default. Fixed language semantics stay in the upstream controller.
 
 ## Haas VF-2
 
@@ -191,3 +188,126 @@ from rpm and pitch. A shallow blind pilot can still reject this lead, and that
 rejection must not be hidden by using the lower end of the lead range. Haas
 rigid tapping must be enabled; use compatible tapping collets in the sourced
 CAT40 envelope. Assembly stickouts are step2cam judgement.
+
+## Posting contract inventory
+
+Audited 2026-11-10 against `vendor/camlib/src/gcode/machine.rs`,
+`vendor/camlib/python/camlib/postprocessor.py` and
+`vendor/camlib/examples/haas_ngc_post.py` (`ReferenceMachine` / `define_machine`),
+using [Posting without Python](https://github.com/stevecad/camlib/blob/c6383a5cc9cb64430551867e538af53fbce91e0c/docs/posts.md#posting-without-python).
+This is an adapter contract inventory, not a second machine definition.
+**1** maps an existing value; **2** is controller behaviour (P marks a separate
+adapter post-policy decision, not a stored machine fact); **3** is a machine
+setting, omitted when unknown; **4** is supplied per job. The only resource-to-engine
+name translation is [`machine_fields`](../rust/src/post_machine.rs).
+
+| Engine field | Class | Resource / responsibility |
+|---|---|---|
+| name | 1 | machine.name, falling back to id |
+| tools | 4 (1) | Selected tools only: tool id/number; gauge length = stickout + holder_length; job assigns length/diameter registers and final positions |
+| dialect | 2 | Upstream controller selected by controller; includes fixed command/cycle forms and framing |
+| work_offset | 4 | Plan's selected work offset |
+| frame | 4 | Setup frame |
+| work_to_machine | 4 | Located setup in machine coordinates |
+| tip_travel_mm | 4 (1) | Transform axes.travel_mm with located setup/tool geometry; travel extents alone do not locate machine zero |
+| output_units | 2 P / 3 | Adapter chooses mm; controller_settings.required_output_units only when controller fixes units (Carvera) |
+| decimals | 2 P | Adapter 3 metric / 4 inch; also within Haas precision limits |
+| tolerance_mm | 2 P | Adapter .001 mm (metric) / .003 mm (inch), including 3D coordinate quantisation; not the part's tolerance |
+| feed_tolerance_mm_min | 2 P | Adapter .01 mm/min |
+| traverse_feed_mm_min | 2 P (3) | LinuxCNC native rapid (null); Haas feed traverse at declared cutting ceiling; unknown for Carvera |
+| max_feed_mm_min | 3 | Cutting-feed ceiling |
+| max_spindle_rpm | 1 | spindle.max_rpm |
+| planes | 2 | Upstream controller capability, restricted to XY for Haas reference |
+| arcs | 2 P | LinuxCNC native; Haas linear policy; Carvera implementation unknown |
+| helices | 2 P | As arcs |
+| max_sweep_rad | 2 P | Adapter single-turn ceiling, 2 pi |
+| max_tool_number | 3 | Addressable tool identity ceiling, **not** tool_changer.pockets |
+| max_length_register | 3 | Length-offset address ceiling, independent of pockets |
+| tool_changes | 1 | tool_changer.kind; pockets still limit tools loaded for a setup |
+| flood | 1 | coolant contains flood |
+| mist | 1 | coolant contains mist; air is not mist |
+| revision | 2 P | Version of adapter decisions; changes with that contract |
+| tool_change_position_mode | 3 | Controller's final tool-change position semantics |
+| tool_change_home_z_mm | 3 | Gauge line's final machine Z, only for homing changes; null otherwise |
+| rapid_mm_min | 1 | Existing library.rapid_mm_min; verify estimated rates before real posting |
+| max_normal_accel_mm_s2 | 3 | Optional measured/configured normal acceleration ceiling; unknown on all three |
+| max_axis_feed_mm_min | 3 | Optional independent axis cutting-feed limits; unknown on all three |
+| motion_policy | 2 P | Optional scheduling policy; adapter does not enable it |
+| schedule_post_feeds | 2 P | Adapter false; no scheduling without a declared policy |
+| crash_model | 3 + 4 | Machine geometry plus located setup/tools. Unknown on all three; vise dimensions are insufficient. No engine-shaped geometry is stored in resources |
+
+The existing library.tool_change_gauge_z_mm / tool_change_xy_mm are setup-frame
+simulation premises. They do not duplicate the new machine-coordinate final
+homing Z setting, and their shapes remain unchanged.
+
+The nested `Dialect` contract is class 2 by default: commands, work_offsets, axes, centers,
+tool_word, length_word, feed_word, speed_word, parentheses_comments, tool_change,
+length_activation, radius_tolerance_mm, radius_relative_tolerance, fixed_modes,
+tap_pitch_word, compensation_word, compensation_with_move, compensation_register,
+dwell_word, dwell_resolution_s, dwell_max_s, cycle_dwell_unit, peck_reentry_mm,
+chip_break_lift_mm, oriented_edge_deg, beam_s_max, beam_effect, x_diameter,
+thread_lead_word, height_control_word, css_limit_word, probing,
+probe_fast_feed_mm_min, probe_switching. Installed options/peck distances can
+parameterise those behaviours; #52 passes the declared machine settings upstream,
+rather than reimplementing a dialect here. Exceptions to fixed behaviour:
+`oriented_edge_deg` is class 4 (the tool's oriented cutting edge in work XY);
+`probing`, `probe_fast_feed_mm_min` and `probe_switching` depend on the installed
+probe backend/macros (class 3), and `beam_s_max` on the installed beam source
+(class 3). These remain null/disabled in the upstream LinuxCNC milling subset;
+none is a claim about an installed probe or beam source. Their resource format
+and setup declarations must be added if those operations are introduced.
+LinuxCNC arc-radius acceptance defaults belong to its canonical dialect; an
+installation overriding those INI values will need an explicit setting adapter.
+Haas peck-return parameters depend on Settings 22/52 as inventoried above.
+
+Haas adds these structural requirements. They remain outside Rust `Machine`
+until its Haas post exists; passing these keys to today's Rust type is invalid.
+
+| Haas reference field / parameter | Class | Responsibility |
+|---|---|---|
+| coordinate_system | 3 | Setting 33 Coordinate System; unknown |
+| h_t_agreement | 3 | Setting 15 H and T Code Agreement; unknown |
+| g92_shift_mm | 3 | Current G92 coordinate shift; unknown, never assumed zero |
+| rotation_scaling | 3 | Installed Rotation and Scaling option; unknown |
+| rigid_tapping | 3 | Rigid Tapping option; catalogue VF-2 includes it |
+| cutter_compensation | 2 P | Adapter disables wear compensation; enabling later requires per-job D registers/wear |
+| setting_22_mm | 3 | Setting 22 Can Cycle Delta Z; unknown |
+| setting_52_mm | 3 | Setting 52 G83 Retract Above R; unknown, never assumed zero to admit G83 |
+| program_number | 4 | Job's O number (1..99999), not machine identity |
+| optional_stop_enabled | 3 | Setting 17 / panel state; unknown |
+| mirror_settings_xyz | 3 | Settings 45/46/47; unknown, never assumed OFF |
+| curve_policy | 2 P | Adapter linear; exact-IJK is a later explicit post policy |
+| reference | 2 | Upstream manual/version identifier, 96-8210 Rev N |
+| name, tools, work_to_machine, traverse_feed_mm_min, **settings | as above | define_machine parameters forward the general contract; no extra stored copy |
+
+Haas source checks: [VF-2 specification](https://www.haas.co.uk/machines/vf-2/),
+[NGC 96-8210 Rev N, Tool Offsets p165](https://www.haascnc.com/content/dam/haascnc/en/service/manual/operator/english---mill-ngc---operator%27s-manual---2020.pdf),
+[Setting 15](https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S15.html),
+[22](https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S22.html),
+[33](https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S33.html),
+[52](https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S52.html),
+read 2026-11-10. The setting pages establish meanings, not installed values or
+verified defaults for this VF-2. The PDF direct fetch failed; maker-indexed p165
+text confirmed the offset count. Highest carousel tool identity, final M6 gauge
+position, rotation/scaling, shifts and panel states remain unknown.
+
+LinuxCNC's four new values are chosen placeholders derived from existing limits,
+not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)
+and [tool compensation](https://linuxcnc.org/docs/2.9/html/gcode/tool-compensation.html)
+were read 2026-11-10. Carvera stores only its documented millimetre requirement
+([community G-codes](https://carvera-community.gitbook.io/docs/firmware/supported-commands/gcodes),
+read 2026-11-10; see also [research](../docs/carvera.md)). Its cutting-feed ceiling,
+T/H range, final M6 location and firmware options remain unknown. Catalogue
+travel speed and the profile's commanded G53 retract do not establish those facts.
+
+`rust/tests/post_machine.rs` audits every Rust field directly from the pinned
+upstream struct, and every added Haas dataclass field; a newly required,
+unclassified field fails. It prints covered sources, controller, per-job and
+unknown fields for each shipped machine (`-- --nocapture`). LinuxCNC's partial
+mapping plus an explicit sample setup/tool table is deserialised and validated by
+camlib itself. Its dialect is read from camlib's own Rust fixture **only in the
+test**, not copied into production or resources. Unknown optional limits stay
+omitted; successful validation does not prove a collision-safe physical machine.
+
+camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
+`GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.

@@ -100,7 +100,40 @@
      "jaw_width_mm": 152.4,
      "jaw_height_mm": 44.069
     }
-   ]
+   ],
+   "controller_settings": {
+    "max_cutting_feed_mm_min": 16500,
+    "highest_length_offset_number": 200,
+    "rigid_tapping_option": true,
+    "_sources": {
+     "max_cutting_feed_mm_min": {
+      "url": "https://www.haas.co.uk/machines/vf-2/",
+      "read": "2026-11-10",
+      "note": "FEEDRATES Max Cutting 16.5 m/min x1000. Same model-year configuration as existing rapid/spindle values."
+     },
+     "highest_length_offset_number": {
+      "url": "https://www.haascnc.com/content/dam/haascnc/en/service/manual/operator/english---mill-ngc---operator%27s-manual---2020.pdf",
+      "read": "2026-11-10",
+      "note": "96-8210 Rev N section Tool Offsets, p165: 200 T/H offsets. Indexed maker text verified; direct PDF fetch unavailable. Does not establish carousel tool numbering or Setting 90."
+     },
+     "rigid_tapping_option": {
+      "url": "https://www.haas.co.uk/machines/vf-2/",
+      "read": "2026-11-10",
+      "note": "Standard equipment description includes rigid tapping; catalogue configuration, not an inspection of installed options."
+     },
+     "unknown_settings": {
+      "urls": [
+       "https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S15.html",
+       "https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S22.html",
+       "https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S33.html",
+       "https://haascnc.com/service/codes-settings.type=setting.machine=mill.value=S52.html"
+      ],
+      "read": "2026-11-10",
+      "note": "These maker pages define setting meanings but do not specify installed values or verified defaults for this machine. Values intentionally omitted."
+     }
+    },
+    "_comment": "Unknown: installed Settings 15/17/22/33/45/46/47/52, G92 shift, rotation/scaling option, highest tool identity (carousel vs SMTC and Setting 90), tool-change final gauge Z/location, acceleration and per-axis cutting limits, full collision geometry. Haas setting pages describe meanings but do not establish this machine's current values or verified factory defaults. Do not assume zero G92, mirrors OFF or Setting52=0 just to admit a post. See libraries/README.md."
+   }
   }
  ],
  "rapid_mm_min": 25400,

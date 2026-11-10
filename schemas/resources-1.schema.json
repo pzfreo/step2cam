@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:resources:1",
  "title": "step2cam resources (tool library)",
- "description": "Tools, machine capabilities and shop policy for step2cam planning and camlib jobs. Real machine libraries live in libraries/ and demo/tools.json; example tooling remains placeholder. Optional controller names a camlib post for future use; step2cam currently writes no G-code.",
+ "description": "Tools, machine capabilities and shop policy for step2cam planning. Optional controller names the intended control; posting is integrated separately.",
  "type": "object",
  "required": [
   "tools"
@@ -56,7 +56,8 @@
    "description": "The stock grid camlib checks on; 0 or absent for the default."
   },
   "tool_change_gauge_z_mm": {
-   "type": "number"
+   "type": "number",
+   "description": "Existing setup-frame gauge Z used by the job simulation, not machine-coordinate home Z after a controller tool change. Setup policy, not an installed machine setting."
   },
   "tool_change_xy_mm": {
    "type": "array",
@@ -64,7 +65,8 @@
     "type": "number"
    },
    "minItems": 2,
-   "maxItems": 2
+   "maxItems": 2,
+   "description": "Existing setup-frame tool-change XY used by the job simulation; setup policy, not a machine-coordinate home position."
   },
   "overrides": {
    "type": "object",
@@ -74,7 +76,10 @@
      "description": "The material the part is cut from, in place of Specify's part.material."
     },
     "workholding_option": {
-     "enum": ["none", "vise_flip_face"],
+     "enum": [
+      "none",
+      "vise_flip_face"
+     ],
      "description": "Legacy supplied user choice for setup.workholding: none requests vise_ordinary; vise_flip_face requests that candidate. Absent uses the default choosing rule. Explicit resources.decisions takes precedence; unavailable choices are refused."
     },
     "clamping": {
@@ -1521,9 +1526,81 @@
     },
     "controller": {
      "type": "string",
-     "description": "Optional camlib post identifier, e.g. haas_ngc for Haas NGC (examples/haas_ngc_post.py). linuxcnc selects the intended GCodeDialect.linuxcnc() default post. Metadata only in step2cam pending browser posting (#52); does not enable G-code output or replace camlib Machine.to_dict() JSON."
+     "description": "Optional controller identifier, e.g. haas_ngc, linuxcnc or carvera. Metadata pending browser posting; an identifier does not enable output."
+    },
+    "controller_settings": {
+     "$ref": "#/$defs/controller_settings"
     }
-   }
+   },
+   "allOf": [
+    {
+     "if": {
+      "required": [
+       "controller"
+      ],
+      "properties": {
+       "controller": {
+        "const": "haas_ngc"
+       }
+      }
+     },
+     "else": {
+      "properties": {
+       "controller_settings": {
+        "not": {
+         "anyOf": [
+          {
+           "required": [
+            "setting_33_coordinate_system"
+           ]
+          },
+          {
+           "required": [
+            "setting_15_h_and_t_code_agreement"
+           ]
+          },
+          {
+           "required": [
+            "setting_22_can_cycle_delta_z_mm"
+           ]
+          },
+          {
+           "required": [
+            "setting_52_g83_retract_above_r_mm"
+           ]
+          },
+          {
+           "required": [
+            "g92_coordinate_shift_mm"
+           ]
+          },
+          {
+           "required": [
+            "rotation_and_scaling_option"
+           ]
+          },
+          {
+           "required": [
+            "rigid_tapping_option"
+           ]
+          },
+          {
+           "required": [
+            "optional_stop_switch_enabled"
+           ]
+          },
+          {
+           "required": [
+            "setting_45_46_47_mirror_image_xyz"
+           ]
+          }
+         ]
+        }
+       }
+      }
+     }
+    }
+   ]
   },
   "clamping_override": {
    "type": "object",
@@ -1583,6 +1660,145 @@
     }
    },
    "additionalProperties": false
+  },
+  "controller_settings": {
+   "type": "object",
+   "additionalProperties": false,
+   "patternProperties": {
+    "^_": {}
+   },
+   "properties": {
+    "max_cutting_feed_mm_min": {
+     "type": "number",
+     "description": "Maximum cutting feed. Source: machine feedrate specification, or LinuxCNC [TRAJ] MAX_VELOCITY converted from machine units/s to mm/min.",
+     "exclusiveMinimum": 0
+    },
+    "highest_tool_number": {
+     "type": "integer",
+     "description": "Highest addressable tool identity, independent of physical pockets. Source: controller tool table manual.",
+     "minimum": 1
+    },
+    "highest_length_offset_number": {
+     "type": "integer",
+     "description": "Highest addressable tool length offset. Source: controller offset table manual.",
+     "minimum": 1
+    },
+    "tool_change_location": {
+     "type": "string",
+     "description": "Position semantics after the controller completes a tool change: declared_position uses setup tool positions, unchanged_tip preserves the tip, machine_z_home homes the gauge line. Source: controller tool-change configuration (LinuxCNC INI [EMCIO]).",
+     "enum": [
+      "declared_position",
+      "unchanged_tip",
+      "machine_z_home"
+     ]
+    },
+    "tool_change_gauge_home_z_mm": {
+     "type": "number",
+     "description": "Gauge line machine Z after a homing tool change, not a commanded pre-change retract. Source: installed tool-change configuration."
+    },
+    "normal_acceleration_limit_mm_s2": {
+     "type": "number",
+     "description": "Maximum normal acceleration of the nominal cutting path. Source: measured/configured machine motion limits; not inferred from rapid speed.",
+     "exclusiveMinimum": 0
+    },
+    "axis_feed_limits_mm_min": {
+     "type": "array",
+     "description": "Independent XYZ feed limits. Source: machine axis specifications or LinuxCNC [AXIS_*] MAX_VELOCITY, converted to mm/min.",
+     "items": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "minItems": 3,
+     "maxItems": 3
+    },
+    "required_output_units": {
+     "type": "string",
+     "description": "Only when the controller fixes dimensional units. Source: Carvera community firmware G-code reference (G20 halts; G21 millimetres). Omit for controls supporting both.",
+     "enum": [
+      "mm",
+      "inch"
+     ]
+    },
+    "setting_33_coordinate_system": {
+     "type": "string",
+     "enum": [
+      "fanuc",
+      "haas"
+     ],
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Setting 33 Coordinate System."
+    },
+    "setting_15_h_and_t_code_agreement": {
+     "type": "boolean",
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Setting 15 H and T Code Agreement."
+    },
+    "setting_22_can_cycle_delta_z_mm": {
+     "type": "number",
+     "exclusiveMinimum": 0,
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Setting 22 Can Cycle Delta Z."
+    },
+    "setting_52_g83_retract_above_r_mm": {
+     "type": "number",
+     "minimum": 0,
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Setting 52 G83 Retract Above R."
+    },
+    "g92_coordinate_shift_mm": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3,
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, G92 Set Work Coordinate Systems Shift Value; current XYZ shift."
+    },
+    "rotation_and_scaling_option": {
+     "type": "boolean",
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Rotation and Scaling option, G68/G69 and G50/G51."
+    },
+    "rigid_tapping_option": {
+     "type": "boolean",
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Rigid Tapping option, G84/G74."
+    },
+    "optional_stop_switch_enabled": {
+     "type": "boolean",
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Setting 17 / OPTIONAL STOP panel state."
+    },
+    "setting_45_46_47_mirror_image_xyz": {
+     "type": "array",
+     "items": {
+      "type": "boolean"
+     },
+     "minItems": 3,
+     "maxItems": 3,
+     "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Settings 45, 46, 47 Mirror Image X/Y/Z."
+    }
+   },
+   "description": "Installed machine controller settings. Omitted means unknown, never a default. Sources and observed versus catalogue values belong in _sources/_comment.",
+   "allOf": [
+    {
+     "if": {
+      "required": [
+       "tool_change_location"
+      ],
+      "properties": {
+       "tool_change_location": {
+        "const": "machine_z_home"
+       }
+      }
+     },
+     "then": {
+      "required": [
+       "tool_change_gauge_home_z_mm"
+      ]
+     },
+     "else": {
+      "not": {
+       "required": [
+        "tool_change_gauge_home_z_mm"
+       ]
+      }
+     }
+    }
+   ]
   }
  }
 }
