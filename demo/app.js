@@ -1542,7 +1542,7 @@ for (const entry of machines) {
     return response.json();
   }).then((library) => {
     const controller = library.machines?.[0]?.controller;
-    const label = ({ haas_ngc: "Haas NGC" })[controller] || (controller ? controller.replaceAll("_", " ") : "none");
+    const label = ({ haas_ngc: "Haas NGC", linuxcnc: "LinuxCNC" })[controller] || (controller ? controller.replaceAll("_", " ") : "none");
     document.querySelector(`[data-machine="${entry.machine}"] .tag`).textContent = label;
   }).catch(() => { /* Leave the unavailable label until the library can be loaded. */ });
 }

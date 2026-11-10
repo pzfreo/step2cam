@@ -322,7 +322,7 @@ See [the CAPP planning documentation](docs/capp-plan.md) for consequences and li
 The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
 on purpose.
 
-- There is no controller here: step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
+- The optional `controller` identifies the intended camlib post; step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
 - `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
   - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
     why;
