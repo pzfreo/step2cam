@@ -174,7 +174,7 @@ pub(crate) fn breakout(previous: &Value, part: &Value) -> Option<Value> {
     } else {
         Some(json!({"kind":"break_out", "after_setup":id,
             "witness":{"setup":id,"bottom_z_mm":floor-thickness,"top_z_mm":floor,"thickness_mm":thickness},
-            "says":format!("After {id}, support the part and break the part out of the web before reclamping; clean the witness, about {thickness} mm, around the bottom perimeter between Z{} and Z{floor} in the {id} frame.",floor-thickness)}))
+            "says":format!("After {id}, support the part and break the part out of the web before reclamping; clean the witness, about {thickness} mm, around the bottom perimeter between Z{} and Z{floor} in the {id} frame.",capp::plan::r(floor-thickness))}))
     }
 }
 

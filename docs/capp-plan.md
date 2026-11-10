@@ -653,6 +653,6 @@ Before the part is free, the complete finished stock is carried. After the flip 
 facing, or a declared manual separation, cells outside the source-frame part footprint
 expanded by one source cell are cleared to no material. Camlib's public height-field mesh
 builder rebuilds the closed mesh on that source grid. The receiving stock note declares:
-"the part is free; stock outside its footprint left with the frame". This is an explicit
+"the part is free, so stock outside its footprint is dropped". This is an explicit
 separation premise, not a simulated manual toolpath or an added machining plan.
 Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.
