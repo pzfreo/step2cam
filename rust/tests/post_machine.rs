@@ -115,6 +115,17 @@ fn linuxcnc_sample_composes_and_validates_with_camlibs_own_dialect() {
     let machine: camlib::gcode::Machine =
         serde_json::from_value(Value::Object(fields.clone())).unwrap();
     machine.validate().unwrap();
+    // The schema also admits an inch-only controller: adapter quantisation
+    // choices must remain valid in millimetres after the unit conversion.
+    let mut inch_library = library.clone();
+    inch_library["machines"][0]["controller_settings"]["required_output_units"] = json!("inch");
+    let inch_fields = machine_fields(&inch_library["machines"][0], &inch_library).fields;
+    let mut inch_machine = machine.clone();
+    inch_machine.output_units = inch_fields["output_units"].as_str().unwrap().into();
+    inch_machine.decimals = inch_fields["decimals"].as_u64().unwrap() as u32;
+    inch_machine.tolerance_mm = inch_fields["tolerance_mm"].as_f64().unwrap();
+    inch_machine.validate().unwrap();
+
     // A genuinely incomplete/invalid machine must still fail upstream checks.
     fields.remove("max_feed_mm_min");
     assert!(serde_json::from_value::<camlib::gcode::Machine>(Value::Object(fields)).is_err());

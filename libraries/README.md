@@ -211,8 +211,8 @@ name translation is [`machine_fields`](../rust/src/post_machine.rs).
 | work_to_machine | 4 | Located setup in machine coordinates |
 | tip_travel_mm | 4 (1) | Transform axes.travel_mm with located setup/tool geometry; travel extents alone do not locate machine zero |
 | output_units | 2 P / 3 | Adapter chooses mm; controller_settings.required_output_units only when controller fixes units (Carvera) |
-| decimals | 2 P | Adapter 3; Haas permits at most 3 metric / 4 inch |
-| tolerance_mm | 2 P | Adapter .001 mm, including coordinate quantisation; not the part's tolerance |
+| decimals | 2 P | Adapter 3 metric / 4 inch; also within Haas precision limits |
+| tolerance_mm | 2 P | Adapter .001 mm (metric) / .003 mm (inch), including 3D coordinate quantisation; not the part's tolerance |
 | feed_tolerance_mm_min | 2 P | Adapter .01 mm/min |
 | traverse_feed_mm_min | 2 P (3) | LinuxCNC native rapid (null); Haas feed traverse at declared cutting ceiling; unknown for Carvera |
 | max_feed_mm_min | 3 | Cutting-feed ceiling |

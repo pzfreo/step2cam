@@ -21,6 +21,8 @@ pub struct MachineFields {
 ///
 /// Post policy (not machine facts): metric, 3 decimals, .001 mm coordinate
 /// tolerance, .01 mm/min feed tolerance, one-turn curves, no feed scheduling.
+/// If a controller requires inches: 4 decimals and .003 mm tolerance admit the
+/// 3D rounding bound (.0022 mm), including Haas's 4-place inch precision limit.
 /// Haas uses linear curves until #52 opts into exact-IJK, no wear compensation,
 /// and a feed traverse at the cutting ceiling (G0's dogleg is not our path).
 /// LinuxCNC uses native arcs/helices in XYZ planes and G0 (null feed traverse).
@@ -113,9 +115,10 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         ),
         "adapter metric policy, overridden only by controller unit requirement",
     );
+    let inch = settings["required_output_units"] == "inch";
     for (field, value) in [
-        ("decimals", json!(3)),
-        ("tolerance_mm", json!(0.001)),
+        ("decimals", json!(if inch { 4 } else { 3 })),
+        ("tolerance_mm", json!(if inch { 0.003 } else { 0.001 })),
         ("feed_tolerance_mm_min", json!(0.01)),
         ("max_sweep_rad", json!(std::f64::consts::TAU)),
         ("revision", json!("step2cam-post-machine-1")),
