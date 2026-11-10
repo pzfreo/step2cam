@@ -116,7 +116,7 @@ Done (above). What is left from it:
 ## Phase 7: G-code in the browser
 
 23. #52 Save G-code from the browser through camlib's Rust posts.
-    *Waits on* stevecad/camlib#120 (in progress there).
+    camlib#120 is shipped at the pin; browser posting still needs design approval.
 
 ## Phase 8: agents
 
@@ -142,9 +142,10 @@ needs is in.
 ## From other projects
 
 - camlib: fixed on its main: #122 (roughing layer depth), #123 (roughing refused since #104),
-  #64 (which mesh check failed), #66 (undercut-neck clearance); being worked on there: #120
-  (post G-code from Rust), #121 (start from given stock); #129 is fixed (whole-tool reach
-  and typed refusals); and our comment on #23 (engagement-based feeds).
+  #64 (which mesh check failed), #66 (undercut-neck clearance), #120
+  (post G-code from Rust), #121 (start from given stock), and #129 (whole-tool reach
+  and typed refusals). Still open: #160 (roughing shank/holder clearance proof),
+  and our comment on #23 (engagement-based feeds).
 - specify-core: `docs/upstream-needs.md` (a schema for the analysis, the material's family);
   #162 (a finer mesh, and dimensioning for parts with no planar face); #163 (a pocket with a
   floor fillet recognised as a slot).
