@@ -1521,7 +1521,7 @@
     },
     "controller": {
      "type": "string",
-     "description": "Optional camlib post identifier, e.g. haas_ngc for Haas NGC (examples/haas_ngc_post.py). Metadata only: not consumed until Rust posting support (stevecad/camlib#120); does not enable G-code output."
+     "description": "Optional camlib post identifier, e.g. haas_ngc for Haas NGC (examples/haas_ngc_post.py). linuxcnc selects the intended GCodeDialect.linuxcnc() default post. Metadata only in step2cam pending browser posting (#52); does not enable G-code output or replace camlib Machine.to_dict() JSON."
     }
    }
   },

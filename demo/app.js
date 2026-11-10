@@ -1523,7 +1523,7 @@ let openPart = null; // Keep an owned copy: postMessage transfers and detaches i
 const machines = [
   { machine: "carvera", name: "Makera Carvera", file: "machines/carvera.json" },
   { machine: "haas-vf2", name: "Haas VF-2", file: "machines/haas-vf2.json" },
-  { machine: "benchmark-vmc", name: "Generic machining centre", file: "machines/generic.json" },
+  { machine: "linuxcnc-vmc", name: "LinuxCNC mill (placeholder)", file: "machines/linuxcnc-vmc.json" },
 ];
 let machine = machines[0];
 try {

@@ -104,8 +104,8 @@ step in the bar to open it. On a wider screen, **Expand** does the same.
 It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
 package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
 toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
-(`libraries/haas-vf2.json`), or Generic machining centre (`tools/benchmark/tools.json`):
-The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic library retains placeholders. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
+(`libraries/haas-vf2.json`), or LinuxCNC mill (`libraries/linuxcnc-vmc.json`):
+The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic LinuxCNC library retains placeholder tools and machine limits. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
 Machining times are estimates from the feed rates; the timeline compresses them so that holes are
 not lost beside roughing.
 

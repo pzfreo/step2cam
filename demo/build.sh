@@ -27,7 +27,7 @@ cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
 mkdir -p site/machines
 cp demo/tools.json site/machines/carvera.json
 cp libraries/haas-vf2.json site/machines/haas-vf2.json
-cp tools/benchmark/tools.json site/machines/generic.json
+cp libraries/linuxcnc-vmc.json site/machines/linuxcnc-vmc.json
 cp rust/capp/rulebase/rules.json site/rules.json
 
 archive="specify-core-wasm-$SPECIFY_VERSION.tgz"

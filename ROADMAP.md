@@ -25,7 +25,7 @@ order favours what makes the plans correct and honest before what makes them fas
 - #111 in part: pocket and drill reach judged by camlib, its refusal relayed in plain words
   with the tool that would do; typed reach refusals and local stock-contact obstruction data
   give the holder/shank/neck verdict (#129, camlib #144).
-- The page: #96 a machine menu (Carvera, Haas VF-2, generic machining centre); #99 a phone
+- The page: #96 a machine menu (Carvera, Haas VF-2, LinuxCNC mill with placeholder tools and limits); #99 a phone
   layout with a menu and bottom tabs; #102 a compact feature list; #104 the two linked 3D views
   side by side above one tabbed panel; #106 features in columns; #110 the Plan tab as a list
   beside the selected operation's detail; #115 its Tool choice and plain Why in place of Full
