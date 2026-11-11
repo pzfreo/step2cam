@@ -106,7 +106,9 @@ Done (above). What is left from it:
 
 ## Phase 5: cutting data and the machine
 
-18. #39 Describe the machine.
+18. #39 Describe the machine. After #37: split each library into the machine, the tool list and
+    shop settings; the planner checks each tool fits the machine and applies the machine's
+    limits (e.g. the Haas 8,100 rpm cap moves out of the tool data).
 19. #38 Calculate cutting data from the material group, the tool and the machine.
 20. #37 Rough with bounded engagement (camlib's adaptive clearing).
 21. Engagement-based feeds, in #38. *Waits on* stevecad/camlib#23.
