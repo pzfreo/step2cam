@@ -392,6 +392,12 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             out.as_object_mut().unwrap().remove("omit_empty_cuts");
                             out["clearing"] = json!({"kind": "adaptive", "path_strategy": "engagement_front",
                                 "max_radial_engagement_mm": num(s, "radial_width_mm")?, "boundary_tolerance_mm": 0.01});
+                            // Clear the stairs left beside shallow floors at the existing
+                            // slotting increment, so Flat never inherits a deep full-width cut.
+                            let stepup = num(&op["raster_technology"], "stepdown_mm")?;
+                            if stepup < num(s, "stepdown_mm")? {
+                                out["stepup_mm"] = json!(stepup);
+                            }
                         }
                         if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
                             notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));

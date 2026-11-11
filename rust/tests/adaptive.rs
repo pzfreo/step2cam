@@ -162,6 +162,7 @@ fn adapter_writes_explicit_stock_driven_strategy_and_no_orbit_options() {
     assert_eq!(rough["clearing"]["kind"], "adaptive");
     assert_eq!(rough["clearing"]["path_strategy"], "engagement_front");
     assert!(rough.get("omit_empty_cuts").is_none());
+    assert_eq!(rough["stepup_mm"], 10.); // original slotting increment for shallow-floor cleanup
     assert_eq!(rough["stepdown_mm"], 38.); // full flute, below 2D
 }
 

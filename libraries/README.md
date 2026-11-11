@@ -325,7 +325,10 @@ Each row carries `_sources`. N is restricted by `material_words` to named non-fe
 metals; plastics and composites in the same coarse ISO group retain raster. Full cutting-edge use follows Harvey's trochoidal
 milling guidance (`axial_flute_fraction: 1`), capped at 2×diameter following its
 HEM depth-of-cut guidance. The existing tool-reach and workholding floor caps
-still apply; a deeper layer is not evidence that the shank is clear.
+still apply; a deeper layer is not evidence that the shank is clear. Rest-aware
+step-up layers use the original slotting increment to clear stairs beside shallow
+floors. The following flat operation keeps its original maximum residual-depth
+check, so it cannot inherit a full-width cut at the deep adaptive stepdown.
 
 The nominal lateral feed, after spindle capping, is multiplied by
 `1 / (2 sqrt(q (1-q)))`, where `q = radial width / diameter < 0.5`:

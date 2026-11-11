@@ -296,7 +296,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             let flat_limit = raw["operations"][index].get("kind").filter(|k| *k == "flat").and_then(|_| {
                 let rough = raw["operations"].as_array()?.iter().find(|o| o["kind"] == "roughing" && o["tool"] == raw["operations"][index]["tool"])?;
                 let radius = raw["tools"].as_array()?.iter().find(|t| t["id"] == rough["tool"])?["cutter"]["diameter_mm"].as_f64()? / 2.;
-                Some((rough["stepdown_mm"].as_f64()? + rough["bottom_allowance_mm"].as_f64()?, radius))
+                Some((rough["stepup_mm"].as_f64().unwrap_or(rough["stepdown_mm"].as_f64()?) + rough["bottom_allowance_mm"].as_f64()?, radius))
             });
             let guard = camlib::limits::LinkGuard::new(operation.limits(), tool, manifest.sweep.tolerance_mm)?;
             while let Some(motion) = plan.next_motion_with_stock(producer.stock()?, &cancel)? {
