@@ -341,7 +341,8 @@ camlib's entry motion, not a promise of bounded cutting engagement there.
 
 The adapter requests camlib's stock-driven, proven engagement-front strategy
 explicitly. If camlib refuses an adaptive operation, the complete job is replayed
-with raster at the original slotting stepdown and feed, with the same checks.
+with raster at the original slotting stepdown and nominal feed (still within the
+feed ceiling), with the same checks.
 A flat residual-depth refusal also rejects the adaptive preparation and retries
 roughing before excluding that flat; unrelated finishing/tool refusals do not.
 The refusal is retained verbatim in a fallback decision linked to the operation's

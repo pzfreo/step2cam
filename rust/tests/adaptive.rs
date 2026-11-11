@@ -278,3 +278,40 @@ fn flat_residual_refusal_retries_preparation_without_losing_features() {
                     .is_some_and(|s| s.contains("where roughing did not reach")))
     );
 }
+
+#[test]
+fn raster_retry_keeps_the_machine_feed_ceiling_below_nominal_feed() {
+    let mut l = library();
+    l["machines"][0]["controller_settings"]["max_cutting_feed_mm_min"] = json!(750.);
+    let (mut op, mut technology, mut trace) = (
+        json!({"kind":"roughing","tool":"test"}),
+        data(),
+        Trace::default(),
+    );
+    roughing::choose(
+        &mut op,
+        &mut technology,
+        &tool(),
+        material(Some("N")),
+        &l,
+        "top:roughing",
+        &mut trace,
+    )
+    .unwrap();
+    assert_eq!(technology["feed_mm_min"], 750.);
+    op["technology"] = technology;
+    let mut plan = json!({"setups":[{"id":"top","operations":[op]}]});
+    trace.store(&mut plan);
+    roughing::fallbacks(
+        &mut plan,
+        &[("top".into(), "test adaptive refusal".into())].into(),
+    );
+    assert_eq!(
+        plan["setups"][0]["operations"][0]["technology"]["feed_mm_min"],
+        750.
+    );
+    assert_eq!(
+        plan["setups"][0]["operations"][0]["technology"]["stepdown_mm"],
+        1.
+    );
+}

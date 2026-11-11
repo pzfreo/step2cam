@@ -65,6 +65,11 @@ pub fn choose(
     // Existing post-machine limits: rapid is the library's feed ceiling when no
     // controller cutting-feed limit is known (5000 mm/min when absent).
     let limit = controller.unwrap_or_else(|| library["rapid_mm_min"].as_f64().unwrap_or(5000.));
+    // A retry must not undo the ceiling applied to the adaptive attempt when
+    // a machine limit is below the tool's nominal feed.
+    if base > limit {
+        op["raster_technology"]["feed_mm_min"] = json!(limit);
+    }
     technology["clearing_strategy"] = json!("bounded_engagement");
     technology["radial_width_mm"] = json!(diameter * width);
     technology["stepdown_mm"] = json!(stepdown);
