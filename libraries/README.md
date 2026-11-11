@@ -77,7 +77,7 @@ The RF100 A 20 mm cutter's 0.45 mm corner chamfer is not represented by the flat
 resource type. Vise jaw thickness is conservatively modeled by the planner as
 jaw height; the vise body, mounting, actual support/parallels and a complete
 machine collision envelope are not represented by this library. Missing
-parallels dimensions leave support unmodeled, as the planner reports.
+parallels dimensions leave support unmodeled outside mesh-seated flip setups, as reported.
 
 Omissions: the 6 mm ball mill has no supported resource type. The optional
 16 mm chamfer cutter is absent because the sourced TOYO family stops at 12 mm;
