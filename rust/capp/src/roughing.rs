@@ -119,7 +119,16 @@ pub fn fallbacks(plan: &mut Value, refusals: &HashMap<String, String>) {
         };
         let subject = format!("{name}:roughing");
         let decision = trace.decide(RULE, &subject, "fallback", &format!("Adaptive roughing attempt refused: {reason}; retry raster with original cutting data and unchanged checks"), json!({"chosen":"raster","refusal":reason}));
-        trace.supersede(&subject, "chosen", &decision);
+        for earlier in &mut trace.decisions {
+            if earlier["subject"] == subject
+                && earlier["outcome"] == "chosen"
+                && earlier["rule"]
+                    .as_str()
+                    .is_some_and(|r| r.split('@').next() == Some(RULE))
+            {
+                earlier["superseded_by"] = json!(decision);
+            }
+        }
         for op in setup["operations"]
             .as_array_mut()
             .into_iter()
