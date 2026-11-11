@@ -237,3 +237,44 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
     assert_eq!(admitted["omit_empty_cuts"], true);
     assert!(admitted.get("stepup_mm").is_none());
 }
+
+#[test]
+fn flat_residual_refusal_retries_preparation_without_losing_features() {
+    let a: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/synthetic/stepped-plate.analysis.json"
+    ))
+    .unwrap();
+    let m: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/synthetic/stepped-plate.mesh.json"
+    ))
+    .unwrap();
+    let l: Value = serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
+    let out = step2cam::process(&a, &m, &l).unwrap();
+    assert!(out["error"].is_null());
+    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
+    let top = &out["plan"]["setups"][0];
+    assert!(
+        top["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|o| o["kind"] == "flats")
+    );
+    assert!(
+        top["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|o| o["kind"] == "v_channel" && o["tool"].is_string())
+    );
+    assert!(
+        out["plan"]["decisions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["outcome"] == "fallback"
+                && d["refusal"]
+                    .as_str()
+                    .is_some_and(|s| s.contains("where roughing did not reach")))
+    );
+}

@@ -176,7 +176,10 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             break;
         };
         if let Some(operation) = failure.operation.as_deref()
-            && let Some(setup) = capp::roughing::adaptive_setup(&plan, operation) {
+            && let Some(setup) = capp::roughing::adaptive_setup(&plan, operation).or_else(|| {
+                (failure.message.contains("a flat would cut") && failure.message.contains("where roughing did not reach"))
+                    .then(|| capp::roughing::prepared_setup(&plan, operation)).flatten()
+            }) {
             roughing_refusals.insert(setup, failure.message);
             continue;
         }

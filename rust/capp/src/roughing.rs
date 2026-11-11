@@ -87,6 +87,27 @@ pub fn adaptive_setup(plan: &Value, operation: &str) -> Option<String> {
     None
 }
 
+/// A flat on the same tool depends on roughing's prepared stock. Its existing
+/// residual-depth refusal rejects that preparation, before the flat is excluded.
+pub fn prepared_setup(plan: &Value, operation: &str) -> Option<String> {
+    for setup in plan["setups"].as_array()? {
+        let name = setup["id"].as_str()?;
+        for (index, op) in setup["operations"].as_array()?.iter().enumerate() {
+            if op["kind"] == "flats"
+                && operation == format!("{name}-{}-flats", index + 1)
+                && setup["operations"].as_array()?.iter().any(|rough| {
+                    rough["kind"] == "roughing"
+                        && rough["tool"] == op["tool"]
+                        && rough["technology"]["clearing_strategy"] == "bounded_engagement"
+                })
+            {
+                return Some(name.to_owned());
+            }
+        }
+    }
+    None
+}
+
 /// Restore original slotting data as well as strategy. A shallow raster retry must
 /// never inherit adaptive's deep layers or chip-thinned feed.
 pub fn fallbacks(plan: &mut Value, refusals: &HashMap<String, String>) {
@@ -97,7 +118,7 @@ pub fn fallbacks(plan: &mut Value, refusals: &HashMap<String, String>) {
             continue;
         };
         let subject = format!("{name}:roughing");
-        let decision = trace.decide(RULE, &subject, "fallback", &format!("Adaptive roughing refused by camlib: {reason}; retry raster with original cutting data and unchanged checks"), json!({"chosen":"raster","refusal":reason}));
+        let decision = trace.decide(RULE, &subject, "fallback", &format!("Adaptive roughing attempt refused: {reason}; retry raster with original cutting data and unchanged checks"), json!({"chosen":"raster","refusal":reason}));
         trace.supersede(&subject, "chosen", &decision);
         for op in setup["operations"]
             .as_array_mut()

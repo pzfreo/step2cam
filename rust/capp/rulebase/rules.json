@@ -7,7 +7,7 @@
    "id": "process.roughing.bounded_engagement",
    "version": 1,
    "stage": "tools",
-   "rationale": "Use sourced per-material light radial width and flute-based axial depth, chip thinning capped by controller cutting feed or existing feed limit. Missing source stays raster. Retry raster with original cutting data only after camlib refuses adaptive; retain its reason and all checks.",
+   "rationale": "Use sourced per-material light radial width and flute-based axial depth, chip thinning capped by controller cutting feed or existing feed limit. Missing source stays raster. Retry raster with original cutting data only after camlib refuses adaptive, or the existing flat residual-depth check refuses its prepared stock; retain the exact reason and all checks.",
    "code": "roughing.rs; rust/src/lib.rs; rust/src/job.rs",
    "sources": [
     {
