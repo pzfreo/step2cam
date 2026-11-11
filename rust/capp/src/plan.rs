@@ -2121,6 +2121,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         "part": {"min": rp(part_lo), "max": rp(part_hi)},
         // Only analytically planar faces are certain contact surfaces. Curved
         // tessellation facets must never become apparent flat jaw contact.
+        "workholding_surface_model": triangles,
         "contact_surface_model": mesh.and_then(|m| m["faces"].as_array()).map(|ranges| {
             ranges.iter().enumerate().filter(|(id, _)| faces.get(&(*id as u64)).is_some_and(|f| f["kind"] == "plane"))
                 .flat_map(|(_, range)| {

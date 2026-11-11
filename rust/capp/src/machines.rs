@@ -42,9 +42,11 @@ pub fn place(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     let id = mill["id"].as_str().unwrap_or("mill").to_string();
     let travel = &mill["axes"]["travel_mm"];
     let vise = mill["workholding"].as_array().into_iter().flatten().find(|w| w["kind"] == "vise");
+    let surface = plan["workholding_surface_model"].clone();
     let mut lost: Vec<(&str, String, String)> = vec![];
     let mut lost_roughing = None;
-    for setup in plan["setups"].as_array_mut().into_iter().flatten() {
+    for (index, setup) in plan["setups"].as_array_mut().into_iter().flatten().enumerate() {
+        if index > 0 && !setup["flip_seating"].is_object() {setup["grip_surface_model"] = surface.clone();}
         let setup_id = setup["id"].as_str().unwrap_or("").to_string();
         trace.decide("machine.for_setup", &setup_id, "chosen", &format!("cut on {}, a 3-axis mill", name(mill)), json!({"chosen": id}));
         setup["machine"] = json!(id);

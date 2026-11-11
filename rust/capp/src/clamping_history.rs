@@ -90,8 +90,9 @@ fn bands(setup: &Value) -> Option<Vec<Bounds>> {
     let mut bands = vec![];
     for (n, jaw) in c["jaws"].as_array()?.iter().enumerate() {
         let mut b = stock;
-        b[0][axis] = stock[n][axis];
-        b[1][axis] = stock[n][axis];
+        let plane = jaw[if n==0 {"max"} else {"min"}][axis].as_f64()?;
+        b[0][axis] = plane;
+        b[1][axis] = plane;
         b[0][along] = b[0][along].max(jaw["min"][along].as_f64()?);
         b[1][along] = b[1][along].min(jaw["max"][along].as_f64()?);
         if let Some(z) = c["contact_min_z"].as_f64() { b[0][2] = z; }

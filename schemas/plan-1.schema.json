@@ -41,6 +41,7 @@
     "$ref": "#/$defs/setup"
    }
   },
+  "workholding_surface_model": {"type": ["array", "null"], "description": "Internal full mesh used to locate jaw-band extents."},
   "contact_surface_model": {"description": "Internal planar mesh triangles in model coordinates for certain jaw contact; omitted from process output.", "type": ["array", "null"]},
   "covered_by_roughing": {
    "type": "array",
@@ -326,6 +327,7 @@
       "$ref": "#/$defs/operation"
      }
     },
+    "grip_surface_model": {"type": ["array", "null"], "description": "Internal mesh used to locate later jaw-band extents."},
     "part_surface": {
      "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
     },

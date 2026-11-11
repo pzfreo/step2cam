@@ -91,6 +91,13 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         return Some(format!("part top Z{} does not clear jaw top Z{} plus {} mm side-cut clearance: must be above Z{}", show(part_top), show(r(lo[2] + grip)), show(clearance), show(required_top)));
     }
     let top = r(lo[2] + grip);
+    // A side setup grips the plate where the jaws actually reach, not the
+    // whole-part box (a remote boss can make that box much thicker).
+    if seating.is_none() && let Some(bounds) = band_bounds(setup, axis, lo[2], top) {
+        lo[axis] = bounds[0];
+        hi[axis] = bounds[1];
+    }
+
     let center = (lo[along] + hi[along]) / 2.;
     let (contact_min, contact_max) = if let Some(seat) = &seating {
         let a = seat["along_min_model"].as_f64()?;
@@ -112,6 +119,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     if let Some(p) = parallel {
         // Two support bars at the gripped edges. The rule minimum is their envelope width;
         // no hidden support is omitted from verification when parallels are requested.
+        let across = hi[axis]-lo[axis];
         let bar = seating.as_ref().and_then(|s|s["support_width_mm"].as_f64())
             .unwrap_or_else(||rule["min_grip_mm"].as_f64().unwrap().min(across / 3.));
         for (n, side) in [lo[axis], hi[axis] - bar].iter().enumerate() {
@@ -136,7 +144,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     } else {
         format!("raise stock on parallels or similar so jaws grip only {} mm; parallels_height_mm absent: support is not modeled or checked, so through cuts are not checked against it", show(grip))
     };
-    let choice = if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
+    let choice = if setup["grip_surface_model"].is_array() { "finished-part extent within the jaw height band; remote bosses do not set jaw opening" } else if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
     let remainder = if seating.is_some() { "grip preparation must be verified against retained top operations" }
         else if setup["flip_role"] == "sacrificial_grip" { "sacrificial stock below the cap is removed by bottom facing" }
         else { "material below the cap needs a later setup" };
@@ -196,4 +204,24 @@ pub fn supplied_clamp(setup: &mut Value, vise: Option<&Value>, trace: &mut Trace
         }
     }
     clamp(setup, vise, None, trace)
+}
+
+/// Bounds of the complete mesh intersecting the grip-height slab. Include all
+/// curved faces for exclusion, but only analytic planes later certify contact.
+fn band_bounds(setup: &Value, axis: usize, low: f64, high: f64) -> Option<[f64; 2]> {
+    let tris: Vec<[[f64;3];3]> = serde_json::from_value(setup["grip_surface_model"].clone()).ok()?;
+    let rotation: [[f64;3];3] = serde_json::from_value(setup["rotation"].clone()).ok()?;
+    let origin: [f64;3] = serde_json::from_value(setup["origin_model"].clone()).ok()?;
+    let mut bounds = [f64::INFINITY,f64::NEG_INFINITY];
+    for tri in tris {
+        let polygon = tri.into_iter().map(|p| {
+            let local: [f64;3] = std::array::from_fn(|i| (0..3).map(|j| rotation[i][j]*(p[j]-origin[j])).sum());
+            [local[axis],local[2]]
+        }).collect();
+        for p in crate::flip::clipped(polygon,[[f64::NEG_INFINITY,low],[f64::INFINITY,high]]) {
+            bounds[0] = bounds[0].min(p[0]);
+            bounds[1] = bounds[1].max(p[0]);
+        }
+    }
+    (bounds[0]<bounds[1]).then(|| bounds.map(r))
 }

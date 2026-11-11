@@ -198,9 +198,11 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     }
     // The page has the mesh already; the plan's copy of it is not needed.
     plan.as_object_mut().unwrap().remove("contact_surface_model");
+    plan.as_object_mut().unwrap().remove("workholding_surface_model");
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         if let Some(s) = setup.as_object_mut() {
             s.remove("part_surface");
+            s.remove("grip_surface_model");
         }
         for op in setup["operations"].as_array_mut().into_iter().flatten() {
             if let Some(o) = op.as_object_mut() {

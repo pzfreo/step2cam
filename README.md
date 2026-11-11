@@ -511,3 +511,7 @@ The tallest height satisfying grip limits and mesh seating is chosen and the sup
 are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
 No shipped library inventories parallels: their absence leaves support explicitly unchecked,
 including flip setups; a derived jaw-minus-grip height is not an available support.
+
+Later side jaws use the full part mesh's extent within their grip-height band. A remote
+boss outside that band does not set the opening; only analytic planar faces at the chosen
+jaw planes count toward certain contact. Stock remains the full carried envelope for cutting.
