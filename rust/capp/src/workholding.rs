@@ -48,8 +48,8 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     let mut parallel = if proposal.is_some_and(|p| p.get("parallels_height_mm").is_some()) {
         given.as_ref().and_then(|p| p.parallels_height_mm)
     } else { vise.and_then(|v| v["parallels_height_mm"].as_f64()) };
-    if parallel.is_none() && !proposal.is_some_and(|p| p.get("parallels_height_mm").is_some()) {
-        if let Some(heights) = vise.and_then(|v| v["parallels_heights_mm"].as_array()) {
+    if parallel.is_none() && !proposal.is_some_and(|p| p.get("parallels_height_mm").is_some())
+        && let Some(heights) = vise.and_then(|v| v["parallels_heights_mm"].as_array()) {
             let maximum = stock_height * rule["max_grip_fraction"].as_f64().unwrap();
             parallel = heights.iter().filter_map(Value::as_f64).filter(|p| {
                 let grip = height-p;
@@ -58,7 +58,6 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
             }).max_by(f64::total_cmp);
             if parallel.is_none() {return Some("no available parallels height satisfies grip limits and seating".into());}
             trace.decide(RULE, &id, "chosen", "choose the tallest available parallels satisfying grip limits and mesh seating (least hidden side material)", json!({"chosen":{"parallels_height_mm":parallel},"sources":vise.map(|v| &v["_sources"])}));
-        }
     }
     if let Some(seat) = &seating {
         if given.is_some() { return Some("flip seating is mesh-validated; clamping override requires withholding the flip option".into()); }

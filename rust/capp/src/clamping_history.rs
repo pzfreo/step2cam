@@ -241,7 +241,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             
             let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
             for (n, op) in cuts {
-                if certain && matches!(op["kind"].as_str(), Some("roughing" | "flats" | "wall_finish" | "facing")) {continue;}
+                if certain && (!flip || prepared) && matches!(op["kind"].as_str(), Some("roughing" | "flats" | "wall_finish" | "facing")) {continue;}
                 if flip_top && prepared && (matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) || crate::flip::modeled_cut(&setup["flip_seating"],op)) { continue; }
                 let operation = format!("{}-{}-{}", earlier["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""));
                 let cut = if setup["flip_seating"].is_object() && op["kind"] == "spot_drill" {
@@ -252,7 +252,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
                     continue;
                 };
                 let faces: Vec<_> = bands.iter().enumerate().filter(|(_, band)| overlaps(**band, cut)).map(|(n, _)| setup["clamping"]["faces"][n].clone()).collect();
-                if !certain && !faces.is_empty() { hits.push(json!({"operation": operation, "faces": faces})); }
+                if (!certain || flip) && !faces.is_empty() { hits.push(json!({"operation": operation, "faces": faces})); }
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
