@@ -85,13 +85,6 @@
   "material": {
    "type": "object",
    "properties": {
-    "material_group": {"enum": ["P", "M", "K", "N", "S", "H", null]},
-    "chip_thinning_factor": {"type": "number", "minimum": 1},
-    "base_feed_mm_min": {"type": "number", "exclusiveMinimum": 0},
-    "feed_limit_mm_min": {"type": "number", "exclusiveMinimum": 0},
-    "feed_limit_source": {"enum": ["controller_settings.max_cutting_feed_mm_min", "library existing feed limit"]},
-    "policy": {"type": "object"},
-    "refusal": {"type": "string"},
     "specified": {
      "type": [
       "string",
@@ -2430,6 +2423,13 @@
     "says"
    ],
    "properties": {
+    "material_group": {"enum": ["P", "M", "K", "N", "S", "H", null]},
+    "chip_thinning_factor": {"type": "number", "minimum": 1},
+    "base_feed_mm_min": {"type": "number", "exclusiveMinimum": 0},
+    "feed_limit_mm_min": {"type": "number", "exclusiveMinimum": 0},
+    "feed_limit_source": {"enum": ["controller_settings.max_cutting_feed_mm_min", "library existing feed limit"]},
+    "policy": {"type": "object"},
+    "refusal": {"type": "string"},
     "id": {
      "type": "string",
      "pattern": "^d-[0-9]+$"
@@ -2456,6 +2456,7 @@
     },
     "outcome": {
      "enum": [
+      "fallback",
       "chosen",
       "none",
       "planned",
