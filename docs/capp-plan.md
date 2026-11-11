@@ -103,19 +103,21 @@ chooses clamping instead. Absent setup IDs are traced refusals. A proposal needs
 dimensions. `resources.overrides.clamping` is deprecated but still translated to supplied
 decisions with source `user` and a reason identifying the deprecated field.
 
-Later jobs still start from fresh stock (camlib#121), but their grip bands are audited now.
-After caps, exclusions and tool resolution, each later setup's two stock-face contact bands
-(from stock bottom to jaw top, limited along the jaw width) are transformed through its
-rotation and `origin_model` into each earlier setup's frame. The audit compares them with
-conservative cutting envelopes of retained, tooled earlier operations, using their depths
-and hole/slot/pocket bounds where available. It warns of possible removed grip material and
-records the overlapping operations/faces in `chosen.prior_setups` of the given/chosen
-clamping decision, with the audit decision also linked from `clamping.because`.
-Roughing and contour envelopes include preserved part material; grouped-hole boxes include
-the space between holes. Missing frames or unsupported geometry are reported as unchecked.
-This is a conservative warning, not a stock simulation, proof of retained contact area, or
-holding-strength calculation. For ordinary setups no operations are removed by this audit. Execution retries
-recompute it after refusals, so excluded earlier operations do not count as cuts.
+Later jobs carry conservative height-field stock, which can contain excess material and
+therefore cannot certify jaw contact. After caps, exclusions and tool resolution, each
+later setup clips the finished part's analytically planar mesh triangles to both jaw bands.
+Curved tessellation facets do not count as flat faces. Earlier drill, thread and edge-break
+cutting envelopes are subtracted: these operations can extend beyond the target mesh.
+The remaining areas in mm² appear in `clamping.contact_area_mm2` and the primary clamping
+decision's `chosen.contact_area_mm2`. Either jaw with zero certain contact withholds that
+setup's operations, with a traced reason. Missing geometry establishes no contact.
+
+The conservative earlier-cut audit remains for evidence the part-face check cannot cover,
+including missing frames and unsupported operations; its scope and warnings remain explicit.
+Target-preserving roughing, facing, flats and wall finishing do not invalidate measured
+part material. The mesh check replaces envelope warnings where it proves retained contact,
+but does not establish holding force or support. Flip seating and retained grip preparation
+remain separate requirements. Execution retries recompute all evidence after refusals.
 
 `step2cam::process` plans and simulates every available workholding candidate through
 its own complete `process_planned` run, including camlib refusals, exclusions and flip
@@ -228,8 +230,11 @@ complete opposed contact is preferred, with narrower-axis precedence on a tie.
 Missing support faces or insufficient side contact withhold the option with the
 measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
 matching covers compounded four-decimal serialization; neither is a manufacturing
-tolerance. Missing parallels are chosen at the required height; supplied parallels
-must pass the existing grip limits.
+tolerance. No support height is inferred from jaw height minus grip. Without inventoried
+parallels, support stays explicitly unmodeled. A vise may list available
+`parallels_heights_mm` with `_sources`; choose the tallest compatible with grip limits and
+mesh seating. A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
+are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
 
 The clamping-history audit requires retained, tooled wall contour segments covering
 all real contact polygons at their depths, and retained facing/flats at the support
@@ -239,7 +244,7 @@ An overlap-free audit alone never establishes a grip. Clamping is described as a
 proposal until retained operations confirm it. Several segments can prepare a side interrupted by notches. Modelled opening
 operations are recognised by their original geometric inputs: their missing contact
 is already measured from the final mesh. New or changed cuts still run through the
-conservative envelope audit; other setups retain that audit unchanged. Exclusions
+conservative envelope subtraction; all later setups also require positive certain contact. Exclusions
 recompute preparation. If a grip or facing becomes unavailable, `process` replans
 without the flip, traces the reason and resets operation-index exclusions (which
 belong to the previous plan). It then retries ordinary planning/execution normally.
