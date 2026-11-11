@@ -16,7 +16,8 @@ material verification. Assembly choices and shop policies must be identified as
 such, separately from manufacturer recommendations.
 
 `machines[].controller` names the intended control (`haas_ngc`, `linuxcnc`,
-`carvera`). It is metadata pending browser posting (#52); Carvera has no post yet.
+`carvera`). It is metadata pending browser posting (#52). Carvera and Haas have
+upstream Rust posts; browser posting waits on stevecad/camlib#188.
 `controller_settings` holds only installed settings and machine limits. Its names
 follow controller manuals or machining meanings, independently of any CAM engine.
 Omission means unknown; `_sources` distinguishes catalogue configurations from
@@ -191,10 +192,9 @@ CAT40 envelope. Assembly stickouts are step2cam judgement.
 
 ## Posting contract inventory
 
-Audited 2026-11-10 against `vendor/camlib/src/gcode/machine.rs`,
-`vendor/camlib/python/camlib/postprocessor.py` and
-`vendor/camlib/examples/haas_ngc_post.py` (`ReferenceMachine` / `define_machine`),
-using [Posting without Python](https://github.com/stevecad/camlib/blob/c6383a5cc9cb64430551867e538af53fbce91e0c/docs/posts.md#posting-without-python).
+Audited 2026-11-11 against `vendor/camlib/src/gcode/machine.rs` and the Rust
+`Controller` variants in `haas.rs` and `carvera.rs`,
+using [Posting without Python](https://github.com/stevecad/camlib/blob/78d3074225f9e1896c1b237970ff7394d3d39bd2/docs/posts.md#posting-without-python).
 This is an adapter contract inventory, not a second machine definition.
 **1** maps an existing value; **2** is controller behaviour (P marks a separate
 adapter post-policy decision, not a stored machine fact); **3** is a machine
@@ -205,6 +205,7 @@ name translation is [`machine_fields`](../rust/src/post_machine.rs).
 |---|---|---|
 | name | 1 | machine.name, falling back to id |
 | tools | 4 (1) | Selected tools only: tool id/number; gauge length = stickout + holder_length; job assigns length/diameter registers and final positions |
+| controller | 2 / 3 / 4 | Named Haas/Carvera block; generic LinuxCNC omits it. Unknown premises stay absent |
 | dialect | 2 | Upstream controller selected by controller; includes fixed command/cycle forms and framing |
 | work_offset | 4 | Plan's selected work offset |
 | frame | 4 | Setup frame |
@@ -260,8 +261,11 @@ LinuxCNC arc-radius acceptance defaults belong to its canonical dialect; an
 installation overriding those INI values will need an explicit setting adapter.
 Haas peck-return parameters depend on Settings 22/52 as inventoried above.
 
-Haas adds these structural requirements. They remain outside Rust `Machine`
-until its Haas post exists; passing these keys to today's Rust type is invalid.
+Haas adds these requirements under Rust `Machine.controller` (`name: "haas_ngc"`).
+The audit qualifies their names as `controller.<field>`; the output nests them.
+Carvera (`name: "carvera"`) adds `initial_gauge_length_mm`, `unmodified_coordinates`
+and `automatic_tool_length`: all remain unknown until #52 obtains the setup and
+calibration premises. Controller/dialect completion and posting remain #52.
 
 | Haas reference field / parameter | Class | Responsibility |
 |---|---|---|
@@ -301,7 +305,7 @@ T/H range, final M6 location and firmware options remain unknown. Catalogue
 travel speed and the profile's commanded G53 retract do not establish those facts.
 
 `rust/tests/post_machine.rs` audits every Rust field directly from the pinned
-upstream struct, and every added Haas dataclass field; a newly required,
+upstream struct, and every selected Haas/Carvera Rust controller field; a newly required,
 unclassified field fails. It prints covered sources, controller, per-job and
 unknown fields for each shipped machine (`-- --nocapture`). LinuxCNC's partial
 mapping plus an explicit sample setup/tool table is deserialised and validated by

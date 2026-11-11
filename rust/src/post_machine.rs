@@ -9,10 +9,9 @@ use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct MachineFields {
-    /// Camlib names, only at this boundary. Haas extras are for its Python
-    /// ReferenceMachine contract; the current Rust Machine rejects those extras.
+    /// Camlib names, only at this boundary, including the nested controller block.
     pub fields: Map<String, Value>,
-    /// Every Rust Machine field, plus Haas ReferenceMachine fields when selected.
+    /// Every Rust Machine field, plus qualified fields of the selected Controller.
     /// Unknown optional limits are recorded even though camlib permits omission.
     pub coverage: BTreeMap<String, String>,
 }
@@ -37,10 +36,20 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
     };
     let settings = &machine["controller_settings"];
     let haas = machine["controller"] == "haas_ngc";
+    let carvera = machine["controller"] == "carvera";
     let supported = haas || machine["controller"] == "linuxcnc";
     let mut put = |field: &str, value: Option<Value>, source: &str| {
         let status = if let Some(value) = value.filter(|v| !v.is_null()) {
-            out.fields.insert(field.into(), value);
+            if let Some(key) = field.strip_prefix("controller.") {
+                out.fields
+                    .entry("controller")
+                    .or_insert_with(|| json!({}))
+                    .as_object_mut()
+                    .unwrap()
+                    .insert(key.into(), value);
+            } else {
+                out.fields.insert(field.into(), value);
+            }
             format!("covered: {source}")
         } else {
             format!("unknown: {source}")
@@ -121,7 +130,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         ("tolerance_mm", json!(if inch { 0.003 } else { 0.001 })),
         ("feed_tolerance_mm_min", json!(0.01)),
         ("max_sweep_rad", json!(std::f64::consts::TAU)),
-        ("revision", json!("step2cam-post-machine-1")),
+        ("revision", json!("step2cam-post-machine-2")),
         ("schedule_post_feeds", json!(false)),
     ] {
         put(
@@ -129,6 +138,26 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             Some(value),
             "adapter post policy; not stored machine facts",
         );
+    }
+    if haas || carvera {
+        put(
+            "controller.name",
+            machine.get("controller").cloned(),
+            "machine.controller selects upstream named post",
+        );
+    }
+    if carvera {
+        for field in [
+            "initial_gauge_length_mm",
+            "unmodified_coordinates",
+            "automatic_tool_length",
+        ] {
+            put(
+                &format!("controller.{field}"),
+                None,
+                "Carvera calibration/setup premise required by #52",
+            );
+        }
     }
     if haas {
         for (ours, theirs) in [
@@ -143,23 +172,23 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             ("setting_45_46_47_mirror_image_xyz", "mirror_settings_xyz"),
         ] {
             put(
-                theirs,
+                &format!("controller.{theirs}"),
                 settings.get(ours).cloned(),
                 &format!("controller_settings.{ours}; installed value must be verified"),
             );
         }
         put(
-            "curve_policy",
+            "controller.curve_policy",
             Some(json!("linear")),
             "adapter conservative curve policy",
         );
         put(
-            "cutter_compensation",
+            "controller.cutter_compensation",
             Some(json!(false)),
             "adapter disables wear compensation until setup wear registers are supplied",
         );
         put(
-            "reference",
+            "controller.reference",
             Some(json!("Haas NGC milling;96-8210 RevN December2020")),
             "upstream reference post identity",
         );
@@ -169,6 +198,15 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             "adapter feed traverse at declared cutting ceiling",
         );
     }
+    out.coverage.insert(
+        "controller".into(),
+        if haas || carvera {
+            "controller: partial named controller block; #52 resolves all premises"
+        } else {
+            "covered: generic dialect; no named controller"
+        }
+        .into(),
+    );
     // Null here means deliberately unused, unlike an absent unknown premise.
     if change.is_some_and(|c| c != "z_home") {
         out.fields
@@ -207,7 +245,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         for field in ["planes", "arcs", "helices"] {
             out.coverage.insert(
                 field.into(),
-                "unknown: controller post not implemented".into(),
+                "unknown: adapter curve policy awaits #52".into(),
             );
         }
     }
@@ -221,7 +259,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             if supported {
                 "covered: adapter uses native G0"
             } else {
-                "unknown: controller traverse semantics not implemented"
+                "unknown: adapter traverse policy awaits #52"
             }
             .into(),
         );
@@ -231,7 +269,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         if supported {
             "controller: upstream dialect selected by machine.controller; #52 supplies it"
         } else {
-            "unknown: Carvera has no upstream post"
+            "controller: upstream Carvera dialect; #52 supplies it"
         }
         .into(),
     );
@@ -249,8 +287,10 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         );
     }
     if haas {
-        out.coverage
-            .insert("program_number".into(), "per-job: program identity".into());
+        out.coverage.insert(
+            "controller.program_number".into(),
+            "per-job: program identity".into(),
+        );
     }
     out
 }
