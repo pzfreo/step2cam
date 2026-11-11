@@ -4,6 +4,19 @@
  "_comment": "The rules step2cam's planning applies today, as they are in the code (\"code\" says where). Each decision in a plan's trace cites one by id@version. A rule's sources say whether it rests on a standard, recognised practice or step2cam's own judgement. Where a rule's logic is itself data, `data` names the file (and selector) in rulebase/rules/ that holds it.",
  "rules": [
   {
+   "id": "process.roughing.bounded_engagement",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "Use sourced per-material light radial width and flute-based axial depth, chip thinning capped by controller cutting feed or existing feed limit. Missing source stays raster. Retry raster with original cutting data only after camlib refuses adaptive; retain its reason and all checks.",
+   "code": "roughing.rs; rust/src/lib.rs; rust/src/job.rs",
+   "sources": [
+    {
+     "kind": "practice",
+     "ref": "Library roughing_by_group._sources; Harvey depth-of-cut, trochoidal and chip-thinning guidance; Seco advanced roughing; RobbJack FAQ"
+    }
+   ]
+  },
+  {
    "id": "setup.workholding",
    "version": 1,
    "stage": "setup",

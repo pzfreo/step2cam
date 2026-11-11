@@ -597,6 +597,9 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                             json!({"chosen": {"passes": passes as u64, "stepdown_mm": stepdown, "depth_mm": depth, "flute_length_mm": flute}})));
                     }
                 }
+                if kind == "roughing" {
+                    why.push(crate::roughing::choose(op, &mut technology, spec, group.as_deref(), library_data, &subject, trace)?);
+                }
                 op["technology"] = technology;
             }
             op["tool"] = tool;

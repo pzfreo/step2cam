@@ -130,6 +130,53 @@
    "items": {
     "$ref": "#/$defs/supplied_decision"
    }
+  },
+  "roughing_by_group": {
+   "type": "object",
+   "description": "Sourced bounded-engagement roughing policy by ISO 513 material group. Missing groups use raster.",
+   "propertyNames": {
+    "enum": [
+     "P",
+     "M",
+     "K",
+     "N",
+     "S",
+     "H"
+    ]
+   },
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "radial_width_diameter_fraction",
+     "axial_flute_fraction",
+     "maximum_axial_diameters",
+     "chip_thinning",
+     "_sources"
+    ],
+    "properties": {
+     "radial_width_diameter_fraction": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 0.5
+     },
+     "axial_flute_fraction": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+     },
+     "maximum_axial_diameters": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "chip_thinning": {
+      "const": "radial_maximum_chip_thickness"
+     }
+    },
+    "patternProperties": {
+     "^_": {}
+    },
+    "additionalProperties": false
+   }
   }
  },
  "patternProperties": {

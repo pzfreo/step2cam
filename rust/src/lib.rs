@@ -152,6 +152,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
     let mut setup_cache = vec![];
+    let mut roughing_refusals = std::collections::HashMap::new();
     loop {
         programs.clear();
         log.clear();
@@ -160,6 +161,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             error = Some(message);
             break;
         }
+        capp::roughing::fallbacks(&mut plan, &roughing_refusals);
         if let Some(bottom)=plan["setups"].as_array().into_iter().flatten().find(|s|s["flip_seating"].is_object())
             && !flip_ready(&plan,bottom) {
             let reason=plan["warnings"].as_array().into_iter().flatten().filter_map(Value::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
@@ -172,6 +174,11 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {
             break;
         };
+        if let Some(operation) = failure.operation.as_deref()
+            && let Some(setup) = capp::roughing::adaptive_setup(&plan, operation) {
+            roughing_refusals.insert(setup, failure.message);
+            continue;
+        }
         // An operation capp can take out is excluded and the plan finished again; anything else
         // stops: nothing is given out, not even a setup that ran before this one stopped.
         let excludable = failure.operation.as_deref().is_some_and(|id| capp::exclude(&mut plan.clone(), id, "").is_some());

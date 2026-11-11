@@ -498,3 +498,14 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
+
+Roughing now requests bounded radial engagement for sourced material groups:
+25% of cutter diameter for ISO N and 10% for ISO P. Stepdown comes from the
+selected tool's flute length, capped at twice its diameter and the existing reach
+and clamping limits. Radial chip thinning raises the lateral feed within the
+machine cutting-feed limit (or existing library limit); entries keep their
+original feed. Other material groups stay raster with a decision explaining the
+missing source. Camlib adaptive refusals trigger one raster retry at the original
+cutting data, with the exact refusal in Why and all checks unchanged. See
+[library policy and sources](libraries/README.md). This can increase browser
+planning time substantially; cutting-time estimates do not include planning.

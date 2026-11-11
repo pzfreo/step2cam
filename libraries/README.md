@@ -315,3 +315,30 @@ omitted; successful validation does not prove a collision-safe physical machine.
 
 camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
 `GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.
+
+Roughing uses `roughing_by_group` when the material's ISO 513 group has a sourced
+row. The shipped N row selects 25% diameter radial width (RobbJack's lower
+non-ferrous HEM bound); P selects 10% (Seco's lower normal-steel advanced-roughing
+bound). These are general starting policies, not tool-specific process qualification.
+M/K/S/H and unknown materials have no row and retain raster, with the reason in Why.
+Each row carries `_sources`. Full cutting-edge use follows Harvey's trochoidal
+milling guidance (`axial_flute_fraction: 1`), capped at 2×diameter following its
+HEM depth-of-cut guidance. The existing tool-reach and workholding floor caps
+still apply; a deeper layer is not evidence that the shank is clear.
+
+The nominal lateral feed, after spindle capping, is multiplied by
+`1 / (2 sqrt(q (1-q)))`, where `q = radial width / diameter < 0.5`:
+[Harvey, How to Combat Chip Thinning](https://www.harveyperformance.com/in-the-loupe/combat-chip-thinning/).
+It is capped at the first mill's `controller_settings.max_cutting_feed_mm_min`
+when supplied, otherwise the library's existing rapid/feed ceiling (5000 mm/min
+when absent). This fallback is an estimate, not an invented controller setting.
+Plunge and entry feeds stay at their existing values; confined material is
+camlib's entry motion, not a promise of bounded cutting engagement there.
+
+The adapter requests camlib's stock-driven, proven engagement-front strategy
+explicitly. If camlib refuses an adaptive operation, the complete job is replayed
+with raster at the original slotting stepdown and feed, with the same checks.
+The refusal is retained verbatim in a fallback decision linked to the operation's
+Why. A refused raster retry follows the existing exclusion rules. There are no
+new simulation acceptances. Adaptive planning can cost substantially more CPU;
+the browser performs this work locally.

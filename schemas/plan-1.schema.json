@@ -227,6 +227,52 @@
  },
  "additionalProperties": false,
  "$defs": {
+  "roughing_raster_technology": {
+   "type": "object",
+   "required": [
+    "source"
+   ],
+   "properties": {
+    "feed_mm_min": {
+     "type": "number"
+    },
+    "spindle_rpm": {
+     "type": "number"
+    },
+    "plunge_mm_min": {
+     "type": "number"
+    },
+    "stepdown_mm": {
+     "type": "number"
+    },
+    "stepover_mm": {
+     "type": "number"
+    },
+    "source": {
+     "type": "string",
+     "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+    },
+    "capped": {
+     "const": true,
+     "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+    },
+    "peck_mm": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "exclusiveMinimum": 0
+    },
+    "peck_mode": {
+     "enum": [
+      "full_retract",
+      "chip_break"
+     ]
+    }
+   },
+   "additionalProperties": false,
+   "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+  },
   "box": {
    "type": "object",
    "required": [
@@ -662,12 +708,15 @@
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
+      "raster_technology": {"$ref": "#/$defs/roughing_raster_technology"},
       "technology": {
        "type": "object",
        "required": [
         "source"
        ],
        "properties": {
+        "clearing_strategy": {"enum": ["raster", "bounded_engagement"]},
+        "radial_width_mm": {"type": "number", "exclusiveMinimum": 0},
         "feed_mm_min": {
          "type": "number"
         },

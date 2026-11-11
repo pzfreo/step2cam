@@ -475,5 +475,63 @@
  ],
  "format": "step2cam-resources",
  "version": 1,
- "_policy": "step2cam judgement: end-mill stepover 0.4D (Makera does not enable end-mill stepover; its engraving/chamfer presets do specify stepover); stickout=Fusion assemblyGaugeLength, treated as tool projection, holder_length=10 mm and holder_diameter=8 mm are conservative collar/collet envelopes, not measured assemblies. Coolant off follows disabled presets; use external air assist for chip evacuation (machine air capability is separate; schema has no air tool coolant). Thread presets have contradictory flood/disabled expression: use off, not flood on this machine. Thread radial_passes=2, spring_passes=1 are step2cam judgement; published LCF is used as axial tooth envelope, not a measured single tooth. Global allowances/clearances/tolerances and rapid=5000 remain step2cam judgement (below sourced 6000 mm/min travel speed). End-mill RPM/feed round Fusion conversion noise to nearest integer."
+ "_policy": "step2cam judgement: end-mill stepover 0.4D (Makera does not enable end-mill stepover; its engraving/chamfer presets do specify stepover); stickout=Fusion assemblyGaugeLength, treated as tool projection, holder_length=10 mm and holder_diameter=8 mm are conservative collar/collet envelopes, not measured assemblies. Coolant off follows disabled presets; use external air assist for chip evacuation (machine air capability is separate; schema has no air tool coolant). Thread presets have contradictory flood/disabled expression: use off, not flood on this machine. Thread radial_passes=2, spring_passes=1 are step2cam judgement; published LCF is used as axial tooth envelope, not a measured single tooth. Global allowances/clearances/tolerances and rapid=5000 remain step2cam judgement (below sourced 6000 mm/min travel speed). End-mill RPM/feed round Fusion conversion noise to nearest integer.",
+ "roughing_by_group": {
+  "N": {
+   "radial_width_diameter_fraction": 0.25,
+   "axial_flute_fraction": 1.0,
+   "maximum_axial_diameters": 2.0,
+   "chip_thinning": "radial_maximum_chip_thickness",
+   "_sources": {
+    "radial_width_diameter_fraction": {
+     "url": "https://robbjack.com/faq",
+     "read": "2026-11-11",
+     "note": "RobbJack trochoidal/HEM FAQ: 25-50% diameter for easy non-ferrous; choose lower bound. ISO N is the coarse library grouping; polymer/composite grades need their own qualified cutting data."
+    },
+    "axial_flute_fraction": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/introduction-trochoidal-milling/",
+     "read": "2026-11-11",
+     "note": "Entire cutting-edge length can be used at light radial engagement: fraction 1.0. This is general HEM guidance, not a tool-specific load qualification."
+    },
+    "maximum_axial_diameters": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/depth-of-cut/",
+     "read": "2026-11-11",
+     "note": "HEM up to twice cutter diameter axially; cap full-flute depth at 2D."
+    },
+    "chip_thinning": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/combat-chip-thinning/",
+     "read": "2026-11-11",
+     "note": "IPT=CT*D/(2*sqrt(D*ae-ae^2)), for ae<D/2. Base feed represents the existing nominal chip load; spindle-cap scaling precedes compensation. Entry/plunge keeps its original feed."
+    }
+   }
+  },
+  "P": {
+   "radial_width_diameter_fraction": 0.1,
+   "axial_flute_fraction": 1.0,
+   "maximum_axial_diameters": 2.0,
+   "chip_thinning": "radial_maximum_chip_thickness",
+   "_sources": {
+    "radial_width_diameter_fraction": {
+     "url": "https://www.secotools.com/article/advanced_roughing_strategies___faster_through_opti?language=en",
+     "read": "2026-11-11",
+     "note": "Seco rules of thumb: 10-15% diameter for normal P1-4 steels; choose lower bound. Hardened and stainless are separate groups and not covered here."
+    },
+    "axial_flute_fraction": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/introduction-trochoidal-milling/",
+     "read": "2026-11-11",
+     "note": "Entire cutting-edge length can be used at light radial engagement: fraction 1.0. This is general HEM guidance, not a tool-specific load qualification."
+    },
+    "maximum_axial_diameters": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/depth-of-cut/",
+     "read": "2026-11-11",
+     "note": "HEM up to twice cutter diameter axially; cap full-flute depth at 2D."
+    },
+    "chip_thinning": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/combat-chip-thinning/",
+     "read": "2026-11-11",
+     "note": "IPT=CT*D/(2*sqrt(D*ae-ae^2)), for ae<D/2. Base feed represents the existing nominal chip load; spindle-cap scaling precedes compensation. Entry/plunge keeps its original feed."
+    }
+   }
+  }
+ }
 }

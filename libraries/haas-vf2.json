@@ -825,5 +825,63 @@
    "_flutes": 3,
    "_comment": "Dormer E559M6NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
   }
- ]
+ ],
+ "roughing_by_group": {
+  "N": {
+   "radial_width_diameter_fraction": 0.25,
+   "axial_flute_fraction": 1.0,
+   "maximum_axial_diameters": 2.0,
+   "chip_thinning": "radial_maximum_chip_thickness",
+   "_sources": {
+    "radial_width_diameter_fraction": {
+     "url": "https://robbjack.com/faq",
+     "read": "2026-11-11",
+     "note": "RobbJack trochoidal/HEM FAQ: 25-50% diameter for easy non-ferrous; choose lower bound. ISO N is the coarse library grouping; polymer/composite grades need their own qualified cutting data."
+    },
+    "axial_flute_fraction": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/introduction-trochoidal-milling/",
+     "read": "2026-11-11",
+     "note": "Entire cutting-edge length can be used at light radial engagement: fraction 1.0. This is general HEM guidance, not a tool-specific load qualification."
+    },
+    "maximum_axial_diameters": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/depth-of-cut/",
+     "read": "2026-11-11",
+     "note": "HEM up to twice cutter diameter axially; cap full-flute depth at 2D."
+    },
+    "chip_thinning": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/combat-chip-thinning/",
+     "read": "2026-11-11",
+     "note": "IPT=CT*D/(2*sqrt(D*ae-ae^2)), for ae<D/2. Base feed represents the existing nominal chip load; spindle-cap scaling precedes compensation. Entry/plunge keeps its original feed."
+    }
+   }
+  },
+  "P": {
+   "radial_width_diameter_fraction": 0.1,
+   "axial_flute_fraction": 1.0,
+   "maximum_axial_diameters": 2.0,
+   "chip_thinning": "radial_maximum_chip_thickness",
+   "_sources": {
+    "radial_width_diameter_fraction": {
+     "url": "https://www.secotools.com/article/advanced_roughing_strategies___faster_through_opti?language=en",
+     "read": "2026-11-11",
+     "note": "Seco rules of thumb: 10-15% diameter for normal P1-4 steels; choose lower bound. Hardened and stainless are separate groups and not covered here."
+    },
+    "axial_flute_fraction": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/introduction-trochoidal-milling/",
+     "read": "2026-11-11",
+     "note": "Entire cutting-edge length can be used at light radial engagement: fraction 1.0. This is general HEM guidance, not a tool-specific load qualification."
+    },
+    "maximum_axial_diameters": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/depth-of-cut/",
+     "read": "2026-11-11",
+     "note": "HEM up to twice cutter diameter axially; cap full-flute depth at 2D."
+    },
+    "chip_thinning": {
+     "url": "https://www.harveyperformance.com/in-the-loupe/combat-chip-thinning/",
+     "read": "2026-11-11",
+     "note": "IPT=CT*D/(2*sqrt(D*ae-ae^2)), for ae<D/2. Base feed represents the existing nominal chip load; spindle-cap scaling precedes compensation. Entry/plunge keeps its original feed."
+    }
+   }
+  }
+ }
 }

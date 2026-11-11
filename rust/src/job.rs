@@ -388,6 +388,11 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                             "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
                         });
                         cutting(&mut out, s, true)?;
+                        if op["technology"]["clearing_strategy"] == "bounded_engagement" {
+                            out.as_object_mut().unwrap().remove("omit_empty_cuts");
+                            out["clearing"] = json!({"kind": "adaptive", "path_strategy": "engagement_front",
+                                "max_radial_engagement_mm": num(s, "radial_width_mm")?, "boundary_tolerance_mm": 0.01});
+                        }
                         if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
                             notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
                         } else {
