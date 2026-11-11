@@ -22,6 +22,12 @@ fn untraced(plan: &Value) -> Value {
         // Settlement's feature-depth metadata did not exist in the Python baseline.
         assert!(o["roughing_feature_depths"].is_object());
         o.remove("roughing_feature_depths");
+        // New internal workholding meshes have no Python baseline. Compare
+        // all original plan fields; dedicated contact tests exercise these.
+        for key in ["contact_surface_model", "workholding_surface_model"] {
+            let geometry = o.remove(key).expect("workholding geometry metadata");
+            assert!(geometry.is_array() || geometry.is_null());
+        }
     }
     for setup in plan["setups"].as_array_mut().into_iter().flatten() {
         for op in setup["operations"].as_array_mut().into_iter().flatten() {
