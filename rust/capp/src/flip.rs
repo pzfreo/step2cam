@@ -181,6 +181,8 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
                 .min(vise["jaw_height_mm"].as_f64().unwrap());
             let grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
                 vec![r(vise["jaw_height_mm"].as_f64().unwrap() - p)]
+            } else if let Some(heights) = vise["parallels_heights_mm"].as_array() {
+                heights.iter().filter_map(Value::as_f64).map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect()
             } else if maximum >= minimum {
                 (0..=((maximum - minimum) / step).floor() as usize)
                     .map(|n| r(minimum + n as f64 * step))

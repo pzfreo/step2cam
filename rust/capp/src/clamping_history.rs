@@ -1,5 +1,4 @@
-//! Interim workholding audit while camlib jobs still start from fresh stock (#121).
-//! Cutting envelopes can include preserved material: this warns, never certifies a grip.
+//! Certain finished-part contact, with a conservative prior-cut audit for uncovered evidence.
 use crate::trace::{Trace, because};
 use serde_json::{Value, json};
 
@@ -160,12 +159,57 @@ fn spot_envelope(op: &Value) -> Option<Bounds> {
     bounds(corners?.into_iter().flatten())
 }
 
+/// The final part is a lower bound on retained material. Carried height fields
+/// are upper bounds and deliberately contribute no contact. Only planar faces
+/// coincident with the jaw plane count; clip triangles, never their envelopes.
+fn certain_contacts(plan: &Value, setup: &Value, earlier: &[Value], resources: &Value) -> Option<Vec<f64>> {
+    let frame = Frame::read(setup)?;
+    let bands = bands(setup)?;
+    let tris: Vec<[Point; 3]> = serde_json::from_value(plan["contact_surface_model"].clone()).ok()?;
+    let mut cuts = vec![];
+    for previous in earlier {
+        let from = Frame::read(previous)?;
+        for op in previous["operations"].as_array().into_iter().flatten().filter(|o| o["tool"].is_string()) {
+            // These operations preserve the target surface. Other operations
+            // may cut beyond its mesh (threads, drill tips, edge breaks).
+            if matches!(op["kind"].as_str(), Some("roughing" | "flats" | "wall_finish" | "facing")) {continue;}
+            let cut = if op["kind"] == "spot_drill" {spot_envelope(op)} else {envelope(previous, op, resources)}?;
+            cuts.push(transformed(cut, &from, &frame));
+        }
+    }
+    Some(bands.iter().map(|band| {
+        let axis = if (band[1][0]-band[0][0]).abs() < 1e-7 {0} else {1};
+        let along = 1-axis;
+        tris.iter().filter_map(|tri| {
+            let points: [Point;3] = tri.map(|p| std::array::from_fn(|i| (0..3).map(|j| frame.rotation[i][j]*(p[j]-frame.origin[j])).sum()));
+            if !points.iter().all(|p| (p[axis]-band[0][axis]).abs() <= 1e-7) {return None;}
+            let polygon = points.iter().map(|p| [p[along],p[2]]).collect();
+            let mut patches = vec![crate::flip::clipped(polygon, [[band[0][along],band[0][2]],[band[1][along],band[1][2]]])];
+            for cut in cuts.iter().filter(|cut| band[0][axis] >= cut[0][axis]-1e-7 && band[0][axis] <= cut[1][axis]+1e-7) {
+                let (x0,x1,y0,y1) = (cut[0][along],cut[1][along],cut[0][2],cut[1][2]);
+                let rectangles = [
+                    [[f64::NEG_INFINITY,f64::NEG_INFINITY],[x0,f64::INFINITY]],
+                    [[x1,f64::NEG_INFINITY],[f64::INFINITY,f64::INFINITY]],
+                    [[x0,f64::NEG_INFINITY],[x1,y0]],
+                    [[x0,y1],[x1,f64::INFINITY]],
+                ];
+                patches = patches.into_iter().flat_map(|p| rectangles.map(|rect| crate::flip::clipped(p.clone(),rect))).collect();
+                patches.retain(|p| crate::flip::area(p)>1e-8);
+            }
+            Some(patches.iter().map(|p| crate::flip::area(p)).sum::<f64>())
+        }).sum::<f64>()
+    }).collect())
+}
+
 /// Called after settlement, exclusions and tool resolution, so absent/untooled operations
 /// do not invent earlier cuts. The final process retry recomputes this audit after refusals.
 pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     let setups = plan["setups"].as_array().cloned().unwrap_or_default();
     for (index, setup) in setups.iter().enumerate().skip(1).filter(|(_, s)| s["clamping"].is_object()) {
         let id = setup["id"].as_str().unwrap_or("");
+        let contacts = certain_contacts(plan, setup, &setups[..index], resources).unwrap_or_else(|| vec![0., 0.]);
+        let certain = contacts.len() == 2 && contacts.iter().all(|a| *a > 1e-8);
+        let contact_says = format!("certain part-face contact per jaw: {:.4} mm², {:.4} mm²; carried upper-bound stock contributes no contact", contacts[0], contacts[1]);
         let mut hits = vec![];
         let mut unchecked = vec![];
         let flip=setup["flip_seating"].is_object();
@@ -191,8 +235,12 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             // Only this option's mesh-proven contact faces can treat retained
             // outside finishing as preparation, rather than removed material.
             // Still check holes/notches/slots and all other setups normally.
+            // The mesh-proven contact itself survives conservative envelopes
+            // that include the finished part. Seating/preparation remain separate checks.
+            
             let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
             for (n, op) in cuts {
+                if certain && matches!(op["kind"].as_str(), Some("roughing" | "flats" | "wall_finish" | "facing")) {continue;}
                 if flip_top && prepared && (matches!(op["kind"].as_str(),Some("roughing" | "flats" | "wall_finish")) || crate::flip::modeled_cut(&setup["flip_seating"],op)) { continue; }
                 let operation = format!("{}-{}-{}", earlier["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""));
                 let cut = if setup["flip_seating"].is_object() && op["kind"] == "spot_drill" {
@@ -203,11 +251,11 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
                     continue;
                 };
                 let faces: Vec<_> = bands.iter().enumerate().filter(|(_, band)| overlaps(**band, cut)).map(|(n, _)| setup["clamping"]["faces"][n].clone()).collect();
-                if !faces.is_empty() { hits.push(json!({"operation": operation, "faces": faces})); }
+                if !certain && !faces.is_empty() { hits.push(json!({"operation": operation, "faces": faces})); }
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
-        let mut detail = json!({"status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        let mut detail = json!({"contact_area_mm2": contacts, "status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
         if flip {
             detail["prepared_contacts"]=json!(prepared);
             detail["established_seat"]=json!(seated);
@@ -217,12 +265,19 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             "unchecked" => format!("setup {id}: later grip band could not be checked completely against earlier cuts: {}; {SCOPE}", detail["unchecked"]),
             _ => format!("setup {id}: no overlap found between later grip band and checked earlier cuts; {SCOPE}"),
         };
+        let says = if certain && status == "no_overlap" {format!("setup {id}: {contact_says}; final part faces prove retained contact; seating and holding strength are separate checks")}
+            else if certain {format!("{says}; {contact_says}")}
+            else {format!("{says}; {contact_says}; grip refused: either jaw has no certain contact")};
+        plan["setups"][index]["clamping"]["contact_area_mm2"] = json!(contacts);
         // Store the audit in the actual given/chosen clamping decision as well as its warning.
         let primary = setup["clamping"]["because"][0].as_str().unwrap_or("");
         if let Some(d) = trace.decisions.iter_mut().find(|d| d["id"] == primary) {
             d["chosen"]["prior_setups"] = detail.clone();
+            d["chosen"]["contact_area_mm2"] = json!(contacts);
+            d["says"] = json!(format!("{}; {contact_says}", d["says"].as_str().unwrap_or("")));
+            if !certain { d["outcome"] = json!("none"); }
             if flip {
-                let ready=prepared && seated && status=="no_overlap";
+                let ready=certain && prepared && seated && status=="no_overlap";
                 let conclusion=if ready {"finished grip faces and edge seating confirmed by retained top operations"}
                     else {"grip preparation not established; flip clamping is unavailable"};
                 d["says"]=json!(format!("{}; {conclusion}",d["says"].as_str().unwrap_or("")));
@@ -230,12 +285,12 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let decision = if status == "no_overlap" {
-            trace.decide(RULE, id, "chosen", &says, json!({"chosen": detail}))
+            trace.decide(RULE, id, if certain {"chosen"} else {"none"}, &says, json!({"chosen": detail}))
         } else { trace.warn(RULE, id, says, json!({})) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
-        if flip && (!prepared || !seated || status != "no_overlap") {
+        if !certain || (flip && (!prepared || !seated || status != "no_overlap")) {
             let b=setup["stock"]["max"][2].as_f64().unwrap_or(0.);
-            let reason = format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned");
+            let reason = if !certain {format!("setup {id} withheld: either jaw has no certain contact; {contact_says}")} else {format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned")};
             trace.warn(RULE, id, reason.clone(), json!({}));
             for feature in setup["operations"].as_array().into_iter().flatten()
                 .flat_map(|o| o["features"].as_array().into_iter().flatten()).filter_map(Value::as_str) {

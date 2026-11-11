@@ -22,8 +22,8 @@ const COMPARISON_FINDINGS: usize = 4096;
 
 /// camlib proves a thread mill's neck clear of the hole wall beside the groove from its stock
 /// grid: a cell up to its diagonal away can still count as wall. The grid is made fine enough for
-/// the neck's clearance, with this much in hand...
-const NECK_CELL_SAFETY: f64 = 1.25;
+/// both the cutter entry and neck clearances, with this much in hand...
+const THREAD_CELL_SAFETY: f64 = 1.25;
 /// ...but no finer than a stock grid of this many cells.
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
 fn assembly(spec: &Value) -> Result<Value, String> {
@@ -539,7 +539,11 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                     } else {
                         // The neck's clearance from the drilled wall, on the thread's final path circle.
                         let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
-                        let cell = neck_room / (2f64.sqrt() * NECK_CELL_SAFETY);
+                        // Descent proves a disk enlarged by twice the operation tolerance.
+                        // Every touched cell must also fit inside the drilled bore.
+                        let entry_room = (start - num(mill, "diameter")?) / 2. - 2. * DRILLING_TOLERANCE;
+                        let room = neck_room.min(entry_room);
+                        let cell = room / (2f64.sqrt() * THREAD_CELL_SAFETY);
                         let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
                         if cells > MAX_STOCK_CELLS {
                             notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
@@ -699,7 +703,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
             Some(needed) if needed < cell => {
                 // Rounded down to a whole micrometre, so the grid is never coarser than needed.
                 let fine = (needed * 1000.).floor() / 1000.;
-                notes.push(format!("setup {setup_id}: stock grid {} mm, fine enough to prove the thread mill's neck clear of the hole wall", show(fine)));
+                notes.push(format!("setup {setup_id}: stock grid {} mm, fine enough to prove the thread mill's entry and neck clear of the hole wall", show(fine)));
                 fine
             }
             _ => cell,

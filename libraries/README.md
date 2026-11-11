@@ -315,3 +315,9 @@ omitted; successful validation does not prove a collision-safe physical machine.
 
 camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
 `GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.
+
+Optional vise `parallels_heights_mm` lists available matched-pair heights in mm; cite
+its inventory under the vise's `_sources`. Selection takes the tallest height compatible
+with grip limits and any mesh seating. A selected support enters the fixture scene;
+without inventoried support, even flip seating retains the explicit unchecked-support note.
+The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.

@@ -498,3 +498,16 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
+
+Later vise setups require positive finished-part contact on both jaws. The planner clips
+analytically planar mesh faces to each jaw band and reports certain contact area in mm²;
+conservative envelopes of drills, threads and edge breaks reduce that area. No contact on
+either jaw withholds that setup. Carried height-field stock is an upper bound and cannot
+certify contact. This does not establish holding force. Flip seating and preparation still
+need their separate checks.
+
+Vise libraries may inventory `parallels_heights_mm`, with provenance in `_sources`.
+The tallest height satisfying grip limits and mesh seating is chosen and the support bars
+are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
+No shipped library inventories parallels: their absence leaves support explicitly unchecked,
+including flip setups; a derived jaw-minus-grip height is not an available support.
