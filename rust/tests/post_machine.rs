@@ -14,8 +14,8 @@ fn read(path: &str) -> Value {
     )
     .unwrap()
 }
-fn rust_fields(structure: &str) -> BTreeSet<String> {
-    include_str!("../../vendor/camlib/src/gcode/machine.rs")
+fn rust_fields(source: &str, structure: &str) -> BTreeSet<String> {
+    source
         .split_once(&format!("pub struct {structure} {{"))
         .unwrap()
         .1
@@ -30,21 +30,33 @@ fn rust_fields(structure: &str) -> BTreeSet<String> {
 
 #[test]
 fn every_upstream_field_has_an_explicit_responsibility_for_each_shipped_machine() {
-    let rust = rust_fields("Machine");
-    let haas: BTreeSet<String> = include_str!("../../vendor/camlib/examples/haas_ngc_post.py")
-        .split_once("class ReferenceMachine(Machine):")
-        .unwrap()
-        .1
-        .split_once("    def __post_init__")
-        .unwrap()
-        .0
-        .lines()
-        .filter(|l| l.starts_with("    ") && !l.starts_with("        "))
-        .filter_map(|l| l.trim().split_once(':'))
-        .filter(|(n, _)| n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
-        .map(|(n, _)| n.to_string())
-        .collect();
-    assert!(!haas.is_empty());
+    let rust = rust_fields(
+        include_str!("../../vendor/camlib/src/gcode/machine.rs"),
+        "Machine",
+    );
+    let controller_fields = |controller: &str| -> BTreeSet<String> {
+        let fields = match controller {
+            "haas_ngc" => rust_fields(
+                include_str!("../../vendor/camlib/src/gcode/haas.rs"),
+                "HaasNGC",
+            ),
+            "carvera" => rust_fields(
+                include_str!("../../vendor/camlib/src/gcode/carvera.rs"),
+                "Carvera",
+            ),
+            "linuxcnc" => return BTreeSet::new(),
+            other => panic!("classify upstream controller {other}"),
+        };
+        assert!(
+            !fields.is_empty(),
+            "upstream controller fields must be audited"
+        );
+        fields
+            .into_iter()
+            .chain(["name".into()])
+            .map(|f| format!("controller.{f}"))
+            .collect()
+    };
     for path in [
         "libraries/linuxcnc-vmc.json",
         "libraries/haas-vf2.json",
@@ -53,11 +65,10 @@ fn every_upstream_field_has_an_explicit_responsibility_for_each_shipped_machine(
         let library = read(path);
         for machine in library["machines"].as_array().unwrap() {
             let mapped = machine_fields(machine, &library);
-            let expected = if machine["controller"] == "haas_ngc" {
-                rust.union(&haas).cloned().collect()
-            } else {
-                rust.clone()
-            };
+            let expected = rust
+                .union(&controller_fields(machine["controller"].as_str().unwrap()))
+                .cloned()
+                .collect();
             assert_eq!(
                 mapped.coverage.keys().cloned().collect::<BTreeSet<_>>(),
                 expected,
@@ -74,7 +85,9 @@ fn every_upstream_field_has_an_explicit_responsibility_for_each_shipped_machine(
                 println!("{field}: {status}");
                 if status.starts_with("unknown:") || status.starts_with("per-job:") {
                     assert!(
-                        !mapped.fields.contains_key(field),
+                        Value::Object(mapped.fields.clone())
+                            .pointer(&format!("/{}", field.replace('.', "/")))
+                            .is_none(),
                         "{field}: unknown/job premise must not be invented"
                     );
                 }
@@ -142,13 +155,15 @@ fn boundary_maps_existing_values_and_settings_without_conflating_pockets_and_add
     library["machines"][0]["controller_settings"]["highest_tool_number"] = json!(200);
     library["machines"][0]["controller_settings"]["setting_22_can_cycle_delta_z_mm"] = json!(0.254);
     let mapped = machine_fields(&library["machines"][0], &library);
+    assert_eq!(mapped.fields["controller"]["name"], "haas_ngc");
+    assert!(!mapped.fields.contains_key("setting_22_mm"));
     assert_eq!(mapped.fields["max_spindle_rpm"], 7000);
     assert_eq!(mapped.fields["max_tool_number"], 200);
-    assert_eq!(mapped.fields["setting_22_mm"], 0.254);
+    assert_eq!(mapped.fields["controller"]["setting_22_mm"], 0.254);
     assert_eq!(mapped.fields["max_feed_mm_min"], 16500);
     assert_eq!(mapped.fields["traverse_feed_mm_min"], 16500);
-    assert!(!mapped.fields.contains_key("setting_52_mm"));
-    assert!(!mapped.fields.contains_key("g92_shift_mm"));
+    assert!(mapped.fields["controller"].get("setting_52_mm").is_none());
+    assert!(mapped.fields["controller"].get("g92_shift_mm").is_none());
     assert_eq!(mapped.fields["mist"], false);
     assert!(
         machine_fields(
@@ -156,6 +171,6 @@ fn boundary_maps_existing_values_and_settings_without_conflating_pockets_and_add
             &read("demo/tools.json")
         )
         .coverage["dialect"]
-            .starts_with("unknown:")
+            .starts_with("controller:")
     );
 }
