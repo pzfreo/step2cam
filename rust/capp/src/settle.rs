@@ -598,7 +598,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                     }
                 }
                 if kind == "roughing" {
-                    why.push(crate::roughing::choose(op, &mut technology, spec, group.as_deref(), library_data, &subject, trace)?);
+                    why.push(crate::roughing::choose(op, &mut technology, spec, crate::roughing::Material { group: group.as_deref(), name: plan_material.as_deref() }, library_data, &subject, trace)?);
                 }
                 op["technology"] = technology;
             }

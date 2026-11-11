@@ -5,6 +5,16 @@ use serde_json::{Value, json};
 fn library() -> Value {
     serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap()
 }
+fn material(group: Option<&str>) -> roughing::Material<'_> {
+    roughing::Material {
+        group,
+        name: Some(if group == Some("N") {
+            "aluminium"
+        } else {
+            "steel"
+        }),
+    }
+}
 fn data() -> Value {
     json!({"feed_mm_min":1000.,"spindle_rpm":5000.,"stepdown_mm":1.,"stepover_mm":2.,"plunge_mm_min":100.,"source":"tool"})
 }
@@ -22,7 +32,7 @@ fn sourced_groups_use_tool_dimensions_and_chip_thinning_with_feed_cap() {
             &mut op,
             &mut technology,
             &tool(),
-            Some(group),
+            material(Some(group)),
             &library,
             "top:roughing",
             &mut trace,
@@ -49,7 +59,7 @@ fn sourced_groups_use_tool_dimensions_and_chip_thinning_with_feed_cap() {
         &mut json!({}),
         &mut technology,
         &tool(),
-        Some("P"),
+        material(Some("P")),
         &library,
         "top:roughing",
         &mut Trace::default(),
@@ -66,7 +76,7 @@ fn missing_material_policy_stays_raster_and_says_why() {
             &mut op,
             &mut technology,
             &tool(),
-            group,
+            material(group),
             &library(),
             "top:roughing",
             &mut trace,
@@ -91,7 +101,7 @@ fn refusal_restores_slotting_data_records_reason_and_cannot_retry_adaptive_again
         &mut op,
         &mut technology,
         &tool(),
-        Some("N"),
+        material(Some("N")),
         &library(),
         "top:roughing",
         &mut trace,
@@ -153,4 +163,23 @@ fn adapter_writes_explicit_stock_driven_strategy_and_no_orbit_options() {
     assert_eq!(rough["clearing"]["path_strategy"], "engagement_front");
     assert!(rough.get("omit_empty_cuts").is_none());
     assert_eq!(rough["stepdown_mm"], 38.); // full flute, below 2D
+}
+
+#[test]
+fn nonmetallic_iso_n_has_no_nonferrous_metal_source() {
+    let mut technology = data();
+    roughing::choose(
+        &mut json!({}),
+        &mut technology,
+        &tool(),
+        roughing::Material {
+            group: Some("N"),
+            name: Some("acetal plastic"),
+        },
+        &library(),
+        "top:roughing",
+        &mut Trace::default(),
+    )
+    .unwrap();
+    assert_eq!(technology["clearing_strategy"], "raster");
 }

@@ -636,7 +636,18 @@
      "read": "2026-11-11",
      "note": "IPT=CT*D/(2*sqrt(D*ae-ae^2)), for ae<D/2. Base feed represents the existing nominal chip load; spindle-cap scaling precedes compensation. Entry/plunge keeps its original feed."
     }
-   }
+   },
+   "material_words": [
+    "aluminium",
+    "aluminum",
+    "6082",
+    "brass",
+    "copper",
+    "bronze",
+    "magnesium",
+    "zamak",
+    "zinc"
+   ]
   },
   "P": {
    "radial_width_diameter_fraction": 0.1,

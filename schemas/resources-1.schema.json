@@ -170,6 +170,15 @@
      },
      "chip_thinning": {
       "const": "radial_maximum_chip_thickness"
+     },
+     "material_words": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "string",
+       "minLength": 1
+      },
+      "description": "Optional whole-word material scope within a coarse ISO group; outside it use raster."
      }
     },
     "patternProperties": {

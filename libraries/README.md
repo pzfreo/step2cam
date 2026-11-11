@@ -321,7 +321,8 @@ row. The shipped N row selects 25% diameter radial width (RobbJack's lower
 non-ferrous HEM bound); P selects 10% (Seco's lower normal-steel advanced-roughing
 bound). These are general starting policies, not tool-specific process qualification.
 M/K/S/H and unknown materials have no row and retain raster, with the reason in Why.
-Each row carries `_sources`. Full cutting-edge use follows Harvey's trochoidal
+Each row carries `_sources`. N is restricted by `material_words` to named non-ferrous
+metals; plastics and composites in the same coarse ISO group retain raster. Full cutting-edge use follows Harvey's trochoidal
 milling guidance (`axial_flute_fraction: 1`), capped at 2×diameter following its
 HEM depth-of-cut guidance. The existing tool-reach and workholding floor caps
 still apply; a deeper layer is not evidence that the shank is clear.

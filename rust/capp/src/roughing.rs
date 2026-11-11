@@ -8,23 +8,40 @@ use std::collections::HashMap;
 
 const RULE: &str = "process.roughing.bounded_engagement";
 
+pub struct Material<'a> {
+    pub group: Option<&'a str>,
+    pub name: Option<&'a str>,
+}
+
 pub fn choose(
     op: &mut Value,
     technology: &mut Value,
     tool: &Value,
-    group: Option<&str>,
+    material: Material<'_>,
     library: &Value,
     subject: &str,
     trace: &mut Trace,
 ) -> Result<String, String> {
-    let policy = group.and_then(|g| library["roughing_by_group"].get(g));
+    let group = material.group;
+    let policy = group
+        .and_then(|g| library["roughing_by_group"].get(g))
+        .filter(|p| {
+            let Some(words) = p["material_words"].as_array() else {
+                return true;
+            };
+            let name = material.name.unwrap_or("").to_lowercase();
+            words.iter().filter_map(Value::as_str).any(|word| {
+                name.split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == word)
+            })
+        });
     let Some(policy) = policy else {
         technology["clearing_strategy"] = json!("raster");
         return Ok(trace.decide(
             RULE,
             subject,
             "chosen",
-            "Raster roughing: no sourced bounded-engagement policy for this material group",
+            "Raster roughing: no sourced bounded-engagement policy for this material/group",
             json!({"chosen":"raster", "material_group":group}),
         ));
     };
