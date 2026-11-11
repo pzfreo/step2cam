@@ -184,3 +184,56 @@ fn nonmetallic_iso_n_has_no_nonferrous_metal_source() {
     .unwrap();
     assert_eq!(technology["clearing_strategy"], "raster");
 }
+
+#[test]
+fn camlib_refusal_really_replans_raster_and_retains_why() {
+    let a: Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m: Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+    let mut l = library();
+    // Valid positive policy width, below camlib's native minimum contact angle:
+    // camlib must refuse the attempted adaptive operation, rather than a test stub.
+    l["roughing_by_group"]["N"]["radial_width_diameter_fraction"] = json!(1e-12);
+    let out = step2cam::process(&a, &m, &l).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let decision = out["plan"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| {
+            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@1"
+        })
+        .unwrap();
+    assert!(
+        decision["refusal"]
+            .as_str()
+            .unwrap()
+            .contains("native 1..170 degree")
+    );
+    let planned = out["plan"]["setups"][0]["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|o| o["kind"] == "roughing")
+        .unwrap();
+    assert!(
+        planned["because"]
+            .as_array()
+            .unwrap()
+            .contains(&decision["id"])
+    );
+    assert_eq!(planned["technology"]["clearing_strategy"], "raster");
+    let admitted = out["programs"][0]["job"]["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|o| o["kind"] == "roughing")
+        .unwrap();
+    assert_eq!(admitted["clearing"]["kind"], "raster");
+    for key in ["stepdown_mm", "feed_mm_min", "plunge_mm_min"] {
+        assert_eq!(admitted[key], planned["raster_technology"][key]);
+    }
+    assert_eq!(admitted["omit_empty_cuts"], true);
+    assert!(admitted.get("stepup_mm").is_none());
+}
