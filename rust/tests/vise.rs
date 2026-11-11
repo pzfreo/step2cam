@@ -267,7 +267,7 @@ fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
     assert_eq!(check["overlaps"], json!([{"operation":"top-1-facing","faces":["stock.y.max"]}]));
     assert!(check["scope"].as_str().unwrap().contains("not a stock simulation or proof of face retention"));
     assert!(warnings(&plan).iter().any(|w| w.contains("earlier cuts may have removed material in the later grip band")));
-    assert!(list(&plan["setups"][1]["operations"]).iter().any(|o| o["kind"] == "holes"), "the conservative audit warns, rather than removing later cuts");
+    assert!(list(&plan["setups"][1]["operations"]).is_empty(), "without a part mesh no certain later contact is established");
 
     let mut moved = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front.clone(), json!([0,50,-20]));
     capp::finish(&mut moved, &library(), &[]).unwrap();
@@ -306,4 +306,32 @@ fn deprecated_clamping_still_works() {
     let plan = planned("plate", &tools);
     assert_eq!(plan["supplied_decisions"][0]["accepted"], true);
     assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 3.5);
+}
+
+#[test]
+fn a_later_grip_requires_certain_contact_on_both_jaws() {
+    let mut plan = history_plan(json!([]), json!([[1,0,0],[0,1,0],[0,0,1]]), json!([0,0,0]));
+    plan["setups"][1]["stock"] = plan["setups"][0]["stock"].clone();
+    // Only the Y-min jaw has an actual finished face, 40 × 4 mm.
+    plan["contact_surface_model"] = json!([[[0,0,-20],[40,0,-20],[40,0,-16]],[[0,0,-20],[40,0,-16],[0,0,-16]]]);
+    capp::finish(&mut plan, &library(), &[]).unwrap();
+    assert_eq!(plan["setups"][1]["clamping"]["contact_area_mm2"], json!([160.,0.]));
+    assert!(list(&plan["setups"][1]["operations"]).is_empty());
+    assert!(warnings(&plan).iter().any(|w| w.contains("either jaw has no certain contact")));
+}
+
+#[test]
+fn available_parallels_choose_a_sourced_height_and_enter_the_scene() {
+    let mut tools = library();
+    let vise = &mut tools["machines"][0]["workholding"][0];
+    // Fowler 1/8-inch set: 1/2, 5/8 and 3/4 inch heights (subset).
+    vise["parallels_heights_mm"] = json!([12.7,15.875,19.05]);
+    vise["_sources"] = json!({"parallels_heights_mm":{"url":"https://fowlerprecision.com/products/fowler-1-8-parallel-set","read":"2026-11-11"}});
+    let plan = planned("synthetic/stepped-plate", &tools);
+    assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 4.125);
+    assert!(plan["decisions"].to_string().contains("tallest available parallels"));
+    let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
+    let bodies = list(&jobs[0].manifest["verification"]["scene"]["scene"]["bodies"]);
+    assert_eq!(bodies.len(),4);
+    assert!(bodies.iter().filter(|b| b["id"].as_str().unwrap().contains("parallel")).all(|b| b["role"]=="fixture"));
 }

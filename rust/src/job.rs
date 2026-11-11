@@ -543,6 +543,10 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
                         // Every touched cell must also fit inside the drilled bore.
                         let entry_room = (start - num(mill, "diameter")?) / 2. - 2. * DRILLING_TOLERANCE;
                         let room = neck_room.min(entry_room);
+                        if room <= 0. {
+                            notes.push(format!("{op_id}: {thread}: {} has no positive cutter entry clearance at the operation tolerance", id(mill)));
+                            continue;
+                        }
                         let cell = room / (2f64.sqrt() * THREAD_CELL_SAFETY);
                         let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
                         if cells > MAX_STOCK_CELLS {

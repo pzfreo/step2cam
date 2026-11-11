@@ -95,7 +95,8 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
         "seat under plate top, not boss top at -18"
     );
     assert_eq!(bottom["clamping"]["jaw_top_z"], -8.825);
-    assert_eq!(bottom["clamping"]["parallels"][0]["max"][2], -12.);
+    assert!(list(&bottom["clamping"]["parallels"]).is_empty(), "uninventoried support dimensions must not be inferred from grip");
+    assert!(p["decisions"].to_string().contains("support is not modeled or checked"));
     assert_eq!(
         audit(p, bottom)["status"],
         "no_overlap",

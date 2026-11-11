@@ -255,7 +255,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
-        let mut detail = json!({"contact_area_mm2": contacts, "status": status, "scope": SCOPE, "overlaps": hits, "unchecked": unchecked});
+        let mut detail = json!({"contact_area_mm2": contacts, "status": status, "scope": if certain {"planar finished-part faces clipped to each jaw band, minus earlier drill/thread/edge cutting envelopes; carried height-field stock is not a lower bound; contact area does not prove holding strength or seating"} else {SCOPE}, "overlaps": hits, "unchecked": unchecked});
         if flip {
             detail["prepared_contacts"]=json!(prepared);
             detail["established_seat"]=json!(seated);
