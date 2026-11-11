@@ -112,6 +112,11 @@ The remaining areas in mm² appear in `clamping.contact_area_mm2` and the primar
 decision's `chosen.contact_area_mm2`. Either jaw with zero certain contact withholds that
 setup's operations, with a traced reason. Missing geometry establishes no contact.
 
+Later side jaws use the full part mesh's extent within their grip-height band. A remote
+boss outside that band does not set the opening; only analytic planar faces at the chosen
+jaw planes count toward certain contact. Stock remains the full carried envelope for cutting.
+
+
 The conservative earlier-cut audit remains for evidence the part-face check cannot cover,
 including missing frames and unsupported operations; its scope and warnings remain explicit.
 Target-preserving roughing, facing, flats and wall finishing do not invalidate measured
@@ -661,7 +666,3 @@ builder rebuilds the closed mesh on that source grid. The receiving stock note d
 "the part is free, so stock outside its footprint is dropped". This is an explicit
 separation premise, not a simulated manual toolpath or an added machining plan.
 Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.
-
-Later side jaws use the full part mesh's extent within their grip-height band. A remote
-boss outside that band does not set the opening; only analytic planar faces at the chosen
-jaw planes count toward certain contact. Stock remains the full carried envelope for cutting.
