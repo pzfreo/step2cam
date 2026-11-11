@@ -238,7 +238,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             // Still check holes/notches/slots and all other setups normally.
             // The mesh-proven contact itself survives conservative envelopes
             // that include the finished part. Seating/preparation remain separate checks.
-            
+
             let flip_top = setup["flip_seating"].is_object() && earlier["id"] == "top";
             for (n, op) in cuts {
                 if certain && (!flip || prepared) && matches!(op["kind"].as_str(), Some("roughing" | "flats" | "wall_finish" | "facing")) {continue;}
