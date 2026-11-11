@@ -60,9 +60,8 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
                 "the r2 outcome must be reported against model r1.2");
             let cut_operations = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
                 .filter(|op| op["tool"].is_string()).count();
-            // Removing fixture-specific thread/grid overrides honestly loses the two front
-            // thread features; ordinary coverage must still be retained.
-            assert!(cut_operations >= 16, "complex plate: only {cut_operations} cut operations");
+            // Entry-aware grid refinement recovers both front threads while retaining ordinary coverage.
+            assert!(cut_operations >= 17, "complex plate: only {cut_operations} cut operations");
             let left_out = out["plan"]["skipped"].as_array().unwrap().len();
             assert!(left_out <= 20, "complex plate: {left_out} left-out entries");
         }
@@ -76,7 +75,11 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
             let manifest: camlib::stream::StreamManifest = serde_json::from_value(front["job"].clone()).unwrap();
             let stock = manifest.stock.initial_stock(&||false).unwrap();
             let stock = stock.height().unwrap();
-            let cell = stock.spec().cell_size_mm;
+            // The carried envelope was exported on the previous setup's grid.
+            // Refining the receiving grid cannot shrink that conservative margin.
+            let previous = programs.iter().position(|p| p["setup"] == "front").unwrap() - 1;
+            let cell = programs[previous]["job"]["stock"]["cell_size_mm"].as_f64().unwrap();
+            assert!(stock.spec().cell_size_mm < cell, "front entry refines the receiving grid");
             assert!(stock.cells().iter().all(|c|c.upper_mm <= cell + 1e-4));
             assert!(front["job"]["stock"]["mesh"]["vertices"].as_array().unwrap().iter().all(|p|
                 p[0].as_f64().unwrap() >= -cell-1e-4 && p[0].as_f64().unwrap() <=100.+cell+1e-4
