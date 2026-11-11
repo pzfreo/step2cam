@@ -169,6 +169,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
             exclusions.clear();
+            roughing_refusals.clear();
             continue;
         }
         let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {

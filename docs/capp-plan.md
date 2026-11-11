@@ -259,7 +259,7 @@ physical seating or a holding-strength calculation.
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
 camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
-as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
+as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again. Before excluding adaptive roughing, `process.roughing.bounded_engagement` retries raster with its original cutting data and retains camlib's exact refusal in Why; a failed raster retry follows the normal exclusion route
 from the planned one without it.
 
 ## Documents and schemas

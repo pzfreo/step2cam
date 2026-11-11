@@ -639,5 +639,15 @@
     }
    }
   }
+ },
+ "overrides": {
+  "material": "steel"
+ },
+ "_sources": {
+  "material": {
+   "doi": "10.5281/zenodo.21653081",
+   "license": "CC BY 4.0",
+   "note": "The benchmark dataset consists of synthetic steel parts. Its STEP analyses carry no material, so explicitly supply steel for the sourced ISO P roughing policy rather than silently assuming a material in the planner."
+  }
  }
 }

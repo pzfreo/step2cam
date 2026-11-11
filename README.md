@@ -391,7 +391,7 @@ How each operation gets a tool:
 | Plan operation | camlib operation | Tool |
 | --- | --- | --- |
 | `facing` | `Facing` | the largest end mill (or `facing_tool`) |
-| `roughing` | `Roughing` over the part's mesh, raster clearing | the largest end mill (or `roughing_tool`) |
+| `roughing` | `Roughing` over the part's mesh, bounded engagement for sourced material groups; raster otherwise | the largest end mill (or `roughing_tool`) |
 | `holes` | `Drilling` | the largest drill no bigger than the hole and within `drill_tolerance_mm` of it |
 | `holes` with no such drill | `Bore` (helical) | the largest end mill that fits |
 | `counterbore` | `Bore` (helical) | the largest end mill that fits |
@@ -419,6 +419,18 @@ How deep holes are cut (the log has a note for each case):
   model. Full diameter then ends a tip length short of it.
 
 A hole no tool fits is reported, not guessed.
+
+
+Roughing now requests bounded radial engagement for sourced material groups:
+25% of cutter diameter for ISO N and 10% for ISO P. Stepdown comes from the
+selected tool's flute length, capped at twice its diameter and the existing reach
+and clamping limits. Radial chip thinning raises the lateral feed within the
+machine cutting-feed limit (or existing library limit); entries keep their
+original feed. Other material groups stay raster with a decision explaining the
+missing source. Camlib adaptive refusals trigger one raster retry at the original
+cutting data, with the exact refusal in Why and all checks unchanged. See
+[library policy and sources](libraries/README.md). This can increase browser
+planning time substantially; cutting-time estimates do not include planning.
 
 ## Safety
 
@@ -498,14 +510,3 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
-
-Roughing now requests bounded radial engagement for sourced material groups:
-25% of cutter diameter for ISO N and 10% for ISO P. Stepdown comes from the
-selected tool's flute length, capped at twice its diameter and the existing reach
-and clamping limits. Radial chip thinning raises the lateral feed within the
-machine cutting-feed limit (or existing library limit); entries keep their
-original feed. Other material groups stay raster with a decision explaining the
-missing source. Camlib adaptive refusals trigger one raster retry at the original
-cutting data, with the exact refusal in Why and all checks unchanged. See
-[library policy and sources](libraries/README.md). This can increase browser
-planning time substantially; cutting-time estimates do not include planning.

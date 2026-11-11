@@ -121,3 +121,8 @@ outside the repo (or compare against its Git version), review all differences, a
 validated replacement. For exploratory runs continue to use an output under `/tmp`.
 Keep the baseline paired with the planner commit and library it measures. The original baseline
 reproduced `_ref/first-run-report.txt`; fixture GD&T updates do not affect these dataset parts.
+
+The benchmark library explicitly supplies `overrides.material: "steel"` from the dataset
+description (doi:10.5281/zenodo.21653081, CC BY 4.0). The analysed STEP files do not carry
+a material. This allows the sourced ISO P bounded-engagement roughing policy to be
+exercised; ordinary libraries still require a supplied or specified material.
