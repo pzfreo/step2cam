@@ -37,9 +37,10 @@ LinuxCNC configuration references are in the entry. No new stored value claims t
 be a LinuxCNC default. Fixed language semantics stay in the upstream controller.
 
 Optional vise `parallels_heights_mm` lists available matched-pair heights in mm; cite
-its inventory under the vise's `_sources`. Selection takes the tallest height compatible
-with grip limits and any mesh seating. A selected support enters the fixture scene;
-without inventoried support, even flip seating retains the explicit unchecked-support note.
+its inventory under the vise's `_sources`. Without mesh seating, selection takes the tallest height compatible
+with grip limits. Mesh seating defines the flip support geometry and required height;
+an explicit inventory must include that height. Both kinds enter the fixture scene.
+Without seating or inventoried support, support remains explicitly unchecked.
 The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.
 
 

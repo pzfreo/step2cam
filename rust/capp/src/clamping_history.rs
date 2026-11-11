@@ -208,9 +208,14 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
     let setups = plan["setups"].as_array().cloned().unwrap_or_default();
     for (index, setup) in setups.iter().enumerate().skip(1).filter(|(_, s)| s["clamping"].is_object()) {
         let id = setup["id"].as_str().unwrap_or("");
-        let contacts = certain_contacts(plan, setup, &setups[..index], resources).unwrap_or_else(|| vec![0., 0.]);
-        let certain = contacts.len() == 2 && contacts.iter().all(|a| *a > 1e-8);
-        let contact_says = format!("certain part-face contact per jaw: {:.4} mm², {:.4} mm²; carried upper-bound stock contributes no contact", contacts[0], contacts[1]);
+        let contacts = certain_contacts(plan, setup, &setups[..index], resources);
+        let certain = contacts.as_ref().is_some_and(|a| a.len() == 2 && a.iter().all(|a| *a > 1e-8));
+        let no_contact = contacts.as_ref().is_some_and(|a| a.iter().any(|a| *a <= 1e-8));
+        let contact_says = match &contacts {
+            Some(a) => format!("certain part-face contact per jaw: {:.4} mm², {:.4} mm²; carried upper-bound stock contributes no contact", a[0], a[1]),
+            None if !plan["contact_surface_model"].is_array() => "contact unknown: no part contact model; conservative envelope audit retained".into(),
+            None => "contact unknown: setup frame, grip band or prior-cut geometry unavailable; conservative envelope audit retained".into(),
+        };
         let mut hits = vec![];
         let mut unchecked = vec![];
         let flip=setup["flip_seating"].is_object();
@@ -256,7 +261,7 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let status = if !hits.is_empty() { "possible_overlap" } else if !unchecked.is_empty() { "unchecked" } else { "no_overlap" };
-        let mut detail = json!({"contact_area_mm2": contacts, "status": status, "scope": if certain {"planar finished-part faces clipped to each jaw band, minus earlier drill/thread/edge cutting envelopes; carried height-field stock is not a lower bound; contact area does not prove holding strength or seating"} else {SCOPE}, "overlaps": hits, "unchecked": unchecked});
+        let mut detail = json!({"contact_area_mm2": contacts, "contact_evidence": contact_says, "status": status, "scope": if certain {"planar finished-part faces clipped to each jaw band, minus earlier drill/thread/edge cutting envelopes; carried height-field stock is not a lower bound; contact area does not prove holding strength or seating"} else {SCOPE}, "overlaps": hits, "unchecked": unchecked});
         if flip {
             detail["prepared_contacts"]=json!(prepared);
             detail["established_seat"]=json!(seated);
@@ -268,7 +273,8 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
         };
         let says = if certain && status == "no_overlap" {format!("setup {id}: {contact_says}; final part faces prove retained contact; seating and holding strength are separate checks")}
             else if certain {format!("{says}; {contact_says}")}
-            else {format!("{says}; {contact_says}; grip refused: either jaw has no certain contact")};
+            else if no_contact {format!("{says}; {contact_says}; grip refused: either jaw has no certain contact")}
+            else {format!("{says}; {contact_says}")};
         plan["setups"][index]["clamping"]["contact_area_mm2"] = json!(contacts);
         // Store the audit in the actual given/chosen clamping decision as well as its warning.
         let primary = setup["clamping"]["because"][0].as_str().unwrap_or("");
@@ -276,9 +282,9 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             d["chosen"]["prior_setups"] = detail.clone();
             d["chosen"]["contact_area_mm2"] = json!(contacts);
             d["says"] = json!(format!("{}; {contact_says}", d["says"].as_str().unwrap_or("")));
-            if !certain { d["outcome"] = json!("none"); }
+            if no_contact { d["outcome"] = json!("none"); }
             if flip {
-                let ready=certain && prepared && seated && status=="no_overlap";
+                let ready=!no_contact && prepared && seated && status=="no_overlap";
                 let conclusion=if ready {"finished grip faces and edge seating confirmed by retained top operations"}
                     else {"grip preparation not established; flip clamping is unavailable"};
                 d["says"]=json!(format!("{}; {conclusion}",d["says"].as_str().unwrap_or("")));
@@ -286,12 +292,12 @@ pub fn check(plan: &mut Value, resources: &Value, trace: &mut Trace) {
             }
         }
         let decision = if status == "no_overlap" {
-            trace.decide(RULE, id, if certain {"chosen"} else {"none"}, &says, json!({"chosen": detail}))
+            trace.decide(RULE, id, if no_contact {"none"} else {"chosen"}, &says, json!({"chosen": detail}))
         } else { trace.warn(RULE, id, says, json!({})) };
         because(&mut plan["setups"][index]["clamping"], [decision]);
-        if !certain || (flip && (!prepared || !seated || status != "no_overlap")) {
+        if no_contact || (flip && (!prepared || !seated || status != "no_overlap")) {
             let b=setup["stock"]["max"][2].as_f64().unwrap_or(0.);
-            let reason = if !certain {format!("setup {id} withheld: either jaw has no certain contact; {contact_says}")} else {format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned")};
+            let reason = if no_contact {format!("setup {id} withheld: either jaw has no certain contact; {contact_says}")} else {format!("bottom flip setup withheld: retained Op 1 operations do not establish checked finished grip faces and edge seating; the part remains on {b} mm of sacrificial bottom stock, with the outline and through features stopping in it; face it off by hand or another setup if not replanned")};
             trace.warn(RULE, id, reason.clone(), json!({}));
             for feature in setup["operations"].as_array().into_iter().flatten()
                 .flat_map(|o| o["features"].as_array().into_iter().flatten()).filter_map(Value::as_str) {

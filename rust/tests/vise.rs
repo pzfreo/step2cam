@@ -267,7 +267,9 @@ fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
     assert_eq!(check["overlaps"], json!([{"operation":"top-1-facing","faces":["stock.y.max"]}]));
     assert!(check["scope"].as_str().unwrap().contains("not a stock simulation or proof of face retention"));
     assert!(warnings(&plan).iter().any(|w| w.contains("earlier cuts may have removed material in the later grip band")));
-    assert!(list(&plan["setups"][1]["operations"]).is_empty(), "without a part mesh no certain later contact is established");
+    assert!(list(&plan["setups"][1]["operations"]).iter().any(|o| o["kind"] == "holes"), "the conservative audit warns, rather than removing later cuts");
+    assert!(plan["setups"][1]["clamping"]["contact_area_mm2"].is_null());
+    assert!(check["contact_evidence"].as_str().unwrap().contains("no part contact model"));
 
     let mut moved = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front.clone(), json!([0,50,-20]));
     capp::finish(&mut moved, &library(), &[]).unwrap();

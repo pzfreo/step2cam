@@ -95,8 +95,9 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
         "seat under plate top, not boss top at -18"
     );
     assert_eq!(bottom["clamping"]["jaw_top_z"], -8.825);
-    assert!(list(&bottom["clamping"]["parallels"]).is_empty(), "uninventoried support dimensions must not be inferred from grip");
-    assert!(p["decisions"].to_string().contains("support is not modeled or checked"));
+    assert_eq!(bottom["clamping"]["parallels"][0]["max"][2], -12.);
+    let bodies = list(&job["job"]["verification"]["scene"]["scene"]["bodies"]);
+    assert_eq!(bodies.iter().filter(|b| b["id"].as_str().unwrap().contains("parallel") && b["role"]=="fixture").count(), 2);
     assert_eq!(
         audit(p, bottom)["status"],
         "no_overlap",
@@ -387,4 +388,25 @@ fn unavailable_selected_options_and_invalid_choices_are_explicit() {
         assert!(capp::resources::normalize(&t).is_ok());
         assert!(validator.is_valid(&t));
     }
+}
+
+#[test]
+fn flip_seating_parallels_must_be_achievable_from_inventory() {
+    let (a, m) = input();
+    let mut t = tools();
+    t["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(14.);
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([14.,15.875]);
+    let mut p = capp::flip::plan(&a, &m, &t).unwrap();
+    capp::finish(&mut p, &t, &[]).unwrap();
+    let bottom = setup(&p, "bottom");
+    assert_eq!(list(&bottom["clamping"]["parallels"]).len(), 2);
+    assert_eq!(bottom["clamping"]["parallels"][0]["max"][2], -12.);
+    assert!(list(&bottom["operations"]).iter().any(|o| o["kind"]=="facing"));
+
+    // The fixed height alone must not bypass an explicit inventory restriction.
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([15.875]);
+    let mut p = capp::flip::plan(&a, &m, &t).unwrap();
+    capp::finish(&mut p, &t, &[]).unwrap();
+    assert!(list(&setup(&p, "bottom")["operations"]).is_empty());
+    assert!(p["warnings"].to_string().contains("mesh seating requires 14.0 mm parallels, absent from available heights"));
 }

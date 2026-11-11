@@ -48,13 +48,12 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     let mut parallel = if proposal.is_some_and(|p| p.get("parallels_height_mm").is_some()) {
         given.as_ref().and_then(|p| p.parallels_height_mm)
     } else { vise.and_then(|v| v["parallels_height_mm"].as_f64()) };
-    if parallel.is_none() && !proposal.is_some_and(|p| p.get("parallels_height_mm").is_some())
+    if seating.is_none() && parallel.is_none() && !proposal.is_some_and(|p| p.get("parallels_height_mm").is_some())
         && let Some(heights) = vise.and_then(|v| v["parallels_heights_mm"].as_array()) {
             let maximum = stock_height * rule["max_grip_fraction"].as_f64().unwrap();
             parallel = heights.iter().filter_map(Value::as_f64).filter(|p| {
                 let grip = height-p;
                 grip >= minimum && grip <= maximum && grip <= height
-                    && seating.as_ref().is_none_or(|s| (grip-s["grip_height_mm"].as_f64().unwrap()).abs()<1e-4)
             }).max_by(f64::total_cmp);
             if parallel.is_none() {return Some("no available parallels height satisfies grip limits and seating".into());}
             trace.decide(RULE, &id, "chosen", "choose the tallest available parallels satisfying grip limits and mesh seating (least hidden side material)", json!({"chosen":{"parallels_height_mm":parallel},"sources":vise.map(|v| &v["_sources"])}));
@@ -64,6 +63,13 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         if parallel.is_some_and(|p| (height-p-seat["grip_height_mm"].as_f64().unwrap()).abs()>1e-4) {
             return Some("parallels height disagrees with mesh seating grip".into());
         }
+        let required = r(height - seat["grip_height_mm"].as_f64()?);
+        if let Some(heights) = vise.and_then(|v| v["parallels_heights_mm"].as_array())
+            && !heights.iter().filter_map(Value::as_f64).any(|p| (p-required).abs()<1e-4) {
+            return Some(format!("mesh seating requires {} mm parallels, absent from available heights", show(required)));
+        }
+        // #86's mesh seating defines the support geometry independently of inventory.
+        parallel = Some(required);
     }
     if parallel.is_some_and(|p| !p.is_finite() || p <= 0.) { return Some("parallels height must be positive and finite".into()); }
     let grip = r(given.as_ref().map_or_else(|| parallel.map_or_else(|| seating.as_ref().and_then(|s| s["grip_height_mm"].as_f64()).unwrap_or(minimum), |p| height - p), |p| p.grip_height_mm));

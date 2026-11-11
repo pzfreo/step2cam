@@ -420,18 +420,20 @@ How deep holes are cut (the log has a note for each case):
 
 A hole no tool fits is reported, not guessed.
 
-Later vise setups require positive finished-part contact on both jaws. The planner clips
+When contact geometry is available, later vise setups check finished-part contact on both jaws. The planner clips
 analytically planar mesh faces to each jaw band and reports certain contact area in mm²;
 conservative envelopes of drills, threads and edge breaks reduce that area. No contact on
-either jaw withholds that setup. Carried height-field stock is an upper bound and cannot
+either jaw withholds that setup. Missing contact geometry leaves contact unknown and retains
+the conservative envelope warning without withholding the setup. Carried height-field stock is an upper bound and cannot
 certify contact. This does not establish holding force. Flip seating and preparation still
 need their separate checks.
 
 Vise libraries may inventory `parallels_heights_mm`, with provenance in `_sources`.
 The tallest height satisfying grip limits and mesh seating is chosen and the support bars
 are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
-No shipped library inventories parallels: their absence leaves support explicitly unchecked,
-including flip setups; a derived jaw-minus-grip height is not an available support.
+Flip seating defines its modeled support parallels from the mesh, independently of inventory;
+if an inventory is supplied, it must include the required seating height. Without seating or
+inventoried parallels, support remains explicitly unchecked.
 
 Later side jaws use the full part mesh's extent within their grip-height band. A remote
 boss outside that band does not set the opening; only analytic planar faces at the chosen

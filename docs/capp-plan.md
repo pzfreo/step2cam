@@ -110,7 +110,9 @@ Curved tessellation facets do not count as flat faces. Earlier drill, thread and
 cutting envelopes are subtracted: these operations can extend beyond the target mesh.
 The remaining areas in mm² appear in `clamping.contact_area_mm2` and the primary clamping
 decision's `chosen.contact_area_mm2`. Either jaw with zero certain contact withholds that
-setup's operations, with a traced reason. Missing geometry establishes no contact.
+setup's operations, with a traced reason. Unavailable contact geometry instead reports
+unknown contact (null area and a reason), keeps the setup, and retains the conservative
+prior-cut audit. Flip preparation and seating requirements still apply.
 
 Later side jaws use the full part mesh's extent within their grip-height band. A remote
 boss outside that band does not set the opening; only analytic planar faces at the chosen
@@ -235,10 +237,12 @@ complete opposed contact is preferred, with narrower-axis precedence on a tie.
 Missing support faces or insufficient side contact withhold the option with the
 measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
 matching covers compounded four-decimal serialization; neither is a manufacturing
-tolerance. No support height is inferred from jaw height minus grip. Without inventoried
-parallels, support stays explicitly unmodeled. A vise may list available
-`parallels_heights_mm` with `_sources`; choose the tallest compatible with grip limits and
-mesh seating. A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
+tolerance. The mesh seating defines flip parallels with height equal to jaw height minus
+the seating grip, along with the measured support width and footprints. A vise may list
+available `parallels_heights_mm` with `_sources`; the seating height must be achievable
+from that inventory. Without seating, choose the tallest height compatible with grip limits;
+without either seating or inventoried parallels, support stays explicitly unmodeled.
+A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
 are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
 
 The clamping-history audit requires retained, tooled wall contour segments covering
