@@ -8,7 +8,7 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Done
 
 - #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
-  benchmark (`tools/benchmark`); #46 camlib at its main (c6383a5).
+  benchmark (`tools/benchmark`); #46 camlib at its main (78d3074).
 - Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (cap retained;
   camlib #122 fixed); #35 the tool a left-out feature needs; #34 drills that reach, pecks
   by depth over diameter (deep-hole drilling warned, not planned); #51 ISO 13399 field names.
@@ -33,6 +33,9 @@ order favours what makes the plans correct and honest before what makes them fas
   (GoatCounter): return visits, own-file outcomes, which explanations are read.
 - #94 workholding options (vise ordinary and flip and face) chosen by rule or by a person; #88
   real Carvera and Haas tool libraries; #50 tapping as an alternative to thread milling.
+- #45 stock carried between setups (PR #126); controller settings (PR #128).
+- Rust posts in camlib: Haas NGC (stevecad/camlib#165) and Carvera
+  (stevecad/camlib#179), merged and included at the pin.
 
 ## Parked
 
@@ -53,10 +56,10 @@ is planned and checked, but can't yet be made as it is. In order:
    The notches' r1.2 corners are left r2 by the ⌀4 (smaller tool or rest pass: planner work),
    and times are long under Makera's conservative presets until #37 and #38.
 3. The front holes: hold the finished part on its side (the rest of #43), checked against the
-   stock the top setup left once #45 can (*waits on* stevecad/camlib#121).
+   stock the top setup left (#45, PR #126: done); side workholding remains.
 4. #48 The six r0.8 edge rounds, with a corner-rounding end mill (or break them by hand).
-5. A Carvera post in camlib, so the page's job becomes G-code the machine runs: *deferred*
-   until there is a Carvera to test on (a draft is ready).
+5. The Carvera post: done in camlib (stevecad/camlib#179). G-code from the page is #52,
+   which *waits on* stevecad/camlib#188.
 
 Acceptable as they are: the notches' sharp corners left r3 by the ⌀6 (or a smaller tool, or
 dog-bone relief if the design allows), and the ⌀3.3 holes 6 × D deep drilled with pecks.
@@ -65,7 +68,7 @@ dog-bone relief if the design allows), and the ⌀3.3 holes 6 × D deep drilled 
 
 Done (above). What is left from it:
 
-1. camlib bump to main (c6383a5), with fixes for camlib #122 and #123: done. #36's roughing
+1. camlib bump to main (78d3074), with fixes for camlib #122 and #123: done. #36's roughing
    cap stays until camlib can prove shank clearance inside a pocket it has already cleared;
    relaxing the cap still caused roughing refusals in the deep-part experiment.
 2. #111's holder verdict: done for independent operations. Camlib judges the assembly against
@@ -98,8 +101,7 @@ Done (above). What is left from it:
 
 14. #40 Order setups from the datums.
 15. #41 Keep features toleranced to the same datum in one setup.
-16. #45 Start each later setup from the stock the previous one left.
-    *Waits on* stevecad/camlib#121 (in progress there).
+16. #45 Start each later setup from the stock the previous one left: done (PR #126).
 17. #94 Workholding options: the fixture plate and #87 margins and tabs (see the goal above).
 
 ## Phase 5: cutting data and the machine
@@ -115,8 +117,8 @@ Done (above). What is left from it:
 
 ## Phase 7: G-code in the browser
 
-23. #52 Save G-code from the browser through camlib's Rust posts.
-    camlib#120 is shipped at the pin; browser posting still needs design approval.
+23. #52 Save G-code from the browser through camlib's Rust posts, Carvera and Haas only
+    for now. *Waits on* stevecad/camlib#188.
 
 ## Phase 8: agents
 
