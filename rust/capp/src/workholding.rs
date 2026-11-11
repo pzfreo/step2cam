@@ -66,7 +66,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
         }
     }
     if parallel.is_some_and(|p| !p.is_finite() || p <= 0.) { return Some("parallels height must be positive and finite".into()); }
-    let grip = r(given.as_ref().map_or_else(|| parallel.map_or(minimum, |p| height - p), |p| p.grip_height_mm));
+    let grip = r(given.as_ref().map_or_else(|| parallel.map_or_else(|| seating.as_ref().and_then(|s| s["grip_height_mm"].as_f64()).unwrap_or(minimum), |p| height - p), |p| p.grip_height_mm));
     if !grip.is_finite() { return Some("grip height must be finite".into()); }
     if given.is_some() && parallel.is_some_and(|p| r(height - p) != grip) {
         return Some(format!("given grip {} mm disagrees with {} mm grip set by {} mm parallels and {} mm jaws", show(grip), show(r(height - parallel.unwrap())), show(parallel.unwrap()), show(height)));
