@@ -40,6 +40,8 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Parked
 
 - PR #28 and #57, the lathe: the focus is making 3-axis milling really good first.
+- #37 adaptive roughing (`cx/adaptive-37`): too slow on large parts (camlib #202);
+  deep layers leave shallow-floor stock the flat pass refuses; cause not yet established.
 
 ## Goal: make the complex plate on a Carvera
 
@@ -55,8 +57,10 @@ is planned and checked, but can't yet be made as it is. In order:
 2. #88 The Carvera's real tools: done (Makera's kit and aluminium presets, the 1/4" collet).
    The notches' r1.2 corners are left r2 by the ⌀4 (smaller tool or rest pass: planner work),
    and times are long under Makera's conservative presets until #37 and #38.
-3. The front holes: hold the finished part on its side (the rest of #43), checked against the
-   stock the top setup left (#45, PR #126: done); side workholding remains.
+3. The front holes (#43): entry and neck clearance set the stock grid; later grips use
+   measured finished-part contact on both jaws, never upper-bound carried stock. Available
+   parallels or mesh-seated flip supports are checked as fixtures; missing contact evidence
+   retains the conservative audit.
 4. #48 The six r0.8 edge rounds, with a corner-rounding end mill (or break them by hand).
 5. The Carvera post: done in camlib (stevecad/camlib#179). G-code from the page is #52,
    which *waits on* stevecad/camlib#188.

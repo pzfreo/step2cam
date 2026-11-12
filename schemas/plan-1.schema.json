@@ -41,6 +41,8 @@
     "$ref": "#/$defs/setup"
    }
   },
+  "workholding_surface_model": {"type": ["array", "null"], "description": "Internal full mesh used to locate jaw-band extents."},
+  "contact_surface_model": {"description": "Internal planar mesh triangles in model coordinates for certain jaw contact; omitted from process output.", "type": ["array", "null"]},
   "covered_by_roughing": {
    "type": "array",
    "items": {
@@ -325,6 +327,7 @@
       "$ref": "#/$defs/operation"
      }
     },
+    "grip_surface_model": {"type": ["array", "null"], "description": "Internal mesh used to locate later jaw-band extents."},
     "part_surface": {
      "description": "Set by capp::exclude when roughing is refused, so the finished stock can still be compared with the part; step2cam::process removes it from what it returns."
     },
@@ -366,6 +369,7 @@
      "additionalProperties": false,
      "properties": {
       "contacts": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "properties": {"area_mm2": {"type": "number", "minimum": 0}, "fraction": {"type": "number", "minimum": 0, "maximum": 1.0001}, "effective_length_mm": {"type": "number", "minimum": 0}, "face_model": {"type": "string"}, "offset_mm": {"type": "number", "minimum": 0}}, "additionalProperties": false}},
+      "contact_area_mm2": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0}},
       "contact_min_z": {"type": "number", "description": "Actual finished-face seating Z for flip grip, above the boss/box bottom."},
       "contact_along_min": {"type": "number"},
       "contact_along_max": {"type": "number"},

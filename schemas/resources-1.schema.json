@@ -1517,6 +1517,8 @@
         "type": "number",
         "exclusiveMinimum": 0
        },
+       "_sources": {"type": "object", "description": "Provenance of inventoried vise and parallels dimensions."},
+       "parallels_heights_mm": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "number", "exclusiveMinimum": 0}, "description": "Available matched-pair heights, sourced under _sources. The tallest compatible height is chosen."},
        "parallels_height_mm": {
         "type": "number",
         "exclusiveMinimum": 0

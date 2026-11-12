@@ -36,6 +36,14 @@ are explicitly **placeholders**, not LinuxCNC defaults. Their provenance and the
 LinuxCNC configuration references are in the entry. No new stored value claims to
 be a LinuxCNC default. Fixed language semantics stay in the upstream controller.
 
+Optional vise `parallels_heights_mm` lists available matched-pair heights in mm; cite
+its inventory under the vise's `_sources`. Without mesh seating, selection takes the tallest height compatible
+with grip limits. Mesh seating defines the flip support geometry and required height;
+an explicit inventory must include that height. Both kinds enter the fixture scene.
+Without seating or inventoried support, support remains explicitly unchecked.
+The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.
+
+
 ## Haas VF-2
 
 The library models the standard 8,100 rpm CAT40 VF-2 with flood coolant and a
@@ -69,7 +77,7 @@ The RF100 A 20 mm cutter's 0.45 mm corner chamfer is not represented by the flat
 resource type. Vise jaw thickness is conservatively modeled by the planner as
 jaw height; the vise body, mounting, actual support/parallels and a complete
 machine collision envelope are not represented by this library. Missing
-parallels dimensions leave support unmodeled, as the planner reports.
+parallels dimensions leave support unmodeled outside mesh-seated flip setups, as reported.
 
 Omissions: the 6 mm ball mill has no supported resource type. The optional
 16 mm chamfer cutter is absent because the sourced TOYO family stops at 12 mm;

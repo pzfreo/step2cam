@@ -2119,6 +2119,17 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         // The material as Specify was told it (part.material); capp::finish places it in a group.
         "material": {"specified": analysis["resume"]["answers"]["part.material"].as_str()},
         "part": {"min": rp(part_lo), "max": rp(part_hi)},
+        // Only analytically planar faces are certain contact surfaces. Curved
+        // tessellation facets must never become apparent flat jaw contact.
+        "workholding_surface_model": triangles,
+        "contact_surface_model": mesh.and_then(|m| m["faces"].as_array()).map(|ranges| {
+            ranges.iter().enumerate().filter(|(id, _)| faces.get(&(*id as u64)).is_some_and(|f| f["kind"] == "plane"))
+                .flat_map(|(_, range)| {
+                    let start = range[0].as_u64().unwrap_or(0) as usize;
+                    let count = range[1].as_u64().unwrap_or(0) as usize;
+                    triangles.as_deref().unwrap_or(&[]).get(start..start.saturating_add(count)).unwrap_or(&[]).iter().copied()
+                }).collect::<Vec<_>>()
+        }),
         "setups": setups,
         "covered_by_roughing": covered,
         "roughing_feature_depths": roughing_feature_depths,
