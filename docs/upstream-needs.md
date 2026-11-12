@@ -14,7 +14,7 @@ JSON Schema. The PMI has one (`haecceity.pmi-1.json`, under
 it. It needs to cover the fields a consumer reads: `binding`, `faces`, `features` (each family's
 `record`), `dimensioning`, `existing`, `part` and `resume.answers`.
 
-**Used by.** step2cam's planning (`rust/capp/src/plan.rs`), which reads specify-core's features as they are and has no feature schema
+**Used by.** step2cam's planning (`rust/capp/src/plan/`), which reads specify-core's features as they are and has no feature schema
 of its own.
 
 **Stand-in.** step2cam checks the fields it reads as it reads them, and refuses with a message
@@ -56,7 +56,7 @@ at specify-core's own chordal error. On NIST's CTC 01 test part, the r50 cylinde
 0.14 mm from the true surface, and on a block with a spherical dome (R60) 0.13 mm.
 
 **Used by.** Roughing and the material check, which hand camlib the mesh as the part's surface
-with its `surface_error_mm` (`rust/capp/src/plan.rs`, `rust/src/job.rs`). camlib refuses a surface
+with its `surface_error_mm` (`rust/capp/src/plan/`, `rust/src/job.rs`). camlib refuses a surface
 whose error is over 0.1 mm (stevecad/camlib#64), so CTC 01 gets no roughing.
 
 **Stand-in.** None: the roughing is refused, and the plan says why.
