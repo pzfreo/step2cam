@@ -83,7 +83,8 @@ fn a_blind_thread_is_as_deep_as_asked_or_specify_cores_default() {
 }
 
 #[test]
-fn threads_in_one_setup_come_out_in_size_then_depth_order() {
+fn threads_in_one_setup_come_out_in_thread_key_order() {
+    // The key sorts by spec text first (so "M10" before "M5"), then major, pitch, start diameter, top and bottom z, through, exit clearance.
     let specs = ["M5", "M5@10", "M5", "M5@5.5", "M5@5.5", "M5x0.5", "M6", "M5", "M10"];
     let holes = [
         down(-15., -15., 4.2, 10., "through"), down(-5., -15., 4.2, 10., "flat"), down(5., -15., 4.2, 10., "flat"),
