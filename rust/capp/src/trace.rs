@@ -48,6 +48,24 @@ impl Trace {
         Self { decisions, warnings, skipped, supplied: plan["supplied_decisions"].as_array().cloned().unwrap_or_default() }
     }
 
+    /// [`Trace::take`] from the typed plan.
+    pub(crate) fn take_plan(plan: &mut crate::model::Plan) -> Self {
+        let decisions = plan.decisions.as_mut().map(std::mem::take).unwrap_or_default();
+        let skipped = std::mem::take(&mut plan.skipped).into_iter().map(|s| json!(s)).collect();
+        Self { decisions, warnings: std::mem::take(&mut plan.warnings), skipped, supplied: plan.supplied_decisions.clone().unwrap_or_default() }
+    }
+
+    /// [`Trace::store`] into the typed plan. Fails if a skipped entry does not decode.
+    pub(crate) fn store_plan(self, plan: &mut crate::model::Plan) -> Result<(), String> {
+        if !self.supplied.is_empty() || plan.supplied_decisions.is_some() {
+            plan.supplied_decisions = Some(self.supplied);
+        }
+        plan.decisions = Some(self.decisions);
+        plan.warnings = self.warnings;
+        plan.skipped = self.skipped.into_iter().map(serde_json::from_value).collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     /// Puts the trace back into the plan.
     pub fn store(self, plan: &mut Value) {
         // Only a plan that has supplied decisions, or had the list already, carries it: storing a

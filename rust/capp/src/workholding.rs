@@ -1,19 +1,19 @@
 //! Stock-face clamping in each setup's own frame. No inferred machine dimensions.
-use crate::{plan::{r, show}, trace::Trace};
+use crate::{model::{Cut, Setup}, plan::{r, show}, trace::Trace};
 use serde_json::{Value, json};
 
 const RULE: &str = "machine.clamping";
 
 /// Records the chosen clamping, or returns why the setup cannot be held. Missing jaw
 /// dimensions retain the old opening warning and explicitly skip geometric checks.
-pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, trace: &mut Trace) -> Option<String> {
-    let id = setup["id"].as_str().unwrap_or("").to_string();
-    setup.as_object_mut()?.remove("clamping");
-    let mut lo: [f64; 3] = serde_json::from_value(setup["stock"]["min"].clone()).ok()?;
-    let mut hi: [f64; 3] = serde_json::from_value(setup["stock"]["max"].clone()).ok()?;
-    let seating = setup.get("flip_seating").cloned();
+pub fn clamp(setup: &mut Setup, vise: Option<&Value>, proposal: Option<&Value>, trace: &mut Trace) -> Option<String> {
+    let id = setup.id.clone();
+    setup.clamping = None;
+    let mut lo = setup.stock.min;
+    let mut hi = setup.stock.max;
+    let seating = setup.flip_seating.clone();
     if let Some(seat) = &seating {
-        lo[2] = r(setup["origin_model"][2].as_f64()? - seat["seat_z_model"].as_f64()?);
+        lo[2] = r(setup.origin_model?[2] - seat["seat_z_model"].as_f64()?);
         // Grip limits refer to real finished plate material, excluding the boss
         // below its edge seating and the sacrificial material above its bottom.
         hi[2] = 0.;
@@ -79,7 +79,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     }
     let clearance = rule["clearance_mm"].as_f64().unwrap();
     // The faced top must also stand clear, not just the uncut stock top.
-    let part_top = setup["operations"].as_array().into_iter().flatten().find(|o| o["kind"] == "facing").and_then(|o| o["floor_z"].as_f64()).unwrap_or(hi[2]);
+    let part_top = setup.operations.iter().find_map(|o| match o.cut { Cut::Facing { floor_z } => Some(floor_z), _ => None }).unwrap_or(hi[2]);
     let source = parallel.map_or(String::new(), |p| format!(" set by {} mm parallels", show(p)));
     if grip < minimum {
         return Some(format!("grip {} mm{source} is below minimum grip {} mm{}", show(grip), show(minimum), if parallel.is_some() { "; use shorter parallels" } else { "" }));
@@ -107,7 +107,7 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     let (contact_min, contact_max) = if let Some(seat) = &seating {
         let a = seat["along_min_model"].as_f64()?;
         let b = seat["along_max_model"].as_f64()?;
-        let origin = setup["origin_model"][along].as_f64()?;
+        let origin = setup.origin_model?[along];
         if along == 1 { (r(origin-b),r(origin-a)) } else { (r(a-origin),r(b-origin)) }
     } else { (lo[along],hi[along]) };
     let mut jaws = vec![];
@@ -149,24 +149,24 @@ pub fn clamp(setup: &mut Value, vise: Option<&Value>, proposal: Option<&Value>, 
     } else {
         format!("raise stock on parallels or similar so jaws grip only {} mm; parallels_height_mm absent: support is not modeled or checked, so through cuts are not checked against it", show(grip))
     };
-    let choice = if setup["grip_surface_model"].is_array() { "finished-part extent within the jaw height band; remote bosses do not set jaw opening" } else if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
+    let choice = if setup.grip_surface_model.as_ref().is_some_and(Value::is_array) { "finished-part extent within the jaw height band; remote bosses do not set jaw opening" } else if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
     let remainder = if seating.is_some() { "grip preparation must be verified against retained top operations" }
-        else if setup["flip_role"] == "sacrificial_grip" { "sacrificial stock below the cap is removed by bottom facing" }
+        else if setup.flip_role.as_deref() == Some("sacrificial_grip") { "sacrificial stock below the cap is removed by bottom facing" }
         else { "material below the cap needs a later setup" };
     let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
-    setup["clamping"] = json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "because": [decision]});
+    let clamping = setup.clamping.insert(json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "because": [decision]}));
     if let Some(seat)=&seating {
         let z=seat["contact_patches_model"].as_array().into_iter().flatten().flat_map(|side|side.as_array().into_iter().flatten()).flat_map(|patch|patch.as_array().into_iter().flatten()).filter_map(|p|p[2].as_f64()).fold(f64::NEG_INFINITY,f64::max);
-        setup["clamping"]["contact_min_z"] = json!(r(setup["origin_model"][2].as_f64()? - z));
+        clamping["contact_min_z"] = json!(r(setup.origin_model?[2] - z));
         let mut contacts=seat["contacts"].as_array()?.clone();
         if axis==1 {contacts.reverse();}
-        setup["clamping"]["contacts"] = json!(contacts);
-        setup["clamping"]["contact_along_min"] = json!(contact_min);
-        setup["clamping"]["contact_along_max"] = json!(contact_max);
+        clamping["contacts"] = json!(contacts);
+        clamping["contact_along_min"] = json!(contact_min);
+        clamping["contact_along_max"] = json!(contact_max);
     }
     if let Some(seat)=seating
-        && let Some(d)=trace.decisions.iter_mut().find(|d|d["id"]==setup["clamping"]["because"][0]) {
-            d["chosen"]["contact_measurements"]=setup["clamping"]["contacts"].clone();
+        && let Some(d)=trace.decisions.iter_mut().find(|d|d["id"]==clamping["because"][0]) {
+            d["chosen"]["contact_measurements"]=clamping["contacts"].clone();
             d["chosen"]["support_measurements"]=seat["supports"].clone();
     }
     None
@@ -196,14 +196,14 @@ impl Proposal {
 }
 
 /// Validate a supplied proposal with the ordinary clamp path; refusal falls back to the rule.
-pub fn supplied_clamp(setup: &mut Value, vise: Option<&Value>, trace: &mut Trace) -> Option<String> {
-    let subject = setup["id"].as_str().unwrap_or("");
+pub fn supplied_clamp(setup: &mut Setup, vise: Option<&Value>, trace: &mut Trace) -> Option<String> {
+    let subject = setup.id.as_str();
     if let Some(n) = trace.supplied_for(RULE, subject, None) {
         let choice = trace.supplied[n]["choice"].clone();
         if let Some(reason) = clamp(setup, vise, Some(&choice), trace) {
             trace.refuse(n, &reason);
         } else {
-            let decision = setup["clamping"]["because"][0].as_str().unwrap().to_owned();
+            let decision = setup.clamping.as_ref().unwrap_or(&Value::Null)["because"][0].as_str().unwrap().to_owned();
             trace.accept(n, &decision);
             return None;
         }
@@ -213,10 +213,10 @@ pub fn supplied_clamp(setup: &mut Value, vise: Option<&Value>, trace: &mut Trace
 
 /// Bounds of the complete mesh intersecting the grip-height slab. Include all
 /// curved faces for exclusion, but only analytic planes later certify contact.
-fn band_bounds(setup: &Value, axis: usize, low: f64, high: f64) -> Option<[f64; 2]> {
-    let tris: Vec<[[f64;3];3]> = serde_json::from_value(setup["grip_surface_model"].clone()).ok()?;
-    let rotation: [[f64;3];3] = serde_json::from_value(setup["rotation"].clone()).ok()?;
-    let origin: [f64;3] = serde_json::from_value(setup["origin_model"].clone()).ok()?;
+fn band_bounds(setup: &Setup, axis: usize, low: f64, high: f64) -> Option<[f64; 2]> {
+    let tris: Vec<[[f64;3];3]> = serde_json::from_value(setup.grip_surface_model.clone()?).ok()?;
+    let rotation: [[f64;3];3] = setup.rotation?.map(|row| row.map(f64::from));
+    let origin: [f64;3] = setup.origin_model?;
     let mut bounds = [f64::INFINITY,f64::NEG_INFINITY];
     for tri in tris {
         let polygon = tri.into_iter().map(|p| {

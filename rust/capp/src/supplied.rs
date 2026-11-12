@@ -1,8 +1,23 @@
 //! One boundary for externally supplied choices, their provenance and their disposition.
+use crate::model::Plan;
 use crate::trace::Trace;
 use serde_json::{Value, json};
 
 pub fn load(plan: &mut Value, resources: &Value) -> Result<(), String> {
+    plan["supplied_decisions"] = json!(merge(plan.get("supplied_decisions"), resources)?);
+    Ok(())
+}
+
+/// [`load`] on the typed plan.
+pub(crate) fn load_with(plan: &mut Plan, resources: &Value) -> Result<(), String> {
+    let stored = plan.supplied_decisions.clone().map(Value::Array);
+    plan.supplied_decisions = Some(merge(stored.as_ref(), resources)?);
+    Ok(())
+}
+
+/// The plan's stored supplied decisions (`stored`), then the resources' legacy clamping overrides,
+/// then the resources' own, checked and merged: the last for a rule, subject and operation wins.
+fn merge(stored: Option<&Value>, resources: &Value) -> Result<Vec<Value>, String> {
     let mut entries = vec![];
     let legacy = &resources["overrides"]["clamping"];
     if !legacy.is_null() {
@@ -12,7 +27,7 @@ pub fn load(plan: &mut Value, resources: &Value) -> Result<(), String> {
     }
     let mut merged: Vec<Value> = vec![];
     // Stored entries first, legacy next, explicit resources last: last writer wins.
-    for list in [plan.get("supplied_decisions"), Some(&Value::Array(entries)), resources.get("decisions")].into_iter().flatten() {
+    for list in [stored, Some(&Value::Array(entries)), resources.get("decisions")].into_iter().flatten() {
         for entry in list.as_array().ok_or("supplied decisions must be an array")? {
             let mut entry = entry.clone();
             let obj = entry.as_object_mut().ok_or("a supplied decision must be an object")?;
@@ -31,8 +46,7 @@ pub fn load(plan: &mut Value, resources: &Value) -> Result<(), String> {
             merged.push(entry);
         }
     }
-    plan["supplied_decisions"] = json!(merged);
-    Ok(())
+    Ok(merged)
 }
 
 impl Trace {
