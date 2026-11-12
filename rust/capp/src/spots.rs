@@ -1,7 +1,9 @@
 //! Spot operations are inserted once, before index-based execution exclusions are replayed.
 //! Later reconciliation only removes spots; a refused spot operation is never recreated.
+use crate::model::{Cut, Operation};
 use crate::resources::{Library, drill_tip_length, id, num};
 use crate::trace::{Trace, because};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 pub(crate) fn create(plan: &mut Value, library: &Library) -> Result<(), String> {
@@ -73,13 +75,16 @@ fn hole_drill<'a>(ops: &[Value], setup: &str, number: usize, op: &Value, top: f6
     let subject = format!("{setup}:holes");
     let operation = format!("{setup}-{number}-holes");
     let ambiguous = ops.iter().filter(|o| o["kind"] == "holes").count() > 1;
+    // A bridge: the library takes the typed operation; spots hold JSON until stage 5.
+    let typed = Operation::deserialize(op).map_err(|e| e.to_string())?;
     if let Some(n) = trace.supplied_for("tool.hole.drill_or_bore", &subject, Some(&operation))
         && (!ambiguous || trace.supplied[n].get("operation").is_some())
-        && let Ok((tool, _)) = library.supplied_tool(op, top, &trace.supplied[n]["choice"]) {
+        && let Ok((tool, _)) = library.supplied_tool(&typed, top, &trace.supplied[n]["choice"]) {
         return Ok((tool["type"] == "drill").then_some(tool));
     }
-    let diameter = num(op, "diameter")?;
-    let depth = library.drill_depth(op, top)?;
+    let Cut::Holes(hole) = &typed.cut else { return Err("not a hole operation".into()) };
+    let diameter = hole.diameter;
+    let depth = library.drill_depth(hole, top);
     // Match hole resolution: a usable bore mill takes precedence over a short drill.
     Ok(library.drill(diameter, depth).or_else(|| {
         if library.bore_mill(diameter).is_some() { None } else { library.deferred_drill(diameter, depth) }
@@ -160,7 +165,8 @@ fn layout<T>(ops: &[Value], setup: &str, top: f64, library: &Library, trace: &mu
         for (index, op) in ops.iter().filter(|o| o["kind"] != "spot_drill").enumerate().filter(|(_, o)| o["kind"] == "holes") {
             let operation = format!("{setup}-{}-holes", index + count + 1);
             if let Some(n) = trace.supplied_for("tool.hole.drill_or_bore", &subject, Some(&operation))
-                && library.supplied_tool(op, top, &trace.supplied[n]["choice"]).is_ok() { score += 1; }
+                // A bridge: the library takes the typed operation; spots hold JSON until stage 5.
+                && library.supplied_tool(&Operation::deserialize(op).map_err(|e| e.to_string())?, top, &trace.supplied[n]["choice"]).is_ok() { score += 1; }
         }
         if best.is_none() || score > best_score { best = Some(candidate); best_score = score; ties = 1; }
         else if score == best_score { ties += 1; }

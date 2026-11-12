@@ -1,6 +1,7 @@
 //! Reference data: values from standards and recognised practice, kept as data in
 //! `rulebase/reference/`, each table saying where its values came from and whether they have been
 //! checked against the standard itself.
+use crate::model::{Cut, Operation};
 use serde_json::Value;
 use std::sync::OnceLock;
 
@@ -56,12 +57,18 @@ pub fn full_thread(depth: f64, pitch: f64) -> f64 {
 /// The ISO 14649 names for an operation once its tool is known: the feature it machines, the
 /// operation, a hole's bottom condition, and whether the names fit it exactly
 /// (`iso14649-names.json`). None for a kind the table does not have.
-pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
+pub fn iso14649(op: &Operation, tool_type: Option<&str>) -> Option<Value> {
     static NAMES: OnceLock<Value> = OnceLock::new();
     let names = NAMES.get_or_init(|| table("iso14649-names.json"));
-    let entry = names["kinds"].get(op["kind"].as_str()?)?;
+    let entry = names["kinds"].get(op.cut.kind().name())?;
+    let (open, bottom) = match &op.cut {
+        Cut::Notch(notch) => (notch.open, Some(notch.bottom.as_str())),
+        Cut::Holes(holes) => (false, Some(holes.bottom.as_str())),
+        Cut::Slot(slot) => (false, Some(slot.bottom.as_str())),
+        _ => (false, None),
+    };
     let feature = match entry.get("feature_by_open") {
-        Some(by) => by[if op["open"] == true { "true" } else { "false" }].clone(),
+        Some(by) => by[if open { "true" } else { "false" }].clone(),
         None => entry["feature"].clone(),
     };
     let operation = match entry.get("operation_by_tool") {
@@ -73,7 +80,7 @@ pub fn iso14649(op: &Value, tool_type: Option<&str>) -> Option<Value> {
         None => entry["exact"].clone(),
     };
     let mut out = serde_json::json!({"feature": feature, "operation": operation, "exact": exact});
-    if let Some(bottom) = entry.get("bottom_condition").and_then(|b| b.get(op["bottom"].as_str()?)) {
+    if let Some(bottom) = entry.get("bottom_condition").and_then(|b| b.get(bottom?)) {
         out["bottom_condition"] = bottom.clone();
     }
     if let Some(note) = entry.get("note") {
