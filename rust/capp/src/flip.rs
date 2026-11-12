@@ -1,8 +1,9 @@
 //! The vise flip-and-face option (#86). Callers can offer or withhold this function
 //! independently of machine-independent planning; setup.workholding owns the choice.
 use crate::{
+    model::{Box3, Cut, Operation, Plan, Setup},
     plan::{Options, r},
-    trace::{Trace, because},
+    trace::{Trace, because_op},
 };
 use serde_json::{Value, json};
 const RULE: &str = "setup.flip_face";
@@ -306,50 +307,44 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
 
 /// A cut is modelled only when all its original geometric inputs still agree.
 /// New or altered cuts continue through the conservative grip audit.
-pub(crate) fn modeled_cut(seat: &Value, op: &Value) -> bool {
+pub(crate) fn modeled_cut(seat: &Value, op: &Operation) -> bool {
     // Ordinary generated spots fit entirely inside their modelled parent bore.
     // Enlarged countersinks and altered/unrecognised spots retain the audit.
-    if op["kind"] == "spot_drill" {
+    if let Cut::SpotDrill(drill) = &op.cut {
         let eps = crate::rules::workholding()["flip_frame_tolerance_mm"]
             .as_f64()
             .unwrap();
-        return op["spots"].as_array().is_some_and(|spots| {
-            !spots.is_empty()
-                && spots.iter().all(|spot| {
-                    seat["modeled_cuts"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .any(|hole| {
-                            hole["kind"] == "holes"
-                                && hole["centers"]
+        return !drill.spots.is_empty()
+            && drill.spots.iter().all(|spot| {
+                seat["modeled_cuts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|hole| {
+                        hole["kind"] == "holes"
+                            && hole["centers"]
+                                .as_array()
+                                .is_some_and(|centers| centers.contains(&json!(spot.center)))
+                            && !spot.features.is_empty()
+                            && spot.features.iter().all(|f| {
+                                hole["features"]
                                     .as_array()
-                                    .is_some_and(|centers| centers.contains(&spot["center"]))
-                                && spot["features"].as_array().is_some_and(|features| {
-                                    !features.is_empty()
-                                        && features.iter().all(|f| {
-                                            hole["features"]
-                                                .as_array()
-                                                .is_some_and(|fs| fs.contains(f))
-                                        })
-                                })
-                                && hole["diameter"]
-                                    .as_f64()
-                                    .zip(spot["diameter"].as_f64())
-                                    .is_some_and(|(h, s)| s <= h)
-                                && hole["top_z"]
-                                    .as_f64()
-                                    .zip(spot["top_z"].as_f64())
-                                    .is_some_and(|(h, s)| (h - s).abs() <= eps)
-                                && spot["top_z"]
-                                    .as_f64()
-                                    .zip(spot["depth"].as_f64())
-                                    .zip(hole["bottom_z"].as_f64())
-                                    .is_some_and(|((top, depth), bottom)| top - depth >= bottom)
-                        })
-                })
-        });
+                                    .is_some_and(|fs| fs.iter().any(|x| x == f))
+                            })
+                            && hole["diameter"]
+                                .as_f64()
+                                .is_some_and(|h| spot.diameter <= h)
+                            && hole["top_z"]
+                                .as_f64()
+                                .is_some_and(|h| (h - spot.top_z).abs() <= eps)
+                            && spot
+                                .depth
+                                .zip(hole["bottom_z"].as_f64())
+                                .is_some_and(|(depth, bottom)| spot.top_z - depth >= bottom)
+                    })
+            });
     }
+    let op = json!(op);
     seat["modeled_cuts"]
         .as_array()
         .into_iter()
@@ -362,8 +357,13 @@ pub(crate) fn modeled_cut(seat: &Value, op: &Value) -> bool {
 
 /// Reset exclusions when switching plans: operation indices belong to one plan.
 pub fn fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Value, String> {
-    let mut p = crate::plan::plan(analysis, Some(mesh), &Options::default())?;
-    let mut trace = Trace::take(&mut p);
+    serde_json::to_value(build_fallback(analysis, mesh, reason)?).map_err(|e| e.to_string())
+}
+
+/// [`fallback`], as types.
+pub fn build_fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Plan, String> {
+    let mut p = crate::plan::build(analysis, Some(mesh), &Options::default())?;
+    let mut trace = Trace::take_plan(&mut p);
     trace.decide(
         RULE,
         "part",
@@ -371,17 +371,22 @@ pub fn fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Value, S
         &format!("vise flip option withheld; replanned without sacrificial bottom stock: {reason}"),
         json!({"chosen":{"option":"vise_flip_face","selected":true,"available":false}}),
     );
-    trace.store(&mut p);
+    trace.store_plan(&mut p)?;
     Ok(p)
 }
 
 /// Resource-aware entry point. Always trace availability, but only build the
 /// flip when overrides.workholding_option explicitly selects vise_flip_face.
 pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, String> {
+    serde_json::to_value(build(analysis, mesh, resources)?).map_err(|e| e.to_string())
+}
+
+/// [`plan`], as types.
+pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, String> {
     let requested = crate::resources::workholding_option(resources)?;
     let selected = requested == Some("vise_flip_face");
     let defaults = Options::default();
-    let original = crate::plan::plan(analysis, Some(mesh), &defaults)?;
+    let original = crate::plan::build(analysis, Some(mesh), &defaults)?;
     let availability: Result<(f64, Value, Point, Point), String> = (|| {
         let vise = crate::machines::dimensioned_vise(resources)
             .ok_or("a mill with a dimensioned vise is required (jaw width, height and opening)")?;
@@ -393,12 +398,17 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
                 "explicit clamping proposals retain their original stock and setup contract".into(),
             );
         }
-        let eligible = original["setups"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .flat_map(|s| s["operations"].as_array().into_iter().flatten())
-            .any(|o| o["web_mm"].as_f64().is_some_and(|w| w > 0.) || o["bottom"] == "through");
+        let eligible = original
+            .setups
+            .iter()
+            .flat_map(|s| &s.operations)
+            .any(|o| match &o.cut {
+                Cut::Roughing(c) => c.web_mm > 0.,
+                Cut::Holes(c) => c.bottom == "through",
+                Cut::Slot(c) => c.bottom == "through",
+                Cut::Notch(c) => c.bottom == "through",
+                _ => false,
+            });
         if !eligible {
             return Err(
                 "the part has no planned web or through features requiring flip-and-face".into(),
@@ -408,18 +418,9 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
             .map_err(|e| format!("flip needs mesh bounds: {e}"))?;
         let hi: Point = serde_json::from_value(mesh["bbox"][1].clone())
             .map_err(|e| format!("flip needs mesh bounds: {e}"))?;
-        if !original["setups"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .any(|s| {
-                s["id"] == "top"
-                    && s["operations"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .any(|o| o["kind"] == "roughing")
-            })
+        if !original.setups.iter().any(|s| {
+            s.id == "top" && s.operations.iter().any(|o| matches!(o.cut, Cut::Roughing(_)))
+        })
         {
             return Err("no valid top roughing surface to prepare the finished grip".into());
         }
@@ -462,9 +463,9 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
             Err(reason) => format!("vise flip-and-face option was not selected and is unavailable: {reason}"),
         };
         let mut p = original;
-        let mut trace = Trace::take(&mut p);
+        let mut trace = Trace::take_plan(&mut p);
         trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available,"unavailable_reason":availability.as_ref().err()}}));
-        trace.store(&mut p);
+        trace.store_plan(&mut p)?;
         return Ok(p);
     }
     let (b, mut seat, lo, hi) = availability?;
@@ -473,43 +474,51 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         skin: 0.,
         ..defaults
     };
-    let mut p = crate::plan::plan(analysis, Some(mesh), &options)?;
-    let mut trace = Trace::take(&mut p);
+    let mut p = crate::plan::build(analysis, Some(mesh), &options)?;
+    let mut trace = Trace::take_plan(&mut p);
     let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
     let warning = trace.warn(RULE,"bottom",format!("bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Holding strength is not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the conservative height-field stock can fill voids within the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
-    let setups = p["setups"].as_array_mut().unwrap();
-    let top = setups.iter_mut().find(|s| s["id"] == "top").unwrap();
-    top["flip_role"] = json!("sacrificial_grip");
+    let setups = &mut p.setups;
+    let top = setups.iter_mut().find(|s| s.id == "top").unwrap();
+    top.flip_role = Some("sacrificial_grip".into());
     seat["modeled_cuts"] = json!(
-        top["operations"]
-            .as_array()
-            .unwrap()
+        top.operations
             .iter()
             .filter(|op| !matches!(
-                op["kind"].as_str(),
-                Some("roughing" | "flats" | "facing" | "wall_finish")
+                op.cut,
+                Cut::Roughing(_) | Cut::Flats { .. } | Cut::Facing { .. } | Cut::WallFinish(_)
             ))
             .map(|op| {
-                let mut cut = op.clone();
+                let mut cut = json!(op);
                 cut.as_object_mut().unwrap().remove("because");
                 cut
             })
             .collect::<Vec<_>>()
     );
-    for op in top["operations"].as_array_mut().unwrap() {
-        because(op, [chosen.clone()]);
+    for op in &mut top.operations {
+        because_op(op, [chosen.clone()]);
     }
     // Preserve genuine bottom-entered features and their original part-zero frame.
-    let index = setups.iter().position(|s| s["id"] == "bottom");
-    let mut bottom = index.map(|i| setups.remove(i)).unwrap_or_else(|| json!({"id":"bottom","zero":"part","rotation":[[1,0,0],[0,-1,0],[0,0,-1]],"origin_model":[lo[0],hi[1],lo[2]],"stock":{"min":[0.,0.,r(lo[2]-hi[2])],"max":[r(hi[0]-lo[0]),r(hi[1]-lo[1]),0.]},"operations":[]}));
-    bottom["stock"]["max"][2] = json!(b);
+    let index = setups.iter().position(|s| s.id == "bottom");
+    let mut bottom = index.map(|i| setups.remove(i)).unwrap_or_else(|| Setup {
+        id: "bottom".into(),
+        zero: Some("part".into()),
+        rotation: Some([[1, 0, 0], [0, -1, 0], [0, 0, -1]]),
+        origin_model: Some([lo[0], hi[1], lo[2]]),
+        stock: Box3 { min: [0., 0., r(lo[2] - hi[2])], max: [r(hi[0] - lo[0]), r(hi[1] - lo[1]), 0.] },
+        operations: vec![],
+        machine: None,
+        stock_note: None,
+        flip_role: None,
+        part_surface: None,
+        clamping: None,
+        flip_seating: None,
+        before_setup: None,
+        grip_surface_model: None,
+    });
+    bottom.stock.max[2] = b;
     // Both jobs carry the complete target surface for camlib's material check.
-    if let Some(rough) = setups[0]["operations"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|o| o["kind"] == "roughing")
-    {
+    if let Some(rough) = setups[0].operations.iter().find(|o| matches!(o.cut, Cut::Roughing(_))) {
         let mut surface = rough.clone();
         let positions: Vec<_> = mesh["positions"]
             .as_array()
@@ -525,11 +534,13 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
                 ]
             })
             .collect();
-        surface["positions"] = json!(positions);
-        bottom["part_surface"] = surface;
+        if let Cut::Roughing(c) = &mut surface.cut {
+            c.positions = Some(positions);
+        }
+        bottom.part_surface = Some(Box::new(surface));
     }
-    bottom["flip_seating"] = seat;
-    bottom["flip_seating"]["residual_margin_mm"] = json!(options.margin);
+    seat["residual_margin_mm"] = json!(options.margin);
+    bottom.flip_seating = Some(seat);
     let faced = trace.decide(
         "process.facing",
         "bottom:facing",
@@ -537,7 +548,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         "face sacrificial bottom stock to the part bottom at thickness",
         Value::Null,
     );
-    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup zeroed on the part bottom; request the preceding finished stock, with part box plus sacrificial stock only as an explicit fallback", json!({"zero":"part","stock":bottom["stock"]}));
+    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup zeroed on the part bottom; request the preceding finished stock, with part box plus sacrificial stock only as an explicit fallback", json!({"zero":"part","stock":bottom.stock}));
     let order = trace.decide(
         "sequence.fixed_order",
         "bottom",
@@ -545,12 +556,19 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
         "face to thickness before genuine bottom-entered features",
         Value::Null,
     );
-    bottom["operations"].as_array_mut().unwrap().insert(
+    bottom.operations.insert(
         0,
-        json!({"kind":"facing","floor_z":0.,"because":[chosen,warning,faced,stock,order]}),
+        Operation {
+            cut: Cut::Facing { floor_z: 0. },
+            tool: None,
+            tool_note: None,
+            because: Some(vec![chosen, warning, faced, stock, order]),
+            iso14649: None,
+            technology: None,
+        },
     );
     setups.insert(1, bottom);
-    trace.store(&mut p);
+    trace.store_plan(&mut p)?;
     Ok(p)
 }
 
@@ -560,12 +578,11 @@ mod tests {
     #[test]
     fn only_spots_inside_a_modeled_parent_bore_share_its_contact_measurement() {
         let seat = json!({"modeled_cuts":[{"kind":"holes","centers":[[2.,3.]],"features":["hole:1"],"top_z":-1.,"bottom_z":-9.,"diameter":4.}]});
-        let mut spot = json!({"kind":"spot_drill","spots":[{"center":[2.,3.],"features":["hole:1"],"top_z":-1.,"depth":1.,"diameter":4.}]});
+        let mut spot: Operation = serde_json::from_value(json!({"kind":"spot_drill","spot_tool":null,"diameter":4.,"angle":118.,"reach":1.,"spots":[{"center":[2.,3.],"features":["hole:1"],"top_z":-1.,"depth":1.,"diameter":4.,"countersink":false}]})).unwrap();
         assert!(modeled_cut(&seat, &spot));
-        spot["spots"][0]["diameter"] = json!(5.);
+        if let Cut::SpotDrill(drill) = &mut spot.cut { drill.spots[0].diameter = 5.; }
         assert!(!modeled_cut(&seat, &spot));
-        spot["spots"][0]["diameter"] = json!(4.);
-        spot["spots"][0]["depth"] = json!(10.);
+        if let Cut::SpotDrill(drill) = &mut spot.cut { drill.spots[0].diameter = 4.; drill.spots[0].depth = Some(10.); }
         assert!(!modeled_cut(&seat, &spot));
     }
     fn interrupted_sides(hole_width: f64, hole_bottom: f64, top: bool) -> Value {

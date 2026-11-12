@@ -259,8 +259,7 @@ pub fn check(plan: &mut Plan, resources: &Value, trace: &mut Trace) {
             let seat = setup.flip_seating.as_ref().unwrap_or(&Value::Null);
             for (n, op) in cuts {
                 if certain && (!flip || prepared) && preserves(op) {continue;}
-                // flip.rs reads the operation as JSON until it is typed.
-                if flip_top && prepared && (matches!(op.cut.kind(), OpKind::Roughing | OpKind::Flats | OpKind::WallFinish) || crate::flip::modeled_cut(seat, &json!(op))) { continue; }
+                if flip_top && prepared && (matches!(op.cut.kind(), OpKind::Roughing | OpKind::Flats | OpKind::WallFinish) || crate::flip::modeled_cut(seat, op)) { continue; }
                 let operation = format!("{}-{}-{}", earlier.id, n + 1, op.cut.kind().name());
                 let cut = if flip && let Cut::SpotDrill(spot) = &op.cut {
                     spot_envelope(spot)
