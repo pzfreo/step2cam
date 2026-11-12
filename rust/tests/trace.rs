@@ -20,8 +20,17 @@ const STAGES: [&str; 8] = ["requirement", "setup", "process", "sequence", "feasi
 #[test]
 fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
     let mut used = BTreeSet::new();
-    for entry in fs::read_dir(repo("rust/capp/src")).unwrap() {
-        let text = fs::read_to_string(entry.unwrap().path()).unwrap();
+    // Source files, including those in module directories such as `plan/`.
+    let mut sources = vec![];
+    let mut dirs = vec![repo("rust/capp/src")];
+    while let Some(dir) = dirs.pop() {
+        for entry in fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { dirs.push(path) } else { sources.push(path) }
+        }
+    }
+    for path in sources {
+        let text = fs::read_to_string(path).unwrap();
         // Every string literal that is a dotted name in a stage's namespace.
         for piece in text.split('"').skip(1).step_by(2) {
             let parts: Vec<&str> = piece.split('.').collect();
