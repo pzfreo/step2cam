@@ -250,7 +250,7 @@ fn clamping_proposals_are_checked_rather_than_silently_replaced() {
 fn history_plan(operations: Value, rotation: Value, origin: Value) -> Value {
     json!({"setups":[
         {"id":"top","rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,0],"stock":{"min":[0,0,-20],"max":[40,30,0]},"operations":operations},
-        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bore_top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":[]}]}
+        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bore_top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":["holes:0"]}]}
     ], "covered_by_roughing":[], "skipped":[], "warnings":[]})
 }
 fn audit(plan: &Value) -> &Value {

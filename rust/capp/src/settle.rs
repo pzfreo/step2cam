@@ -23,15 +23,32 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     let mut trace = Trace::take(plan);
     crate::machines::place(plan, library, &mut trace);
     trace.store(plan);
-    settle(plan, library)?;
-    crate::spots::create(plan, &Library::new(library)?)?;
+    let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
+    let mut trace = Trace::take(plan);
+    let result = finish_with(&mut typed, library, exclusions, &mut trace);
+    // Whatever happened, the plan keeps what it had changed and decided.
+    store(plan, &typed, trace).and(result)?;
+    let mut trace = Trace::take(plan);
+    crate::clamping_history::check(plan, library, &mut trace);
+    crate::machines::check_changer(plan, library, &mut trace);
+    trace.refuse_unused();
+    trace.store(plan);
+    crate::needed::collect(plan);
+    Ok(())
+}
+
+/// The middle of [`finish`], on the typed plan with one trace: settle, make spots, take out each
+/// exclusion and settle again, then resolve the tools.
+fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Value], trace: &mut Trace) -> Result<(), String> {
+    settle_with(plan, library, trace)?;
+    crate::spots::create_with(plan, &Library::new(library)?, trace)?;
     for exclusion in exclusions {
         let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
         let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), exclusion["tool"].as_str(), &exclusion["reach"], &Library::new(library)?)?;
-        exclude(plan, operation, &message)
+        let (id, removed) = take_out(plan, operation)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
+        exclude_with(plan, operation, &message, &id, &removed, trace);
         // Preserve the engine's unedited evidence independently of the reader-facing wording.
-        let mut trace = Trace::take(plan);
         if let Some(decision) = trace.decisions.iter_mut().rev().find(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed") {
             decision["message"] = exclusion["message"].clone();
             let refused = decision["id"].clone();
@@ -43,19 +60,11 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
                 trace.decide(selection["rule"].as_str().unwrap().split('@').next().unwrap(), selection["subject"].as_str().unwrap(), "chosen", selection["says"].as_str().unwrap(), json!(detail));
             }
         }
-        trace.store(plan);
-        settle(plan, library)?;
-        crate::spots::prune(plan, &Library::new(library)?, false)?;
+        settle_with(plan, library, trace)?;
+        crate::spots::prune_with(plan, &Library::new(library)?, false, trace)?;
     }
-    crate::spots::prune(plan, &Library::new(library)?, true)?;
-    resolve(plan, library)?;
-    let mut trace = Trace::take(plan);
-    crate::clamping_history::check(plan, library, &mut trace);
-    crate::machines::check_changer(plan, library, &mut trace);
-    trace.refuse_unused();
-    trace.store(plan);
-    crate::needed::collect(plan);
-    Ok(())
+    crate::spots::prune_with(plan, &Library::new(library)?, true, trace)?;
+    resolve_with(plan, library, trace)
 }
 
 /// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
