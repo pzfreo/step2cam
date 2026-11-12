@@ -15,14 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup target add wasm32-unknown-unknown
-      - name: wasm-pack, wasm-bindgen and wasm-opt, through GitHub's API
-        run: .github/install-wasm-tools.sh
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - run: demo/build.sh
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: ./.github/actions/build-site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: The benchmark's own tests
+        run: python3 -I -m unittest
+        working-directory: tools/benchmark
       - run: rust/fetch-camlib.sh
       - run: cargo test --release --workspace
         working-directory: rust
@@ -16,3 +19,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: The setup sheet's content
         run: node tests/report.mjs
+  site:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: The WebAssembly site builds, as Pages builds it
+        uses: ./.github/actions/build-site

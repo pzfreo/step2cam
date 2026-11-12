@@ -1,0 +1,16 @@
+name: Build the site
+description: Builds the WebAssembly site into site/, as Pages deploys it and CI checks it.
+runs:
+  using: composite
+  steps:
+    - run: rustup target add wasm32-unknown-unknown
+      shell: bash
+    - name: wasm-pack, wasm-bindgen and wasm-opt, through GitHub's API
+      run: .github/install-wasm-tools.sh
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+    - run: demo/build.sh
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
