@@ -276,8 +276,6 @@ fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
     capp::finish(&mut moved, &library(), &[]).unwrap();
     assert_eq!(audit(&moved)["status"], "no_overlap", "origin_model must affect the comparison");
     let mut excluded = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front, json!([0,0,-20]));
-    // A spot drill made for a hole with no feature does not decode, and exclude needs the plan to decode.
-    excluded["setups"][1]["operations"][0]["features"] = json!(["holes:0"]);
     capp::finish(&mut excluded, &library(), &[json!({"operation":"top-1-facing","message":"test exclusion"})]).unwrap();
     assert_eq!(audit(&excluded)["status"], "no_overlap", "refused earlier operations must not invent removed material");
 }
@@ -323,6 +321,13 @@ fn a_later_grip_requires_certain_contact_on_both_jaws() {
     assert_eq!(plan["setups"][1]["clamping"]["contact_area_mm2"], json!([160.,0.]));
     assert!(list(&plan["setups"][1]["operations"]).is_empty());
     assert!(warnings(&plan).iter().any(|w| w.contains("either jaw has no certain contact")));
+}
+
+#[test]
+fn a_hole_naming_fewer_features_than_centres_is_refused() {
+    let mut plan = history_plan(json!([]), json!([[1,0,0],[0,1,0],[0,0,1]]), json!([0,0,0]));
+    plan["setups"][1]["operations"][0]["features"] = json!([]);
+    assert_eq!(capp::finish(&mut plan, &library(), &[]), Err("holes name fewer features than centres".into()));
 }
 
 #[test]
