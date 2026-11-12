@@ -32,7 +32,8 @@ pub(super) struct Hole {
     bottom_z: f64,
     pub(super) diameter: f64,
     bottom: String,
-    exit_clear: Option<Option<f64>>,
+    /// For a through hole, how far below its exit the tool may go (`None`: unrestricted).
+    exit_clear: Option<f64>,
     enlargements: Vec<(f64, f64, f64)>,
     pub(super) csink: Value,
     thread: Option<Tapped>,
@@ -125,12 +126,24 @@ pub(super) fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Th
     found
 }
 
-/// A hole as setup-frame geometry, or why it is skipped.
-/// What became of a hole: its setup, the hole, its warnings (rule, text) and the setups it lies
-/// along that were rejected because part material stands above its opening.
-type Placed = (&'static str, Hole, Vec<(&'static str, String)>, Vec<&'static str>);
+/// A hole placed in a setup.
+pub(super) struct Placed {
+    pub(super) setup: &'static str,
+    pub(super) hole: Hole,
+    /// Warnings as (rule, text).
+    pub(super) warnings: Vec<(&'static str, String)>,
+    /// Setups it lies along that were rejected because part material stands above its opening.
+    pub(super) blocked: Vec<&'static str>,
+}
 
-pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Result<Result<Placed, (&'static str, String)>, String> {
+/// A hole no setup can cut: the rule that refused it and why.
+pub(super) struct Refused {
+    pub(super) rule: &'static str,
+    pub(super) reason: String,
+}
+
+/// A hole as setup-frame geometry, or why it is skipped. The outer error stops planning.
+pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Thread>) -> Result<Result<Placed, Refused>, String> {
     let record = &feature["record"];
     let id = feature["id"].as_str().unwrap_or("").to_string();
     let axis0 = unit(v3(&record["axis"])?)?;
@@ -160,16 +173,16 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
     }
     if options.is_empty() {
         if !blocked.is_empty() {
-            return Ok(Err(("setup.hole.blocked_above", format!(
+            return Ok(Err(Refused { rule: "setup.hole.blocked_above", reason: format!(
                 "part material above its opening from {}: a three-axis tool cannot reach it",
                 blocked.join(", ")
-            ))));
+            ) }));
         }
         let axis = v3(&record["axis"])?;
-        return Ok(Err(("setup.hole.oblique", format!(
+        return Ok(Err(Refused { rule: "setup.hole.oblique", reason: format!(
             "oblique axis [{}, {}, {}]: needs a setup this bridge does not make",
             show(r(axis[0])), show(r(axis[1])), show(r(axis[2]))
-        ))));
+        ) }));
     }
     let rank = |name: &str| cx.preferred.iter().position(|p| *p == name).unwrap_or(usize::MAX);
     let mut best = 0;
@@ -216,7 +229,7 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
             Some(mesh) => clear_below(frame.triangles(mesh), (bottom[0], bottom[1]), bottom[2], diameter / 2.),
             None => if on_face { None } else { Some(0.) },
         };
-        hole.exit_clear = Some(clear.map(r));
+        hole.exit_clear = clear.map(r);
         if !on_face {
             warnings.push(("process.hole.short_of_far_face", format!(
                 "{id}: the through hole ends {} mm short of the part's far face in the {name} setup; \
@@ -245,7 +258,7 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
         }
     }
     hole.csink = if !chosen.reversed && truthy(record.get("csink")) { record["csink"].clone() } else { Value::Null };
-    Ok(Ok((name, hole, warnings, blocked)))
+    Ok(Ok(Placed { setup: name, hole, warnings, blocked }))
 }
 
 /// Holes of one diameter, depth and ending as one operation over their centres, in the order of
@@ -256,7 +269,7 @@ pub(super) fn hole_operations(holes: &[Hole]) -> Vec<model::Cut> {
     }
     let same = |a: &Hole, b: &Hole| {
         a.diameter == b.diameter && a.top_z == b.top_z && a.bore_top_z == b.bore_top_z && a.bottom_z == b.bottom_z
-            && a.bottom == b.bottom && a.exit_clear.flatten() == b.exit_clear.flatten()
+            && a.bottom == b.bottom && a.exit_clear == b.exit_clear
     };
     let mut groups: Vec<Group> = vec![];
     for h in holes {
@@ -265,7 +278,7 @@ pub(super) fn hole_operations(holes: &[Hole]) -> Vec<model::Cut> {
             None => groups.push(Group { members: vec![h] }),
         }
     }
-    let clear_key = |h: &Hole| h.exit_clear.flatten().unwrap_or(-1e18);
+    let clear_key = |h: &Hole| h.exit_clear.unwrap_or(-1e18);
     groups.sort_by(|a, b| {
         let (x, y) = (a.members[0], b.members[0]);
         x.diameter.total_cmp(&y.diameter)
@@ -284,7 +297,7 @@ pub(super) fn hole_operations(holes: &[Hole]) -> Vec<model::Cut> {
                 bottom_z: h.bottom_z, bottom: h.bottom.clone(),
                 centers: g.members.iter().map(|m| m.center).collect(),
                 features: g.members.iter().map(|m| m.feature.clone()).collect(),
-                exit_clear_mm: (h.bottom == "through").then(|| h.exit_clear.flatten()),
+                exit_clear_mm: (h.bottom == "through").then_some(h.exit_clear),
                 countersinks: g.members.iter().any(|h| !h.csink.is_null())
                     .then(|| g.members.iter().map(|h| Some(h.csink.clone()).filter(|c| !c.is_null())).collect()),
             })
@@ -314,38 +327,60 @@ pub(super) fn counterbore_operations(holes: &[Hole]) -> Vec<model::Cut> {
         .collect()
 }
 
+/// What threaded holes must share to be one thread operation; operations come out in the
+/// order of these fields.
+#[derive(PartialEq)]
+struct ThreadKey {
+    spec: String,
+    major: f64,
+    pitch: f64,
+    start_diameter: f64,
+    top_z: f64,
+    bottom_z: f64,
+    through: bool,
+    exit_clear: Option<f64>,
+}
+
+impl ThreadKey {
+    /// Field by field, floats by `total_cmp`, an unrestricted exit last.
+    fn order(&self, other: &Self) -> std::cmp::Ordering {
+        let clear = |k: &Self| k.exit_clear.unwrap_or(f64::INFINITY);
+        self.spec.cmp(&other.spec)
+            .then(self.major.total_cmp(&other.major))
+            .then(self.pitch.total_cmp(&other.pitch))
+            .then(self.start_diameter.total_cmp(&other.start_diameter))
+            .then(self.top_z.total_cmp(&other.top_z))
+            .then(self.bottom_z.total_cmp(&other.bottom_z))
+            .then(self.through.cmp(&other.through))
+            .then(clear(self).total_cmp(&clear(other)))
+    }
+}
+
 pub(super) fn thread_operations(holes: &[Hole]) -> Vec<model::Cut> {
-    let key = |h: &Hole, t: &Tapped| (t.spec.clone(), t.major, t.pitch, h.diameter, t.top_z, t.bottom_z, h.bottom == "through", h.exit_clear.flatten());
-    let mut groups: Vec<(_, Vec<&Hole>)> = vec![];
+    let mut groups: Vec<(ThreadKey, Vec<&Hole>)> = vec![];
     for h in holes {
         let Some(t) = &h.thread else { continue };
-        let k = key(h, t);
+        let k = ThreadKey {
+            spec: t.spec.clone(), major: t.major, pitch: t.pitch, start_diameter: h.diameter,
+            top_z: t.top_z, bottom_z: t.bottom_z, through: h.bottom == "through", exit_clear: h.exit_clear,
+        };
         match groups.iter_mut().find(|g| g.0 == k) {
             Some(g) => g.1.push(h),
             None => groups.push((k, vec![h])),
         }
     }
-    groups.sort_by(|(a, _), (b, _)| {
-        a.0.cmp(&b.0)
-            .then(a.1.total_cmp(&b.1))
-            .then(a.2.total_cmp(&b.2))
-            .then(a.3.total_cmp(&b.3))
-            .then(a.4.total_cmp(&b.4))
-            .then(a.5.total_cmp(&b.5))
-            .then(a.6.cmp(&b.6))
-            .then(a.7.unwrap_or(f64::INFINITY).total_cmp(&b.7.unwrap_or(f64::INFINITY)))
-    });
+    groups.sort_by(|(a, _), (b, _)| a.order(b));
     groups
         .into_iter()
         .map(|(k, members)| {
             model::Cut::Thread(model::Thread {
-                spec: k.0, major: k.1, pitch: k.2, start_diameter: k.3,
-                top_z: k.4, bottom_z: k.5, through: k.6,
+                spec: k.spec, major: k.major, pitch: k.pitch, start_diameter: k.start_diameter,
+                top_z: k.top_z, bottom_z: k.bottom_z, through: k.through,
                 centers: members.iter().map(|m| m.center).collect(),
                 features: members.iter().map(|m| m.feature.clone()).collect(),
                 hand: None,
                 // Preserve unrestricted legacy plans; only a measured obstruction adds a bound.
-                exit_clear_mm: k.7.filter(|_| k.6),
+                exit_clear_mm: k.exit_clear.filter(|_| k.through),
             })
         })
         .collect()

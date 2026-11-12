@@ -83,6 +83,35 @@ fn a_blind_thread_is_as_deep_as_asked_or_specify_cores_default() {
 }
 
 #[test]
+fn threads_in_one_setup_come_out_in_size_then_depth_order() {
+    let specs = ["M5", "M5@10", "M5", "M5@5.5", "M5@5.5", "M5x0.5", "M6", "M5", "M10"];
+    let holes = [
+        down(-15., -15., 4.2, 10., "through"), down(-5., -15., 4.2, 10., "flat"), down(5., -15., 4.2, 10., "flat"),
+        down(15., -15., 4.2, 10., "flat"), down(-15., 0., 4.3, 10., "flat"), down(-5., 0., 4.5, 10., "flat"),
+        down(5., 0., 5., 10., "through"), down(15., 0., 4.2, 10., "flat"), down(-15., 15., 8.5, 10., "through"),
+    ];
+    let mut a = holes_only(&holes);
+    let mut answers = json!({});
+    for (i, spec) in specs.iter().enumerate() {
+        a["features"][i]["faces"] = json!([i + 1]);
+        answers[format!("hole.function:holes:{i}")] = json!(format!("tapped:{spec}"));
+    }
+    let plan = capp::plan::plan(&tapped(answers, a), None, &top_stock(0.)).unwrap();
+    assert_eq!(plan["setups"].as_array().unwrap().iter().filter(|s| list(&s["operations"]).iter().any(|o| o["kind"] == "thread")).count(), 1);
+    let order: Vec<Value> = threads(&plan).iter().map(|o| json!([o["spec"], o["start_diameter"], o["bottom_z"], o["through"], o["features"]])).collect();
+    assert_same(json!(order), json!([
+        ["M10", 8.5, -10, true, ["holes:8"]],
+        ["M5", 4.2, -10, false, ["holes:1"]],
+        ["M5", 4.2, -10, true, ["holes:0"]],
+        ["M5", 4.2, -7.5, false, ["holes:2", "holes:7"]],
+        ["M5", 4.2, -5.5, false, ["holes:3"]],
+        ["M5", 4.3, -5.5, false, ["holes:4"]],
+        ["M5x0.5", 4.5, -8.5, false, ["holes:5"]],
+        ["M6", 5, -10, true, ["holes:6"]],
+    ]));
+}
+
+#[test]
 fn a_thread_deeper_than_its_hole_is_a_warning() {
     let mut a = holes_only(&[down(0., 0., 4.2, 6., "flat")]);
     a["features"][0]["faces"] = json!([1]);

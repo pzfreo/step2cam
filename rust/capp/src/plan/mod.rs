@@ -255,7 +255,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
         })?;
         match &case["then"] {
             Value::String(action) if action == "hole" => match hole_geometry(feature, &cx, asked.get(id))? {
-                Ok((name, hole, w, blocked)) => {
+                Ok(Placed { setup: name, hole, warnings: w, blocked }) => {
                     let considered: Vec<Value> = blocked.iter().map(|b| json!({"candidate": b, "rejected": "part material above its opening"})).collect();
                     let says = format!("cut from the {name} setup");
                     placed.insert(id.to_string(), trace.decide("setup.hole.first_reachable", id, "chosen", &says, json!({"chosen": name, "considered": considered})));
@@ -264,7 +264,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                         trace.warn(rule, id, text, json!({"features": [id]}));
                     }
                 }
-                Err((rule, reason)) => {
+                Err(Refused { rule, reason }) => {
                     trace.skip(rule, id, reason);
                     if let Some(thread) = asked.get(id) {
                         trace.skip("process.hole.thread_lost", id, format!("its {} thread: the hole is not cut", thread.spec));
