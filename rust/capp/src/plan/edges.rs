@@ -7,7 +7,7 @@ use super::*;
 /// A loop qualifies only if its whole top edge has the one radius and its wall ends up at size:
 /// the outside (`wall` is the operation that finishes this outline) or a hole or slot's (already
 /// cut). An outside chamfer says which wall it needs, as that wall can still be left out.
-pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[Value], wall: &dyn Fn(&[Cut]) -> Option<String>) -> Result<(Vec<Value>, Vec<String>), String> {
+pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[model::Cut], wall: &dyn Fn(&[Cut]) -> Option<String>) -> Result<(Vec<model::Cut>, Vec<String>), String> {
     let nothing = (vec![], vec![]);
     let frame = &cx.frames[setup];
     let rows = rows_of(setup);
@@ -45,16 +45,16 @@ pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, fac
     let outer = if area(&walls[outer_at]) > 0. { walls[outer_at].clone() } else { reversed(&walls[outer_at]) };
     let cut_to_size = |p: (f64, f64)| {
         holes.iter().find(|h| {
-            let c = (h.center[0].as_f64().unwrap_or(f64::MAX), h.center[1].as_f64().unwrap_or(f64::MAX));
+            let c = (h.center[0], h.center[1]);
             (c.0 - p.0).hypot(c.1 - p.1) < h.diameter / 2.
-        }).map(|h| h.feature.clone()).or_else(|| slots.iter().filter(|s| s["kind"] == "slot").find(|s| {
-            let (a, b) = ((s["a"][0].as_f64().unwrap_or(0.), s["a"][1].as_f64().unwrap_or(0.)), (s["b"][0].as_f64().unwrap_or(0.), s["b"][1].as_f64().unwrap_or(0.)));
-            segment_distance(p, a, b) < s["width"].as_f64().unwrap_or(0.) / 2.
-        }).and_then(|s| s["features"][0].as_str().map(String::from)))
+        }).map(|h| h.feature.clone()).or_else(|| slots.iter().filter_map(|s| match s { model::Cut::Slot(s) => Some(s), _ => None }).find(|s| {
+            let (a, b) = ((s.a[0], s.a[1]), (s.b[0], s.b[1]));
+            segment_distance(p, a, b) < s.width / 2.
+        }).and_then(|s| s.features.first().cloned()))
     };
     let mut needs_openings = vec![];
     let mut chamfered: Vec<Vec<Cut>> = vec![];
-    let mut inner: Vec<Value> = vec![];
+    let mut inner: Vec<Vec<model::Vertex>> = vec![];
     for (i, chain) in walls.iter().enumerate() {
         let (count, sum) = (chain.len() as f64, chain.iter().fold((0., 0.), |s, c| (s.0 + c.0.0, s.1 + c.0.1)));
         let middle_of = (sum.0 / count, sum.1 / count);
@@ -64,7 +64,7 @@ pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, fac
         if rounded(chain) && let Some(opening) = cut_to_size(middle_of) {
             let clockwise = if area(chain) < 0. { chain.clone() } else { reversed(chain) };
             if let Some(vertices) = boundary(&clockwise, faces, frame, rows)? {
-                inner.push(json!(vertices));
+                inner.push(vertices);
                 needs_openings.push(opening);
                 chamfered.push(clockwise);
             }
@@ -88,14 +88,17 @@ pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, fac
         .map(|x| x.0.to_string())
         .collect();
     let near_outer: Vec<&String> = ids.iter().filter(|id| rounds.iter().any(|x| x.0 == id.as_str() && outer.iter().any(|c| segment_distance((x.2[0], x.2[1]), c.0, c.1) <= radius + 0.5))).collect();
-    let ops = vec![json!({
-        "kind": "edge_chamfer", "needs_openings": needs_openings, "needs_wall": needs_wall, "wall_features": if outside { json!(near_outer) } else { json!([]) }, "radius": r(radius), "width": r(radius * (2. - 2f64.sqrt())), "top_z": r(part_top),
-        "outer": outline, "holes": inner, "boundaries": match (outside, inner.is_empty()) {
+    let ops = vec![model::Cut::EdgeChamfer(model::EdgeChamfer {
+        needs_openings, needs_wall, wall_features: if outside { near_outer.into_iter().cloned().collect() } else { vec![] }, radius: Some(r(radius)), width: r(radius * (2. - 2f64.sqrt())), top_z: r(part_top),
+        boundaries: match (outside, inner.is_empty()) {
             (true, true) => "outer",
             (true, false) => "all",
             _ => "holes",
-        },
-        "features": ids,
+        }.into(),
+        outer: outline, holes: inner,
+        features: ids.clone(),
+        maximum_diameter: None,
+        room: None,
     })];
     Ok((ops, ids))
 }
@@ -169,9 +172,9 @@ pub(super) fn modelled_edge_operations(
     cx: &Context,
     faces: &HashMap<u64, &Value>,
     setup: &'static str,
-    openings: (&[Hole], &[Value]),
+    openings: (&[Hole], &[model::Cut]),
     wall: &dyn Fn(&[Cut]) -> Option<String>,
-) -> Result<(Vec<Value>, Vec<String>), String> {
+) -> Result<(Vec<model::Cut>, Vec<String>), String> {
     let (holes, slots) = openings;
     let frame = &cx.frames[setup];
     let rows = rows_of(setup);
@@ -271,16 +274,15 @@ pub(super) fn modelled_edge_operations(
                 let p = chain[0].0;
                 holes.iter().find(|h| {
                     ((h.top_z - top).abs() < LEVEL_EPS || (h.bore_top_z - (top - width)).abs() < LEVEL_EPS)
-                        && (h.center[0].as_f64().unwrap_or(0.) - p.0).hypot(h.center[1].as_f64().unwrap_or(0.) - p.1) <= h.diameter / 2. + 0.1
-                }).map(|h| h.feature.clone()).or_else(|| slots.iter().find(|s| {
-                    s["kind"] == "slot"
-                        && s["top_z"].as_f64().is_some_and(|z| (z - top).abs() < LEVEL_EPS)
+                        && (h.center[0] - p.0).hypot(h.center[1] - p.1) <= h.diameter / 2. + 0.1
+                }).map(|h| h.feature.clone()).or_else(|| slots.iter().filter_map(|s| match s { model::Cut::Slot(s) => Some(s), _ => None }).find(|s| {
+                    (s.top_z - top).abs() < LEVEL_EPS
                         && segment_distance(
                             p,
-                            (s["a"][0].as_f64().unwrap_or(0.), s["a"][1].as_f64().unwrap_or(0.)),
-                            (s["b"][0].as_f64().unwrap_or(0.), s["b"][1].as_f64().unwrap_or(0.)),
-                        ) <= s["width"].as_f64().unwrap_or(0.) / 2. + 0.1
-                }).and_then(|s| s["features"][0].as_str().map(String::from)))
+                            (s.a[0], s.a[1]),
+                            (s.b[0], s.b[1]),
+                        ) <= s.width / 2. + 0.1
+                }).and_then(|s| s.features.first().cloned()))
             } else { None };
             if !outside && needs_opening.is_none() { continue; }
             let ids: Vec<_> = features
@@ -314,9 +316,9 @@ pub(super) fn modelled_edge_operations(
                 let hi_y = path.iter().map(|c| c.0.1).fold(f64::NEG_INFINITY, f64::max);
                 Some((hi_x - lo_x).min(hi_y - lo_y))
             };
-            ops.push(json!({"kind":"edge_chamfer", "maximum_diameter":maximum, "room":room, "width":r(width), "top_z":r(top), "outer":if outside {json!(vertices)} else {json!(outline)},
-                "holes":if outside {json!([])} else {json!([vertices])}, "boundaries":if outside {"outer"} else {"holes"},
-                "needs_openings":needs_opening.into_iter().collect::<Vec<_>>(), "needs_wall":needs_wall, "wall_features":if outside {ids.clone()} else {vec![]}, "features":ids}));
+            ops.push(model::Cut::EdgeChamfer(model::EdgeChamfer {maximum_diameter: Some(maximum), room: Some(room), radius: None, width: r(width), top_z: r(top), outer: if outside {vertices.clone()} else {outline},
+                holes: if outside {vec![]} else {vec![vertices]}, boundaries: if outside {"outer"} else {"holes"}.into(),
+                needs_openings: needs_opening.into_iter().collect(), needs_wall, wall_features: if outside {ids.clone()} else {vec![]}, features: ids.clone()}));
             covered.extend(ids);
         }
     }

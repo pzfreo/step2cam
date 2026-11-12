@@ -93,12 +93,23 @@ impl Frame {
     pub(super) fn triangles(&self, mesh: &[Tri]) -> &[Tri] {
         self.triangles.get_or_init(|| mesh.iter().map(|t| t.map(|p| self.point(p))).collect())
     }
-    pub(super) fn describe(&self, out: &mut Map<String, Value>) {
-        out.insert("zero".into(), json!(self.zeroed_on));
-        let rotation: Vec<Vec<i64>> = self.rows.iter().map(|row| row.iter().map(|v| *v as i64).collect()).collect();
-        out.insert("rotation".into(), json!(rotation));
-        out.insert("origin_model".into(), rp(self.origin_model));
-        out.insert("stock".into(), json!({"min": rp(self.stock.0), "max": rp(self.stock.1)}));
+    pub(super) fn describe(&self, id: &str, operations: Vec<model::Operation>) -> model::Setup {
+        model::Setup {
+            id: id.into(),
+            zero: Some(self.zeroed_on.into()),
+            rotation: Some(self.rows.map(|row| row.map(|v| v as i8))),
+            origin_model: Some(rp(self.origin_model)),
+            stock: model::Box3 { min: rp(self.stock.0), max: rp(self.stock.1) },
+            operations,
+            machine: None,
+            stock_note: None,
+            flip_role: None,
+            part_surface: None,
+            clamping: None,
+            flip_seating: None,
+            before_setup: None,
+            grip_surface_model: None,
+        }
     }
 }
 

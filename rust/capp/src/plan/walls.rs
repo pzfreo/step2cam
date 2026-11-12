@@ -14,7 +14,7 @@ fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
 /// starts at the top of the stock. The outline is the band's middle, or lower where a side hole
 /// breaks that: what tapers in stays clear of the cutter, and what flares out at the foot or
 /// overhangs above leaves no room beside it. Returns the operations and each one's outline.
-pub(super) fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, trace: &mut Trace, setup: &str) -> Result<(Vec<Value>, Vec<Vec<Cut>>), String> {
+pub(super) fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, trace: &mut Trace, setup: &str) -> Result<(Vec<model::WallFinish>, Vec<Vec<Cut>>), String> {
     const ABOVE: f64 = 0.05;
     const SMALLEST: f64 = 0.5; // mm²: less is a sliver between faces, not an outline.
     let distance = |p: (f64, f64), chain: &[Cut]| chain.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
@@ -48,10 +48,10 @@ pub(super) fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashM
                 // A contour knows only its outline: the cutter needs room beside it.
                 let room = room_beside(triangles, &outline, low, own);
                 finished.push(outline);
-                ops.push(json!({
-                    "kind": "wall_finish", "wall": format!("wall-{}", ops.len() + 1), "outer": vertices, "floor_z": r(low),
-                    "on_flat": band_at > 0, "room": room.map(r),
-                }));
+                ops.push(model::WallFinish {
+                    wall: format!("wall-{}", ops.len() + 1), outer: vertices, floor_z: r(low),
+                    on_flat: band_at > 0, room: room.map(r),
+                });
             }
         }
         if unreadable && !had_wall {

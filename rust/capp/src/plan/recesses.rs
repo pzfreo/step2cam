@@ -4,7 +4,7 @@ use super::*;
 
 /// A closed slot with round ends as an operation of its own, cut to size: which setup, and the
 /// operation. None if it is not that shape or no setup can reach it; roughing is then all it gets.
-pub(super) fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+pub(super) fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, model::Cut)>, String> {
     let record = &feature["record"];
     let index = |key: &str| ["x", "y", "z"].iter().position(|a| record[key].as_str() == Some(a));
     let (Some(w), Some(l), Some(triangles)) = (index("width_axis"), index("long_axis"), cx.triangles) else {
@@ -57,11 +57,11 @@ pub(super) fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'
         let exit = centres.iter().flat_map(|c| mesh.iter().filter(|t| disk_meets(*c, radius + 1., t))).flatten().map(|p| p[2]).fold(wall_top, f64::min).max(part);
         let floor = gap.map_or(exit, |g| wall_top - g);
         let features = cx.absorbed(feature);
-        return Ok(Some((name, json!({
-            "kind": "slot", "width": r(width), "length": r(hi - lo),
-            "a": [r(a[0]), r(a[1])], "b": [r(b[0]), r(b[1])],
-            "top_z": r(top), "floor_z": r(floor), "bottom": if gap.is_some() { "blind" } else { "through" },
-            "features": features,
+        return Ok(Some((name, model::Cut::Slot(model::Slot {
+            width: r(width), length: r(hi - lo),
+            a: [r(a[0]), r(a[1])], b: [r(b[0]), r(b[1])],
+            top_z: r(top), floor_z: r(floor), bottom: if gap.is_some() { "blind" } else { "through" }.into(),
+            features,
         }))));
     }
     Ok(None)
@@ -70,11 +70,11 @@ pub(super) fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'
 /// A rectangular recess, optionally with rounded corners, cut with an end mill that fits.
 /// The mesh must agree that its interior is empty. An open side is cut past the part;
 /// settle records any corner radius the cutter leaves beyond the model's radius.
-pub(super) fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+pub(super) fn notch_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, model::Cut)>, String> {
     notch_with_corner_pairs(feature, cx, true)
 }
 
-fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) -> Result<Option<(&'static str, Value)>, String> {
+fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) -> Result<Option<(&'static str, model::Cut)>, String> {
     let mut normalized = feature["record"].clone();
     if feature["family"] == "rectangular_blind_slots" {
         let axis = |key: &str| ["x", "y", "z"].iter().position(|a| normalized[key].as_str() == Some(a));
@@ -202,11 +202,11 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
                 }
             }
         }
-        return Ok(Some((name, json!({
-            "kind": "notch", "width": r(width), "length": r(side.1 - side.0), "open": side_open != 0.,
-            "outer": rounded_rectangle(lo, hi, radius), "corner_radius": r(radius), "inside_corners": if side_open != 0. { 2 } else { 4 },
-            "top_z": r(part_top), "floor_z": r(if through { part } else { floor }), "wall_top": r(top), "bottom": if through { "through" } else { "blind" },
-            "features": features,
+        return Ok(Some((name, model::Cut::Notch(model::Notch {
+            width: r(width), length: r(side.1 - side.0), open: side_open != 0.,
+            outer: rounded_rectangle(lo, hi, radius), corner_radius: Some(r(radius)), inside_corners: Some(if side_open != 0. { 2 } else { 4 }),
+            top_z: r(part_top), floor_z: r(if through { part } else { floor }), wall_top: r(top), bottom: if through { "through" } else { "blind" }.into(),
+            features,
         }))));
     }
     Ok(None)
@@ -215,7 +215,7 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
 /// A V-channel, cut by running a sharp V-bit along it with its tip on the channel's root. The bit
 /// must be no wider than the channel: the job picks one. The channel must run out of the part at
 /// both ends, as the bit's cone is wider than its tip.
-pub(super) fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, Value)>, String> {
+pub(super) fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Option<(&'static str, model::Cut)>, String> {
     let record = &feature["record"];
     let Some(triangles) = cx.triangles else { return Ok(None) };
     let (axis, opening, at) = (v3(&record["axis"])?, v3(&record["opening"])?, v3(&record["at"])?);
@@ -256,11 +256,11 @@ pub(super) fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Optio
         let outline: Vec<Cut> = (0..4).map(|i| (points[i], points[(i + 1) % 4], 0)).collect();
         let room = room_beside(mesh, &outline, top, 0.01);
         let part_top = bounds(&mesh.iter().flatten().copied().collect::<Vec<_>>()).1[2];
-        return Ok(Some((name, json!({
-            "kind": "v_channel", "angle": r(angle), "width": r(width), "depth": r(depth), "length": r(length),
-            "a": [r(out_a[0]), r(out_a[1])], "b": [r(out_b[0]), r(out_b[1])], "top_z": r(top), "root_z": r(root[2]),
-            "on_flat": top < part_top - LEVEL_EPS, "room": room.map(r),
-            "features": cx.absorbed(feature),
+        return Ok(Some((name, model::Cut::VChannel(model::VChannel {
+            angle: r(angle), width: r(width), depth: r(depth), length: r(length),
+            a: [r(out_a[0]), r(out_a[1])], b: [r(out_b[0]), r(out_b[1])], top_z: r(top), root_z: r(root[2]),
+            on_flat: top < part_top - LEVEL_EPS, room: room.map(r),
+            features: cx.absorbed(feature),
         }))));
     }
     Ok(None)

@@ -233,10 +233,10 @@ fn occupied_polygon(mesh: &[Tri], corners: &[(f64, f64)], z: f64) -> bool {
 }
 
 /// Counter-clockwise camlib vertices; the bulge belongs to the following arc.
-pub(super) fn rounded_rectangle(lo: (f64, f64), hi: (f64, f64), radius: f64) -> Vec<Value> {
+pub(super) fn rounded_rectangle(lo: (f64, f64), hi: (f64, f64), radius: f64) -> Vec<model::Vertex> {
     let (x, y, a, b, t) = (lo.0, lo.1, hi.0, hi.1, radius);
     if t <= 0. {
-        return vec![json!([r(x), r(y), 0.]), json!([r(a), r(y), 0.]), json!([r(a), r(b), 0.]), json!([r(x), r(b), 0.])];
+        return vec![[r(x), r(y), 0.], [r(a), r(y), 0.], [r(a), r(b), 0.], [r(x), r(b), 0.]];
     }
     let q = (std::f64::consts::PI / 8.).tan();
     let mut vertices: Vec<(f64, f64, f64)> = vec![];
@@ -248,7 +248,7 @@ pub(super) fn rounded_rectangle(lo: (f64, f64), hi: (f64, f64), radius: f64) -> 
             vertices.push(p);
         }
     }
-    vertices.into_iter().map(|(x, y, b)| json!([r(x), r(y), b])).collect()
+    vertices.into_iter().map(|(x, y, b)| [r(x), r(y), b]).collect()
 }
 
 /// An inscribed convex polygon leaves the mesh's faceted curved walls outside the check.
