@@ -1,8 +1,8 @@
 //! Missing-tool queries. These describe resources only; they never change tool selection.
 use crate::kind::OpId;
-use crate::model::{Cut, Operation, Plan, Setup};
+use crate::model::{Cut, Need, Operation, Plan, Setup};
 use crate::resources::Library;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 /// Round reach upwards with a micron of clearance. This exceeds camlib's 16 × 1e-5 mm
 /// numerical guard in step2cam jobs, including when depth is an exact integer.
@@ -148,43 +148,43 @@ fn top_z(op: &Operation) -> Option<f64> {
 }
 
 /// Derive the index from the live reasons, so settling repeatedly cannot retain obsolete needs.
-pub(crate) fn collect(plan: &mut Value) {
-    let mut needs: Vec<Value> = vec![];
-    let mut add = |text: &Value, features: Vec<Value>, operation: Option<String>| {
-        let Some((_, description)) = text.as_str().and_then(|s| s.rsplit_once(": needs ")) else { return; };
-        let index = needs.iter().position(|n| n["description"] == description).unwrap_or_else(|| {
-            needs.push(json!({"description": description, "features": [], "operations": []}));
+pub(crate) fn collect(plan: &mut Plan) {
+    let mut needs: Vec<Need> = vec![];
+    let mut add = |text: Option<&str>, features: &[String], operation: Option<String>| {
+        let Some((_, description)) = text.and_then(|s| s.rsplit_once(": needs ")) else { return; };
+        let index = needs.iter().position(|n| n.description == description).unwrap_or_else(|| {
+            needs.push(Need { description: description.into(), features: vec![], operations: vec![] });
             needs.len() - 1
         });
         for feature in features {
-            let list = needs[index]["features"].as_array_mut().unwrap();
-            if !list.contains(&feature) { list.push(feature); }
+            let list = &mut needs[index].features;
+            if !list.contains(feature) { list.push(feature.clone()); }
         }
         if let Some(operation) = operation {
-            let list = needs[index]["operations"].as_array_mut().unwrap();
-            let operation = json!(operation);
+            let list = &mut needs[index].operations;
             if !list.contains(&operation) { list.push(operation); }
         }
     };
-    for skipped in plan["skipped"].as_array().into_iter().flatten() {
-        add(&skipped["reason"], vec![skipped["feature"].clone()], None);
+    for skipped in &plan.skipped {
+        add(Some(&skipped.reason), std::slice::from_ref(&skipped.feature), None);
     }
-    for setup in plan["setups"].as_array().into_iter().flatten() {
-        for (n, op) in setup["operations"].as_array().into_iter().flatten().enumerate() {
-            add(&op["tool_note"], op["features"].as_array().cloned().unwrap_or_default(),
-                Some(format!("{}-{}-{}", setup["id"].as_str().unwrap_or(""), n + 1, op["kind"].as_str().unwrap_or(""))));
+    for setup in &plan.setups {
+        for (n, op) in setup.operations.iter().enumerate() {
+            add(op.tool_note.as_ref().and_then(Option::as_deref), op.cut.features().unwrap_or_default(),
+                Some(format!("{}-{}-{}", setup.id, n + 1, op.cut.kind().name())));
         }
     }
     // Settling can remove a V-channel or a wall before tool resolution.
-    for decision in plan["decisions"].as_array().into_iter().flatten().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()) {
-        add(&decision["says"], vec![], decision["subject"].as_str().map(String::from));
+    for decision in plan.decisions.iter().flatten().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()) {
+        add(decision["says"].as_str(), &[], decision["subject"].as_str().map(String::from));
     }
-    plan["tools_needed"] = json!(needs);
+    plan.tools_needed = Some(needs);
 }
 
 #[cfg(test)]
 mod assembly_wording_tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn thread_mill_without_flute_length_uses_its_cutter_length_not_holder_reach() {

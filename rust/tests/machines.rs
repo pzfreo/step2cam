@@ -111,11 +111,11 @@ fn coverage_remains_when_another_setup_keeps_roughing() {
     library["machines"][0]["axes"]["travel_mm"] = json!({"x": 80, "y": 240, "z": 140});
     let setup = |id: &str, width: u32| json!({
         "id": id, "stock": {"min": [0, 0, 0], "max": [width, 50, 10]},
-        "operations": [{"kind": "roughing", "features": []}],
+        "operations": [{"kind": "roughing", "features": [], "top_z": 10., "floor_z": 0., "web_mm": 0., "surface_error_mm": 0.}],
     });
     // A surviving roughing counts regardless of setup order.
     for setups in [json!([setup("top", 100), setup("bottom", 50)]), json!([setup("bottom", 50), setup("top", 100)])] {
-        let mut plan = json!({"setups": setups, "covered_by_roughing": ["fillets:1"]});
+        let mut plan = json!({"setups": setups, "covered_by_roughing": ["fillets:1"], "skipped": [], "warnings": []});
         let mut trace = capp::trace::Trace::default();
         capp::machines::place(&mut plan, &library, &mut trace);
         assert_eq!(plan["covered_by_roughing"], json!(["fillets:1"]));
@@ -147,7 +147,9 @@ fn the_stepped_plate_runs_on_the_carvera() {
 
 #[test]
 fn manual_collet_note_uses_only_selected_shanks_and_is_independent_of_atc_capacity() {
-    let plan = json!({"setups":[{"id":"top", "operations":[{"tool":"a"}, {"tool":"b"}, {"tool":"a"}]}]});
+    let op = |tool: &str| json!({"kind":"facing", "floor_z":0., "tool":tool});
+    let plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,0],"max":[1,1,1]}, "operations":[op("a"), op("b"), op("a")]}],
+        "covered_by_roughing":[], "skipped":[], "warnings":[]});
     let mut library = json!({"machines":[{"id":"mill", "kind":"mill", "spindle":{"collet_change":"manual"}, "tool_changer":{"kind":"automatic", "pockets":6}}],
         "tools":[{"id":"a", "shank_diameter":3.175}, {"id":"b", "shank_diameter":6}, {"id":"unused", "shank_diameter":4}]});
     let mut trace = capp::trace::Trace::default();

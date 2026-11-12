@@ -19,27 +19,25 @@ use serde_json::{Value, json};
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
-    crate::supplied::load(plan, library)?;
-    let mut trace = Trace::take(plan);
-    crate::machines::place(plan, library, &mut trace);
-    trace.store(plan);
     let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
-    let mut trace = Trace::take(plan);
+    crate::supplied::load_with(&mut typed, library)?;
+    let mut trace = Trace::take_plan(&mut typed);
     let result = finish_with(&mut typed, library, exclusions, &mut trace);
     // Whatever happened, the plan keeps what it had changed and decided.
-    store(plan, &typed, trace).and(result)?;
-    let mut trace = Trace::take(plan);
-    crate::clamping_history::check(plan, library, &mut trace);
-    crate::machines::check_changer(plan, library, &mut trace);
-    trace.refuse_unused();
-    trace.store(plan);
-    crate::needed::collect(plan);
-    Ok(())
+    let result = trace.store_plan(&mut typed).and(result);
+    // The tools still needed are read from the stored trace.
+    if result.is_ok() {
+        crate::needed::collect(&mut typed);
+    }
+    *plan = serde_json::to_value(&typed).map_err(|e| e.to_string())?;
+    result
 }
 
-/// The middle of [`finish`], on the typed plan with one trace: settle, make spots, take out each
-/// exclusion and settle again, then resolve the tools.
+/// The body of [`finish`], on the typed plan with one trace: put the setups on the machine,
+/// settle, make spots, take out each exclusion and settle again, resolve the tools, then check
+/// the clamping against earlier cuts, the tool changer and the supplied decisions left unused.
 fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Value], trace: &mut Trace) -> Result<(), String> {
+    crate::machines::place_with(plan, library, trace);
     settle_with(plan, library, trace)?;
     crate::spots::create_with(plan, &Library::new(library)?, trace)?;
     for exclusion in exclusions {
@@ -64,7 +62,11 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Value], trace: &m
         crate::spots::prune_with(plan, &Library::new(library)?, false, trace)?;
     }
     crate::spots::prune_with(plan, &Library::new(library)?, true, trace)?;
-    resolve_with(plan, library, trace)
+    resolve_with(plan, library, trace)?;
+    crate::clamping_history::check(plan, library, trace);
+    crate::machines::check_changer_with(plan, library, trace);
+    trace.refuse_unused();
+    Ok(())
 }
 
 /// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
@@ -603,7 +605,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                     }
                 }
                 let (mut technology, source) = technology(spec, group.as_deref());
-                if spec["type"] == "tap" { technology.as_object_mut().unwrap().remove("feed_mm_min"); }
+                if spec["type"] == "tap" { technology.remove("feed_mm_min"); }
                 let says = match &group {
                     Some(g) if source != "tool" => format!("{name}'s cutting data for ISO 513 group {g}"),
                     Some(g) => format!("{name}'s own cutting data: it has none for ISO 513 group {g}"),
@@ -626,7 +628,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                     why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
                         "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
                         json!({"chosen": cycle})));
-                    technology.as_object_mut().unwrap().extend(cycle.as_object().unwrap().clone());
+                    technology.extend(cycle.as_object().unwrap().clone());
                 }
                 if let Cut::WallFinish(wall) = &op.cut {
                     let depth = (top - wall.floor_z).max(0.);
@@ -634,13 +636,12 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                     if depth > 0. {
                         let passes = (depth / flute).ceil().max(1.);
                         let stepdown = depth / passes;
-                        technology["stepdown_mm"] = json!(stepdown);
+                        technology.insert("stepdown_mm".into(), json!(stepdown));
                         why.push(trace.decide("process.wall_finish.axial_passes", &subject, "chosen",
                             "Finish the wall in the fewest equal axial passes its flute length allows; roughing stepdown does not limit the finishing allowance cut. Camlib still checks reach and stock contact.",
                             json!({"chosen": {"passes": passes as u64, "stepdown_mm": stepdown, "depth_mm": depth, "flute_length_mm": flute}})));
                     }
                 }
-                let Value::Object(technology) = technology else { unreachable!("technology is an object") };
                 op.technology = Some(technology);
             }
             op.tool = Some(tool);
@@ -693,7 +694,7 @@ fn block_chamfers_without_openings(setup: &mut Setup, trace: &mut Trace) {
 /// The cutting data a tool's operations use: its own, with what it states for the material's ISO
 /// 513 group (`cutting_data`) in their place. And where they came from: `tool`, or
 /// `cutting_data.<group>`.
-fn technology(tool: &Value, group: Option<&str>) -> (Value, String) {
+fn technology(tool: &Value, group: Option<&str>) -> (serde_json::Map<String, Value>, String) {
     const KEYS: [&str; 5] = ["feed_mm_min", "spindle_rpm", "plunge_mm_min", "stepdown_mm", "stepover_mm"];
     let mut out = serde_json::Map::new();
     for key in KEYS {
@@ -714,7 +715,7 @@ fn technology(tool: &Value, group: Option<&str>) -> (Value, String) {
         None => "tool".into(),
     };
     out.insert("source".into(), json!(source));
-    (Value::Object(out), source)
+    (out, source)
 }
 
 /// The material the part is cut from: Specify's answer, unless the resources override it, and its

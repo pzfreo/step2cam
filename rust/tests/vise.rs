@@ -116,7 +116,8 @@ fn complete_vise_rejects_wide_or_too_shallow_stock_but_missing_jaw_data_skips() 
     let (jobs, _) = step2cam::job::jobs(&legacy, &tools).unwrap();
     assert!(jobs.iter().all(|j| j.manifest["verification"]["scene"].is_null()));
     let mut trace = capp::trace::Trace::default();
-    let mut thin = json!({"setups":[{"id":"top","stock":{"min":[0,0,0],"max":[30,20,4]},"operations":[{"kind":"facing","floor_z":3.}]}]});
+    let mut thin = json!({"setups":[{"id":"top","stock":{"min":[0,0,0],"max":[30,20,4]},"operations":[{"kind":"facing","floor_z":3.}]}],
+        "covered_by_roughing":[],"skipped":[],"warnings":[]});
     capp::machines::place(&mut thin, &library(), &mut trace);
     assert!(list(&thin["setups"][0]["operations"]).is_empty());
     assert!(trace.warnings.iter().any(|w| w == "setup top is not cut: grip 3.175 mm exceeds maximum grip 2.0 mm (50.0% of 4.0 mm stock height)"));
@@ -135,7 +136,8 @@ fn parallels_are_recorded_and_passed_as_fixtures() {
 #[test]
 fn jaws_choose_the_narrower_axis_and_x_on_a_tie() {
     for (size, faces) in [([20., 40., 20.], ["stock.x.min", "stock.x.max"]), ([40., 20., 20.], ["stock.y.min", "stock.y.max"]), ([20., 20., 20.], ["stock.x.min", "stock.x.max"])] {
-        let mut plan = json!({"setups": [{"id": "top", "stock": {"min": [7., 9., -20.], "max": [7. + size[0], 9. + size[1], 0.]}, "operations": []}]});
+        let mut plan = json!({"setups": [{"id": "top", "stock": {"min": [7., 9., -20.], "max": [7. + size[0], 9. + size[1], 0.]}, "operations": []}],
+            "covered_by_roughing": [], "skipped": [], "warnings": []});
         capp::machines::place(&mut plan, &library(), &mut capp::trace::Trace::default());
         assert_eq!(plan["setups"][0]["clamping"]["faces"], json!(faces));
         assert_eq!(plan["setups"][0]["clamping"]["grip_height_mm"], 4.);
@@ -170,7 +172,8 @@ fn each_grip_refusal_names_the_failed_limit_and_the_effect_of_parallels() {
         (-140., -1., "grip 28.0 mm exceeds jaw height 20.0 mm"),
         (-10., -6., "part top Z-6.0 does not clear jaw top Z-6.825 plus 1.0 mm side-cut clearance: must be above Z-5.825"),
     ] {
-        let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,bottom],"max":[30,20,0]}, "operations":[{"kind":"facing","floor_z":top}]}]});
+        let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,bottom],"max":[30,20,0]}, "operations":[{"kind":"facing","floor_z":top}]}],
+            "covered_by_roughing":[], "skipped":[], "warnings":[]});
         let mut trace = capp::trace::Trace::default();
         capp::machines::place(&mut plan, &library(), &mut trace);
         trace.store(&mut plan);
