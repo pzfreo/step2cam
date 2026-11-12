@@ -59,7 +59,8 @@ pub(crate) fn adapt(
         // needed this extra overlap because it covered only the part.
         receiving["flip_seating"]["residual_margin_mm"] = json!(0.);
     }
-    let plan = json!({"format": capp::plan::PLAN_FORMAT, "part": part, "setups": [receiving]});
+    let plan = json!({"format": capp::plan::PLAN_FORMAT, "part": part, "setups": [receiving],
+        "covered_by_roughing": [], "skipped": [], "warnings": []});
     let (mut jobs, _) = crate::job::jobs(&plan, library)?;
     let mut job = jobs
         .pop()
@@ -450,7 +451,8 @@ mod tests {
         let mut plan = json!({"format":capp::plan::PLAN_FORMAT,"part":{"min":[0,0,-2],"max":[10,10,0]},"decisions":[],"setups":[
             setup("top",json!([[1,0,0],[0,1,0],[0,0,1]]),10.),
             setup("front",json!([[1,0,0],[0,0,1],[0,-1,0]]),4.),
-            setup("back",json!([[1,0,0],[0,0,-1],[0,1,0]]),4.)]});
+            setup("back",json!([[1,0,0],[0,0,-1],[0,1,0]]),4.)],
+            "covered_by_roughing":[],"skipped":[],"warnings":[]});
         let mut bounded = library.clone();
         bounded["cell_size_mm"] = json!(1.);
         let mut programs = vec![];
