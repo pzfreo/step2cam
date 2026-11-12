@@ -112,8 +112,8 @@ fn only_pocket_and_drill_reach_conditions_are_deferred() {
     let lib = Library::new(&data).unwrap();
     assert!(lib.pocket_mill(10., 60.).is_none(), "the selector API stays strict; resolution defers reach");
     let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-60],"max":[20,20,0]}, "operations":[
-        {"kind":"notch", "width":10., "top_z":0., "floor_z":-60., "features":["pockets:0"]}
-    ]}]});
+        {"kind":"notch", "width":10., "length":10., "open":false, "outer":[], "top_z":0., "floor_z":-60., "wall_top":0., "bottom":"blind", "features":["pockets:0"]}
+    ]}], "covered_by_roughing":[], "skipped":[], "warnings":[]});
     capp::finish(&mut plan, &data, &[]).unwrap();
     assert_eq!(plan["setups"][0]["operations"][0]["tool"], "b6", "deferred resolution preserves the last-tie preference and rejects the wide mill");
     assert!(plan["decisions"].as_array().unwrap().iter().any(|d| d["chosen"] == "b6" && d["says"].as_str().unwrap().contains("reach is left to camlib")));

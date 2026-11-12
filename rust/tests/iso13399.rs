@@ -89,7 +89,7 @@ fn conflicts_name_both_fields_and_missing_fields_keep_current_names() {
     let mut library = fixture("../../tests/fixtures/placeholder-tools.json");
     let index = library["tools"].as_array().unwrap().iter().position(|t| t["id"] == "em6").unwrap();
     library["tools"][index]["DC"] = json!(8);
-    let mut plan = json!({});
+    let mut plan = json!({"setups": [], "covered_by_roughing": [], "skipped": [], "warnings": []});
     let message = capp::finish(&mut plan, &library, &[]).unwrap_err();
     assert_eq!(message, "tool em6: diameter 6 and DC 8 disagree");
     assert_eq!(step2cam::process(&json!({}), &json!({}), &library).unwrap_err(), message);

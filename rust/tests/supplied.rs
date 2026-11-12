@@ -213,7 +213,8 @@ fn removing_the_last_spot_uses_the_finished_hole_number_and_refuses_inconsistent
 fn an_unavailable_channel_reports_its_feasibility_reason() {
     let mut tools = example_tools();
     tools["decisions"] = json!([{"rule":"tool.v_channel.v_bit", "subject":"top:v_channel", "choice":"absent", "source":"user", "reason":"test"}]);
-    let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[-20,-20,-10],"max":[20,20,0]}, "operations":[{"kind":"v_channel", "angle":90., "width":4., "top_z":0., "root_z":-2., "on_flat":true, "features":[]}]}]});
+    let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[-20,-20,-10],"max":[20,20,0]}, "operations":[{"kind":"v_channel", "angle":90., "width":4., "depth":2., "length":40., "a":[-20.,0.], "b":[20.,0.], "top_z":0., "root_z":-2., "on_flat":true, "features":[]}]}],
+        "covered_by_roughing":[], "skipped":[], "warnings":[]});
     capp::finish(&mut plan, &tools, &[]).unwrap();
     let reason = plan["supplied_decisions"][0]["refusal_reason"].as_str().unwrap();
     assert!(reason.contains("operation unavailable") && reason.contains("flat it is cut in has not been cut"), "{reason}");

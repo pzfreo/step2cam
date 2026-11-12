@@ -112,12 +112,12 @@ fn without_jaw_data_normal_library_does_not_change_fixture_floors_or_coverage() 
 #[test]
 fn boundary_and_partial_features_and_dependent_chamfers_use_the_capped_frame() {
     let mut plan = json!({"setups":[{"id":"side", "stock":{"min":[0,0,-30],"max":[20,20,10]}, "operations":[
-        {"kind":"roughing", "top_z":10., "floor_z":-30., "web_mm":2.},
+        {"kind":"roughing", "top_z":10., "floor_z":-30., "web_mm":2., "surface_error_mm":0.},
         {"kind":"flats", "floor_z":-30., "levels":[-5.,-1.,2.]},
-        {"kind":"holes", "diameter":3., "bottom_z":-25., "features":["holes:0"]},
-        {"kind":"v_channel", "on_flat":true, "top_z":-5., "root_z":-6., "features":["v_channels:0"]},
-        {"kind":"wall_finish", "wall":"wall-1", "floor_z":-2., "on_flat":false},
-        {"kind":"edge_chamfer", "needs_wall":"wall-1", "boundaries":"outer", "radius":0.5,
+        {"kind":"holes", "diameter":3., "top_z":10., "bore_top_z":10., "bottom_z":-25., "bottom":"blind", "centers":[], "features":["holes:0"]},
+        {"kind":"v_channel", "angle":90., "width":2., "depth":1., "length":20., "a":[0.,10.], "b":[20.,10.], "on_flat":true, "top_z":-5., "root_z":-6., "features":["v_channels:0"]},
+        {"kind":"wall_finish", "wall":"wall-1", "outer":[], "floor_z":-2., "on_flat":false},
+        {"kind":"edge_chamfer", "needs_wall":"wall-1", "boundaries":"outer", "radius":0.5, "width":0.5, "top_z":10., "outer":[], "holes":[],
          "features":["fillets:0"], "wall_features":["fillets:0"]}
     ]}], "covered_by_roughing":["at-cap","partial","below"],
         "roughing_feature_depths":{"at-cap":{"floor_z":-1.,"family":"pockets"},
@@ -199,8 +199,8 @@ fn a_single_band_wall_is_finished_above_the_cap_and_reports_what_is_left_below()
 #[test]
 fn the_recommended_flutes_and_stickout_actually_reach_a_feature_inside_the_margin() {
     let original = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-100],"max":[20,20,0]}, "operations":[
-        {"kind":"roughing", "top_z":0., "floor_z":-99.5, "web_mm":0.5}
-    ]}], "covered_by_roughing":["pockets:0"],
+        {"kind":"roughing", "top_z":0., "floor_z":-99.5, "web_mm":0.5, "surface_error_mm":0.}
+    ]}], "covered_by_roughing":["pockets:0"], "skipped":[], "warnings":[],
         "roughing_feature_depths":{"pockets:0":{"floor_z":-74.5,"family":"pockets"}}});
     let mut plan = original.clone();
     capp::finish(&mut plan, &tools(75., 75.), &[]).unwrap();

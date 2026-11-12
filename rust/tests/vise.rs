@@ -145,7 +145,8 @@ fn jaws_choose_the_narrower_axis_and_x_on_a_tie() {
 #[test]
 fn an_outside_chamfer_tip_must_stay_above_the_jaws() {
     let mut plan = json!({"setups": [{"id": "top", "stock": {"min": [0., 0., -10.], "max": [30., 20., 0.]},
-        "operations": [{"kind": "edge_chamfer", "top_z": -5., "width": 1., "radius": 1., "boundaries": "outer", "features": ["fillets:0"]}]}]});
+        "operations": [{"kind": "edge_chamfer", "top_z": -5., "width": 1., "radius": 1., "outer": [], "holes": [], "boundaries": "outer", "features": ["fillets:0"]}]}],
+        "covered_by_roughing": [], "skipped": [], "warnings": []});
     capp::finish(&mut plan, &library(), &[]).unwrap();
     assert!(list(&plan["setups"][0]["operations"]).is_empty());
     assert!(plan["skipped"].to_string().contains("jaw clearance cap"));
@@ -241,7 +242,7 @@ fn clamping_proposals_are_checked_rather_than_silently_replaced() {
     tools["machines"][0]["workholding"][0].as_object_mut().unwrap().remove("jaw_height_mm");
     assert!(planned("plate", &tools)["supplied_decisions"][0]["refusal_reason"].as_str().unwrap().contains("cannot be validated without vise jaw width, height and opening"));
     tools["decisions"] = clamping("typo", json!({"axis":"x","grip_height_mm":4.}));
-    let mut plan = json!({"setups":[]});
+    let mut plan = json!({"setups":[], "covered_by_roughing":[], "skipped":[], "warnings":[]});
     capp::finish(&mut plan, &tools, &[]).unwrap();
     assert_eq!(plan["supplied_decisions"][0]["refusal_reason"], "subject or operation matches no decision");
 }
@@ -249,8 +250,8 @@ fn clamping_proposals_are_checked_rather_than_silently_replaced() {
 fn history_plan(operations: Value, rotation: Value, origin: Value) -> Value {
     json!({"setups":[
         {"id":"top","rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,0],"stock":{"min":[0,0,-20],"max":[40,30,0]},"operations":operations},
-        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":[]}]}
-    ]})
+        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bore_top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":[]}]}
+    ], "covered_by_roughing":[], "skipped":[], "warnings":[]})
 }
 fn audit(plan: &Value) -> &Value {
     let primary = &plan["setups"][1]["clamping"]["because"][0];
@@ -275,13 +276,15 @@ fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
     capp::finish(&mut moved, &library(), &[]).unwrap();
     assert_eq!(audit(&moved)["status"], "no_overlap", "origin_model must affect the comparison");
     let mut excluded = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front, json!([0,0,-20]));
+    // A spot drill made for a hole with no feature does not decode, and exclude needs the plan to decode.
+    excluded["setups"][1]["operations"][0]["features"] = json!(["holes:0"]);
     capp::finish(&mut excluded, &library(), &[json!({"operation":"top-1-facing","message":"test exclusion"})]).unwrap();
     assert_eq!(audit(&excluded)["status"], "no_overlap", "refused earlier operations must not invent removed material");
 }
 
 #[test]
 fn later_grip_audit_uses_capped_depths_and_admits_missing_information() {
-    let mut plan = history_plan(json!([{"kind":"roughing","top_z":0.,"floor_z":-19.,"web_mm":0.5}]), json!([[1,0,0],[0,1,0],[0,0,1]]), json!([0,0,0]));
+    let mut plan = history_plan(json!([{"kind":"roughing","top_z":0.,"floor_z":-19.,"web_mm":0.5,"surface_error_mm":0.}]), json!([[1,0,0],[0,1,0],[0,0,1]]), json!([0,0,0]));
     plan["setups"][1]["stock"] = plan["setups"][0]["stock"].clone();
     capp::finish(&mut plan, &library(), &[]).unwrap();
     assert_eq!(plan["setups"][0]["operations"][0]["floor_z"], -15.);

@@ -25,8 +25,8 @@ fn missing_hole_tools_use_library_tolerance_and_merge_identical_queries() {
     tools["tools"].as_array_mut().unwrap().retain(|t| t["type"] == "end_mill");
     for tool in tools["tools"].as_array_mut().unwrap() { tool["diameter"] = json!(20); tool["holder_diameter"] = json!(30); }
     let mut plan = simple(json!([
-        {"kind":"holes", "diameter":18.5, "bottom_z":-131.7, "features":["holes:0"]},
-        {"kind":"holes", "diameter":18.5, "bottom_z":-131.7, "features":["holes:1"]}
+        {"kind":"holes", "diameter":18.5, "top_z":0, "bore_top_z":0, "bottom_z":-131.7, "bottom":"blind", "centers":[], "features":["holes:0"]},
+        {"kind":"holes", "diameter":18.5, "top_z":0, "bore_top_z":0, "bottom_z":-131.7, "bottom":"blind", "centers":[], "features":["holes:1"]}
     ]));
     capp::finish(&mut plan, &tools, &[]).unwrap();
     let need = "a drill of ⌀18.30–18.50 with flutes of at least 131.71 mm plus point length, or an end mill under ⌀18.45 with flutes of at least 132 mm";
@@ -42,7 +42,7 @@ fn missing_hole_tools_use_library_tolerance_and_merge_identical_queries() {
 
 #[test]
 fn notch_query_rounds_diameter_down_and_reach_up() {
-    let mut plan = simple(json!([{"kind":"notch", "width":1.237, "top_z":0, "floor_z":-12.01, "features":["notches:0"]}]));
+    let mut plan = simple(json!([{"kind":"notch", "width":1.237, "length":1.237, "open":false, "outer":[], "top_z":0, "floor_z":-12.01, "wall_top":0, "bottom":"blind", "features":["notches:0"]}]));
     capp::finish(&mut plan, &library(), &[]).unwrap();
     assert_eq!(plan["tools_needed"][0]["description"], "an end mill under ⌀1.18 with flutes of at least 13 mm");
     assert_eq!(plan["tools_needed"][0]["features"], json!(["notches:0"]));
@@ -87,7 +87,7 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
 #[test]
 fn non_tool_refusals_and_stepdown_do_not_name_a_tool() {
     for reason in ["helical entry bound exceeded", "contour gouge Uncertain", "invalid pocket parameters: stepdown_mm 8 exceeds the cutting length 2"] {
-        let mut plan = simple(json!([{"kind":"holes", "diameter":8, "bottom_z":-10, "features":["holes:0"]}]));
+        let mut plan = simple(json!([{"kind":"holes", "diameter":8, "top_z":0, "bore_top_z":0, "bottom_z":-10, "bottom":"blind", "centers":[], "features":["holes:0"]}]));
         capp::finish(&mut plan, &library(), &[json!({"operation":"top-1-holes", "message":reason})]).unwrap();
         assert_eq!(plan["skipped"][0]["reason"], format!("left out: {reason}"));
         assert_eq!(plan["tools_needed"], json!([]));
@@ -96,7 +96,7 @@ fn non_tool_refusals_and_stepdown_do_not_name_a_tool() {
 
 #[test]
 fn refused_roughing_passes_its_tool_query_to_covered_features() {
-    let mut plan = simple(json!([{"kind":"roughing", "top_z":0, "floor_z":-131.7, "features":[]}]));
+    let mut plan = simple(json!([{"kind":"roughing", "top_z":0, "floor_z":-131.7, "web_mm":0, "surface_error_mm":0, "features":[]}]));
     plan["covered_by_roughing"] = json!(["pockets:0", "pockets:1"]);
     capp::finish(&mut plan, &library(), &[json!({"operation":"top-1-roughing", "message":"invalid pocket parameters: pocket depth 131.7 exceeds the cutting length 75", "reach":{"limit":"cutting_length","depth_needed_mm":131.7,"depth_available_mm":75.,"top_z_mm":0.}})]).unwrap();
     assert_eq!(plan["tools_needed"], json!([{"description":"an end mill with flutes of at least 132 mm", "features":["pockets:0", "pockets:1"], "operations":["top-1-roughing"]} ]));
@@ -106,10 +106,10 @@ fn refused_roughing_passes_its_tool_query_to_covered_features() {
 #[test]
 fn v_channel_and_chamfer_reach_refusals_name_suitable_bits() {
     for (op, operation, reason, expected) in [
-        (json!({"kind":"v_channel", "angle":60, "width":2, "root_z":-20.1, "features":["v:0"]}),
+        (json!({"kind":"v_channel", "angle":60, "width":2, "depth":20.1, "length":20, "a":[-10,0], "b":[10,0], "top_z":0, "root_z":-20.1, "on_flat":false, "features":["v:0"]}),
          "top-1-v_channel", "invalid trace parameters: depth 20.1 below the stock top exceeds the cutting length 5",
          "a sharp V-bit with zero tip diameter and angle at most 60.00° with flutes of at least 21 mm"),
-        (json!({"kind":"edge_chamfer", "width":0.5, "radius":1, "top_z":-2, "features":["r:0"]}),
+        (json!({"kind":"edge_chamfer", "width":0.5, "radius":1, "top_z":-2, "outer":[], "holes":[], "boundaries":"outer", "features":["r:0"]}),
          "top-1-edge_chamfer", "invalid chamfer parameters: tool tip Z-3 is deeper below the stock top than the cutting length 2",
          "a 90° chamfer mill with (diameter - tip diameter) / 2 at least 1.00 mm, with zero tip diameter and flutes of at least 4 mm"),
     ] {
