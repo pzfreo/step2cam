@@ -1,8 +1,7 @@
 //! Missing-tool queries. These describe resources only; they never change tool selection.
 use crate::kind::OpId;
-use crate::model::{Cut, Operation, Setup};
+use crate::model::{Cut, Operation, Plan, Setup};
 use crate::resources::Library;
-use serde::Deserialize;
 use serde_json::{Value, json};
 
 /// Round reach upwards with a micron of clearance. This exceeds camlib's 16 × 1e-5 mm
@@ -97,15 +96,16 @@ pub(crate) fn for_operation_with_context(op: &Operation, top: f64, library: &Lib
 
 /// Reach evidence is decoded by the camlib adapter, never inferred from error prose.
 /// Stepdown and other untyped refusals do not request a different tool.
-pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool: Option<&str>, evidence: &Value, library: &Library) -> Result<String, String> {
+pub(crate) fn refusal(plan: &Plan, operation: &str, message: &str, refused_tool: Option<&str>, evidence: &Value, library: &Library) -> Result<String, String> {
     let Ok(OpId { setup: setup_id, number, .. }) = operation.parse() else { return Ok(message.into()); };
-    let Some(setup) = plan["setups"].as_array().into_iter().flatten().find(|s| s["id"] == setup_id.as_str()) else { return Ok(message.into()); };
-    let Some(op) = number.checked_sub(1).and_then(|n| setup["operations"].get(n)) else { return Ok(message.into()); };
-    let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
+    let Some(setup) = plan.setups.iter().find(|s| s.id == setup_id.as_str()) else { return Ok(message.into()); };
+    let Some(op) = number.checked_sub(1).and_then(|n| setup.operations.get(n)) else { return Ok(message.into()); };
+    let top = setup.stock.max[2];
     let Some(depth) = evidence["depth_needed_mm"].as_f64().filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
-    let tool_id = refused_tool.or(op["tool"].as_str()).unwrap_or("the tool");
+    let tool_id = refused_tool.or(op.tool.as_ref().and_then(Option::as_deref)).unwrap_or("the tool");
     let tool = library.data["tools"].as_array().and_then(|ts| ts.iter().find(|t| t["id"] == tool_id));
-    let noun = crate::plan::operation_noun(op["kind"].as_str().unwrap_or(""));
+    let noun = crate::plan::operation_noun(op.cut.kind().name());
+    let group = plan.material.as_ref().and_then(|m| m["iso513"].as_str());
     if evidence["limit"] != "cutting_length" {
         let part = evidence["limit"].as_str().unwrap_or("tool assembly");
         let z = evidence["z_mm"].as_f64().unwrap_or(top - depth);
@@ -114,10 +114,8 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool
         // Assembly reach is not flute reach. Thread mills have a tooth height instead.
         let cutter_length = tool.and_then(|t| t["flute_length"].as_f64()
             .or_else(|| t["tooth_height"].as_f64()).or_else(|| t["thread_length"].as_f64()));
-        // A bridge: for_operation_with_context takes the typed operation and setup; refusal holds JSON until stage 5.
-        let (typed, typed_setup) = (Operation::deserialize(op).map_err(|e| e.to_string())?, Setup::deserialize(setup).map_err(|e| e.to_string())?);
-        let mut query = for_operation_with_context(&typed, top, library, Some(cutter_length.unwrap_or(0.)), Some(&typed_setup),
-            plan["material"]["iso513"].as_str())?.unwrap_or_else(|| "a tool".into());
+        let mut query = for_operation_with_context(op, top, library, Some(cutter_length.unwrap_or(0.)), Some(setup),
+            group)?.unwrap_or_else(|| "a tool".into());
         if cutter_length.is_none() && let Some((base, _)) = query.split_once(" with flutes of at least ") {
             query = base.to_string();
         }
@@ -126,14 +124,27 @@ pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool
             crate::plan::display_position(obstruction), crate::plan::display_position(z)));
     }
     let flutes = evidence["depth_available_mm"].as_f64().or_else(|| tool.and_then(|t| t["flute_length"].as_f64()));
-    let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| z < op["top_z"].as_f64().unwrap_or(top) - 0.001) { "material top" } else { "stock top" };
+    let reference = if evidence["top_z_mm"].as_f64().is_some_and(|z| z < top_z(op).unwrap_or(top) - 0.001) { "material top" } else { "stock top" };
     let plain = flutes.map(|flutes| format!("camlib refused the {noun}: the cut is {} mm below the {reference} and {tool_id}'s flutes are {} mm", crate::plan::show(depth), crate::plan::show(flutes))).unwrap_or_else(|| message.into());
-    // A bridge: for_operation_with_context takes the typed operation and setup; refusal holds JSON until stage 5.
-    let (typed, typed_setup) = (Operation::deserialize(op).map_err(|e| e.to_string())?, Setup::deserialize(setup).map_err(|e| e.to_string())?);
-    Ok(match for_operation_with_context(&typed, top, library, Some(depth), Some(&typed_setup), plan["material"]["iso513"].as_str())? {
+    Ok(match for_operation_with_context(op, top, library, Some(depth), Some(setup), group)? {
         Some(need) => format!("{plain}: needs {need}"),
         None => message.into(),
     })
+}
+
+/// The operation's `top_z`, for the kinds that have one.
+fn top_z(op: &Operation) -> Option<f64> {
+    match &op.cut {
+        Cut::Roughing(c) => Some(c.top_z),
+        Cut::Holes(c) => Some(c.top_z),
+        Cut::Counterbore(c) => Some(c.top_z),
+        Cut::Thread(c) => Some(c.top_z),
+        Cut::Slot(c) => Some(c.top_z),
+        Cut::Notch(c) => Some(c.top_z),
+        Cut::VChannel(c) => Some(c.top_z),
+        Cut::EdgeChamfer(c) => Some(c.top_z),
+        Cut::Facing { .. } | Cut::Flats { .. } | Cut::SpotDrill(_) | Cut::WallFinish(_) => None,
+    }
 }
 
 /// Derive the index from the live reasons, so settling repeatedly cannot retain obsolete needs.
@@ -183,8 +194,9 @@ mod assembly_wording_tests {
         assert!(tool.get("flute_length").is_none());
         assert_eq!(tool["tooth_height"], 0.693);
         // Exercise the refusal formatter independently of operation/tool selection.
-        let plan = json!({"setups":[{"id":"top","stock":{"min":[0,0,-64],"max":[20,20,0]},
-            "operations":[{"kind":"notch","width":6.,"length":6.,"open":false,"outer":[[0,0,0],[6,0,0]],"top_z":0.,"floor_z":-64.,"wall_top":0.,"bottom":"blind"}]}]});
+        let plan: Plan = serde_json::from_value(json!({"setups":[{"id":"top","stock":{"min":[0,0,-64],"max":[20,20,0]},
+            "operations":[{"kind":"notch","width":6.,"length":6.,"open":false,"outer":[[0,0,0],[6,0,0]],"top_z":0.,"floor_z":-64.,"wall_top":0.,"bottom":"blind"}]}],
+            "covered_by_roughing":[],"skipped":[],"warnings":[]})).unwrap();
         let evidence = json!({"limit":"holder","holder_section":0,"depth_needed_mm":64.00001,
             "depth_available_mm":14.,"top_z_mm":-0.99999,"z_mm":-65.});
         let reason = refusal(&plan, "top-1-notch", "original evidence", Some("tmM4"), &evidence, &library).unwrap();
