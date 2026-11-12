@@ -32,6 +32,7 @@ export function operationName(op, setup, plan, format = null) {
   if (op.kind === "flats") return "Finish flats" + where;
   if (op.kind === "wall_finish") return "Finish outside wall" + where;
   if (op.kind === "edge_chamfer") return (op.radius == null ? `${size(op.width)} mm 45° edge chamfer` : `${size(op.width)} chamfer on r${size(op.radius)} edges`) + where;
+  if (op.kind === "holes") return `⌀${size(op.diameter)} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
   return `⌀${size(op.diameter)} ${op.bottom === "through" ? "through" : op.bottom === "drill_point" ? "drill point" : op.bottom}` + where;
 }
 

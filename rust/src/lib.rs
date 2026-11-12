@@ -180,11 +180,9 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             programs.clear();
             break;
         };
-        let mut parts = operation.splitn(3, '-');
-        let setup_id = parts.next().unwrap_or("");
-        let index = parts.next().and_then(|n| n.parse::<usize>().ok()).and_then(|n| n.checked_sub(1));
-        let refused_op = plan["setups"].as_array().and_then(|ss| ss.iter().find(|s| s["id"] == setup_id))
-            .and_then(|s| index.and_then(|i| s["operations"].get(i)));
+        let id = operation.parse::<capp::kind::OpId>().ok();
+        let refused_op = id.and_then(|id| plan["setups"].as_array().and_then(|ss| ss.iter().find(|s| s["id"] == id.setup.as_str()))
+            .and_then(|s| id.number.checked_sub(1).and_then(|i| s["operations"].get(i))));
         let tool = refused_op.map(|op| op["tool"].clone()).unwrap_or(Value::Null);
         let selection = plan["decisions"].as_array().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
             && refused_op.is_some_and(|op| op["because"].as_array().is_some_and(|ids| ids.contains(&d["id"]))))).cloned();

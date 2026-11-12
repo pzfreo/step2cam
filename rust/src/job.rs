@@ -1,6 +1,7 @@
 //! The camlib adapter: a plan whose operations name their tools (`capp::finish`) + the tool
 //! library -> camlib jobs, how each tool cuts and how deep. A job is camlib's manifest, plain
 //! JSON, one per setup.
+use capp::kind::OpKind;
 use capp::plan::{PLAN_FORMAT, r, show};
 use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
 use serde_json::{Value, json};
@@ -281,10 +282,6 @@ pub struct Job {
     pub local_pocket_tops: HashMap<String, f64>,
 }
 
-/// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
-/// The operation kinds a plan holds, each of which `capp::resolve` gives a tool or a note.
-const KNOWN: [&str; 12] = ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
-
 /// The tool capp chose for an operation, or why there is none (its note, said where it is cut).
 type Tool<'a> = Result<&'a Value, Option<String>>;
 /// The operation to add to the job and the tool it cuts with, or none to add.
@@ -383,6 +380,7 @@ impl<'a> SetupCut<'a> {
     }
 }
 
+/// One camlib job for each setup of a plan whose operations name their tools (`capp::resolve`).
 pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
     if plan["format"] != PLAN_FORMAT {
         return Err("not a step2cam plan".into());
@@ -408,7 +406,9 @@ fn cut_operations<'a>(cx: &mut SetupCut<'a>, tools: &[&'a Value]) -> Result<(), 
     for (n, op) in setup["operations"].as_array().ok_or("setup has no operations")?.iter().enumerate() {
         let kind = op["kind"].as_str().unwrap_or("");
         let op_id = format!("{}-{}-{kind}", cx.setup_id, n + 1);
-        if KNOWN.contains(&kind) && op.get("tool").is_none() {
+        // Every kind capp plans, `capp::resolve` gives a tool or a note.
+        let known = kind.parse::<OpKind>().ok();
+        if known.is_some() && op.get("tool").is_none() {
             return Err(format!("{op_id} names no tool: resolve the plan's tools with capp::finish first"));
         }
         // The tool capp chose, or why there is none (said at the point the operation is cut).
@@ -416,23 +416,23 @@ fn cut_operations<'a>(cx: &mut SetupCut<'a>, tools: &[&'a Value]) -> Result<(), 
             Some(name) => Ok(*tools.iter().find(|t| id(t) == name).ok_or_else(|| format!("{op_id}: no tool {name:?} in the library"))?),
             None => Err(op["tool_note"].as_str().map(|n| format!("{op_id}: {n}"))),
         };
-        let built = match kind {
-            "facing" => facing(cx, op, &op_id, tool)?,
-            "roughing" => roughing(cx, op, &op_id, tool)?,
-            "flats" => flats(cx, op, &op_id, tool)?,
-            "spot_drill" => spot_drill(cx, op, &op_id, tool)?,
-            "holes" => holes(cx, op, &op_id, tool)?,
-            "counterbore" => counterbore(cx, op, &op_id, tool)?,
-            "thread" => thread(cx, op, &op_id, tool)?,
-            "slot" => slot(cx, op, &op_id, tool)?,
-            "notch" => notch(cx, op, &op_id, tool)?,
-            "v_channel" => v_channel(cx, op, &op_id, tool)?,
-            "wall_finish" => wall_finish(cx, op, &op_id, tool)?,
-            "edge_chamfer" => edge_chamfer(cx, op, &op_id, tool)?,
-            other => {
-                cx.notes.push(format!("{op_id}: unknown operation kind {other:?}"));
-                None
-            }
+        let Some(known) = known else {
+            cx.notes.push(format!("{op_id}: unknown operation kind {kind:?}"));
+            continue;
+        };
+        let built = match known {
+            OpKind::Facing => facing(cx, op, &op_id, tool)?,
+            OpKind::Roughing => roughing(cx, op, &op_id, tool)?,
+            OpKind::Flats => flats(cx, op, &op_id, tool)?,
+            OpKind::SpotDrill => spot_drill(cx, op, &op_id, tool)?,
+            OpKind::Holes => holes(cx, op, &op_id, tool)?,
+            OpKind::Counterbore => counterbore(cx, op, &op_id, tool)?,
+            OpKind::Thread => thread(cx, op, &op_id, tool)?,
+            OpKind::Slot => slot(cx, op, &op_id, tool)?,
+            OpKind::Notch => notch(cx, op, &op_id, tool)?,
+            OpKind::VChannel => v_channel(cx, op, &op_id, tool)?,
+            OpKind::WallFinish => wall_finish(cx, op, &op_id, tool)?,
+            OpKind::EdgeChamfer => edge_chamfer(cx, op, &op_id, tool)?,
         };
         if let Some((operation, spec)) = built {
             cx.operations.push(operation);

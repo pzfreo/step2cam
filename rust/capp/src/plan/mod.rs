@@ -456,20 +456,9 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         for op in &mut ops {
             let kind = op["kind"].as_str().unwrap_or("").to_string();
             let features: Vec<String> = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect();
-            let rule = match kind.as_str() {
-                "facing" => "process.facing",
-                "roughing" => "process.roughing",
-                "flats" => "process.flats",
-                "holes" => "process.holes",
-                "spot_drill" => "process.spot_drill",
-                "counterbore" => "process.counterbore",
-                "thread" => "process.thread",
-                "slot" => "process.slot",
-                "notch" => "process.notch",
-                "v_channel" => "process.v_channel",
-                "wall_finish" => "process.wall_finish",
-                _ => "process.edge_chamfer",
-            };
+            // Every operation here was made by the planner with a known kind; the fallback is the
+            // rule this match gave before kinds were typed.
+            let rule = kind.parse::<crate::kind::OpKind>().map_or("process.edge_chamfer", crate::kind::OpKind::process_rule);
             let says = if features.is_empty() { format!("{kind} in the {name} setup") } else { format!("{kind} in the {name} setup: {}", features.join(", ")) };
             let made = trace.decide(rule, &format!("{name}:{kind}"), "planned", &says, json!({"features": features}));
             let holes_placed: Vec<String> = features.iter().filter_map(|f| placed.get(f).cloned()).collect();
