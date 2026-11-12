@@ -250,7 +250,7 @@ fn clamping_proposals_are_checked_rather_than_silently_replaced() {
 fn history_plan(operations: Value, rotation: Value, origin: Value) -> Value {
     json!({"setups":[
         {"id":"top","rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,0],"stock":{"min":[0,0,-20],"max":[40,30,0]},"operations":operations},
-        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bore_top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":["holes:0"]}]}
+        {"id":"front","rotation":rotation,"origin_model":origin,"stock":{"min":[0,0,-30],"max":[40,20,0]},"operations":[{"kind":"holes","diameter":3.,"top_z":0.,"bore_top_z":0.,"bottom_z":-5.,"bottom":"drill_point","centers":[[20,10]],"features":[]}]}
     ], "covered_by_roughing":[], "skipped":[], "warnings":[]})
 }
 fn audit(plan: &Value) -> &Value {
@@ -276,6 +276,8 @@ fn later_grip_bands_are_transformed_and_warn_about_earlier_removed_material() {
     capp::finish(&mut moved, &library(), &[]).unwrap();
     assert_eq!(audit(&moved)["status"], "no_overlap", "origin_model must affect the comparison");
     let mut excluded = history_plan(json!([{"kind":"facing","floor_z":-2.}]), front, json!([0,0,-20]));
+    // A spot drill made for a hole with no feature does not decode, and exclude needs the plan to decode.
+    excluded["setups"][1]["operations"][0]["features"] = json!(["holes:0"]);
     capp::finish(&mut excluded, &library(), &[json!({"operation":"top-1-facing","message":"test exclusion"})]).unwrap();
     assert_eq!(audit(&excluded)["status"], "no_overlap", "refused earlier operations must not invent removed material");
 }
