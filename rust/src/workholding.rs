@@ -1,20 +1,17 @@
 //! Full candidate runs, including camlib retries. Never infer one option's cost from another.
+use super::Outcome;
+use capp::model::{Cut, Plan};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
 fn rule_name(value: &Value) -> Option<&str> {
     value.as_str()?.split('@').next()
 }
-fn setups(plan: &Value) -> impl Iterator<Item = &Value> {
-    plan["setups"].as_array().into_iter().flatten()
+fn is_flip(plan: &Plan) -> bool {
+    plan.setups.iter().any(|s| s.flip_seating.as_ref().is_some_and(Value::is_object))
 }
-fn is_flip(plan: &Value) -> bool {
-    setups(plan).any(|s| s["flip_seating"].is_object())
-}
-fn stock_height(plan: &Value) -> f64 {
-    setups(plan).next().map_or(0., |s| {
-        s["stock"]["max"][2].as_f64().unwrap_or(0.) - s["stock"]["min"][2].as_f64().unwrap_or(0.)
-    })
+fn stock_height(plan: &Plan) -> f64 {
+    plan.setups.first().map_or(0., |s| s.stock.max[2] - s.stock.min[2])
 }
 fn unavailable(id: &str, label: &str, reason: &str) -> Value {
     json!({"id":id,"label":label,"available":false,"reason":reason})
@@ -22,47 +19,42 @@ fn unavailable(id: &str, label: &str, reason: &str) -> Value {
 fn consequences(
     id: &str,
     label: &str,
-    out: &Value,
+    out: &Outcome,
     ordinary_height: f64,
     library: &Value,
 ) -> Value {
-    let p = &out["plan"];
-    let operations: Vec<_> = setups(p)
-        .flat_map(|s| s["operations"].as_array().into_iter().flatten())
-        .collect();
-    let omitted: BTreeSet<_> = p["skipped"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|s| s["feature"].as_str())
-        .collect();
-    let left: Vec<_>=omitted.iter().map(|id|json!({"feature":id,"reasons":p["skipped"].as_array().into_iter().flatten().filter(|s|s["feature"]==**id).map(|s|s["reason"].clone()).collect::<Vec<_>>()})).collect();
+    let p = &out.plan;
+    let operations: Vec<_> = p.setups.iter().flat_map(|s| &s.operations).collect();
+    let omitted: BTreeSet<_> = p.skipped.iter().map(|s| s.feature.as_str()).collect();
+    let left: Vec<_>=omitted.iter().map(|id|json!({"feature":id,"reasons":p.skipped.iter().filter(|s|s.feature==**id).map(|s|s.reason.clone()).collect::<Vec<_>>()})).collect();
     let cut: BTreeSet<_> = operations
         .iter()
-        .filter(|o| o["tool"].is_string())
-        .flat_map(|o| o["features"].as_array().into_iter().flatten())
-        .filter_map(Value::as_str)
+        .filter(|o| matches!(o.tool, Some(Some(_))))
+        .flat_map(|o| o.cut.features().into_iter().flatten())
+        .map(String::as_str)
         .collect();
     let remaining = operations
         .iter()
-        .filter(|o| o["kind"] == "roughing")
-        .filter_map(|o| o["web_mm"].as_f64())
+        .filter_map(|o| match &o.cut {
+            Cut::Roughing(rough) => Some(rough.web_mm),
+            _ => None,
+        })
         .fold(0_f64, f64::max);
-    let grip_omission = p["skipped"].as_array().into_iter().flatten().any(|s| {
-        p["decisions"].as_array().into_iter().flatten().any(|d| {
-            d["id"] == s["decision"]
+    let grip_omission = p.skipped.iter().any(|s| {
+        p.decisions.iter().flatten().any(|d| {
+            s.decision.as_ref().is_some_and(|id| d["id"] == *id)
                 && matches!(
                     rule_name(&d["rule"]),
                     Some("machine.clamping" | "machine.travel")
                 )
         })
     });
-    let finished = out["error"].is_null()
+    let finished = out.error.is_none()
         && !grip_omission
         && remaining <= 1e-6
         && operations
             .iter()
-            .any(|o| o["kind"] == "roughing" && o["tool"].is_string());
+            .any(|o| matches!(o.cut, Cut::Roughing(_)) && matches!(o.tool, Some(Some(_))));
     let mut seconds = 0.;
     let mut tools = BTreeSet::new();
     let mut previous = None;
@@ -71,7 +63,7 @@ fn consequences(
         .as_f64()
         .filter(|r| *r > 0.)
         .unwrap_or(5000.);
-    for program in out["programs"].as_array().into_iter().flatten() {
+    for program in &out.programs {
         for m in program["moves"].as_array().into_iter().flatten() {
             if let Some(tool) = m["tool"].as_str() {
                 tools.insert(tool);
@@ -101,21 +93,14 @@ fn consequences(
         }
     }
     let mut risks = vec![];
-    let grips: Vec<_>=setups(p).filter_map(|s| {
-        let grip=s["clamping"]["grip_height_mm"].as_f64()?;
-        let height=s["stock"]["max"][2].as_f64()? - s["stock"]["min"][2].as_f64()?;
-        let wall=s["flip_seating"].is_object();
-        risks.push(format!("{}: grips {grip} mm ({:.1}% of setup stock height){}",s["id"].as_str().unwrap_or("setup"),100.*grip/height,if wall {" on finished wall; soft jaws advised"} else {""}));
-        Some(json!({"setup":s["id"],"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall}))
+    let grips: Vec<_>=p.setups.iter().filter_map(|s| {
+        let grip=s.clamping.as_ref()?["grip_height_mm"].as_f64()?;
+        let height=s.stock.max[2] - s.stock.min[2];
+        let wall=s.flip_seating.as_ref().is_some_and(Value::is_object);
+        risks.push(format!("{}: grips {grip} mm ({:.1}% of setup stock height){}",s.id,100.*grip/height,if wall {" on finished wall; soft jaws advised"} else {""}));
+        Some(json!({"setup":s.id,"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall}))
     }).collect();
-    risks.extend(
-        p["warnings"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .map(String::from),
-    );
+    risks.extend(p.warnings.iter().cloned());
     risks.push("Holding force and support flatness are not simulated. Without modeled parallels, through cuts are not checked against supports or the bed.".into());
     let reason = if finished {
         "finished".into()
@@ -127,21 +112,24 @@ fn consequences(
         "finished outline not established".into()
     };
     json!({"id":id,"label":label,"available":true,"finished":finished,"reason":reason,
-        "outline_left_mm":remaining,"features_cut":cut,"covered_by_roughing":p["covered_by_roughing"],"features_left_out":left,
-        "setups":setups(p).count(),"extra_stock_mm":(stock_height(p)-ordinary_height).max(0.),
-        "stock_height_mm":stock_height(p),"estimated_seconds":seconds,"tools":tools,"tool_changes":changes,"tools_needed":p["tools_needed"],
+        "outline_left_mm":remaining,"features_cut":cut,"covered_by_roughing":p.covered_by_roughing,"features_left_out":left,
+        "setups":p.setups.len(),"extra_stock_mm":(stock_height(p)-ordinary_height).max(0.),
+        "stock_height_mm":stock_height(p),"estimated_seconds":seconds,"tools":tools,"tool_changes":changes,"tools_needed":p.tools_needed,
         "grips":grips,"risks":risks,"shop_needs":["dimensioned vise","parallels or equivalent supports"]})
 }
 
 /// Potential screw clearance holes only; this does not validate plate workholding.
-fn suitable_fixture_holes(analysis: &Value, mesh: &Value, ordinary: Option<&Value>) -> bool {
+fn suitable_fixture_holes(analysis: &Value, mesh: &Value, ordinary: Option<&Plan>) -> bool {
     let threaded: BTreeSet<_> = ordinary
         .into_iter()
-        .flat_map(setups)
-        .flat_map(|s| s["operations"].as_array().into_iter().flatten())
-        .filter(|o| matches!(o["kind"].as_str(), Some("thread" | "tap")))
-        .flat_map(|o| o["features"].as_array().into_iter().flatten())
-        .filter_map(Value::as_str)
+        .flat_map(|p| &p.setups)
+        .flat_map(|s| &s.operations)
+        .filter_map(|o| match &o.cut {
+            Cut::Thread(thread) => Some(&thread.features),
+            _ => None,
+        })
+        .flatten()
+        .map(String::as_str)
         .collect();
     let holes: Vec<[f64; 2]> = analysis["features"]
         .as_array()
@@ -183,7 +171,7 @@ fn process_using(
     analysis: &Value,
     mesh: &Value,
     library: &Value,
-    mut execute: impl FnMut(&Value, &Value, &Value, Value) -> Result<Value, String>,
+    mut execute: impl FnMut(&Value, &Value, &Value, Plan) -> Result<Outcome, String>,
 ) -> Result<Value, String> {
     let mut run_library = library.clone();
     // Check workholding choices only after all independent runs.
@@ -194,7 +182,7 @@ fn process_using(
         ds.retain(|s| rule_name(&s["rule"]) != Some(capp::candidates::RULE));
     }
     run_library["overrides"]["workholding_option"] = json!("none");
-    let ordinary = capp::flip::plan(analysis, mesh, &run_library);
+    let ordinary = capp::flip::build(analysis, mesh, &run_library);
     let ordinary_height = ordinary.as_ref().map(stock_height).unwrap_or(0.);
     let fixture_holes = suitable_fixture_holes(analysis, mesh, ordinary.as_ref().ok());
     let ordinary_result = ordinary.and_then(|p| execute(analysis, mesh, &run_library, p));
@@ -210,12 +198,12 @@ fn process_using(
                 "Vise, ordinary grip",
                 ordinary_error.as_deref().unwrap(),
             ),
-            Some(out) if out["error"].is_string() => unavailable(
+            Some(Outcome { error: Some(error), .. }) => unavailable(
                 "vise_ordinary",
                 "Vise, ordinary grip",
-                out["error"].as_str().unwrap(),
+                error,
             ),
-            Some(out) if !setups(&out["plan"]).all(|s| s["clamping"].is_object()) => unavailable(
+            Some(out) if !out.plan.setups.iter().all(|s| s.clamping.as_ref().is_some_and(Value::is_object)) => unavailable(
                 "vise_ordinary",
                 "Vise, ordinary grip",
                 "stock cannot be held by the described vise; see machine/clamping checks",
@@ -231,11 +219,11 @@ fn process_using(
         candidates.push(c);
         runs.push(ordinary_run.take());
         run_library["overrides"]["workholding_option"] = json!("vise_flip_face");
-        let flip = capp::flip::plan(analysis, mesh, &run_library).and_then(|p| {
+        let flip = capp::flip::build(analysis, mesh, &run_library).and_then(|p| {
             if !is_flip(&p) {
-                let reason = p["decisions"]
-                    .as_array()
-                    .into_iter()
+                let reason = p
+                    .decisions
+                    .iter()
                     .flatten()
                     .rev()
                     .find(|d| rule_name(&d["rule"]) == Some("setup.flip_face"))
@@ -251,9 +239,9 @@ fn process_using(
                 None,
             ),
             Ok(out) => {
-                let c = if let Some(e) = out["error"].as_str() {
+                let c = if let Some(e) = &out.error {
                     unavailable("vise_flip_face", "Vise, flip and face", e)
-                } else if !is_flip(&out["plan"]) {
+                } else if !is_flip(&out.plan) {
                     unavailable(
                         "vise_flip_face",
                         "Vise, flip and face",
@@ -317,7 +305,7 @@ fn process_using(
             });
         }
     }
-    let mut out = if let Some(i) = chosen {
+    let out = if let Some(i) = chosen {
         runs[i].take().unwrap()
     } else {
         // No validated holding: reuse the ordinary run, even if its holding was unavailable.
@@ -330,6 +318,8 @@ fn process_using(
             ordinary_error.unwrap_or_else(|| "no executable workholding candidate".into())
         })?
     };
+    // The output is JSON from here on.
+    let mut out = out.json();
     capp::candidates::choose(&mut out["plan"], library, &candidates)?;
     Ok(out)
 }
@@ -400,10 +390,10 @@ mod tests {
     #[test]
     fn grip_and_travel_omissions_ignore_rule_version() {
         for rule in ["machine.clamping@99", "machine.travel@7"] {
-            let out = json!({"error":null,"programs":[],"plan":{
-                "setups":[{"stock":{"min":[0,0,-10],"max":[10,10,0]},"operations":[{"kind":"roughing","tool":"em","web_mm":0}]}],
+            let out = Outcome {error:None,programs:vec![],log:vec![],plan:serde_json::from_value(json!({
+                "setups":[{"id":"top","stock":{"min":[0,0,-10],"max":[10,10,0]},"operations":[{"kind":"roughing","tool":"em","web_mm":0,"top_z":0,"floor_z":-10,"surface_error_mm":0}]}],
                 "skipped":[{"feature":"f","reason":"not held","decision":"d-1"}],"decisions":[{"id":"d-1","rule":rule}],
-                "covered_by_roughing":[],"tools_needed":[],"warnings":[]}});
+                "covered_by_roughing":[],"tools_needed":[],"warnings":[]})).unwrap()};
             let c = consequences(
                 "vise_ordinary",
                 "Vise, ordinary grip",
@@ -430,7 +420,9 @@ mod tests {
             bad["features"][1]["record"][key] = value;
             assert!(!suitable_fixture_holes(&bad, &m, None), "{key}");
         }
-        let threaded = json!({"setups":[{"operations":[{"kind":"thread","features":["a"]}]}]});
+        let threaded: Plan = serde_json::from_value(json!({"setups":[{"id":"top","stock":{"min":[0,0,0],"max":[100,100,10]},"operations":[{"kind":"thread","features":["a"],
+            "spec":"M5","major":5,"pitch":0.8,"start_diameter":4.2,"top_z":10,"bottom_z":0,"through":true,"centers":[[0,0]]}]}],
+            "covered_by_roughing":[],"skipped":[],"warnings":[]})).unwrap();
         assert!(!suitable_fixture_holes(&a, &m, Some(&threaded)));
     }
 }

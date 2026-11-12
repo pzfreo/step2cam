@@ -10,6 +10,8 @@ pub mod simulate;
 mod workholding;
 mod setup_stock;
 
+use capp::kind::OpKind;
+use capp::model::{Cut, Plan, Setup};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
@@ -34,32 +36,32 @@ struct CompletedSetup {
     input: Value,
     job: job::Job,
     run: simulate::Run,
-    stock_note: Value,
+    stock_note: Option<String>,
 }
 
-fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>) -> Result<(), simulate::Failure> {
+fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>) -> Result<(), simulate::Failure> {
     // Keep the original coordinate/stock descriptions while reporting the actual premise.
-    let frames = plan["setups"].as_array().cloned().unwrap_or_default();
-    let plan_part = plan["part"].clone();
-    for (index, setup) in plan["setups"].as_array_mut().into_iter().flatten().enumerate().skip(1) {
-        setup.as_object_mut().unwrap().remove("stock_note");
-        if let Some(step) = setup_stock::breakout(&frames[index - 1], &plan_part) {
-            setup["before_setup"] = step;
+    let frames = plan.setups.clone();
+    let plan_part = plan.part.clone();
+    for (index, setup) in plan.setups.iter_mut().enumerate().skip(1) {
+        setup.stock_note = None;
+        if let Some(step) = setup_stock::breakout(&frames[index - 1], plan_part.as_ref()) {
+            setup.before_setup = Some(step);
         }
     }
-    let (jobs, notes) = job::jobs(plan, library)?;
+    let (jobs, notes) = job::jobs_from(plan, library)?;
     log.extend(notes);
     let count = jobs.len();
-    let mut previous: Option<(Value, Result<camlib::stock_mesh::FinishedStock, String>, bool, bool)> = None;
+    let mut previous: Option<(&Setup, Result<camlib::stock_mesh::FinishedStock, String>, bool, bool)> = None;
     for (index, mut job) in jobs.into_iter().enumerate() {
         job.return_stock = index + 1 < count;
         let box_manifest = job.manifest.clone();
         let box_bottom = job.stock_bottom_mm;
-        let frame = frames.iter().find(|s| s["id"] == job.setup).ok_or("missing setup frame")?;
-        let setup_index = frames.iter().position(|s| s["id"] == job.setup).unwrap();
+        let frame = frames.iter().find(|s| s.id == job.setup).ok_or("missing setup frame")?;
+        let setup_index = frames.iter().position(|s| s.id == job.setup).unwrap();
         if setup_index > 0 {
             let carried = match &previous {
-                Some((from, Ok(stock), _, _)) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, &plan["part"], library)),
+                Some((from, Ok(stock), _, _)) => setup_stock::carry(stock, from, frame, &job.manifest).and_then(|(manifest, bottom)| setup_stock::adapt(manifest, job.stock_bottom_mm.min(bottom), frame, plan.part.as_ref(), library)),
                 Some((_, Err(reason), _, _)) => Err(reason.clone()),
                 None => Err("the previous setup returned no finished stock".into()),
             };
@@ -68,27 +70,27 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
                     adapted.return_stock = job.return_stock;
                     job = adapted;
                     let from = previous.as_ref().unwrap();
-                    setup_stock::carried_note(from.0["id"].as_str().unwrap_or("previous setup"), from.2, from.3)
+                    setup_stock::carried_note(&from.0.id, from.2, from.3)
                 }
                 Err(reason) => setup_stock::assumption(&reason),
             };
-            plan["setups"][setup_index]["stock_note"] = json!(note);
+            plan.setups[setup_index].stock_note = Some(note);
         }
-        if setup_stock::released(frame, &plan_part) {
-            job.crop_stock_to = Some(setup_stock::part_bounds(&plan_part, frame)?);
+        if setup_stock::released(frame, plan_part.as_ref()) {
+            job.crop_stock_to = Some(setup_stock::part_bounds(plan_part.as_ref(), frame)?);
         }
         let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
         let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.crop_stock_to == job.crop_stock_to && (!job.return_stock || c.job.return_stock)) {
             job = saved.job.clone();
-            if setup_index > 0 { plan["setups"][setup_index]["stock_note"] = saved.stock_note.clone(); }
+            if setup_index > 0 { plan.setups[setup_index].stock_note = saved.stock_note.clone(); }
             saved.run.clone()
         } else {
             cache.truncate(index);
             let attempt = simulate::simulate_prepared_job(&mut job);
             let attempt = match attempt {
                 Err(f) if f.operation.is_none() && f.message.starts_with("initial stock:") && job.manifest["stock"]["mesh"].is_object() => {
-                    plan["setups"][setup_index]["stock_note"] = json!(setup_stock::assumption(&f.message));
+                    plan.setups[setup_index].stock_note = Some(setup_stock::assumption(&f.message));
                     job.manifest = box_manifest;
                     job.stock_bottom_mm = box_bottom;
                     simulate::simulate_prepared_job(&mut job)
@@ -99,17 +101,18 @@ fn simulate_all(plan: &mut Value, library: &Value, programs: &mut Vec<Value>, lo
                 message: format!("setup {}: {}", job.setup, f.message),
                 ..f
             })?;
-            if job.return_stock { cache.push(CompletedSetup { input, job: job.clone(), run: run.clone(), stock_note: plan["setups"][setup_index]["stock_note"].clone() }); }
+            if job.return_stock { cache.push(CompletedSetup { input, job: job.clone(), run: run.clone(), stock_note: plan.setups[setup_index].stock_note.clone() }); }
             run
         };
         if setup_index > 0 && job.manifest["stock"]["mesh"].is_object() {
-            plan["setups"][setup_index]["stock"] = json!({"min": job.manifest["stock"]["min_mm"], "max": job.manifest["stock"]["max_mm"]});
+            let corner = |key: &str| serde_json::from_value(job.manifest["stock"][key].clone()).map_err(|e| e.to_string());
+            plan.setups[setup_index].stock = capp::model::Box3 { min: corner("min_mm")?, max: corner("max_mm")? };
         }
-        previous = Some((frame.clone(), run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into())), job.crop_stock_to.is_some(), setup_index > 0 && job.manifest["stock"]["mesh"].is_null()));
+        previous = Some((frame, run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into())), job.crop_stock_to.is_some(), setup_index > 0 && job.manifest["stock"]["mesh"].is_null()));
         if run.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
         }
-        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_deref(), &job.manifest, plan["setups"].as_array().into_iter().flatten().any(|s| s["flip_role"]=="sacrificial_grip"))));
+        log.push(format!("note: setup {}: {}", job.setup, material_note(run.material.as_deref(), &job.manifest, plan.setups.iter().any(|s| s.flip_role.as_deref() == Some("sacrificial_grip")))));
         if let Some(proof) = &run.sweep_proof {
             log.push(format!(
                 "note: setup {}: per-motion gouge proof: {} proven, {} unproven; {} possible gouge cells decided at {} mm tolerance{}",
@@ -139,15 +142,45 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
 }
 
 /// Both positive preparation evidence and an executable facing are required.
-fn flip_ready(plan: &Value, bottom: &Value) -> bool {
-    let evidence=plan["decisions"].as_array().into_iter().flatten()
-        .find(|d|d["id"]==bottom["clamping"]["because"][0])
+fn flip_ready(plan: &Plan, bottom: &Setup) -> bool {
+    let because = bottom.clamping.as_ref().map_or(&Value::Null, |c| &c["because"][0]);
+    let evidence=plan.decisions.iter().flatten()
+        .find(|d|d["id"]==*because)
         .map(|d|&d["chosen"]["prior_setups"]);
     evidence.is_some_and(|e|e["prepared_contacts"]==true && e["established_seat"]==true && e["status"]=="no_overlap")
-        && bottom["operations"].as_array().into_iter().flatten().any(|o|o["kind"]=="facing" && o["tool"].is_string())
+        && bottom.operations.iter().any(|o|o.cut.kind()==OpKind::Facing && matches!(o.tool, Some(Some(_))))
 }
 
-fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Value, mut exclusions: Vec<Value>) -> Result<Value, String> {
+/// What [`process`] gives out, before it is encoded: the finished plan, the camlib programs, the
+/// log, and the error that stopped it, if any.
+struct Outcome {
+    plan: Plan,
+    programs: Vec<Value>,
+    log: Vec<String>,
+    error: Option<String>,
+}
+
+impl Outcome {
+    /// The output as JSON, without the plan's copies of the mesh.
+    fn json(mut self) -> Value {
+        // The page has the mesh already; the plan's copy of it is not needed.
+        self.plan.contact_surface_model = None;
+        self.plan.workholding_surface_model = None;
+        for setup in &mut self.plan.setups {
+            setup.part_surface = None;
+            setup.grip_surface_model = None;
+            for op in &mut setup.operations {
+                if let Cut::Roughing(rough) = &mut op.cut {
+                    rough.positions = None;
+                    rough.indices = None;
+                }
+            }
+        }
+        json!({"plan": self.plan, "programs": self.programs, "log": self.log, "error": self.error})
+    }
+}
+
+fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Value>) -> Result<Outcome, String> {
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
@@ -156,14 +189,14 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         programs.clear();
         log.clear();
         plan = planned.clone();
-        if let Err(message) = capp::finish(&mut plan, library, &exclusions) {
+        if let Err(message) = capp::finish_plan(&mut plan, library, &exclusions) {
             error = Some(message);
             break;
         }
-        if let Some(bottom)=plan["setups"].as_array().into_iter().flatten().find(|s|s["flip_seating"].is_object())
+        if let Some(bottom)=plan.setups.iter().find(|s|s.flip_seating.as_ref().is_some_and(Value::is_object))
             && !flip_ready(&plan,bottom) {
-            let reason=plan["warnings"].as_array().into_iter().flatten().filter_map(Value::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
-            planned=capp::flip::fallback(analysis,mesh,&reason)?;
+            let reason=plan.warnings.iter().map(String::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
+            planned=capp::flip::build_fallback(analysis,mesh,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
             exclusions.clear();
@@ -174,42 +207,26 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         };
         // An operation capp can take out is excluded and the plan finished again; anything else
         // stops: nothing is given out, not even a setup that ran before this one stopped.
-        let excludable = failure.operation.as_deref().is_some_and(|id| capp::exclude(&mut plan.clone(), id, "").is_some());
+        let excludable = failure.operation.as_deref().is_some_and(|id| capp::excludable(&plan, id));
         let (true, Some(operation)) = (excludable, failure.operation) else {
             error = Some(failure.message);
             programs.clear();
             break;
         };
         let id = operation.parse::<capp::kind::OpId>().ok();
-        let refused_op = id.and_then(|id| plan["setups"].as_array().and_then(|ss| ss.iter().find(|s| s["id"] == id.setup.as_str()))
-            .and_then(|s| id.number.checked_sub(1).and_then(|i| s["operations"].get(i))));
-        let tool = refused_op.map(|op| op["tool"].clone()).unwrap_or(Value::Null);
-        let selection = plan["decisions"].as_array().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
-            && refused_op.is_some_and(|op| op["because"].as_array().is_some_and(|ids| ids.contains(&d["id"]))))).cloned();
+        let refused_op = id.and_then(|id| plan.setups.iter().find(|s| s.id == id.setup)
+            .and_then(|s| id.number.checked_sub(1).and_then(|i| s.operations.get(i))));
+        let tool = refused_op.map(|op| json!(op.tool.as_ref().and_then(Option::as_ref))).unwrap_or(Value::Null);
+        let selection = plan.decisions.as_ref().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
+            && refused_op.is_some_and(|op| op.because.as_ref().is_some_and(|ids| ids.iter().any(|id| d["id"] == *id))))).cloned();
         let reach = camlib::reach::ReachRefusal::parse(&failure.message);
         exclusions.push(json!({"operation": operation, "message": failure.message, "tool": tool, "selection": selection, "reach": reach}));
     }
-    let needs: Vec<&str> = plan["tools_needed"].as_array().into_iter().flatten()
-        .filter_map(|n| n["description"].as_str()).collect();
+    let needs: Vec<&str> = plan.tools_needed.iter().flatten().map(|n| n.description.as_str()).collect();
     if !needs.is_empty() {
         log.push(format!("tools needed: {}", needs.join("; ")));
     }
-    // The page has the mesh already; the plan's copy of it is not needed.
-    plan.as_object_mut().unwrap().remove("contact_surface_model");
-    plan.as_object_mut().unwrap().remove("workholding_surface_model");
-    for setup in plan["setups"].as_array_mut().into_iter().flatten() {
-        if let Some(s) = setup.as_object_mut() {
-            s.remove("part_surface");
-            s.remove("grip_surface_model");
-        }
-        for op in setup["operations"].as_array_mut().into_iter().flatten() {
-            if let Some(o) = op.as_object_mut() {
-                o.remove("positions");
-                o.remove("indices");
-            }
-        }
-    }
-    Ok(json!({"plan": plan, "programs": programs, "log": log, "error": error}))
+    Ok(Outcome { plan, programs, log, error })
 }
 
 /// For the browser: JSON strings in, a JSON string out.
@@ -224,6 +241,10 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String,
 #[cfg(test)]
 mod flip_tests {
     use super::*;
+    /// A JSON plan or setup as its type, for the functions that take one.
+    fn typed<T: serde::de::DeserializeOwned>(value: &Value) -> T {
+        serde_json::from_value(value.clone()).unwrap()
+    }
     #[test]
     fn explicit_ordinary_demo_programs_and_notes_match_ordinary_planning() {
         let resources: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
@@ -233,8 +254,8 @@ mod flip_tests {
             (include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json"),include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")),
         ] {
             let a: Value=serde_json::from_str(a).unwrap();let m: Value=serde_json::from_str(m).unwrap();
-            let ordinary=capp::plan::plan(&a,Some(&m),&Default::default()).unwrap();
-            let ordinary=process_planned(&a,&m,&resources,ordinary,vec![]).unwrap();
+            let ordinary=capp::plan::build(&a,Some(&m),&Default::default()).unwrap();
+            let ordinary=process_planned(&a,&m,&resources,ordinary,vec![]).unwrap().json();
             let mut legacy=resources.clone();legacy["overrides"]["workholding_option"]=json!("none");
             let mut supplied=resources.clone();supplied["decisions"]=json!([{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"ordinary parity check"}]);
             for t in [legacy,supplied] {
@@ -260,19 +281,19 @@ mod flip_tests {
         let mut finished=planned.clone();capp::finish(&mut finished,&t,std::slice::from_ref(&exclusion)).unwrap();
         let bottom=&finished["setups"][1];
         assert!(bottom["operations"].as_array().unwrap().is_empty());
-        assert!(!flip_ready(&finished,bottom));
+        assert!(!flip_ready(&typed(&finished),&typed(bottom)));
         let decision=finished["decisions"].as_array().unwrap().iter().find(|d|d["id"]==bottom["clamping"]["because"][0]).unwrap();
         assert_eq!(decision["chosen"]["prior_setups"]["prepared_contacts"],false);
         assert_eq!(decision["outcome"],"none");
         assert!(!decision["says"].as_str().unwrap().contains("outline already finished"));
         assert!(decision["says"].as_str().unwrap().contains("preparation not established"));
-        let out=process_planned(&a,&m,&t,planned,vec![exclusion]).unwrap();
+        let out=process_planned(&a,&m,&t,typed(&planned),vec![exclusion]).unwrap().json();
         assert!(out["error"].is_null(),"{}",out["error"]);
         assert!(out["plan"]["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
         assert_eq!(out["plan"]["setups"][0]["stock"]["min"][2],-19.);
         assert!(out["plan"]["setups"][0]["operations"].as_array().unwrap().iter().any(|o|o["kind"]=="roughing" && o["tool"].is_string()));
-        let ordinary=capp::plan::plan(&a,Some(&m),&Default::default()).unwrap();
-        let ordinary=process_planned(&a,&m,&t,ordinary,vec![]).unwrap();
+        let ordinary=capp::plan::build(&a,Some(&m),&Default::default()).unwrap();
+        let ordinary=process_planned(&a,&m,&t,ordinary,vec![]).unwrap().json();
         let reasons=|p: &Value|p["skipped"].as_array().unwrap().iter().map(|s|(s["feature"].clone(),s["reason"].clone())).collect::<Vec<_>>();
         assert_eq!(reasons(&out["plan"]),reasons(&ordinary["plan"]));
         assert_eq!(out["plan"]["covered_by_roughing"],ordinary["plan"]["covered_by_roughing"]);
@@ -288,7 +309,7 @@ mod flip_tests {
         empty["setups"][0]["operations"]=json!([]);
         capp::finish(&mut empty,&t,&[]).unwrap();
         assert!(empty["setups"][1]["operations"].as_array().unwrap().is_empty());
-        assert!(!flip_ready(&empty,&empty["setups"][1]));
+        assert!(!flip_ready(&typed(&empty),&typed(&empty["setups"][1])));
         let mut unseated=capp::flip::plan(&a,&m,&t).unwrap();
         // Keep finished sides and roughing, but remove the finishing of the
         // actual Z12 support plane; facing at the boss top cannot replace it.
@@ -314,7 +335,7 @@ mod flip_tests {
         wall["outer"][0][2]=json!(2.);
         let mut checked=p.clone();capp::finish(&mut checked,&t,&[]).unwrap();
         assert!(checked["setups"][1]["operations"].as_array().unwrap().iter().any(|o|o["kind"]=="facing"));
-        let out=process_planned(&a,&m,&t,p,vec![]).unwrap();
+        let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
         assert!(out["error"].is_null(),"{}",out["error"]);
         let p=&out["plan"];
         assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));

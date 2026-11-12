@@ -17,19 +17,28 @@ use serde_json::{Value, json};
 /// an operation as the execution engine named it (`top-2-roughing`, numbered in the plan as it
 /// stood when that engine saw it) and says why it refused it.
 pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result<(), String> {
+    // The library is checked before the plan is decoded; finish_plan normalizes it again, which
+    // changes nothing and cannot fail once it has passed.
+    let normalized = crate::resources::normalize(library)?;
+    let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
+    let result = finish_plan(&mut typed, normalized.as_ref(), exclusions);
+    *plan = serde_json::to_value(&typed).map_err(|e| e.to_string())?;
+    result
+}
+
+/// [`finish`] on the typed plan.
+pub fn finish_plan(plan: &mut Plan, library: &Value, exclusions: &[Value]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
-    let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
-    crate::supplied::load_with(&mut typed, library)?;
-    let mut trace = Trace::take_plan(&mut typed);
-    let result = finish_with(&mut typed, library, exclusions, &mut trace);
+    crate::supplied::load_with(plan, library)?;
+    let mut trace = Trace::take_plan(plan);
+    let result = finish_with(plan, library, exclusions, &mut trace);
     // Whatever happened, the plan keeps what it had changed and decided.
-    let result = trace.store_plan(&mut typed).and(result);
+    let result = trace.store_plan(plan).and(result);
     // The tools still needed are read from the stored trace.
     if result.is_ok() {
-        crate::needed::collect(&mut typed);
+        crate::needed::collect(plan);
     }
-    *plan = serde_json::to_value(&typed).map_err(|e| e.to_string())?;
     result
 }
 
@@ -78,6 +87,11 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
     exclude_with(&mut typed, operation, message, &id, &removed, &mut trace);
     store(plan, &typed, trace).ok()?;
     serde_json::to_value(removed).ok()
+}
+
+/// Whether [`exclude`] can take `operation` out of the plan.
+pub fn excludable(plan: &Plan, operation: &str) -> bool {
+    take_out(&mut plan.clone(), operation).is_some()
 }
 
 /// Puts the typed plan, then its trace, back into the plan as JSON.
