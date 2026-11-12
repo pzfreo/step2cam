@@ -141,7 +141,7 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
 #[test]
 fn grip_audit_still_reports_a_hole_crossing_a_prepared_band() {
     let mut p = planned();
-    p["setups"][0]["operations"].as_array_mut().unwrap().push(json!({"kind":"holes","diameter":4.4,"top_z":-7.,"bottom_z":-19.,"bottom":"through","centers":[[2.,30.]],"features":["test:crossing"],"countersinks":[null]}));
+    p["setups"][0]["operations"].as_array_mut().unwrap().push(json!({"kind":"holes","diameter":4.4,"top_z":-7.,"bore_top_z":-7.,"bottom_z":-19.,"bottom":"through","centers":[[2.,30.]],"features":["test:crossing"],"countersinks":[null]}));
     capp::finish(&mut p, &tools(), &[]).unwrap();
     let bottom = setup(&p, "bottom");
     assert_eq!(audit(&p, bottom)["status"], "possible_overlap");

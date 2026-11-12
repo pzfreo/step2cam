@@ -444,8 +444,8 @@ mod contact_wording_tests {
                 assert!(!reason.contains("end mill"), "{reason}");
                 assert!(reason.contains("at least 55 mm above the tip"), "{reason}");
                 let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-70],"max":[60,40,0]}, "operations":[
-                    {"kind":"holes", "diameter":6., "top_z":0., "bottom_z":-64., "features":["holes:0"]}
-                ]}]});
+                    {"kind":"holes", "diameter":6., "top_z":0., "bore_top_z":0., "bottom_z":-64., "bottom":"blind", "centers":[], "features":["holes:0"]}
+                ]}], "covered_by_roughing":[], "skipped":[], "warnings":[]});
                 capp::exclude(&mut plan, "top-1-holes", &reason).unwrap();
                 capp::finish(&mut plan, &library, &[]).unwrap();
                 assert_eq!(plan["skipped"][0]["reason"], format!("left out: {reason}"));

@@ -5,9 +5,11 @@
 //! execution engine has reported, and leaves the plan ready to execute: every operation names its
 //! tool (`tool`), or says why it has none (`tool_note`, null when nothing needs saying).
 use crate::kind::{OpId, OpKind};
+use crate::model::{Cut, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
 use crate::plan::{r, show};
 use crate::resources::{Library, id, num};
-use crate::trace::{Trace, because};
+use crate::trace::{Trace, because, because_op};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 /// The plan as it must be executed: settled, then for each exclusion in turn that operation
@@ -59,23 +61,43 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
 /// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
 /// plan, and says what that leaves uncut. None if there is no such operation.
 pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value> {
-    let OpId { setup: setup_id, number, kind, part } = operation.parse().ok()?;
-    let setup = plan["setups"].as_array_mut()?.iter_mut().find(|s| s["id"] == setup_id.as_str())?;
-    let ops = setup["operations"].as_array_mut()?;
-    let removed = (number >= 1 && number <= ops.len()).then(|| ops.remove(number - 1))?;
-    // Refused or not, the finished stock is still compared with the part this holds.
-    if removed["kind"] == "roughing" {
-        setup["part_surface"] = removed.clone();
-    }
+    let mut typed = Plan::deserialize(&*plan).ok()?;
+    let (id, removed) = take_out(&mut typed, operation)?;
     let mut trace = Trace::take(plan);
+    exclude_with(&mut typed, operation, message, &id, &removed, &mut trace);
+    store(plan, &typed, trace).ok()?;
+    serde_json::to_value(removed).ok()
+}
+
+/// Puts the typed plan, then its trace, back into the plan as JSON.
+fn store(plan: &mut Value, typed: &Plan, trace: Trace) -> Result<(), String> {
+    let result = serde_json::to_value(typed).map(|typed| *plan = typed).map_err(|e| e.to_string());
+    trace.store(plan);
+    result
+}
+
+/// The operation `operation` names, taken out of its setup. None if there is no such operation.
+fn take_out(plan: &mut Plan, operation: &str) -> Option<(OpId, Operation)> {
+    let id: OpId = operation.parse().ok()?;
+    let setup = plan.setups.iter_mut().find(|s| s.id == id.setup)?;
+    let ops = &mut setup.operations;
+    let removed = (id.number >= 1 && id.number <= ops.len()).then(|| ops.remove(id.number - 1))?;
+    // Refused or not, the finished stock is still compared with the part this holds.
+    if removed.cut.kind() == OpKind::Roughing {
+        setup.part_surface = Some(Box::new(removed.clone()));
+    }
+    Some((id, removed))
+}
+
+fn exclude_with(plan: &mut Plan, operation: &str, message: &str, id: &OpId, removed: &Operation, trace: &mut Trace) {
     let (original, need) = message.rsplit_once(": needs ").map_or((message, None), |(text, need)| (text, Some(need)));
     let brief: String = original.chars().take(160).collect();
     let brief = match need { Some(need) => format!("{brief}: needs {need}"), None => brief };
     let refused = trace.decide("execution.refused", operation, "removed", &format!("refused by the execution engine: {brief}"), json!({"message": message}));
     // Nothing is covered by roughing that does not run.
-    if kind == OpKind::Roughing && part.is_none() {
-        let covered = plan["covered_by_roughing"].as_array_mut().map(std::mem::take).unwrap_or_default();
-        for id in covered.iter().filter_map(Value::as_str) {
+    if id.kind == OpKind::Roughing && id.part.is_none() {
+        let covered = std::mem::take(&mut plan.covered_by_roughing);
+        for id in &covered {
             let not_cut = trace.skip("execution.refused.roughing", id, match need {
                 Some(need) => format!("no operation of its own, and roughing was refused: needs {need}"),
                 None => "no operation of its own, and roughing was refused".into(),
@@ -84,29 +106,27 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
         }
     }
     // Its features say why they were not cut.
-    for feature in removed["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+    for feature in removed.cut.features().into_iter().flatten() {
         trace.skip("execution.refused", feature, format!("left out: {brief}"));
     }
-    trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"), json!({"features": removed["features"]}));
+    trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"), json!({"features": removed.cut.features()}));
     // Its own decisions (what made it, its tool and cutting data) no longer stand; those it shares
     // with the rest of the setup (the setup, the order, where its holes are cut) do.
     // Feature-subject warnings are borrowed by every operation cutting that feature.
-    let own: Vec<&str> = removed["because"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+    let own: Vec<&str> = removed.because.iter().flatten().map(String::as_str).collect();
     for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id))
         && (d["stage"] == "process" || d["stage"] == "tools")
         && !(d["outcome"] == "warning" && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"])))) {
         d["superseded_by"] = json!(refused);
     }
-    trace.store(plan);
-    Some(removed)
 }
 
 const REACH_RULE: &str = "process.roughing.reach";
 const REACH_MARGIN_MM: f64 = 1.;
 
-fn reach_reason(rough: &Value, mill: &Value) -> Result<String, String> {
+fn reach_reason(rough: &Roughing, mill: &Value) -> Result<String, String> {
     Ok(format!("roughing reaches only Z{} ({} mm below the stock top, {}'s {} mm flutes, {} mm stickout, {} mm clearance)",
-        show(num(rough, "floor_z")?), show(num(rough, "top_z")? - num(rough, "floor_z")?),
+        show(rough.floor_z), show(rough.top_z - rough.floor_z),
         id(mill), show(num(mill, "flute_length")?), show(num(mill, "stickout")?), show(REACH_MARGIN_MM)))
 }
 
@@ -117,91 +137,107 @@ fn needed_for_reach(op: &Value, top: f64, library: &Library, depth: f64) -> Resu
     Ok(format!("{need}, and stickout of at least {} mm", crate::needed::reach(required)))
 }
 
+/// The setup's roughing, if it has one.
+fn roughing(setup: &Setup) -> Option<&Roughing> {
+    setup.operations.iter().find_map(|o| match &o.cut { Cut::Roughing(rough) => Some(rough), _ => None })
+}
+
+/// Where the vise jaws stop side cutting in this setup: jaw top plus clearance. None without jaws.
+fn jaw_cap(setup: &Setup) -> Option<f64> {
+    let clamping = setup.clamping.as_ref()?;
+    clamping["jaw_top_z"].as_f64().map(|z| z + clamping["clearance_mm"].as_f64().unwrap())
+}
+
 /// Apply before any execution attempt, while the selected roughing tool is known. Repeating
 /// settlement leaves an already capped operation and its trace alone.
-fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Result<(), String> {
+fn cap_roughing(plan: &mut Plan, library: &Library, trace: &mut Trace) -> Result<(), String> {
     let Some(mill) = library.clearing("roughing")? else { return Ok(()); };
     let reach = (num(mill, "flute_length")?.min(num(mill, "stickout")?) - REACH_MARGIN_MM).max(0.);
-    let depths = plan["roughing_feature_depths"].clone();
+    let depths = &plan.roughing_feature_depths;
     let mut uncovered = vec![];
-    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
-        let setup_id = setup["id"].as_str().unwrap_or("").to_string();
-        let jaw_floor = setup["clamping"]["jaw_top_z"].as_f64().map(|z| r(z + setup["clamping"]["clearance_mm"].as_f64().unwrap()));
-        let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
-        let Some(rough) = ops.iter_mut().find(|o| o["kind"] == "roughing") else { continue; };
-        // Minimal hand-written plans may have no geometry; there is no floor to cap there.
-        let Some(top) = rough["top_z"].as_f64() else { continue; };
-        let old = num(rough, "floor_z")?;
+    for setup in &mut plan.setups {
+        let setup_id = setup.id.clone();
+        let jaw_floor = jaw_cap(setup).map(r);
+        let ops = &mut setup.operations;
+        let Some(rough) = ops.iter_mut().find(|o| o.cut.kind() == OpKind::Roughing) else { continue; };
+        let Cut::Roughing(cut) = &mut rough.cut else { unreachable!() };
+        let top = cut.top_z;
+        let old = cut.floor_z;
         let floor = r(jaw_floor.map_or(top - reach, |z| z.max(top - reach)));
         let rule = if jaw_floor == Some(floor) { "machine.clamping" } else { REACH_RULE };
         if old >= floor { continue; }
-        rough["floor_z"] = json!(floor);
-        if let Some(web) = rough["web_mm"].as_f64() {
-            rough["web_mm"] = json!(r(web + floor - old));
-        }
+        cut.floor_z = floor;
+        cut.web_mm = r(cut.web_mm + floor - old);
         let why = if rule == "machine.clamping" {
             format!("side cutting stops at Z{}: jaw top plus {} mm clearance; the gripped stock and material below the jaws need a later setup", show(floor), show(crate::rules::workholding()["clearance_mm"].as_f64().unwrap()))
-        } else { reach_reason(rough, mill)? };
-        let mut extras = json!({"features": rough["features"]});
+        } else { reach_reason(cut, mill)? };
+        let part_top = cut.positions.as_ref().and_then(|p| p.iter().skip(2).step_by(3).copied().max_by(f64::total_cmp)).unwrap_or(top);
+        let mut extras = json!({"features": rough.cut.features()});
         if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
         let decision = trace.warn(rule, &format!("{setup_id}:roughing"), format!("{why}; stock below this level is left uncut"), extras);
-        because(rough, [decision]);
-        if let Some(depths) = depths.as_object() {
+        because_op(rough, [decision]);
+        if let Some(depths) = depths {
+            // Encoded once for the setup, not once per feature.
+            let mut encoded = None;
             for (id, depth) in depths {
-                if depth["floor_z"].as_f64().is_some_and(|z| z >= floor) { continue; }
-                let required = top - depth["floor_z"].as_f64().unwrap_or(old);
-                let need = if rule == REACH_RULE { format!(": needs {}", needed_for_reach(rough, top, library, required)?) } else { String::new() };
-                uncovered.push((rule.to_string(), id.clone(), format!("{}: no operation of its own; {why}{need}", depth["family"].as_str().unwrap_or("feature"))));
+                if depth.floor_z >= floor { continue; }
+                let required = top - depth.floor_z;
+                let need = if rule == REACH_RULE {
+                    // A bridge: needed::for_operation takes the operation as JSON until stage 4b.
+                    if encoded.is_none() { encoded = Some(serde_json::to_value(&*rough).map_err(|e| e.to_string())?); }
+                    format!(": needs {}", needed_for_reach(encoded.as_ref().unwrap(), top, library, required)?)
+                } else { String::new() };
+                uncovered.push((rule.to_string(), id.clone(), format!("{}: no operation of its own; {why}{need}", depth.family)));
             }
         }
         // Use the original flats, before filtering, to recover the bands made by
         // wall_operations. A crossing band can still finish its reachable upper section.
-        let part_top = rough["positions"].as_array().and_then(|p| p.iter().skip(2).step_by(3)
-            .filter_map(Value::as_f64).max_by(f64::total_cmp)).unwrap_or(top);
-        let levels: Vec<f64> = ops.iter().filter(|o| o["kind"] == "flats")
-            .flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64).collect();
-        for wall in ops.iter_mut().filter(|o| o["kind"] == "wall_finish") {
-            let low = num(wall, "floor_z")?;
+        let levels: Vec<f64> = ops.iter().flat_map(|o| match &o.cut { Cut::Flats { levels, .. } => levels.as_slice(), _ => &[] }).copied().collect();
+        for wall in ops.iter_mut() {
+            let Cut::WallFinish(cut) = &wall.cut else { continue; };
+            let low = cut.floor_z;
             if low >= floor { continue; }
             let high = levels.iter().copied().filter(|z| *z > low).min_by(f64::total_cmp).unwrap_or(part_top);
             // Leave wholly unreachable bands to wall_refusal and the existing needs_wall handling.
             if high <= floor { continue; }
-            let need = if rule == REACH_RULE { format!(": needs {}", needed_for_reach(wall, top, library, top - low)?) } else { String::new() };
-            wall["floor_z"] = json!(floor);
+            // A bridge: needed::for_operation takes the operation as JSON until stage 4b.
+            let need = if rule == REACH_RULE { format!(": needs {}", needed_for_reach(&serde_json::to_value(&*wall).map_err(|e| e.to_string())?, top, library, top - low)?) } else { String::new() };
+            let Cut::WallFinish(cut) = &mut wall.cut else { unreachable!() };
+            cut.floor_z = floor;
             // It now stops in the roughed stock, above the flat it originally stood on.
-            wall["on_flat"] = json!(false);
-            let mut extras = json!({"features": wall["features"]});
+            cut.on_flat = false;
+            let subject = format!("{setup_id}:{}", cut.wall);
+            let mut extras = json!({"features": wall.cut.features()});
             if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
-            let d = trace.warn(rule, &format!("{setup_id}:{}", wall["wall"].as_str().unwrap_or("")),
+            let d = trace.warn(rule, &subject,
                 format!("outside wall limited to Z{}: {why}; its finishing allowance below this level is left uncut{need}", show(floor)), extras);
-            because(wall, [d]);
+            because_op(wall, [d]);
         }
-        for op in ops.iter_mut().filter(|o| o["kind"] == "flats") {
-            if let Some(levels) = op["levels"].as_array_mut() {
-                let before = levels.len();
-                levels.retain(|z| z.as_f64().is_some_and(|z| z >= floor));
-                if levels.len() != before {
-                    let mut extras = json!({"features": op["features"]});
-                    if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
-                    let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)), extras);
-                    because(op, [d]);
-                }
+        for op in ops.iter_mut() {
+            let Cut::Flats { floor_z, levels } = &mut op.cut else { continue; };
+            let before = levels.len();
+            levels.retain(|z| *z >= floor);
+            let changed = levels.len() != before;
+            *floor_z = floor;
+            if changed {
+                let mut extras = json!({"features": op.cut.features()});
+                if rule == "machine.clamping" { extras["jaw_cap_z"] = json!(floor); }
+                let d = trace.warn(rule, &format!("{setup_id}:flats"), format!("flats below Z{} left out: {why}", show(floor)), extras);
+                because_op(op, [d]);
             }
-            op["floor_z"] = json!(floor);
         }
-        ops.retain(|o| o["kind"] != "flats" || o["levels"].as_array().is_some_and(|levels| !levels.is_empty()));
+        ops.retain(|o| !matches!(&o.cut, Cut::Flats { levels, .. } if levels.is_empty()));
         if reach == 0. {
-            let index = ops.iter().position(|o| o["kind"] == "roughing").unwrap();
-            setup["part_surface"] = ops.remove(index);
+            let index = ops.iter().position(|o| o.cut.kind() == OpKind::Roughing).unwrap();
+            setup.part_surface = Some(Box::new(ops.remove(index)));
         }
     }
-    if let Some(covered) = plan["covered_by_roughing"].as_array_mut() {
-        for (rule, id, reason) in uncovered {
-            if !covered.contains(&json!(id)) { continue; }
-            covered.retain(|f| f != &id);
-            let skipped = trace.skip(&rule, &id, reason);
-            trace.supersede(&id, "covered", &skipped);
-        }
+    let covered = &mut plan.covered_by_roughing;
+    for (rule, id, reason) in uncovered {
+        if !covered.contains(&id) { continue; }
+        covered.retain(|f| f != &id);
+        let skipped = trace.skip(&rule, &id, reason);
+        trace.supersede(&id, "covered", &skipped);
     }
     Ok(())
 }
@@ -209,60 +245,62 @@ fn cap_roughing(plan: &mut Value, library: &Library, trace: &mut Trace) -> Resul
 /// Why this outside wall cannot be finished, if it cannot. A contour knows only its outline: it has
 /// to follow a roughing that cleared the stock beside the wall, with room for the cutter and for
 /// the allowance roughing leaves on whatever stands opposite.
-fn wall_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(&'static str, String)>, String> {
-    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
-    let Some(rough) = rough else {
+fn wall_refusal(setup: &Setup, op: &Operation, wall: &WallFinish, library: &Library) -> Result<Option<(&'static str, String)>, String> {
+    let Some(rough) = roughing(setup) else {
         return Ok(Some(("feasibility.wall.needs_roughing", "no roughing has cleared the stock beside the wall, so it is not finished".into())));
     };
-    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+    if wall.on_flat && !setup.operations.iter().any(|o| o.cut.kind() == OpKind::Flats) {
         return Ok(Some(("feasibility.wall.needs_flat", "the flat this wall stands on is not cut, so it is not finished".into())));
     }
     let Some(mill) = library.clearing("roughing")? else {
-        return Ok(Some(("feasibility.wall.needs_mill", format!("no end mill to finish the wall with: needs {}", crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
+        // A bridge: needed::for_operation takes the operation as JSON until stage 4b.
+        let op = serde_json::to_value(op).map_err(|e| e.to_string())?;
+        return Ok(Some(("feasibility.wall.needs_mill", format!("no end mill to finish the wall with: needs {}", crate::needed::for_operation(&op, setup.stock.max[2], library, None)?.unwrap()))));
     };
-    if num(op, "floor_z")? < num(rough, "floor_z")? {
-        if setup["clamping"]["jaw_top_z"].as_f64().is_some_and(|z| num(op, "floor_z").is_ok_and(|floor| floor < z + setup["clamping"]["clearance_mm"].as_f64().unwrap())) {
+    if wall.floor_z < rough.floor_z {
+        if jaw_cap(setup).is_some_and(|cap| wall.floor_z < cap) {
             return Ok(Some(("machine.clamping", "this wall band is below the jaw clearance cap; left for a later setup".into())));
         }
         return Ok(Some((REACH_RULE, format!("{}; none of this wall band remains above the cleared stock", reach_reason(rough, mill)?))));
     }
-    let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * num(rough, "surface_error_mm")?);
+    let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * rough.surface_error_mm);
     let needed = num(mill, "diameter")? + 2. * radial;
-    let Some(room) = op["room"].as_f64().filter(|room| *room < needed) else { return Ok(None); };
+    let Some(room) = wall.room.filter(|room| *room < needed) else { return Ok(None); };
     let mut why = format!("{} mm beside the wall is too narrow for {} (it needs {}), so it keeps its roughing allowance", show(room), id(mill), show(r(needed)));
     let maximum = ((room - 2. * radial) * 100.).floor() / 100.;
     if maximum > 0. {
-        let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
-        let need = crate::needed::for_operation(op, top, library, None)?.unwrap();
+        // A bridge: needed::for_operation takes the operation as JSON until stage 4b.
+        let op = serde_json::to_value(op).map_err(|e| e.to_string())?;
+        let need = crate::needed::for_operation(&op, setup.stock.max[2], library, None)?.unwrap();
         why.push_str(&format!(": needs {need}, diameter at most {maximum:.2} mm to leave room for roughing allowance"));
     }
     Ok(Some(("feasibility.wall.room", why)))
 }
 
 /// Why this V-channel cannot be cut, if it cannot.
-fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Option<(&'static str, String)>, String> {
-    if op["on_flat"] == true {
-        let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
-        if let Some(rough) = rough.filter(|rough| op["top_z"].as_f64().zip(rough["floor_z"].as_f64()).is_some_and(|(top, floor)| top < floor))
-            && let Some(mill) = library.clearing("roughing")? {
-            return Ok(Some((REACH_RULE, format!("the flat it is cut in is below the cleared stock; {}", reach_reason(rough, mill)?))));
-        }
+fn v_channel_refusal(setup: &Setup, op: &Operation, channel: &VChannel, library: &Library) -> Result<Option<(&'static str, String)>, String> {
+    if channel.on_flat
+        && let Some(rough) = roughing(setup).filter(|rough| channel.top_z < rough.floor_z)
+        && let Some(mill) = library.clearing("roughing")? {
+        return Ok(Some((REACH_RULE, format!("the flat it is cut in is below the cleared stock; {}", reach_reason(rough, mill)?))));
     }
-    if op["on_flat"] == true && !setup["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "flats")) {
+    if channel.on_flat && !setup.operations.iter().any(|o| o.cut.kind() == OpKind::Flats) {
         return Ok(Some(("feasibility.v_channel.needs_flat", "the flat it is cut in has not been cut, so it is not cut".into())));
     }
-    let Some(bit) = library.v_bit(num(op, "angle")?) else {
-        return Ok(Some(("feasibility.v_channel.needs_bit", format!("no sharp V-bit of {}° or less: needs {}", show(num(op, "angle")?), crate::needed::for_operation(op, setup["stock"]["max"][2].as_f64().ok_or("bad stock")?, library, None)?.unwrap()))));
+    let Some(bit) = library.v_bit(channel.angle) else {
+        // A bridge: needed::for_operation takes the operation as JSON until stage 4b.
+        let op = serde_json::to_value(op).map_err(|e| e.to_string())?;
+        return Ok(Some(("feasibility.v_channel.needs_bit", format!("no sharp V-bit of {}° or less: needs {}", show(channel.angle), crate::needed::for_operation(&op, setup.stock.max[2], library, None)?.unwrap()))));
     };
     if bit.get("stepdown_mm").and_then(Value::as_f64).is_none() {
         return Ok(Some(("feasibility.v_channel.needs_stepdown", format!("{} has no stepdown_mm", id(bit)))));
     }
-    let clear = num(bit, "diameter")? / 2. - num(op, "width")? / 2.;
-    let Some(room) = op["room"].as_f64().filter(|room| *room < clear) else { return Ok(None); };
+    let clear = num(bit, "diameter")? / 2. - channel.width / 2.;
+    let Some(room) = channel.room.filter(|room| *room < clear) else { return Ok(None); };
     let mut why = format!("{} mm beside it is too narrow for {}", show(room), id(bit));
-    let maximum = ((num(op, "width")? + 2. * room) * 100.).floor() / 100.;
+    let maximum = ((channel.width + 2. * room) * 100.).floor() / 100.;
     if maximum > 0. {
-        why.push_str(&format!(": needs {}, diameter at most {maximum:.2} mm", library.needed("v_bit", &[("angle", num(op, "angle")?)])?));
+        why.push_str(&format!(": needs {}, diameter at most {maximum:.2} mm", library.needed("v_bit", &[("angle", channel.angle)])?));
     }
     Ok(Some(("feasibility.v_channel.room", why)))
 }
@@ -270,112 +308,127 @@ fn v_channel_refusal(setup: &Value, op: &Value, library: &Library) -> Result<Opt
 /// Takes out of the plan what can no longer be cut: walls and flats with nothing to follow, and an
 /// outside chamfer whose wall is not at size, whose rounds go back to not being cut.
 pub fn settle(plan: &mut Value, library_data: &Value) -> Result<(), String> {
+    let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
     let mut trace = Trace::take(plan);
-    let result = settle_with(plan, library_data, &mut trace);
+    let result = settle_with(&mut typed, library_data, &mut trace);
     // Whatever happened, the plan keeps what it had said and decided.
-    trace.store(plan);
-    result
+    store(plan, &typed, trace).and(result)
 }
 
-fn settle_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
+fn settle_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Result<(), String> {
     let library = Library::new(library_data)?;
     cap_roughing(plan, &library, trace)?;
-    for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
-        let setup_id = setup["id"].as_str().unwrap_or("").to_string();
-        if let Some(cap) = setup["clamping"]["jaw_top_z"].as_f64().map(|z| r(z + setup["clamping"]["clearance_mm"].as_f64().unwrap())) {
-            let axis = usize::from(setup["clamping"]["faces"][0] == "stock.y.min");
-            let low = setup["stock"]["min"][axis].as_f64().unwrap();
-            let high = setup["stock"]["max"][axis].as_f64().unwrap();
-            let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
-            ops.retain_mut(|op| {
-                let kind = op["kind"].as_str().unwrap_or("").to_string();
-                let floor = match kind.as_str() {
-                    "slot" | "notch" => op["floor_z"].as_f64(),
-                    "v_channel" => op["root_z"].as_f64(),
-                    "edge_chamfer" if op["boundaries"] != "holes" => {
-                        op["width"].as_f64().and_then(|width| library.chamfer_mill(width).and_then(|tool| {
+    for setup in &mut plan.setups {
+        let setup_id = setup.id.clone();
+        if let Some(cap) = jaw_cap(setup).map(r) {
+            let axis = usize::from(setup.clamping.as_ref().unwrap()["faces"][0] == "stock.y.min");
+            let low = setup.stock.min[axis];
+            let high = setup.stock.max[axis];
+            setup.operations.retain_mut(|op| {
+                let kind = op.cut.kind();
+                let floor = match &op.cut {
+                    Cut::Slot(slot) => Some(slot.floor_z),
+                    Cut::Notch(notch) => Some(notch.floor_z),
+                    Cut::VChannel(channel) => Some(channel.root_z),
+                    Cut::EdgeChamfer(chamfer) if chamfer.boundaries != "holes" => {
+                        library.chamfer_mill(chamfer.width).and_then(|tool| {
                             let half = (tool["angle"].as_f64()? / 2.).to_radians().tan();
-                            Some(op["top_z"].as_f64()? - (width + crate::resources::TIP_CLEARANCE) / half)
-                        }))
+                            Some(chamfer.top_z - (chamfer.width + crate::resources::TIP_CLEARANCE) / half)
+                        })
                     }
                     _ => None,
                 };
                 if floor.is_none_or(|z| z >= cap) { return true; }
-                let edge = if kind == "edge_chamfer" { true } else if kind == "notch" {
-                    op["outer"].as_array().into_iter().flatten().filter_map(|p| p[axis].as_f64()).any(|v| v <= low || v >= high)
-                } else {
-                    let half = op["width"].as_f64().unwrap_or(0.) / 2.;
-                    ["a", "b"].iter().filter_map(|k| op[k][axis].as_f64()).any(|v| v - half <= low || v + half >= high)
+                let edge = match &op.cut {
+                    Cut::Notch(notch) => notch.outer.iter().map(|p| p[axis]).any(|v| v <= low || v >= high),
+                    Cut::Slot(Slot { width, a, b, .. }) | Cut::VChannel(VChannel { width, a, b, .. }) => {
+                        let half = width / 2.;
+                        [a, b].iter().map(|p| p[axis]).any(|v| v - half <= low || v + half >= high)
+                    }
+                    _ => true,
                 };
                 if !edge { return true; }
                 let reason = format!("{kind} material below Z{} jaw clearance cap left for a later setup", show(cap));
-                let d = trace.warn("machine.clamping", &setup_id, reason.clone(), json!({"features": op["features"], "jaw_cap_z": cap}));
-                for feature in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+                let d = trace.warn("machine.clamping", &setup_id, reason.clone(), json!({"features": op.cut.features(), "jaw_cap_z": cap}));
+                for feature in op.cut.features().into_iter().flatten() {
                     trace.skip("machine.clamping", feature, reason.clone());
                 }
-                if kind == "v_channel" || kind == "edge_chamfer" || op["top_z"].as_f64().is_some_and(|z| z <= cap) { return false; }
-                op["floor_z"] = json!(cap);
-                // It no longer breaks through: job generation must not extend below the cap.
-                op["bottom"] = json!("blind");
-                because(op, [d]);
+                match &mut op.cut {
+                    Cut::Slot(Slot { top_z, floor_z, bottom, .. }) | Cut::Notch(Notch { top_z, floor_z, bottom, .. }) if *top_z > cap => {
+                        *floor_z = cap;
+                        // It no longer breaks through: job generation must not extend below the cap.
+                        *bottom = "blind".into();
+                    }
+                    _ => return false,
+                }
+                because_op(op, [d]);
                 true
             });
         }
-        let view = setup.clone();
-        let ops = setup["operations"].as_array_mut().ok_or("setup has no operations")?;
         let mut refused = vec![];
-        for op in ops.iter().filter(|o| o["kind"] == "wall_finish") {
-            if let Some((rule, why)) = wall_refusal(&view, op, &library)? {
-                let wall = format!("{setup_id}:{}", op["wall"].as_str().unwrap_or(""));
-                trace.warn(rule, &wall, format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(num(op, "floor_z")?)), json!({"features": op["features"]}));
-                refused.push(op["wall"].clone());
+        for op in &setup.operations {
+            let Cut::WallFinish(wall) = &op.cut else { continue; };
+            if let Some((rule, why)) = wall_refusal(setup, op, wall, &library)? {
+                let subject = format!("{setup_id}:{}", wall.wall);
+                trace.warn(rule, &subject, format!("setup {setup_id}: outside wall above Z{} left out: {why}", show(wall.floor_z)), json!({"features": op.cut.features()}));
+                refused.push(wall.wall.clone());
             }
         }
         let mut no_channel = vec![];
-        for (n, op) in ops.iter().enumerate().filter(|(_, o)| o["kind"] == "v_channel") {
-            if let Some((rule, why)) = v_channel_refusal(&view, op, &library)? {
-                trace.warn(rule, &format!("{setup_id}:v_channel"), format!("setup {setup_id}: V-channel left out: {why}"), json!({"features": op["features"]}));
-                for id in op["features"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        for (n, op) in setup.operations.iter().enumerate() {
+            let Cut::VChannel(channel) = &op.cut else { continue; };
+            if let Some((rule, why)) = v_channel_refusal(setup, op, channel, &library)? {
+                trace.warn(rule, &format!("{setup_id}:v_channel"), format!("setup {setup_id}: V-channel left out: {why}"), json!({"features": op.cut.features()}));
+                for id in &channel.features {
                     trace.skip(rule, id, format!("V-channel left out: {why}"));
                 }
                 no_channel.push(n);
             }
         }
+        let ops = &mut setup.operations;
         for n in no_channel.into_iter().rev() {
             ops.remove(n);
         }
-        let rough = ops.iter().any(|o| o["kind"] == "roughing");
-        if !rough && ops.iter().any(|o| o["kind"] == "flats") {
+        let rough = ops.iter().any(|o| o.cut.kind() == OpKind::Roughing);
+        if !rough && ops.iter().any(|o| o.cut.kind() == OpKind::Flats) {
             trace.decide("feasibility.flats.need_roughing", &format!("{setup_id}:flats"), "removed", "flats follow roughing, which is not cut in this setup", Value::Null);
         }
-        ops.retain(|o| !(o["kind"] == "wall_finish" && refused.contains(&o["wall"])) && (rough || o["kind"] != "flats"));
-        let walls: Vec<Value> = ops.iter().filter(|o| o["kind"] == "wall_finish").map(|o| o["wall"].clone()).collect();
+        ops.retain(|o| !matches!(&o.cut, Cut::WallFinish(wall) if refused.contains(&wall.wall)) && (rough || o.cut.kind() != OpKind::Flats));
+        let walls: Vec<String> = ops.iter().filter_map(|o| match &o.cut { Cut::WallFinish(wall) => Some(wall.wall.clone()), _ => None }).collect();
         ops.retain_mut(|op| {
-            if op["kind"] != "edge_chamfer" || op["needs_wall"].is_null() || walls.contains(&op["needs_wall"]) {
+            let Cut::EdgeChamfer(chamfer) = &mut op.cut else { return true; };
+            if chamfer.needs_wall.as_ref().is_none_or(|wall| walls.contains(wall)) {
                 return true;
             }
-            let lost = op["wall_features"].as_array().cloned().unwrap_or_default();
-            for id in lost.iter().filter_map(Value::as_str) {
-                let edge = op["radius"].as_f64().map_or("edge chamfer".into(), |radius| format!("r{} edge round", show(radius)));
-                let reason = if op["radius"].is_number() {
+            let lost = chamfer.wall_features.clone();
+            for id in &lost {
+                let edge = chamfer.radius.map_or("edge chamfer".into(), |radius| format!("r{} edge round", show(radius)));
+                let reason = if chamfer.radius.is_some() {
                     format!("{edge}: its wall keeps its roughing allowance, so it is not chamfered")
                 } else {
-                    format!("{edge}: its wall keeps its roughing allowance, so the edge stays sharp (chamfer it by hand); leg {} mm", show(op["width"].as_f64().unwrap_or(0.)))
+                    format!("{edge}: its wall keeps its roughing allowance, so the edge stays sharp (chamfer it by hand); leg {} mm", show(chamfer.width))
                 };
                 trace.skip("feasibility.chamfer.needs_wall", id, reason);
             }
-            if op["boundaries"] != "all" {
+            if chamfer.boundaries != "all" {
                 return false;
             }
-            op["boundaries"] = json!("holes");
-            op["needs_wall"] = Value::Null;
-            if let Some(features) = op["features"].as_array_mut() {
-                features.retain(|f| !lost.contains(f));
-            }
+            chamfer.boundaries = "holes".into();
+            chamfer.needs_wall = None;
+            chamfer.features.retain(|f| !lost.contains(f));
             true
         });
     }
     Ok(())
+}
+
+/// A bridge until stage 4b types `resolve_with`: the setup, decoded once, and the operation as the
+/// typed refusals read them.
+fn decoded<'a>(setup: &'a mut Option<Setup>, view: &Value, op: &Value) -> Result<(&'a Setup, Operation), String> {
+    if setup.is_none() {
+        *setup = Some(Setup::deserialize(view).map_err(|e| e.to_string())?);
+    }
+    Ok((setup.as_ref().unwrap(), Operation::deserialize(op).map_err(|e| e.to_string())?))
 }
 
 /// Names the tool that cuts each operation (`tool`), or says why none can (`tool_note`; null when
@@ -396,6 +449,7 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
     let plan_material = plan["material"]["used"].as_str().map(String::from);
     for setup in plan["setups"].as_array_mut().ok_or("plan has no setups")? {
         let view = setup.clone();
+        let mut typed_view = None;
         let setup_id = view["id"].as_str().unwrap_or("").to_string();
         let top = view["stock"]["max"][2].as_f64().ok_or("bad stock")?;
         let has_rough = view["operations"].as_array().is_some_and(|ops| ops.iter().any(|o| o["kind"] == "roughing"));
@@ -474,14 +528,20 @@ fn resolve_with(plan: &mut Value, library_data: &Value, trace: &mut Trace) -> Re
                         .ok_or_else(|| Some(format!("no end mill both narrower than the {} mm width and long enough ({})", show(width), features())));
                     (tool, "tool.notch.pocket_mill")
                 }
-                OpKind::VChannel => match v_channel_refusal(&view, op, &library)? {
+                OpKind::VChannel => match decoded(&mut typed_view, &view, op).and_then(|(setup, typed)| match &typed.cut {
+                    Cut::VChannel(channel) => v_channel_refusal(setup, &typed, channel, &library),
+                    _ => unreachable!(),
+                })? {
                     Some((rule, why)) => (Err(Some(why)), rule),
                     None => {
                         considered = library.considered("v_bit", &[("angle", num(op, "angle")?)]);
                         (library.v_bit(num(op, "angle")?).ok_or(None), "tool.v_channel.v_bit")
                     }
                 },
-                OpKind::WallFinish => match wall_refusal(&view, op, &library)? {
+                OpKind::WallFinish => match decoded(&mut typed_view, &view, op).and_then(|(setup, typed)| match &typed.cut {
+                    Cut::WallFinish(wall) => wall_refusal(setup, &typed, wall, &library),
+                    _ => unreachable!(),
+                })? {
                     Some((rule, why)) => (Err(Some(why)), rule),
                     None => (library.clearing("roughing")?.ok_or(None), "tool.wall.roughing_mill"),
                 },

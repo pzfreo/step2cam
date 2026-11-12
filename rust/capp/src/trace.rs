@@ -113,6 +113,11 @@ pub fn because(op: &mut Value, ids: impl IntoIterator<Item = String>) {
     }
 }
 
+/// Adds decisions to an operation's `because`, as [`because`] does for one as JSON.
+pub(crate) fn because_op(op: &mut crate::model::Operation, ids: impl IntoIterator<Item = String>) {
+    op.because.get_or_insert_with(Vec::new).extend(ids);
+}
+
 /// Which rulebase a plan was made with: a hash (64-bit FNV-1a) over every rule and reference file
 /// shipped in the crate, in a fixed order. Two plans with the same hash were made by the same rules
 /// and data.

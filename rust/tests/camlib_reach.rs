@@ -216,9 +216,9 @@ fn supplied_short_pocket_and_drill_choices_still_go_to_camlib() {
         {"rule":"tool.hole.drill_or_bore@1", "subject":"top:holes", "choice":drill_id, "source":"agent:shop", "reason":"test supplied reach"}
     ]);
     let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,-70],"max":[60,40,0]}, "operations":[
-        {"kind":"notch", "width":8., "top_z":0., "floor_z":-64., "features":["pockets:0"]},
-        {"kind":"holes", "diameter":diameter, "top_z":0., "bottom_z":-64., "centers":[[0.,0.]], "countersinks":[null], "features":["holes:0"]}
-    ]}]});
+        {"kind":"notch", "width":8., "length":8., "open":false, "outer":[], "top_z":0., "floor_z":-64., "wall_top":0., "bottom":"blind", "features":["pockets:0"]},
+        {"kind":"holes", "diameter":diameter, "top_z":0., "bore_top_z":0., "bottom_z":-64., "bottom":"blind", "centers":[[0.,0.]], "countersinks":[null], "features":["holes:0"]}
+    ]}], "covered_by_roughing":[], "skipped":[], "warnings":[]});
     capp::finish(&mut plan, &library, &[]).unwrap();
     assert!(
         plan["supplied_decisions"]
