@@ -7,6 +7,7 @@ pub mod machines;
 pub mod candidates;
 pub mod flip;
 pub mod kind;
+pub mod model;
 mod workholding;
 mod clamping_history;
 mod needed;
