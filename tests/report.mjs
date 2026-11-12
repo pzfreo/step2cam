@@ -36,6 +36,10 @@ assert.deepEqual(reportDocument(data, options), document, 'fixed inputs and date
 
 assert.equal(featureName({ family: 'holes' }), '⌀— hole');
 assert.equal(operationName({ kind: 'counterbore' }, { id: 'top' }, data.plan), '⌀— counterbore');
+// Every operation kind the plan schema allows has its own name, not the fallback.
+for (const { properties: { kind: { const: kind } } } of JSON.parse(readFileSync(new URL('../schemas/plan-1.schema.json', import.meta.url))).$defs.operation.oneOf) {
+  assert.ok(operationName.toString().includes(`op.kind === "${kind}"`), `operationName has no case for ${kind}`);
+}
 
 // Regression coverage for appendix size: retain every decision and distinct rule,
 // but print rule rationale/sources once and never dump geometric record JSON.

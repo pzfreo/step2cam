@@ -1,6 +1,7 @@
 //! The shop's resources as CAPP reads them: the tool library, and which tool can cut what.
 //! Every number in it is the shop's (see `schemas/resources-1.schema.json`); nothing here is a
 //! standard.
+use crate::kind::OpKind;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::borrow::Cow;
@@ -259,15 +260,17 @@ impl<'a> Library<'a> {
             considered.retain(|c| c["candidate"] != name);
             return Ok((tool, considered));
         }
-        let (selector, inputs) = match op["kind"].as_str().unwrap_or("") {
-            "holes" if tool["type"] == "drill" => ("drill", vec![("diameter", num(op, "diameter")?), ("depth", self.drill_depth(op, top)?)]),
-            "holes" | "counterbore" => ("bore_mill", vec![("diameter", num(op, "diameter")?)]),
-            "slot" => ("bore_mill", vec![("diameter", num(op, "width")?)]),
-            "notch" => ("pocket_mill", vec![("width", num(op, "width")?), ("depth", num(op, "top_z")? - num(op, "floor_z")?)]),
-            "thread" => ("thread_mill", vec![("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?), ("pitch", num(op, "pitch")?), ("stock_top", top), ("bottom_z", num(op, "bottom_z")?)]),
-            "v_channel" => ("v_bit", vec![("angle", num(op, "angle")?)]),
-            "edge_chamfer" => ("chamfer_mill", vec![("width", num(op, "width")?), ("maximum_diameter", op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY)), ("depth", top - num(op, "top_z")? + num(op, "width")? + TIP_CLEARANCE), ("room", op["room"].as_f64().unwrap_or(f64::INFINITY))]),
-            _ => return Err("tool decision is not suppliable this round".into()),
+        let not_suppliable = || Err("tool decision is not suppliable this round".into());
+        let Ok(kind) = op["kind"].as_str().unwrap_or("").parse::<OpKind>() else { return not_suppliable() };
+        let (selector, inputs) = match kind {
+            OpKind::Holes if tool["type"] == "drill" => ("drill", vec![("diameter", num(op, "diameter")?), ("depth", self.drill_depth(op, top)?)]),
+            OpKind::Holes | OpKind::Counterbore => ("bore_mill", vec![("diameter", num(op, "diameter")?)]),
+            OpKind::Slot => ("bore_mill", vec![("diameter", num(op, "width")?)]),
+            OpKind::Notch => ("pocket_mill", vec![("width", num(op, "width")?), ("depth", num(op, "top_z")? - num(op, "floor_z")?)]),
+            OpKind::Thread => ("thread_mill", vec![("major", num(op, "major")?), ("start_diameter", num(op, "start_diameter")?), ("pitch", num(op, "pitch")?), ("stock_top", top), ("bottom_z", num(op, "bottom_z")?)]),
+            OpKind::VChannel => ("v_bit", vec![("angle", num(op, "angle")?)]),
+            OpKind::EdgeChamfer => ("chamfer_mill", vec![("width", num(op, "width")?), ("maximum_diameter", op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY)), ("depth", top - num(op, "top_z")? + num(op, "width")? + TIP_CLEARANCE), ("room", op["room"].as_f64().unwrap_or(f64::INFINITY))]),
+            OpKind::Facing | OpKind::Roughing | OpKind::Flats | OpKind::SpotDrill | OpKind::WallFinish => return not_suppliable(),
         };
         let mut single = Self::new(self.data)?;
         single.tools = vec![tool];

@@ -133,3 +133,23 @@ fn controller_settings_are_typed_and_haas_settings_require_haas_identity() {
     library["machines"][0]["controller_settings"]["highest_tool_numer"] = serde_json::json!(24);
     assert!(!validator.is_valid(&library));
 }
+
+#[test]
+fn operation_kinds_are_the_schemas_and_the_sequences() {
+    use capp::kind::OpKind;
+    let names: Vec<&str> = OpKind::ALL.iter().map(|k| k.name()).collect();
+    let schema = read("schemas/plan-1.schema.json");
+    let mut kinds: Vec<&str> = schema["$defs"]["operation"]["oneOf"].as_array().unwrap().iter()
+        .map(|op| op["properties"]["kind"]["const"].as_str().unwrap()).collect();
+    kinds.sort();
+    let mut sorted = names.clone();
+    sorted.sort();
+    assert_eq!(kinds, sorted, "the schema's operation kinds");
+    let sequence: Vec<&str> = capp::rules::sequence()["order"].as_array().unwrap().iter()
+        .flat_map(|group| group.as_array().unwrap()).map(|k| k.as_str().unwrap()).collect();
+    assert_eq!(sequence, names, "rulebase/rules/sequence.json, in order");
+    for kind in OpKind::ALL {
+        assert_eq!(serde_json::to_value(kind).unwrap(), kind.name());
+        assert_eq!(serde_json::from_value::<OpKind>(kind.name().into()).unwrap(), kind);
+    }
+}

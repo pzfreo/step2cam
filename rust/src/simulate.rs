@@ -318,7 +318,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                         Some(Status::Violation) => {
                             // Adapter IDs retain the planner kind (notch/slot/etc.) even when
                             // camlib runs them as pocket jobs. Only the noun enters the reason.
-                            let kind = operation.id().split('-').nth(2).unwrap_or("");
+                            let kind = operation.id().parse::<capp::kind::OpId>().map_or("", |id| id.kind.name());
                             if let Check::Motion { stock_contact: Some(report), .. } = &checked.check
                                 && let Some(reason) = stock_contact_reason(kind, report, tool) {
                                 return Err(reason);

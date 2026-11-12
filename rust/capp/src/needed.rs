@@ -1,4 +1,5 @@
 //! Missing-tool queries. These describe resources only; they never change tool selection.
+use crate::kind::{OpId, OpKind};
 use crate::resources::{Library, num};
 use serde_json::{Value, json};
 
@@ -14,7 +15,8 @@ pub(crate) fn for_operation(op: &Value, top: f64, library: &Library, required: O
 
 /// Thread queries need the same material and drilled-floor context as tap selection.
 pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library, required: Option<f64>, setup: &Value, group: Option<&str>) -> Result<Option<String>, String> {
-    let kind = op["kind"].as_str().unwrap_or("");
+    // An operation of a kind capp does not plan has no query.
+    let Ok(kind) = op["kind"].as_str().unwrap_or("").parse::<OpKind>() else { return Ok(None) };
     let bottom = op["bottom_z"].as_f64().or(op["floor_z"].as_f64()).or(op["root_z"].as_f64()).unwrap_or(top);
     let depth = required.unwrap_or_else(|| top - bottom + if op["bottom"] == "through" { library.breakthrough.max(0.) } else { 0. });
     let long = format!("with flutes of at least {} mm", reach(depth));
@@ -22,15 +24,15 @@ pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library
         Ok(format!("{} {long}", library.needed(selector, inputs)?))
     };
     Ok(Some(match kind {
-        "spot_drill" => library.needed("spot_drill", &[("diameter", num(op, "diameter")?), ("angle", num(op, "angle")?), ("reach", num(op, "reach")?)])?,
-        "holes" => format!("{}, or {}",
+        OpKind::SpotDrill => library.needed("spot_drill", &[("diameter", num(op, "diameter")?), ("angle", num(op, "angle")?), ("reach", num(op, "reach")?)])?,
+        OpKind::Holes => format!("{}, or {}",
             library.needed("drill", &[("diameter", num(op, "diameter")?), ("depth", library.drill_depth(op, top)?.max(depth))])?,
             mill("bore_mill", &[("diameter", num(op, "diameter")?)])?),
-        "counterbore" => mill("bore_mill", &[("diameter", num(op, "diameter")?)])?,
-        "slot" => mill("bore_mill", &[("diameter", num(op, "width")?)])?,
-        "notch" => mill("pocket_mill", &[("width", num(op, "width")?), ("depth", depth)])?,
-        "facing" | "roughing" | "flats" | "wall_finish" => mill("largest_end_mill", &[])?,
-        "edge_chamfer" => {
+        OpKind::Counterbore => mill("bore_mill", &[("diameter", num(op, "diameter")?)])?,
+        OpKind::Slot => mill("bore_mill", &[("diameter", num(op, "width")?)])?,
+        OpKind::Notch => mill("pocket_mill", &[("width", num(op, "width")?), ("depth", depth)])?,
+        OpKind::Facing | OpKind::Roughing | OpKind::Flats | OpKind::WallFinish => mill("largest_end_mill", &[])?,
+        OpKind::EdgeChamfer => {
             let width = num(op, "width")?;
             let axial = top - num(op, "top_z")? + width + crate::resources::TIP_CLEARANCE;
             let query = library.needed("chamfer_mill", &[("width", width), ("maximum_diameter", op["maximum_diameter"].as_f64().unwrap_or(f64::INFINITY)), ("depth", axial)])?;
@@ -46,8 +48,8 @@ pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library
                 }
             }
         },
-        "v_channel" => format!("{} {long}", library.needed("v_bit", &[("angle", num(op, "angle")?)])?),
-        "thread" => {
+        OpKind::VChannel => format!("{} {long}", library.needed("v_bit", &[("angle", num(op, "angle")?)])?),
+        OpKind::Thread => {
             let major = num(op, "major")?;
             let pitch = num(op, "pitch")?;
             let query = library.needed("thread_mill", &[("major", major), ("start_diameter", num(op, "start_diameter")?),
@@ -79,17 +81,14 @@ pub(crate) fn for_operation_with_context(op: &Value, top: f64, library: &Library
                 None => query,
             }
         },
-        _ => return Ok(None),
     }))
 }
 
 /// Reach evidence is decoded by the camlib adapter, never inferred from error prose.
 /// Stepdown and other untyped refusals do not request a different tool.
 pub(crate) fn refusal(plan: &Value, operation: &str, message: &str, refused_tool: Option<&str>, evidence: &Value, library: &Library) -> Result<String, String> {
-    let mut parts = operation.splitn(3, '-');
-    let setup_id = parts.next().unwrap_or("");
-    let number = parts.next().and_then(|n| n.parse::<usize>().ok()).unwrap_or(0);
-    let Some(setup) = plan["setups"].as_array().into_iter().flatten().find(|s| s["id"] == setup_id) else { return Ok(message.into()); };
+    let Ok(OpId { setup: setup_id, number, .. }) = operation.parse() else { return Ok(message.into()); };
+    let Some(setup) = plan["setups"].as_array().into_iter().flatten().find(|s| s["id"] == setup_id.as_str()) else { return Ok(message.into()); };
     let Some(op) = number.checked_sub(1).and_then(|n| setup["operations"].get(n)) else { return Ok(message.into()); };
     let top = setup["stock"]["max"][2].as_f64().ok_or("bad stock")?;
     let Some(depth) = evidence["depth_needed_mm"].as_f64().filter(|d| d.is_finite() && *d > 0.) else { return Ok(message.into()); };
