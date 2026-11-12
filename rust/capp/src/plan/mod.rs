@@ -1,10 +1,11 @@
 //! specify-core analysis (+ mesh) -> cam plan: what to cut, per setup, independent of tools and
 //! machine. Each setup is the part turned so its tool comes down -Z, with X0 Y0 on the minimum
 //! corner and Z0 on the top of the stock (the roughing setup) or of the part's box (later ones).
-use crate::trace::{Trace, because};
-use serde_json::{Map, Value, json};
+use crate::model;
+use crate::trace::Trace;
+use serde_json::{Value, json};
 use std::cell::OnceCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 mod edges;
 mod frame;
@@ -135,6 +136,11 @@ fn upright(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Result
 
 /// The cam plan for an analysis (and optionally its mesh).
 pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result<Value, String> {
+    serde_json::to_value(build(analysis, mesh, options)?).map_err(|e| e.to_string())
+}
+
+/// The cam plan for an analysis (and optionally its mesh), as types.
+pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result<model::Plan, String> {
     if analysis.get("features").is_none() || analysis.get("dimensioning").is_none() {
         return Err("not a specify-core analysis".into());
     }
@@ -206,10 +212,10 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let all_features: &[Value] = analysis["features"].as_array().ok_or("features is not a list")?;
     let cx = Context { frames: &frames, preferred: &preferred, triangles: triangles.as_deref(), part_faces: &part_faces, all_features };
     let mut by_setup: HashMap<&'static str, Vec<Hole>> = HashMap::new();
-    let mut slots: HashMap<&'static str, Vec<Value>> = HashMap::new();
+    let mut slots: HashMap<&'static str, Vec<model::Cut>> = HashMap::new();
     let mut trace = Trace::default();
-    let mut covered: Vec<Value> = vec![];
-    let mut roughing_feature_depths = Map::new();
+    let mut covered: Vec<String> = vec![];
+    let mut roughing_feature_depths = BTreeMap::new();
     // The decision that put each hole in its setup.
     let mut placed: HashMap<String, String> = HashMap::new();
     let asked = threads(analysis, &mut trace);
@@ -219,7 +225,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     let mut in_slot: Vec<String> = vec![];
     for feature in all_features.iter().filter(|x| x["family"] == "slots") {
         if let Some((name, op)) = slot_operation(feature, &cx)? {
-            in_slot.extend(op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from));
+            in_slot.extend(op.features().unwrap_or_default().iter().cloned());
             slots.entry(name).or_default().push(op);
         }
     }
@@ -231,7 +237,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         }
         let planned = if feature["family"] == "v_channels" { v_channel_operation(feature, &cx)? } else { notch_operation(feature, &cx)? };
         if let Some((name, op)) = planned {
-            in_slot.extend(op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from));
+            in_slot.extend(op.features().unwrap_or_default().iter().cloned());
             slots.entry(name).or_default().push(op);
         }
     }
@@ -269,7 +275,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
             Value::String(action) if action == "by_slot" || action == "members" => {}
             Value::String(action) if action == "covered" => {
                 trace.decide("process.covered_by_roughing", id, "covered", &format!("{family}: no operation of its own; roughing reaches it"), Value::Null);
-                covered.push(json!(id));
+                covered.push(id.to_string());
                 // Mesh face ranges use analysis face ids. Unknown or unmeshed faces fall
                 // back to the part bottom; curved faces include camlib's maximum accepted
                 // surface error so tessellation cannot overstate reach.
@@ -287,7 +293,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                         Some(low - allowance)
                     }).collect::<Option<Vec<_>>>()?.into_iter().min_by(f64::total_cmp)
                 }).unwrap_or(bottom);
-                roughing_feature_depths.insert(id.into(), json!({"floor_z": lowest, "family": family}));
+                roughing_feature_depths.insert(id.to_string(), model::Depth { floor_z: lowest, family: family.into() });
             }
             Value::Object(skip) => {
                 let rule = skip["skip"].as_str().ok_or("rulebase/rules/process.json: a skip names no rule")?;
@@ -332,12 +338,12 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         let empty = vec![];
         let holes = by_setup.get(name).unwrap_or(&empty);
         let setup_slots = slots.remove(name).unwrap_or_default();
-        let mut ops: Vec<Value> = vec![];
+        let mut ops: Vec<model::Cut> = vec![];
         if *name == rough_from {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
             let (part_top, part_bottom) = (part.1[2], part.0[2]);
             if frame.stock.1[2] - part_top > 1e-6 {
-                ops.push(json!({"kind": "facing", "floor_z": r(part_top)}));
+                ops.push(model::Cut::Facing { floor_z: r(part_top) });
             }
             if let Some(m) = mesh {
                 let floor = (part_bottom + options.skin).min(part_top);
@@ -361,15 +367,14 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                             .chunks_exact(3)
                             .flat_map(|p| frame.point([p[0], p[1], p[2]]).map(r))
                             .collect();
-                        ops.push(json!({
-                            "kind": "roughing",
-                            "top_z": r(frame.stock.1[2]),
-                            "floor_z": r(floor),
-                            "web_mm": r(floor - part_bottom),
+                        ops.push(model::Cut::Roughing(model::Roughing {
+                            top_z: r(frame.stock.1[2]),
+                            floor_z: r(floor),
+                            web_mm: r(floor - part_bottom),
                             // Rounded up, so the rounding never understates it.
-                            "surface_error_mm": (error * 1e4).ceil() / 1e4,
-                            "positions": positions,
-                            "indices": m["indices"].clone(),
+                            surface_error_mm: (error * 1e4).ceil() / 1e4,
+                            positions: Some(positions),
+                            indices: Some(serde_json::from_value(m["indices"].clone()).map_err(|e| format!("mesh indices: {e}"))?),
                         }));
                         // Flats between the top, which facing cuts, and the floor are off the
                         // roughing layers, so they can have up to a stepdown left on them.
@@ -386,7 +391,7 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                         levels.sort_by(f64::total_cmp);
                         levels.dedup();
                         if !levels.is_empty() {
-                            ops.push(json!({"kind": "flats", "floor_z": r(floor), "levels": levels}));
+                            ops.push(model::Cut::Flats { floor_z: r(floor), levels });
                         }
                     }
                 }
@@ -398,13 +403,13 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         ops.extend(hole_operations(holes));
         ops.extend(counterbore_operations(holes));
         let mut chamfered: Vec<String> = vec![];
-        if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| o["kind"] == "roughing")) {
+        if let (Some(m), Some(all), true) = (mesh, triangles.as_deref(), ops.iter().any(|o| matches!(o, model::Cut::Roughing(_)))) {
             let part = bounds(&box_corners(part_lo, part_hi).map(|p| frame.point(p)));
             let floor = (part.0[2] + options.skin).min(part.1[2]);
             let mut heights = vec![floor];
-            heights.extend(ops.iter().find(|o| o["kind"] == "flats").into_iter().flat_map(|o| o["levels"].as_array().into_iter().flatten()).filter_map(Value::as_f64));
+            heights.extend(ops.iter().find_map(|o| match o { model::Cut::Flats { levels, .. } => Some(levels), _ => None }).into_iter().flatten().copied());
             heights.push(part.1[2]);
-            let error = ops.iter().find(|o| o["kind"] == "roughing").and_then(|o| o["surface_error_mm"].as_f64()).unwrap_or(0.);
+            let error = ops.iter().find_map(|o| match o { model::Cut::Roughing(c) => Some(c.surface_error_mm), _ => None }).unwrap_or(0.);
             let own = (2. * error).max(0.01);
             let (walls, outlines) = match m["faces"].as_array() {
                 Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut trace, name)?,
@@ -413,21 +418,21 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
             // Modelled chamfers may be on a lower flat; rounds retain their floor rule.
             let wall_of = |outer: &[Cut], floor_only: bool| {
                 walls.iter().zip(&outlines).find(|(w, o)| {
-                    if floor_only && w["floor_z"].as_f64() != Some(r(floor)) { return false; }
+                    if floor_only && w.floor_z != r(floor) { return false; }
                     let hull;
                     let o = if !floor_only && (area(o).abs()-area(outer).abs()).abs() > 0.005*area(outer).abs() {
                         hull = convex_perimeter(o).unwrap_or_default();
                         &hull
                     } else { o };
                     (area(o).abs() - area(outer).abs()).abs() <= 0.005 * area(outer).abs() && o.iter().all(|c| outer.iter().any(|d| segment_distance(c.0, d.0, d.1) <= 0.1))
-                }).and_then(|(w, _)| w["wall"].as_str().map(String::from))
+                }).map(|(w, _)| w.wall.clone())
             };
             let edges;
             (edges, chamfered) = edge_operations(m, all, &cx, &faces, name, part.1[2], floor, holes, &setup_slots, &|o| wall_of(o, true))?;
             let (modelled, ids) = modelled_edge_operations(m, all, &cx, &faces, name, (holes, &setup_slots), &|o| wall_of(o, false))?;
             chamfered.extend(ids);
             ops.extend(setup_slots);
-            ops.extend(walls);
+            ops.extend(walls.into_iter().map(model::Cut::WallFinish));
             ops.extend(edges);
             ops.extend(modelled);
         } else {
@@ -444,21 +449,20 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
         // In the order rulebase/rules/sequence.json gives; the same rank keeps the planned order.
         let mut ranked = Vec::with_capacity(ops.len());
         for op in ops {
-            ranked.push((crate::rules::rank(op["kind"].as_str().unwrap_or(""))?, op));
+            ranked.push((crate::rules::rank(op.kind().name())?, op));
         }
         ranked.sort_by_key(|(rank, _)| *rank);
-        let mut ops: Vec<Value> = ranked.into_iter().map(|(_, op)| op).collect();
+        let ops: Vec<model::Cut> = ranked.into_iter().map(|(_, op)| op).collect();
         // Why each operation is here: its setup, the order, the rule that made it, and for holes
         // the decision that put them in this setup.
         let stock = json!({"min": rp(frame.stock.0), "max": rp(frame.stock.1)});
         let in_setup = trace.decide("setup.stock.part_box_with_margins", name, "chosen", &format!("the {name} setup, zeroed on the {}", frame.zeroed_on), json!({"zero": frame.zeroed_on, "stock": stock}));
         let order = trace.decide("sequence.fixed_order", name, "chosen", "facing, roughing, flats, spot drills, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, threads last", Value::Null);
-        for op in &mut ops {
-            let kind = op["kind"].as_str().unwrap_or("").to_string();
-            let features: Vec<String> = op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect();
-            // Every operation here was made by the planner with a known kind; the fallback is the
-            // rule this match gave before kinds were typed.
-            let rule = kind.parse::<crate::kind::OpKind>().map_or("process.edge_chamfer", crate::kind::OpKind::process_rule);
+        let mut operations = Vec::with_capacity(ops.len());
+        for cut in ops {
+            let kind = cut.kind().name();
+            let features: Vec<String> = cut.features().unwrap_or_default().to_vec();
+            let rule = cut.kind().process_rule();
             let says = if features.is_empty() { format!("{kind} in the {name} setup") } else { format!("{kind} in the {name} setup: {}", features.join(", ")) };
             let made = trace.decide(rule, &format!("{name}:{kind}"), "planned", &says, json!({"features": features}));
             let holes_placed: Vec<String> = features.iter().filter_map(|f| placed.get(f).cloned()).collect();
@@ -468,51 +472,52 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
                     trace.supersede(id, "skipped", &made);
                 }
             }
-            because(op, [in_setup.clone(), order.clone(), made].into_iter().chain(holes_placed));
+            let because = [in_setup.clone(), order.clone(), made].into_iter().chain(holes_placed).collect();
+            operations.push(model::Operation { cut, tool: None, tool_note: None, because: Some(because), iso14649: None, technology: None });
         }
         trace.skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
-        let mut setup = Map::new();
-        setup.insert("id".into(), json!(name));
-        frame.describe(&mut setup);
-        setup.insert("operations".into(), json!(ops));
-        setups.push(Value::Object(setup));
+        setups.push(frame.describe(name, operations));
     }
 
     // Nothing is covered by roughing that does not run.
-    let roughs = setups.iter().any(|s| s["operations"].as_array().into_iter().flatten().any(|o| o["kind"] == "roughing"));
+    let roughs = setups.iter().any(|s| s.operations.iter().any(|o| matches!(o.cut, model::Cut::Roughing(_))));
     if !roughs && triangles.is_some() {
         for id in covered.drain(..) {
-            let id = id.as_str().unwrap_or("").to_string();
             let not_cut = trace.skip("process.no_roughing", &id, "no operation of its own, and roughing is not planned".into());
             trace.supersede(&id, "covered", &not_cut);
         }
     }
 
-    Ok(json!({
-        "format": PLAN_FORMAT,
-        "version": 1,
-        "units": "mm",
-        "source": analysis.get("binding"),
+    // Only analytically planar faces are certain contact surfaces. Curved
+    // tessellation facets must never become apparent flat jaw contact.
+    let contact = mesh.and_then(|m| m["faces"].as_array()).map(|ranges| {
+        ranges.iter().enumerate().filter(|(id, _)| faces.get(&(*id as u64)).is_some_and(|f| f["kind"] == "plane"))
+            .flat_map(|(_, range)| {
+                let start = range[0].as_u64().unwrap_or(0) as usize;
+                let count = range[1].as_u64().unwrap_or(0) as usize;
+                triangles.as_deref().unwrap_or(&[]).get(start..start.saturating_add(count)).unwrap_or(&[]).iter().copied()
+            }).collect::<Vec<_>>()
+    });
+    Ok(model::Plan {
+        format: Some(PLAN_FORMAT.into()),
+        version: Some(1),
+        units: Some("mm".into()),
+        source: Some(analysis.get("binding").cloned().unwrap_or(Value::Null)),
         // The material as Specify was told it (part.material); capp::finish places it in a group.
-        "material": {"specified": analysis["resume"]["answers"]["part.material"].as_str()},
-        "part": {"min": rp(part_lo), "max": rp(part_hi)},
-        // Only analytically planar faces are certain contact surfaces. Curved
-        // tessellation facets must never become apparent flat jaw contact.
-        "workholding_surface_model": triangles,
-        "contact_surface_model": mesh.and_then(|m| m["faces"].as_array()).map(|ranges| {
-            ranges.iter().enumerate().filter(|(id, _)| faces.get(&(*id as u64)).is_some_and(|f| f["kind"] == "plane"))
-                .flat_map(|(_, range)| {
-                    let start = range[0].as_u64().unwrap_or(0) as usize;
-                    let count = range[1].as_u64().unwrap_or(0) as usize;
-                    triangles.as_deref().unwrap_or(&[]).get(start..start.saturating_add(count)).unwrap_or(&[]).iter().copied()
-                }).collect::<Vec<_>>()
-        }),
-        "setups": setups,
-        "covered_by_roughing": covered,
-        "roughing_feature_depths": roughing_feature_depths,
-        "skipped": trace.skipped,
-        "warnings": trace.warnings,
-        "decisions": trace.decisions,
-        "rulebase": crate::trace::rulebase(),
-    }))
+        material: Some(json!({"specified": analysis["resume"]["answers"]["part.material"].as_str()})),
+        part: Some(model::Box3 { min: rp(part_lo), max: rp(part_hi) }),
+        workholding_surface_model: Some(json!(triangles)),
+        contact_surface_model: Some(json!(contact)),
+        setups,
+        covered_by_roughing: covered,
+        roughing_feature_depths: Some(roughing_feature_depths),
+        // The trace keeps its skipped features as JSON until it is typed itself.
+        skipped: serde_json::from_value(Value::Array(trace.skipped)).map_err(|e| format!("skipped: {e}"))?,
+        warnings: trace.warnings,
+        decisions: Some(trace.decisions),
+        rulebase: Some(crate::trace::rulebase()),
+        tools_needed: None,
+        supplied_decisions: None,
+        workholding: None,
+    })
 }

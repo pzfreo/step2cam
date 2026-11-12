@@ -7,8 +7,8 @@ use super::*;
 pub fn r(x: f64) -> f64 {
     format!("{x:.4}").parse::<f64>().unwrap_or(x) + 0.0
 }
-pub(super) fn rp(p: V3) -> Value {
-    json!([r(p[0]), r(p[1]), r(p[2])])
+pub(super) fn rp(p: V3) -> V3 {
+    [r(p[0]), r(p[1]), r(p[2])]
 }
 /// A number as messages show it.
 pub fn show(x: f64) -> String {

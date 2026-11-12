@@ -26,7 +26,7 @@ fn steps_of(record: &Value) -> Result<Vec<(f64, f64)>, String> {
 
 pub(super) struct Hole {
     pub(super) feature: String,
-    pub(super) center: Value,
+    pub(super) center: model::Point2,
     pub(super) top_z: f64,
     pub(super) bore_top_z: f64,
     bottom_z: f64,
@@ -35,7 +35,16 @@ pub(super) struct Hole {
     exit_clear: Option<Option<f64>>,
     enlargements: Vec<(f64, f64, f64)>,
     pub(super) csink: Value,
-    thread: Option<Value>,
+    thread: Option<Tapped>,
+}
+
+/// The thread a hole gets: its size, and where it runs in the setup.
+struct Tapped {
+    spec: String,
+    major: f64,
+    pitch: f64,
+    top_z: f64,
+    bottom_z: f64,
 }
 
 /// An internal thread asked for on a hole.
@@ -188,7 +197,7 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
     let bottom_kind = record.get("bottom").and_then(Value::as_str).unwrap_or("unknown").to_string();
     let mut hole = Hole {
         feature: id.clone(),
-        center: json!([r(centre[0]), r(centre[1])]),
+        center: [r(centre[0]), r(centre[1])],
         top_z: r(centre[2]),
         bore_top_z: r(frame.point(bore_top)[2]),
         bottom_z: r(bottom[2]),
@@ -232,7 +241,7 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
             }
         }
         if fits {
-            hole.thread = Some(json!({"spec": thread.spec, "major": r(thread.major), "pitch": thread.pitch, "top_z": r(top), "bottom_z": r(end)}));
+            hole.thread = Some(Tapped { spec: thread.spec.clone(), major: r(thread.major), pitch: thread.pitch, top_z: r(top), bottom_z: r(end) });
         }
     }
     hole.csink = if !chosen.reversed && truthy(record.get("csink")) { record["csink"].clone() } else { Value::Null };
@@ -241,7 +250,7 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
 
 /// Holes of one diameter, depth and ending as one operation over their centres, in the order of
 /// those values.
-pub(super) fn hole_operations(holes: &[Hole]) -> Vec<Value> {
+pub(super) fn hole_operations(holes: &[Hole]) -> Vec<model::Cut> {
     struct Group<'a> {
         members: Vec<&'a Hole>,
     }
@@ -270,33 +279,29 @@ pub(super) fn hole_operations(holes: &[Hole]) -> Vec<Value> {
         .iter()
         .map(|g| {
             let h = g.members[0];
-            let mut op = json!({
-                "kind": "holes", "diameter": h.diameter, "top_z": h.top_z, "bore_top_z": h.bore_top_z,
-                "bottom_z": h.bottom_z, "bottom": h.bottom,
-                "centers": g.members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
-                "features": g.members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
-            });
-            if g.members.iter().any(|h| !h.csink.is_null()) {
-                op["countersinks"] = json!(g.members.iter().map(|h| h.csink.clone()).collect::<Vec<_>>());
-            }
-            if h.bottom == "through" {
-                op["exit_clear_mm"] = json!(h.exit_clear.flatten());
-            }
-            op
+            model::Cut::Holes(model::Holes {
+                diameter: h.diameter, top_z: h.top_z, bore_top_z: h.bore_top_z,
+                bottom_z: h.bottom_z, bottom: h.bottom.clone(),
+                centers: g.members.iter().map(|m| m.center).collect(),
+                features: g.members.iter().map(|m| m.feature.clone()).collect(),
+                exit_clear_mm: (h.bottom == "through").then(|| h.exit_clear.flatten()),
+                countersinks: g.members.iter().any(|h| !h.csink.is_null())
+                    .then(|| g.members.iter().map(|h| Some(h.csink.clone()).filter(|c| !c.is_null())).collect()),
+            })
         })
         .collect()
 }
 
-pub(super) fn counterbore_operations(holes: &[Hole]) -> Vec<Value> {
-    let mut groups: Vec<((f64, f64, f64), Vec<Value>, Vec<String>)> = vec![];
+pub(super) fn counterbore_operations(holes: &[Hole]) -> Vec<model::Cut> {
+    let mut groups: Vec<((f64, f64, f64), Vec<model::Point2>, Vec<String>)> = vec![];
     for h in holes {
         for e in &h.enlargements {
             match groups.iter_mut().find(|g| g.0 == *e) {
                 Some(g) => {
-                    g.1.push(h.center.clone());
+                    g.1.push(h.center);
                     g.2.push(h.feature.clone());
                 }
-                None => groups.push((*e, vec![h.center.clone()], vec![h.feature.clone()])),
+                None => groups.push((*e, vec![h.center], vec![h.feature.clone()])),
             }
         }
     }
@@ -304,13 +309,13 @@ pub(super) fn counterbore_operations(holes: &[Hole]) -> Vec<Value> {
     groups
         .into_iter()
         .map(|(e, centers, features)| {
-            json!({"kind": "counterbore", "diameter": e.0, "top_z": e.1, "floor_z": e.2, "centers": centers, "features": features})
+            model::Cut::Counterbore(model::Counterbore { diameter: e.0, top_z: e.1, floor_z: e.2, centers, features })
         })
         .collect()
 }
 
-pub(super) fn thread_operations(holes: &[Hole]) -> Vec<Value> {
-    let key = |h: &Hole, t: &Value| (t["spec"].as_str().unwrap_or("").to_string(), t["major"].as_f64().unwrap_or(0.), t["pitch"].as_f64().unwrap_or(0.), h.diameter, t["top_z"].as_f64().unwrap_or(0.), t["bottom_z"].as_f64().unwrap_or(0.), h.bottom == "through", h.exit_clear.flatten());
+pub(super) fn thread_operations(holes: &[Hole]) -> Vec<model::Cut> {
+    let key = |h: &Hole, t: &Tapped| (t.spec.clone(), t.major, t.pitch, h.diameter, t.top_z, t.bottom_z, h.bottom == "through", h.exit_clear.flatten());
     let mut groups: Vec<(_, Vec<&Hole>)> = vec![];
     for h in holes {
         let Some(t) = &h.thread else { continue };
@@ -333,15 +338,15 @@ pub(super) fn thread_operations(holes: &[Hole]) -> Vec<Value> {
     groups
         .into_iter()
         .map(|(k, members)| {
-            let mut op = json!({
-                "kind": "thread", "spec": k.0, "major": k.1, "pitch": k.2, "start_diameter": k.3,
-                "top_z": k.4, "bottom_z": k.5, "through": k.6,
-                "centers": members.iter().map(|m| m.center.clone()).collect::<Vec<_>>(),
-                "features": members.iter().map(|m| m.feature.clone()).collect::<Vec<_>>(),
-            });
-            // Preserve unrestricted legacy plans; only a measured obstruction adds a bound.
-            if k.6 && let Some(clear) = k.7 { op["exit_clear_mm"] = json!(clear); }
-            op
+            model::Cut::Thread(model::Thread {
+                spec: k.0, major: k.1, pitch: k.2, start_diameter: k.3,
+                top_z: k.4, bottom_z: k.5, through: k.6,
+                centers: members.iter().map(|m| m.center).collect(),
+                features: members.iter().map(|m| m.feature.clone()).collect(),
+                hand: None,
+                // Preserve unrestricted legacy plans; only a measured obstruction adds a bound.
+                exit_clear_mm: k.7.filter(|_| k.6),
+            })
         })
         .collect()
 }
