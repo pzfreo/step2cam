@@ -285,31 +285,65 @@ pub struct Job {
 /// The operation kinds a plan holds, each of which `capp::resolve` gives a tool or a note.
 const KNOWN: [&str; 12] = ["facing", "roughing", "flats", "spot_drill", "holes", "counterbore", "thread", "slot", "notch", "v_channel", "wall_finish", "edge_chamfer"];
 
-/// The operation's tool, or else its note in the log and on to the next operation.
+/// The tool capp chose for an operation, or why there is none (its note, said where it is cut).
+type Tool<'a> = Result<&'a Value, Option<String>>;
+/// The operation to add to the job and the tool it cuts with, or none to add.
+type Built<'a> = Option<(Value, &'a Value)>;
+
+/// The operation's tool and that tool as the operation cuts with it (`cutting_data`), or else its
+/// note in the log and no operation.
 macro_rules! tool_or_skip {
-    ($tool:expr, $notes:expr) => {
+    ($tool:expr, $op:expr, $notes:expr) => {
         match $tool {
-            Ok(spec) => spec,
+            Ok(spec) => (spec, cutting_data(spec, $op)),
             Err(note) => {
                 if let Some(note) = note {
                     $notes.push(note);
                 }
-                continue;
+                return Ok(None);
             }
         }
     };
 }
 
-pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
-    if plan["format"] != PLAN_FORMAT {
-        return Err("not a step2cam plan".into());
-    }
-    let tools: Vec<&Value> = library_data.get("tools").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
-    let breakthrough = library_data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.);
-    let clearance_above = library_data.get("clearance_mm").and_then(Value::as_f64).unwrap_or(10.);
-    let retract_above = library_data.get("retract_mm").and_then(Value::as_f64).unwrap_or(2.);
-    let (mut jobs, mut log) = (vec![], vec![]);
-    for setup in plan["setups"].as_array().ok_or("plan has no setups")? {
+fn bound(v: &Value, i: usize) -> Result<f64, &'static str> {
+    v[i].as_f64().ok_or("bad stock")
+}
+
+fn features_of(op: &Value) -> Vec<String> {
+    op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect()
+}
+
+/// One setup as its operations are cut: what they are cut against, and what they build up.
+struct SetupCut<'a> {
+    plan: &'a Value,
+    library_data: &'a Value,
+    setup: &'a Value,
+    setup_id: &'a str,
+    /// The simulation stock's corners: the low one may go below the setup's stock for through taps.
+    lo: Value,
+    hi: &'a Value,
+    stock_bottom: f64,
+    breakthrough: f64,
+    clearance: f64,
+    retract: f64,
+    tap_travel: HashMap<String, f64>,
+    operations: Vec<Value>,
+    used: Vec<&'a Value>,
+    notes: Vec<String>,
+    /// How deep each hole is open at its full diameter, once cut: a thread must not go lower.
+    full_diameter_z: HashMap<String, f64>,
+    drill_tip_z: HashMap<String, f64>,
+    /// The coarsest stock grid the operations can be checked on, if one needs a finer one.
+    needs_cell: Option<f64>,
+    local_pocket_tops: HashMap<String, f64>,
+}
+
+impl<'a> SetupCut<'a> {
+    fn new(plan: &'a Value, library_data: &'a Value, tools: &[&'a Value], setup: &'a Value) -> Result<Self, String> {
+        let breakthrough = library_data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.);
+        let clearance_above = library_data.get("clearance_mm").and_then(Value::as_f64).unwrap_or(10.);
+        let retract_above = library_data.get("retract_mm").and_then(Value::as_f64).unwrap_or(2.);
         let setup_id = setup["id"].as_str().unwrap_or("");
         let mut stock_lo = setup["stock"]["min"].clone();
         let mut tap_travel: HashMap<String, f64> = HashMap::new();
@@ -327,8 +361,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         // through travel as conservative solid backing, drilled away before the tap enters.
         // This lower bound belongs only to simulation: every machining limit and material
         // comparison still uses the setup's real stock bottom.
-        let (lo, hi) = (&stock_lo, &setup["stock"]["max"]);
-        let bound = |v: &Value, i: usize| v[i].as_f64().ok_or("bad stock");
+        let hi = &setup["stock"]["max"];
         let top = bound(hi, 2)?;
         let stock_bottom = bound(&setup["stock"]["min"], 2)?;
         let breakthrough = if setup["flip_role"] == "sacrificial_grip" {
@@ -336,463 +369,545 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
         } else { breakthrough };
         let clearance = top + clearance_above;
         let retract = (top + retract_above).min(clearance);
+        Ok(SetupCut {
+            plan, library_data, setup, setup_id, lo: stock_lo, hi, stock_bottom, breakthrough, clearance, retract, tap_travel,
+            operations: vec![], used: vec![], notes: vec![], full_diameter_z: HashMap::new(), drill_tip_z: HashMap::new(),
+            needs_cell: None, local_pocket_tops: HashMap::new(),
+        })
+    }
 
-        let mut local_pocket_tops = HashMap::new();
-        let (mut operations, mut used, mut notes): (Vec<Value>, Vec<&Value>, Vec<String>) = (vec![], vec![], vec![]);
-        // How deep each hole is open at its full diameter, once cut: a thread must not go lower.
-        let mut full_diameter_z: HashMap<String, f64> = HashMap::new();
-        let mut drill_tip_z: HashMap<String, f64> = HashMap::new();
-        // The coarsest stock grid the operations can be checked on, if one needs a finer one.
-        let mut needs_cell: Option<f64> = None;
-        let features_of = |op: &Value| -> Vec<String> { op["features"].as_array().into_iter().flatten().filter_map(Value::as_str).map(String::from).collect() };
-        for (n, op) in setup["operations"].as_array().ok_or("setup has no operations")?.iter().enumerate() {
-            let kind = op["kind"].as_str().unwrap_or("");
-            let op_id = format!("{setup_id}-{}-{kind}", n + 1);
-            if KNOWN.contains(&kind) && op.get("tool").is_none() {
-                return Err(format!("{op_id} names no tool: resolve the plan's tools with capp::finish first"));
-            }
-            // The tool capp chose, or why there is none (said at the point the operation is cut).
-            let tool = match op["tool"].as_str() {
-                Some(name) => Ok(*tools.iter().find(|t| id(t) == name).ok_or_else(|| format!("{op_id}: no tool {name:?} in the library"))?),
-                None => Err(op["tool_note"].as_str().map(|n| format!("{op_id}: {n}"))),
-            };
-            let spec: &Value;
-            let built = match kind {
-                "facing" | "roughing" => {
-                    let s = tool_or_skip!(tool, notes);
-                    spec = s;
-                    let s_cut = cutting_data(s, op);
-                    let s = &s_cut;
-                    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
-                    if kind == "facing" {
-                        let mut out = json!({
-                            "kind": "facing", "id": op_id, "tool": id(s), "floor_z_mm": num(op, "floor_z")?,
-                            "stepdown_mm": num(s, "stepdown_mm")?, "stepover_mm": stepover, "clearance_z_mm": clearance,
-                            "axis": "x", "mode": "zigzag", "reverse": false, "entry_air_gap_mm": 1.0, "edge_overlap_mm": null,
-                        });
-                        if let Some(margin) = setup["flip_seating"]["residual_margin_mm"].as_f64() {
-                            out["edge_overlap_mm"] = json!(margin);
-                        }
-                        cutting(&mut out, s, true)?;
-                        out
-                    } else {
-                        let error = num(op, "surface_error_mm")?;
-                        let radial = library_data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * error);
-                        let bottom = library_data.get("bottom_allowance_mm").and_then(Value::as_f64).unwrap_or(0.2).max(2. * error);
-                        let mut out = json!({
-                            "kind": "roughing", "omit_empty_cuts": true, "id": op_id, "tool": id(s), "target": surface(op)?,
-                            "clearing": {"kind": "raster", "stepover_mm": stepover, "routing": "economical"},
-                            "top_z_mm": num(op, "top_z")?, "floor_z_mm": num(op, "floor_z")?,
-                            "stepdown_mm": num(s, "stepdown_mm")?, "clearance_z_mm": clearance,
-                            "radial_allowance_mm": radial, "bottom_allowance_mm": bottom, "clockwise": true,
-                            "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
-                        });
-                        cutting(&mut out, s, true)?;
-                        if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
-                            notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
-                        } else {
-                            let separation = crate::setup_stock::breakout(setup, &plan["part"]);
-                            let left = match separation.as_ref() {
-                                Some(step) if step["kind"] == "cut_free" => format!("leaves a {} mm band of uncut walls below Z{}", show(num(op,"web_mm")?), show(num(op,"floor_z")?)),
-                                Some(_) => format!("leaves a {} mm web below the part bottom",show(num(op,"web_mm")?)),
-                                None => format!("leaves stock below Z{}",show(num(op,"floor_z")?)),
-                            };
-                            notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
-                        }
-                        out
-                    }
-                }
-                "flats" => {
-                    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
-                    let s = tool_or_skip!(tool, notes);
-                    let rough = rough.ok_or("flats with no roughing to follow")?;
-                    spec = s;
-                    let s_cut = cutting_data(s, op);
-                    let s = &s_cut;
-                    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
-                    let mut out = json!({
-                        "kind": "flat", "id": op_id, "tool": id(s), "surface": surface(rough)?,
-                        "floor_z_mm": num(op, "floor_z")?, "stepover_mm": stepover, "clearance_z_mm": clearance,
-                        "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, s, true)?;
-                    out
-                }
-                "spot_drill" => {
-                    let spec = tool_or_skip!(tool, notes);
-                    let cut = cutting_data(spec, op);
-                    // A plan group can contain different mouth heights and spot diameters.
-                    // camlib has one absolute tip Z per drilling operation.
-                    let mut depths: Vec<(f64, Vec<Value>)> = vec![];
-                    for spot in op["spots"].as_array().ok_or("spot operation has no spots")? {
-                        let z = num(spot, "top_z")? - num(spot, "depth")?;
-                        if let Some((_, centers)) = depths.iter_mut().find(|(depth, _)| *depth == z) {
-                            centers.push(spot["center"].clone());
-                        } else {
-                            depths.push((z, vec![spot["center"].clone()]));
-                        }
-                    }
-                    for (i, (z, centers)) in depths.into_iter().enumerate() {
-                        let mut out = json!({
-                            "kind":"drilling", "id":format!("{op_id}-{}", i + 1), "tool":id(spec),
-                            "centers_mm":centers, "depth_z_mm":z, "depth_reference":"tip",
-                            "peck_mm":null, "peck_mode":"full_retract", "dwell_s":0.2,
-                            "retract_z_mm":retract, "chip_break_lift_mm":1.0, "reentry_clearance_mm":0.5,
-                            "allow_breakthrough_mm":0., "clearance_z_mm":clearance,
-                            "retract_feed_mm_min":num(&cut, "feed_mm_min")?,
-                        });
-                        cutting(&mut out, &cut, false)?;
-                        operations.push(out);
-                    }
-                    if !used.iter().any(|t| id(t) == id(spec)) { used.push(spec); }
-                    continue;
-                }
-                "holes" => {
-                    let d = num(op, "diameter")?;
-                    let breakthrough = features_of(op).iter().filter_map(|f| tap_travel.get(f)).copied().fold(breakthrough, f64::max);
-                    let chosen = tool_or_skip!(tool, notes);
-                    if chosen["type"] == "drill" {
-                        let drill = chosen;
-                        spec = drill;
-                        let drill_cut = cutting_data(drill, op);
-                        let drill = &drill_cut;
-                        let (depth, reference, allow) = drill_depth(op, drill, breakthrough, stock_bottom, &op_id, &mut notes)?;
-                        let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
-                        full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
-                        let tip_z = if reference == "full_diameter" { depth - drill_tip_length(drill)? } else { depth };
-                        drill_tip_z.extend(features_of(op).into_iter().map(|f| (f, tip_z)));
-                        let mut out = json!({
-                            "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
-                            "depth_reference": reference, "peck_mm": op["technology"]["peck_mm"], "peck_mode": op["technology"]["peck_mode"],
-                            "retract_z_mm": retract, "chip_break_lift_mm": 1.0, "reentry_clearance_mm": 0.5,
-                            "allow_breakthrough_mm": allow, "clearance_z_mm": clearance,
-                            "retract_feed_mm_min": drill.get("retract_feed_mm_min").and_then(Value::as_f64).unwrap_or(num(drill, "feed_mm_min")?),
-                        });
-                        cutting(&mut out, drill, false)?;
-                        out
-                    } else {
-                        let mill = chosen;
-                        spec = mill;
-                        let mill_cut = cutting_data(mill, op);
-                        let mill = &mill_cut;
-                        let floor = bore_floor(op, breakthrough, stock_bottom, &op_id, &mut notes)?;
-                        full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, floor)));
-                        bore(&op_id, mill, &op["centers"], d, floor, clearance, retract)?
-                    }
-                }
-                "counterbore" => {
-                    let d = num(op, "diameter")?;
-                    let mill = tool_or_skip!(tool, notes);
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    bore(&op_id, mill, &op["centers"], d, num(op, "floor_z")?, clearance, retract)?
-                }
-                "thread" => {
-                    let thread = format!("{} ({})", op["spec"].as_str().unwrap_or(""), features_of(op).join(", "));
-                    let features = features_of(op);
-                    if features.iter().any(|f| !full_diameter_z.contains_key(f)) {
-                        notes.push(format!("{op_id}: {thread}: the hole is not cut, so it is not threaded"));
-                        continue;
-                    }
-                    let open_z = features.iter().map(|f| full_diameter_z[f]).fold(f64::MIN, f64::max);
-                    let bottom_z = num(op, "bottom_z")?;
-                    if bottom_z < open_z - 1e-6 {
-                        notes.push(format!("{op_id}: {thread}: the thread would end {} mm below where the hole reaches full diameter; not threaded", show(r(open_z - bottom_z))));
-                        continue;
-                    }
-                    let mill = tool_or_skip!(tool, notes);
-                    let (major, start, pitch) = (num(op, "major")?, num(op, "start_diameter")?, num(op, "pitch")?);
-                    if mill["type"] == "tap" {
-                        let tip = bottom_z - num(mill, "chamfer_pitches")? * pitch;
-                        if tip - pitch < open_z - 1e-6 {
-                            notes.push(format!("{op_id}: {thread}: tap tip Z{tip:.3} plus {pitch:.3} mm bottom clearance needs full diameter to Z{:.3}; actual drilled floor Z{open_z:.3}; not tapped", tip - pitch));
-                            continue;
-                        }
-                        spec = mill;
-                        let tap = cutting_data(mill, op);
-                        let out = json!({
-                            "kind": "tapping", "id": op_id, "tool": id(mill), "centers_mm": op["centers"],
-                            "pitch_mm": pitch, "hand": mill.get("hand").and_then(Value::as_str).unwrap_or("right"),
-                            "depth_z_mm": tip, "bottom_clearance_mm": pitch,
-                            "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
-                            "tolerance_mm": DRILLING_TOLERANCE, "spindle_rpm": num(&tap, "spindle_rpm")?,
-                            "work_offset": 1, "tool_number": mill["number"],
-                            "length_register": mill.get("length_register").unwrap_or(&mill["number"]), "coolant": tap["coolant"],
-                        });
-                        // Tapping derives synchronized feed from pitch × rpm; no feed field.
-                        notes.push(format!("{op_id}: {thread}: tapped {} (pitch {}, {} hand), full thread {} mm, tip Z{} with {}; check with a gauge", op["spec"].as_str().unwrap_or(""), show(pitch), mill.get("hand").and_then(Value::as_str).unwrap_or("right"), show(num(op, "top_z")? - bottom_z), show(tip), id(mill)));
-                        if op["through"] == true {
-                            // Transform the part's model-space box into this setup's Z axis.
-                            let part_bottom = (0..3).try_fold(0., |z, i| {
-                                let direction = bound(&setup["rotation"][2], i)?;
-                                let edge = if direction < 0. { "max" } else { "min" };
-                                Ok::<_, String>(z + direction * (bound(&plan["part"][edge], i)? - bound(&setup["origin_model"], i)?))
-                            })?;
-                            let below = |z: f64| format!("{:.2}", ((part_bottom - z).max(0.) * 100. - 1e-6).ceil() / 100.).trim_end_matches('0').trim_end_matches('.').to_string();
-                            let drill_tip = features.iter().filter_map(|f| drill_tip_z.get(f)).copied().reduce(f64::min);
-                            if let Some(drill_tip) = drill_tip {
-                                notes.push(format!("{op_id}: the tap tip goes {} mm and its drill tip {} mm below the part's bottom (drill full diameter {} mm below): keep the hole clear of parallels", below(tip), below(drill_tip), below(open_z)));
-                            }
-                        }
-                        out
-                    } else {
-                        // The neck's clearance from the drilled wall, on the thread's final path circle.
-                        let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
-                        // Descent proves a disk enlarged by twice the operation tolerance.
-                        // Every touched cell must also fit inside the drilled bore.
-                        let entry_room = (start - num(mill, "diameter")?) / 2. - 2. * DRILLING_TOLERANCE;
-                        let room = neck_room.min(entry_room);
-                        if room <= 0. {
-                            notes.push(format!("{op_id}: {thread}: {} has no positive cutter entry clearance at the operation tolerance", id(mill)));
-                            continue;
-                        }
-                        let cell = room / (2f64.sqrt() * THREAD_CELL_SAFETY);
-                        let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
-                        if cells > MAX_STOCK_CELLS {
-                            notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
-                            continue;
-                        }
-                        needs_cell = Some(needs_cell.map_or(cell, |c: f64| c.min(cell)));
-                        spec = mill;
-                        let mill_cut = cutting_data(mill, op);
-                        let mill = &mill_cut;
-                        // camlib retains CCW internal climb milling and reverses Z feed
-                        // for a left-hand helix (top-down instead of bottom-up).
-                        let right_hand = op["hand"] != "left";
-                        let hand = if right_hand { "right" } else { "left" };
-                        let mut out = json!({
-                            "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
-                            "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": right_hand, "climb": true,
-                            "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
-                            "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
-                            "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
-                            "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
-                        });
-                        cutting(&mut out, mill, true)?;
-                        notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, {hand} hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
-                        out
-                    }
-                }
-                "slot" => {
-                    let width = num(op, "width")?;
-                    let mill = tool_or_skip!(tool, notes);
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    let mut floor = num(op, "floor_z")?;
-                    if op["bottom"] == "through" {
-                        let exit = floor;
-                        floor = stock_bottom.max(exit - breakthrough);
-                        if floor > exit - 0.05 {
-                            notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
-                        }
-                    }
-                    let mut out = json!({
-                        "kind": "pocket", "id": op_id, "tool": id(mill),
-                        "region": {
-                            "version": 1, "units": "mm", "name": op_id, "boundary_error_mm": 0.0,
-                            "components": [{"outer": {"vertices": obround(point2(&op["a"])?, point2(&op["b"])?, width / 2.)}, "holes": []}],
-                            "source": {"plan": PLAN_FORMAT},
-                        },
-                        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
-                        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
-                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-                        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
-                        "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, mill, true)?;
-                    out
-                }
-                "notch" => {
-                    let mill = tool_or_skip!(tool, notes);
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    let mut floor = num(op, "floor_z")?;
-                    if op["bottom"] == "through" {
-                        floor = stock_bottom.max(floor - breakthrough);
-                    }
-                    // A prior roughing pass may have exposed the local pocket mouth.
-                    // Camlib scans the remaining stock and proves assembly clearance before
-                    // admitting this lower top; this declaration is not a clearance verdict.
-                    let local_top = op["wall_top"].as_f64().filter(|z| operations.iter().any(|o|
-                        o["kind"] == "roughing" && o["floor_z_mm"].as_f64().is_some_and(|floor| floor <= *z)));
-                    if let Some(z) = local_top { local_pocket_tops.insert(op_id.clone(), z); }
-                    let mut out = json!({
-                        "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
-                        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
-                        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
-                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-                        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
-                        "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, mill, true)?;
-                    out
-                }
-                "v_channel" => {
-                    let bit = tool_or_skip!(tool, notes);
-                    spec = bit;
-                    let bit_cut = cutting_data(bit, op);
-                    let bit = &bit_cut;
-                    let (half, depth) = ((num(bit, "angle")? / 2.).to_radians().tan(), num(op, "depth")?);
-                    let left = num(op, "width")? / 2. - half * depth;
-                    if left > 0.005 {
-                        notes.push(format!("{op_id}: {} is a {}° bit in a {}° channel: its walls keep up to {} mm at the top", id(bit), show(num(bit, "angle")?), show(num(op, "angle")?), show(r(left))));
-                    }
-                    let a = point2(&op["a"])?;
-                    let mut out = json!({
-                        "kind": "trace", "id": op_id, "tool": id(bit),
-                        "paths": [{"start_mm": a, "segments": [{"kind": "line", "end_mm": point2(&op["b"])?}]}],
-                        "top_z_mm": num(op, "top_z")?, "depth_z_mm": num(op, "root_z")?, "stepdown_mm": num(bit, "stepdown_mm")?,
-                        "clearance_z_mm": clearance, "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, bit, true)?;
-                    out
-                }
-                "wall_finish" => {
-                    let mill = tool_or_skip!(tool, notes);
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    let mut out = json!({
-                        "kind": "contour", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &json!([])),
-                        "boundaries": "outer", "floor_z_mm": num(op, "floor_z")?, "stepdown_mm": num(mill, "stepdown_mm")?,
-                        "clearance_z_mm": clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-                        "boundary_tolerance_mm": 0.01, "reverse": true, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
-                        "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, mill, true)?;
-                    out
-                }
-                "edge_chamfer" => {
-                    let width = num(op, "width")?;
-                    let mill = tool_or_skip!(tool, notes);
-                    spec = mill;
-                    let mill_cut = cutting_data(mill, op);
-                    let mill = &mill_cut;
-                    let mut out = json!({
-                        "kind": "chamfer", "id": op_id, "tool": id(mill), "region": region(&op_id, &op["outer"], &op["holes"]),
-                        "boundaries": op["boundaries"], "top_z_mm": num(op, "top_z")?, "width_mm": width,
-                        "clearance_z_mm": clearance, "tip_clearance_mm": TIP_CLEARANCE, "width_step_mm": width.min(1.0),
-                        "boundary_tolerance_mm": 0.01, "reverse": false, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
-                        "retract_z_mm": retract, "feed_z_mm": retract,
-                    });
-                    cutting(&mut out, mill, true)?;
-                    if op["radius"].is_number() { notes.push(format!("{op_id}: the model's r{} top edges are cut as {} mm 45° chamfers meeting the round at its middle, not as the round; the bottom edges are not cut", show(num(op, "radius")?), show(width))); }
-                    out
-                }
-                other => {
-                    notes.push(format!("{op_id}: unknown operation kind {other:?}"));
-                    continue;
-                }
-            };
-            operations.push(built);
-            if !used.iter().any(|u| id(u) == id(spec)) {
-                used.push(spec);
-            }
+    fn use_tool(&mut self, spec: &'a Value) {
+        if !self.used.iter().any(|u| id(u) == id(spec)) {
+            self.used.push(spec);
         }
-        if operations.is_empty() {
-            log.extend(notes);
-            log.push(format!("setup {setup_id}: nothing to cut"));
+    }
+}
+
+pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
+    if plan["format"] != PLAN_FORMAT {
+        return Err("not a step2cam plan".into());
+    }
+    let tools: Vec<&Value> = library_data.get("tools").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
+    let (mut jobs, mut log) = (vec![], vec![]);
+    for setup in plan["setups"].as_array().ok_or("plan has no setups")? {
+        let mut cx = SetupCut::new(plan, library_data, &tools, setup)?;
+        cut_operations(&mut cx, &tools)?;
+        if cx.operations.is_empty() {
+            log.extend(cx.notes);
+            log.push(format!("setup {}: nothing to cut", cx.setup_id));
             continue;
         }
-        let (x0, y0) = (bound(lo, 0)?, bound(lo, 1)?);
-        let (x1, y1) = (bound(hi, 0)?, bound(hi, 1)?);
-        let cell = match library_data.get("cell_size_mm").and_then(Value::as_f64).filter(|c| *c != 0.) {
-            Some(c) => c,
-            None => format!("{:.2}", (x1 - x0).max(y1 - y0) / 400.).parse::<f64>().unwrap_or(0.1).max(0.1),
-        };
-        let cell = match needs_cell {
-            Some(needed) if needed < cell => {
-                // Rounded down to a whole micrometre, so the grid is never coarser than needed.
-                let fine = (needed * 1000.).floor() / 1000.;
-                notes.push(format!("setup {setup_id}: stock grid {} mm, fine enough to prove the thread mill's entry and neck clear of the hole wall", show(fine)));
-                fine
-            }
-            _ => cell,
-        };
-        // Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over X Y.
-        let gauges = used.iter().map(|t| Ok(num(t, "stickout")? + num(t, "holder_length")?)).collect::<Result<Vec<f64>, String>>()?;
-        let lowest = clearance + gauges.iter().copied().fold(f64::MIN, f64::max);
-        let gauge_z = match library_data.get("tool_change_gauge_z_mm").and_then(Value::as_f64) {
-            None => lowest,
-            Some(z) if z < lowest => {
-                return Err(format!("tool_change_gauge_z_mm {} puts a tool tip below the clearance height in setup {setup_id}: it must be at least {}", show(z), show(r(lowest))));
-            }
-            Some(z) => z,
-        };
-        let change_xy = match library_data.get("tool_change_xy_mm").and_then(Value::as_array) {
-            Some(xy) if xy.len() == 2 => [xy[0].as_f64().unwrap_or(x0), xy[1].as_f64().unwrap_or(y0)],
-            _ => [x0, y0],
-        };
-        let first = operations[0]["tool"].as_str().unwrap_or("");
-        let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
-        for op in &mut operations {
-            let gauge = used.iter().zip(&gauges).find(|(t, _)| t["id"] == op["tool"]).map(|(_, g)| *g).ok_or("operation tool has no gauge length")?;
-            let tip = gauge_z - gauge;
-            let clearance = num(op, "clearance_z_mm")?;
-            // Canonicalize the same intended plane after gauge subtraction.
-            // Fractional carried tops can otherwise introduce a sub-nanometre
-            // lift that camlib correctly refuses as a zero-length line.
-            let roundoff = 8. * f64::EPSILON * gauge_z.abs().max(gauge.abs()).max(clearance.abs()).max(1.);
-            if (setup["flip_seating"].is_object() && op["kind"] == "facing") || (tip-clearance).abs() <= roundoff {
-                op["clearance_z_mm"] = json!(tip);
-            }
-        }
-        // The whole part is known only where roughing is planned, whether or not camlib accepted it.
-        // A thread cuts past the bore the mesh shows, so the stock is compared just before threads.
-        let part = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")).or_else(|| setup.get("part_surface"));
-        // Tapping uses the pre-drill diameter and retains thread flanks; unlike thread
-        // milling it does not cut beyond the modelled bore, so comparison stays enabled.
-        let first_thread = operations.iter().position(|o| o["kind"] == "thread_mill");
-        let material = match part.filter(|_| first_thread != Some(0)) {
-            Some(rough) => {
-                let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
-                // The stock can go below the part: everything above the base is what is compared.
-                let base = z.fold(stock_bottom, f64::min);
-                let after = first_thread.map(|i| operations[i - 1]["id"].clone());
-                if first_thread.is_some() {
-                    notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
-                }
-                json!([{"after_operation": after, "options": {"max_tile_nodes": COMPARISON_NODES, "max_boundary_tests": COMPARISON_BUDGET, "max_findings": COMPARISON_FINDINGS}, "target": {
-                    "version": 1, "units": "mm", "id": format!("step2cam-{setup_id}-part"), "revision": "1",
-                    "surface": surface(rough)?, "base_z_mm": base,
-                    // surface_error_mm bounds the mesh's distance from the part both ways, so the
-                    // part lies between the mesh solid eroded and dilated by it. Without saying so
-                    // camlib proves no material under the mesh, and cannot find a definite gouge.
-                    "source_enclosure": "offset",
-                }}])
-            }
-            None => json!([]),
-        };
-        let scene = if let Some(clamping) = setup.get("clamping") {
-            let bodies = ["jaws", "parallels"].into_iter().flat_map(|key| clamping[key].as_array().into_iter().flatten()).map(|body| {
-                let (lo, hi) = (&body["min"], &body["max"]);
-                json!({"id": body["id"], "role": "fixture", "z_min_mm": lo[2], "z_max_mm": hi[2], "z_error_mm": 0.,
-                    "footprint": {"version": 1, "units": "mm", "name": body["id"], "boundary_error_mm": 0.,
-                        "components": [{"outer": {"vertices": [[lo[0], lo[1], 0.], [hi[0], lo[1], 0.], [hi[0], hi[1], 0.], [lo[0], hi[1], 0.]]}, "holes": []}]}})
-            }).collect::<Vec<_>>();
-            json!({"scene": {"version": 1, "units": "mm", "id": format!("{setup_id}-workholding"), "revision": "1",
-                "work_to_machine": camlib::motion::WorkFrame::identity(), "bodies": bodies, "machine": null}})
-        } else { Value::Null };
-        let manifest = json!({
-            "version": 1,
-            "run": {"id": format!("step2cam-{setup_id}"), "revision": "1"},
-            "stock": {"version": 1, "units": "mm", "min_mm": lo, "max_mm": hi, "cell_size_mm": cell, "max_cells": u32::MAX},
-            "tools": used.iter().map(|t| assembly(t)).collect::<Result<Vec<_>, _>>()?,
-            "initial_position_mm": [change_xy[0], change_xy[1], gauge_z - first_gauge],
-            "sweep": {"tolerance_mm": 1e-5, "chord_error_mm": 0.002, "max_tip_step_mm": 0.1, "max_segments": 100000,
-                      "max_scratch_cells": u32::MAX, "max_changed_cells": u32::MAX, "max_cell_visits": 100000000},
-            "operations": operations,
-            "verification": {"scene": scene, "material": material, "stock_contact": {
-                "tolerance_mm": 1e-5, "spatial_resolution_mm": 0.001, "max_nodes": 200000, "max_cell_reads": 2000000, "max_findings": 128}},
-            "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
-            "rapid_retracts": true,
-        });
-        jobs.push(Job { return_stock: false, crop_stock_to: None, setup: setup_id.to_string(), manifest, stock_bottom_mm: stock_bottom, notes, local_pocket_tops });
+        jobs.push(job(cx)?);
     }
     Ok((jobs, log))
+}
+
+/// Each operation of the setup, in order, as camlib cuts it, or a note saying why it is not cut.
+fn cut_operations<'a>(cx: &mut SetupCut<'a>, tools: &[&'a Value]) -> Result<(), String> {
+    let setup = cx.setup;
+    for (n, op) in setup["operations"].as_array().ok_or("setup has no operations")?.iter().enumerate() {
+        let kind = op["kind"].as_str().unwrap_or("");
+        let op_id = format!("{}-{}-{kind}", cx.setup_id, n + 1);
+        if KNOWN.contains(&kind) && op.get("tool").is_none() {
+            return Err(format!("{op_id} names no tool: resolve the plan's tools with capp::finish first"));
+        }
+        // The tool capp chose, or why there is none (said at the point the operation is cut).
+        let tool = match op["tool"].as_str() {
+            Some(name) => Ok(*tools.iter().find(|t| id(t) == name).ok_or_else(|| format!("{op_id}: no tool {name:?} in the library"))?),
+            None => Err(op["tool_note"].as_str().map(|n| format!("{op_id}: {n}"))),
+        };
+        let built = match kind {
+            "facing" => facing(cx, op, &op_id, tool)?,
+            "roughing" => roughing(cx, op, &op_id, tool)?,
+            "flats" => flats(cx, op, &op_id, tool)?,
+            "spot_drill" => spot_drill(cx, op, &op_id, tool)?,
+            "holes" => holes(cx, op, &op_id, tool)?,
+            "counterbore" => counterbore(cx, op, &op_id, tool)?,
+            "thread" => thread(cx, op, &op_id, tool)?,
+            "slot" => slot(cx, op, &op_id, tool)?,
+            "notch" => notch(cx, op, &op_id, tool)?,
+            "v_channel" => v_channel(cx, op, &op_id, tool)?,
+            "wall_finish" => wall_finish(cx, op, &op_id, tool)?,
+            "edge_chamfer" => edge_chamfer(cx, op, &op_id, tool)?,
+            other => {
+                cx.notes.push(format!("{op_id}: unknown operation kind {other:?}"));
+                None
+            }
+        };
+        if let Some((operation, spec)) = built {
+            cx.operations.push(operation);
+            cx.use_tool(spec);
+        }
+    }
+    Ok(())
+}
+
+fn facing<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, s_cut) = tool_or_skip!(tool, op, cx.notes);
+    let s = &s_cut;
+    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
+    let mut out = json!({
+        "kind": "facing", "id": op_id, "tool": id(s), "floor_z_mm": num(op, "floor_z")?,
+        "stepdown_mm": num(s, "stepdown_mm")?, "stepover_mm": stepover, "clearance_z_mm": cx.clearance,
+        "axis": "x", "mode": "zigzag", "reverse": false, "entry_air_gap_mm": 1.0, "edge_overlap_mm": null,
+    });
+    if let Some(margin) = cx.setup["flip_seating"]["residual_margin_mm"].as_f64() {
+        out["edge_overlap_mm"] = json!(margin);
+    }
+    cutting(&mut out, s, true)?;
+    Ok(Some((out, spec)))
+}
+
+fn roughing<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, s_cut) = tool_or_skip!(tool, op, cx.notes);
+    let s = &s_cut;
+    let (setup, library_data) = (cx.setup, cx.library_data);
+    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
+    let error = num(op, "surface_error_mm")?;
+    let radial = library_data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * error);
+    let bottom = library_data.get("bottom_allowance_mm").and_then(Value::as_f64).unwrap_or(0.2).max(2. * error);
+    let mut out = json!({
+        "kind": "roughing", "omit_empty_cuts": true, "id": op_id, "tool": id(s), "target": surface(op)?,
+        "clearing": {"kind": "raster", "stepover_mm": stepover, "routing": "economical"},
+        "top_z_mm": num(op, "top_z")?, "floor_z_mm": num(op, "floor_z")?,
+        "stepdown_mm": num(s, "stepdown_mm")?, "clearance_z_mm": cx.clearance,
+        "radial_allowance_mm": radial, "bottom_allowance_mm": bottom, "clockwise": true,
+        "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
+    });
+    cutting(&mut out, s, true)?;
+    if setup["flip_role"] == "sacrificial_grip" && num(op, "web_mm")? == 0. {
+        cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
+    } else {
+        let separation = crate::setup_stock::breakout(setup, &cx.plan["part"]);
+        let left = match separation.as_ref() {
+            Some(step) if step["kind"] == "cut_free" => format!("leaves a {} mm band of uncut walls below Z{}", show(num(op,"web_mm")?), show(num(op,"floor_z")?)),
+            Some(_) => format!("leaves a {} mm web below the part bottom",show(num(op,"web_mm")?)),
+            None => format!("leaves stock below Z{}",show(num(op,"floor_z")?)),
+        };
+        cx.notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
+    }
+    Ok(Some((out, spec)))
+}
+
+fn flats<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let setup = cx.setup;
+    let rough = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing"));
+    let (spec, s_cut) = tool_or_skip!(tool, op, cx.notes);
+    let rough = rough.ok_or("flats with no roughing to follow")?;
+    let s = &s_cut;
+    let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
+    let mut out = json!({
+        "kind": "flat", "id": op_id, "tool": id(s), "surface": surface(rough)?,
+        "floor_z_mm": num(op, "floor_z")?, "stepover_mm": stepover, "clearance_z_mm": cx.clearance,
+        "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, s, true)?;
+    Ok(Some((out, spec)))
+}
+
+/// Adds one drilling operation per spot depth itself, so it has none to return.
+fn spot_drill<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, cut) = tool_or_skip!(tool, op, cx.notes);
+    // A plan group can contain different mouth heights and spot diameters.
+    // camlib has one absolute tip Z per drilling operation.
+    let mut depths: Vec<(f64, Vec<Value>)> = vec![];
+    for spot in op["spots"].as_array().ok_or("spot operation has no spots")? {
+        let z = num(spot, "top_z")? - num(spot, "depth")?;
+        if let Some((_, centers)) = depths.iter_mut().find(|(depth, _)| *depth == z) {
+            centers.push(spot["center"].clone());
+        } else {
+            depths.push((z, vec![spot["center"].clone()]));
+        }
+    }
+    for (i, (z, centers)) in depths.into_iter().enumerate() {
+        let mut out = json!({
+            "kind":"drilling", "id":format!("{op_id}-{}", i + 1), "tool":id(spec),
+            "centers_mm":centers, "depth_z_mm":z, "depth_reference":"tip",
+            "peck_mm":null, "peck_mode":"full_retract", "dwell_s":0.2,
+            "retract_z_mm":cx.retract, "chip_break_lift_mm":1.0, "reentry_clearance_mm":0.5,
+            "allow_breakthrough_mm":0., "clearance_z_mm":cx.clearance,
+            "retract_feed_mm_min":num(&cut, "feed_mm_min")?,
+        });
+        cutting(&mut out, &cut, false)?;
+        cx.operations.push(out);
+    }
+    cx.use_tool(spec);
+    Ok(None)
+}
+
+fn holes<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let d = num(op, "diameter")?;
+    let breakthrough = features_of(op).iter().filter_map(|f| cx.tap_travel.get(f)).copied().fold(cx.breakthrough, f64::max);
+    let (chosen, chosen_cut) = tool_or_skip!(tool, op, cx.notes);
+    if chosen["type"] == "drill" {
+        let drill = &chosen_cut;
+        let (depth, reference, allow) = drill_depth(op, drill, breakthrough, cx.stock_bottom, op_id, &mut cx.notes)?;
+        let open_z = if reference == "full_diameter" { depth } else { depth + drill_tip_length(drill)? };
+        cx.full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, open_z)));
+        let tip_z = if reference == "full_diameter" { depth - drill_tip_length(drill)? } else { depth };
+        cx.drill_tip_z.extend(features_of(op).into_iter().map(|f| (f, tip_z)));
+        let mut out = json!({
+            "kind": "drilling", "id": op_id, "tool": id(drill), "centers_mm": op["centers"], "depth_z_mm": depth,
+            "depth_reference": reference, "peck_mm": op["technology"]["peck_mm"], "peck_mode": op["technology"]["peck_mode"],
+            "retract_z_mm": cx.retract, "chip_break_lift_mm": 1.0, "reentry_clearance_mm": 0.5,
+            "allow_breakthrough_mm": allow, "clearance_z_mm": cx.clearance,
+            "retract_feed_mm_min": drill.get("retract_feed_mm_min").and_then(Value::as_f64).unwrap_or(num(drill, "feed_mm_min")?),
+        });
+        cutting(&mut out, drill, false)?;
+        Ok(Some((out, chosen)))
+    } else {
+        let mill = &chosen_cut;
+        let floor = bore_floor(op, breakthrough, cx.stock_bottom, op_id, &mut cx.notes)?;
+        cx.full_diameter_z.extend(features_of(op).into_iter().map(|f| (f, floor)));
+        Ok(Some((bore(op_id, mill, &op["centers"], d, floor, cx.clearance, cx.retract)?, chosen)))
+    }
+}
+
+fn counterbore<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let d = num(op, "diameter")?;
+    let (spec, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let mill = &mill_cut;
+    Ok(Some((bore(op_id, mill, &op["centers"], d, num(op, "floor_z")?, cx.clearance, cx.retract)?, spec)))
+}
+
+/// A thread whose hole is cut and open deep enough: what tapping and thread milling both use.
+struct Thread<'b> {
+    op: &'b Value,
+    op_id: &'b str,
+    /// The thread's spec and features, as the notes name it.
+    label: String,
+    features: Vec<String>,
+    open_z: f64,
+    bottom_z: f64,
+    major: f64,
+    start: f64,
+    pitch: f64,
+}
+
+fn thread<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let thread = format!("{} ({})", op["spec"].as_str().unwrap_or(""), features_of(op).join(", "));
+    let features = features_of(op);
+    if features.iter().any(|f| !cx.full_diameter_z.contains_key(f)) {
+        cx.notes.push(format!("{op_id}: {thread}: the hole is not cut, so it is not threaded"));
+        return Ok(None);
+    }
+    let open_z = features.iter().map(|f| cx.full_diameter_z[f]).fold(f64::MIN, f64::max);
+    let bottom_z = num(op, "bottom_z")?;
+    if bottom_z < open_z - 1e-6 {
+        cx.notes.push(format!("{op_id}: {thread}: the thread would end {} mm below where the hole reaches full diameter; not threaded", show(r(open_z - bottom_z))));
+        return Ok(None);
+    }
+    let (mill, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let (major, start, pitch) = (num(op, "major")?, num(op, "start_diameter")?, num(op, "pitch")?);
+    let thread = Thread { op, op_id, label: thread, features, open_z, bottom_z, major, start, pitch };
+    if mill["type"] == "tap" {
+        tap(cx, thread, mill, mill_cut)
+    } else {
+        thread_mill(cx, thread, mill, mill_cut)
+    }
+}
+
+fn tap<'a>(cx: &mut SetupCut<'a>, thread: Thread<'_>, mill: &'a Value, tap: Value) -> Result<Built<'a>, String> {
+    let Thread { op, op_id, label: thread, features, open_z, bottom_z, pitch, .. } = thread;
+    let tip = bottom_z - num(mill, "chamfer_pitches")? * pitch;
+    if tip - pitch < open_z - 1e-6 {
+        cx.notes.push(format!("{op_id}: {thread}: tap tip Z{tip:.3} plus {pitch:.3} mm bottom clearance needs full diameter to Z{:.3}; actual drilled floor Z{open_z:.3}; not tapped", tip - pitch));
+        return Ok(None);
+    }
+    let out = json!({
+        "kind": "tapping", "id": op_id, "tool": id(mill), "centers_mm": op["centers"],
+        "pitch_mm": pitch, "hand": mill.get("hand").and_then(Value::as_str).unwrap_or("right"),
+        "depth_z_mm": tip, "bottom_clearance_mm": pitch,
+        "clearance_z_mm": cx.clearance, "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+        "tolerance_mm": DRILLING_TOLERANCE, "spindle_rpm": num(&tap, "spindle_rpm")?,
+        "work_offset": 1, "tool_number": mill["number"],
+        "length_register": mill.get("length_register").unwrap_or(&mill["number"]), "coolant": tap["coolant"],
+    });
+    // Tapping derives synchronized feed from pitch × rpm; no feed field.
+    cx.notes.push(format!("{op_id}: {thread}: tapped {} (pitch {}, {} hand), full thread {} mm, tip Z{} with {}; check with a gauge", op["spec"].as_str().unwrap_or(""), show(pitch), mill.get("hand").and_then(Value::as_str).unwrap_or("right"), show(num(op, "top_z")? - bottom_z), show(tip), id(mill)));
+    if op["through"] == true {
+        let (setup, plan) = (cx.setup, cx.plan);
+        // Transform the part's model-space box into this setup's Z axis.
+        let part_bottom = (0..3).try_fold(0., |z, i| {
+            let direction = bound(&setup["rotation"][2], i)?;
+            let edge = if direction < 0. { "max" } else { "min" };
+            Ok::<_, String>(z + direction * (bound(&plan["part"][edge], i)? - bound(&setup["origin_model"], i)?))
+        })?;
+        let below = |z: f64| format!("{:.2}", ((part_bottom - z).max(0.) * 100. - 1e-6).ceil() / 100.).trim_end_matches('0').trim_end_matches('.').to_string();
+        let drill_tip = features.iter().filter_map(|f| cx.drill_tip_z.get(f)).copied().reduce(f64::min);
+        if let Some(drill_tip) = drill_tip {
+            cx.notes.push(format!("{op_id}: the tap tip goes {} mm and its drill tip {} mm below the part's bottom (drill full diameter {} mm below): keep the hole clear of parallels", below(tip), below(drill_tip), below(open_z)));
+        }
+    }
+    Ok(Some((out, mill)))
+}
+
+fn thread_mill<'a>(cx: &mut SetupCut<'a>, thread: Thread<'_>, mill: &'a Value, mill_cut: Value) -> Result<Built<'a>, String> {
+    let Thread { op, op_id, label: thread, bottom_z, major, start, pitch, .. } = thread;
+    let spec = mill;
+    // The neck's clearance from the drilled wall, on the thread's final path circle.
+    let neck_room = start / 2. - (major / 2. - num(mill, "diameter")? / 2.) - num(mill, "neck_diameter")? / 2.;
+    // Descent proves a disk enlarged by twice the operation tolerance.
+    // Every touched cell must also fit inside the drilled bore.
+    let entry_room = (start - num(mill, "diameter")?) / 2. - 2. * DRILLING_TOLERANCE;
+    let room = neck_room.min(entry_room);
+    if room <= 0. {
+        cx.notes.push(format!("{op_id}: {thread}: {} has no positive cutter entry clearance at the operation tolerance", id(mill)));
+        return Ok(None);
+    }
+    let (lo, hi) = (&cx.lo, cx.hi);
+    let cell = room / (2f64.sqrt() * THREAD_CELL_SAFETY);
+    let cells = (bound(hi, 0)? - bound(lo, 0)?) / cell * (bound(hi, 1)? - bound(lo, 1)?) / cell;
+    if cells > MAX_STOCK_CELLS {
+        cx.notes.push(format!("{op_id}: {thread}: {}'s neck passes {} mm from the hole wall; proving that needs a {} mm stock grid, too fine for this part (use a thread mill with a narrower neck)", id(mill), show(r(neck_room)), show(r(cell))));
+        return Ok(None);
+    }
+    cx.needs_cell = Some(cx.needs_cell.map_or(cell, |c: f64| c.min(cell)));
+    let mill = &mill_cut;
+    // camlib retains CCW internal climb milling and reverses Z feed
+    // for a left-hand helix (top-down instead of bottom-up).
+    let right_hand = op["hand"] != "left";
+    let hand = if right_hand { "right" } else { "left" };
+    let mut out = json!({
+        "kind": "thread_mill", "id": op_id, "tool": id(mill), "centers_mm": op["centers"], "internal": true,
+        "diameter_mm": major, "start_diameter_mm": start, "pitch_mm": pitch, "right_hand": right_hand, "climb": true,
+        "top_z_mm": num(op, "top_z")?, "bottom_z_mm": bottom_z,
+        "radial_passes": mill.get("radial_passes").and_then(Value::as_u64).unwrap_or(RADIAL_PASSES),
+        "spring_passes": mill.get("spring_passes").and_then(Value::as_u64).unwrap_or(SPRING_PASSES),
+        "clearance_z_mm": cx.clearance, "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, mill, true)?;
+    cx.notes.push(format!("{op_id}: {thread}: thread milled to the ⌀{} major diameter (pitch {}, {hand} hand) with {}; check the fit with a gauge or screw before taking the part off", show(major), show(pitch), id(mill)));
+    Ok(Some((out, spec)))
+}
+
+fn slot<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let width = num(op, "width")?;
+    let (spec, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let mill = &mill_cut;
+    let mut floor = num(op, "floor_z")?;
+    if op["bottom"] == "through" {
+        let exit = floor;
+        floor = cx.stock_bottom.max(exit - cx.breakthrough);
+        if floor > exit - 0.05 {
+            cx.notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
+        }
+    }
+    let mut out = json!({
+        "kind": "pocket", "id": op_id, "tool": id(mill),
+        "region": {
+            "version": 1, "units": "mm", "name": op_id, "boundary_error_mm": 0.0,
+            "components": [{"outer": {"vertices": obround(point2(&op["a"])?, point2(&op["b"])?, width / 2.)}, "holes": []}],
+            "source": {"plan": PLAN_FORMAT},
+        },
+        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
+        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
+        "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+        "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, mill, true)?;
+    Ok(Some((out, spec)))
+}
+
+fn notch<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let mill = &mill_cut;
+    let mut floor = num(op, "floor_z")?;
+    if op["bottom"] == "through" {
+        floor = cx.stock_bottom.max(floor - cx.breakthrough);
+    }
+    // A prior roughing pass may have exposed the local pocket mouth.
+    // Camlib scans the remaining stock and proves assembly clearance before
+    // admitting this lower top; this declaration is not a clearance verdict.
+    let local_top = op["wall_top"].as_f64().filter(|z| cx.operations.iter().any(|o|
+        o["kind"] == "roughing" && o["floor_z_mm"].as_f64().is_some_and(|floor| floor <= *z)));
+    if let Some(z) = local_top { cx.local_pocket_tops.insert(op_id.to_owned(), z); }
+    let mut out = json!({
+        "kind": "pocket", "id": op_id, "tool": id(mill), "region": region(op_id, &op["outer"], &json!([])),
+        "top_z_mm": num(op, "top_z")?, "floor_z_mm": floor,
+        "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
+        "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+        "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, mill, true)?;
+    Ok(Some((out, spec)))
+}
+
+fn v_channel<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, bit_cut) = tool_or_skip!(tool, op, cx.notes);
+    let bit = &bit_cut;
+    let (half, depth) = ((num(bit, "angle")? / 2.).to_radians().tan(), num(op, "depth")?);
+    let left = num(op, "width")? / 2. - half * depth;
+    if left > 0.005 {
+        cx.notes.push(format!("{op_id}: {} is a {}° bit in a {}° channel: its walls keep up to {} mm at the top", id(bit), show(num(bit, "angle")?), show(num(op, "angle")?), show(r(left))));
+    }
+    let a = point2(&op["a"])?;
+    let mut out = json!({
+        "kind": "trace", "id": op_id, "tool": id(bit),
+        "paths": [{"start_mm": a, "segments": [{"kind": "line", "end_mm": point2(&op["b"])?}]}],
+        "top_z_mm": num(op, "top_z")?, "depth_z_mm": num(op, "root_z")?, "stepdown_mm": num(bit, "stepdown_mm")?,
+        "clearance_z_mm": cx.clearance, "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, bit, true)?;
+    Ok(Some((out, spec)))
+}
+
+fn wall_finish<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let (spec, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let mill = &mill_cut;
+    let mut out = json!({
+        "kind": "contour", "id": op_id, "tool": id(mill), "region": region(op_id, &op["outer"], &json!([])),
+        "boundaries": "outer", "floor_z_mm": num(op, "floor_z")?, "stepdown_mm": num(mill, "stepdown_mm")?,
+        "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
+        "boundary_tolerance_mm": 0.01, "reverse": true, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+        "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, mill, true)?;
+    Ok(Some((out, spec)))
+}
+
+fn edge_chamfer<'a>(cx: &mut SetupCut<'a>, op: &Value, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+    let width = num(op, "width")?;
+    let (spec, mill_cut) = tool_or_skip!(tool, op, cx.notes);
+    let mill = &mill_cut;
+    let mut out = json!({
+        "kind": "chamfer", "id": op_id, "tool": id(mill), "region": region(op_id, &op["outer"], &op["holes"]),
+        "boundaries": op["boundaries"], "top_z_mm": num(op, "top_z")?, "width_mm": width,
+        "clearance_z_mm": cx.clearance, "tip_clearance_mm": TIP_CLEARANCE, "width_step_mm": width.min(1.0),
+        "boundary_tolerance_mm": 0.01, "reverse": false, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+        "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
+    });
+    cutting(&mut out, mill, true)?;
+    if op["radius"].is_number() { cx.notes.push(format!("{op_id}: the model's r{} top edges are cut as {} mm 45° chamfers meeting the round at its middle, not as the round; the bottom edges are not cut", show(num(op, "radius")?), show(width))); }
+    Ok(Some((out, spec)))
+}
+
+/// camlib's manifest for a setup whose operations are cut.
+fn job(mut cx: SetupCut<'_>) -> Result<Job, String> {
+    let setup_id = cx.setup_id;
+    let (x0, y0) = (bound(&cx.lo, 0)?, bound(&cx.lo, 1)?);
+    let (x1, y1) = (bound(cx.hi, 0)?, bound(cx.hi, 1)?);
+    let cell = stock_cell(&mut cx, (x1 - x0).max(y1 - y0));
+    let (gauge_z, change_xy, first_gauge) = tool_change(&mut cx, [x0, y0])?;
+    let material = material(&mut cx)?;
+    let scene = scene(cx.setup, setup_id);
+    let manifest = json!({
+        "version": 1,
+        "run": {"id": format!("step2cam-{setup_id}"), "revision": "1"},
+        "stock": {"version": 1, "units": "mm", "min_mm": cx.lo, "max_mm": cx.hi, "cell_size_mm": cell, "max_cells": u32::MAX},
+        "tools": cx.used.iter().map(|t| assembly(t)).collect::<Result<Vec<_>, _>>()?,
+        "initial_position_mm": [change_xy[0], change_xy[1], gauge_z - first_gauge],
+        "sweep": {"tolerance_mm": 1e-5, "chord_error_mm": 0.002, "max_tip_step_mm": 0.1, "max_segments": 100000,
+                  "max_scratch_cells": u32::MAX, "max_changed_cells": u32::MAX, "max_cell_visits": 100000000},
+        "operations": cx.operations,
+        "verification": {"scene": scene, "material": material, "stock_contact": {
+            "tolerance_mm": 1e-5, "spatial_resolution_mm": 0.001, "max_nodes": 200000, "max_cell_reads": 2000000, "max_findings": 128}},
+        "tool_change": {"gauge_z_mm": gauge_z, "xy_mm": change_xy},
+        "rapid_retracts": true,
+    });
+    Ok(Job { return_stock: false, crop_stock_to: None, setup: setup_id.to_string(), manifest, stock_bottom_mm: cx.stock_bottom, notes: cx.notes, local_pocket_tops: cx.local_pocket_tops })
+}
+
+/// The stock grid's cell: the library's, or one from the stock's larger side, made finer if a
+/// thread mill needs it.
+fn stock_cell(cx: &mut SetupCut<'_>, span: f64) -> f64 {
+    let setup_id = cx.setup_id;
+    let cell = match cx.library_data.get("cell_size_mm").and_then(Value::as_f64).filter(|c| *c != 0.) {
+        Some(c) => c,
+        None => format!("{:.2}", span / 400.).parse::<f64>().unwrap_or(0.1).max(0.1),
+    };
+    match cx.needs_cell {
+        Some(needed) if needed < cell => {
+            // Rounded down to a whole micrometre, so the grid is never coarser than needed.
+            let fine = (needed * 1000.).floor() / 1000.;
+            cx.notes.push(format!("setup {setup_id}: stock grid {} mm, fine enough to prove the thread mill's entry and neck clear of the hole wall", show(fine)));
+            fine
+        }
+        _ => cell,
+    }
+}
+
+/// Where the machine changes tools, (gauge_z, xy, the first tool's gauge length), with each
+/// operation's clearance plane put at the tip of a tool waiting there when it is that plane.
+fn tool_change(cx: &mut SetupCut<'_>, origin: [f64; 2]) -> Result<(f64, [f64; 2], f64), String> {
+    let (setup_id, library_data, setup) = (cx.setup_id, cx.library_data, cx.setup);
+    let [x0, y0] = origin;
+    // Where the machine leaves each new tool: the spindle's gauge line at `gauge_z` over X Y.
+    let gauges = cx.used.iter().map(|t| Ok(num(t, "stickout")? + num(t, "holder_length")?)).collect::<Result<Vec<f64>, String>>()?;
+    let lowest = cx.clearance + gauges.iter().copied().fold(f64::MIN, f64::max);
+    let gauge_z = match library_data.get("tool_change_gauge_z_mm").and_then(Value::as_f64) {
+        None => lowest,
+        Some(z) if z < lowest => {
+            return Err(format!("tool_change_gauge_z_mm {} puts a tool tip below the clearance height in setup {setup_id}: it must be at least {}", show(z), show(r(lowest))));
+        }
+        Some(z) => z,
+    };
+    let change_xy = match library_data.get("tool_change_xy_mm").and_then(Value::as_array) {
+        Some(xy) if xy.len() == 2 => [xy[0].as_f64().unwrap_or(x0), xy[1].as_f64().unwrap_or(y0)],
+        _ => [x0, y0],
+    };
+    let used = &cx.used;
+    let first = cx.operations[0]["tool"].as_str().unwrap_or("");
+    let first_gauge = used.iter().zip(&gauges).find(|(t, _)| id(t) == first).map_or(0., |(_, g)| *g);
+    for op in &mut cx.operations {
+        let gauge = used.iter().zip(&gauges).find(|(t, _)| t["id"] == op["tool"]).map(|(_, g)| *g).ok_or("operation tool has no gauge length")?;
+        let tip = gauge_z - gauge;
+        let clearance = num(op, "clearance_z_mm")?;
+        // Canonicalize the same intended plane after gauge subtraction.
+        // Fractional carried tops can otherwise introduce a sub-nanometre
+        // lift that camlib correctly refuses as a zero-length line.
+        let roundoff = 8. * f64::EPSILON * gauge_z.abs().max(gauge.abs()).max(clearance.abs()).max(1.);
+        if (setup["flip_seating"].is_object() && op["kind"] == "facing") || (tip-clearance).abs() <= roundoff {
+            op["clearance_z_mm"] = json!(tip);
+        }
+    }
+    Ok((gauge_z, change_xy, first_gauge))
+}
+
+/// camlib's comparison of the finished stock with the part, where the part is known.
+fn material(cx: &mut SetupCut<'_>) -> Result<Value, String> {
+    let (setup_id, setup, operations) = (cx.setup_id, cx.setup, &cx.operations);
+    // The whole part is known only where roughing is planned, whether or not camlib accepted it.
+    // A thread cuts past the bore the mesh shows, so the stock is compared just before threads.
+    let part = setup["operations"].as_array().and_then(|ops| ops.iter().find(|o| o["kind"] == "roughing")).or_else(|| setup.get("part_surface"));
+    // Tapping uses the pre-drill diameter and retains thread flanks; unlike thread
+    // milling it does not cut beyond the modelled bore, so comparison stays enabled.
+    let first_thread = operations.iter().position(|o| o["kind"] == "thread_mill");
+    let Some(rough) = part.filter(|_| first_thread != Some(0)) else {
+        return Ok(json!([]));
+    };
+    let z = rough["positions"].as_array().ok_or("roughing has no positions")?.iter().skip(2).step_by(3).filter_map(Value::as_f64);
+    // The stock can go below the part: everything above the base is what is compared.
+    let base = z.fold(cx.stock_bottom, f64::min);
+    let after = first_thread.map(|i| operations[i - 1]["id"].clone());
+    if first_thread.is_some() {
+        cx.notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
+    }
+    Ok(json!([{"after_operation": after, "options": {"max_tile_nodes": COMPARISON_NODES, "max_boundary_tests": COMPARISON_BUDGET, "max_findings": COMPARISON_FINDINGS}, "target": {
+        "version": 1, "units": "mm", "id": format!("step2cam-{setup_id}-part"), "revision": "1",
+        "surface": surface(rough)?, "base_z_mm": base,
+        // surface_error_mm bounds the mesh's distance from the part both ways, so the
+        // part lies between the mesh solid eroded and dilated by it. Without saying so
+        // camlib proves no material under the mesh, and cannot find a definite gouge.
+        "source_enclosure": "offset",
+    }}]))
+}
+
+/// The workholding camlib checks the tool against, if the setup has clamping.
+fn scene(setup: &Value, setup_id: &str) -> Value {
+    let Some(clamping) = setup.get("clamping") else {
+        return Value::Null;
+    };
+    let bodies = ["jaws", "parallels"].into_iter().flat_map(|key| clamping[key].as_array().into_iter().flatten()).map(|body| {
+        let (lo, hi) = (&body["min"], &body["max"]);
+        json!({"id": body["id"], "role": "fixture", "z_min_mm": lo[2], "z_max_mm": hi[2], "z_error_mm": 0.,
+            "footprint": {"version": 1, "units": "mm", "name": body["id"], "boundary_error_mm": 0.,
+                "components": [{"outer": {"vertices": [[lo[0], lo[1], 0.], [hi[0], lo[1], 0.], [hi[0], hi[1], 0.], [lo[0], hi[1], 0.]]}, "holes": []}]}})
+    }).collect::<Vec<_>>();
+    json!({"scene": {"version": 1, "units": "mm", "id": format!("{setup_id}-workholding"), "revision": "1",
+        "work_to_machine": camlib::motion::WorkFrame::identity(), "bodies": bodies, "machine": null}})
 }
 
 #[cfg(test)]

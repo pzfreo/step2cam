@@ -38,40 +38,59 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
     let haas = machine["controller"] == "haas_ngc";
     let carvera = machine["controller"] == "carvera";
     let supported = haas || machine["controller"] == "linuxcnc";
-    let mut put = |field: &str, value: Option<Value>, source: &str| {
+    let change = machine_facts(&mut out, machine, library, settings);
+    post_policy(&mut out, settings);
+    named_controller(&mut out, machine, settings, haas, carvera);
+    curves_and_traverse(&mut out, change, haas, supported);
+    left_to_post(&mut out, haas, supported);
+    out
+}
+
+impl MachineFields {
+    /// Record one field: its value when known, and in either case where it comes from.
+    fn put(&mut self, field: &str, value: Option<Value>, source: &str) {
         let status = if let Some(value) = value.filter(|v| !v.is_null()) {
             if let Some(key) = field.strip_prefix("controller.") {
-                out.fields
+                self.fields
                     .entry("controller")
                     .or_insert_with(|| json!({}))
                     .as_object_mut()
                     .unwrap()
                     .insert(key.into(), value);
             } else {
-                out.fields.insert(field.into(), value);
+                self.fields.insert(field.into(), value);
             }
             format!("covered: {source}")
         } else {
             format!("unknown: {source}")
         };
-        out.coverage.insert(field.into(), status);
-    };
-    put(
+        self.coverage.insert(field.into(), status);
+    }
+}
+
+/// Facts the machine and its library state, and its tool change location (camlib's name).
+fn machine_facts(
+    out: &mut MachineFields,
+    machine: &Value,
+    library: &Value,
+    settings: &Value,
+) -> Option<&'static str> {
+    out.put(
         "name",
         machine.get("name").or_else(|| machine.get("id")).cloned(),
         "machine.name/id",
     );
-    put(
+    out.put(
         "max_spindle_rpm",
         machine["spindle"].get("max_rpm").cloned(),
         "spindle.max_rpm",
     );
-    put(
+    out.put(
         "rapid_mm_min",
         library.get("rapid_mm_min").cloned(),
         "library.rapid_mm_min (may be an estimate; verify for posting)",
     );
-    put(
+    out.put(
         "tool_changes",
         machine["tool_changer"]["kind"]
             .as_str()
@@ -79,7 +98,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         "tool_changer.kind; pockets remain a setup capacity check",
     );
     for (field, kind) in [("flood", "flood"), ("mist", "mist")] {
-        put(
+        out.put(
             field,
             machine["coolant"]
                 .as_array()
@@ -97,7 +116,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         ("normal_acceleration_limit_mm_s2", "max_normal_accel_mm_s2"),
         ("axis_feed_limits_mm_min", "max_axis_feed_mm_min"),
     ] {
-        put(
+        out.put(
             theirs,
             settings.get(ours).cloned(),
             &format!("controller_settings.{ours}"),
@@ -109,12 +128,17 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         Some("machine_z_home") => Some("z_home"),
         _ => None,
     };
-    put(
+    out.put(
         "tool_change_position_mode",
         change.map(|s| json!(s)),
         "controller_settings.tool_change_location",
     );
-    put(
+    change
+}
+
+/// The adapter's post policy, in the controller's output units.
+fn post_policy(out: &mut MachineFields, settings: &Value) {
+    out.put(
         "output_units",
         Some(
             settings
@@ -133,14 +157,24 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         ("revision", json!("step2cam-post-machine-2")),
         ("schedule_post_feeds", json!(false)),
     ] {
-        put(
+        out.put(
             field,
             Some(value),
             "adapter post policy; not stored machine facts",
         );
     }
+}
+
+/// The named controller block for Haas and Carvera: what is known, and the premises #52 resolves.
+fn named_controller(
+    out: &mut MachineFields,
+    machine: &Value,
+    settings: &Value,
+    haas: bool,
+    carvera: bool,
+) {
     if haas || carvera {
-        put(
+        out.put(
             "controller.name",
             machine.get("controller").cloned(),
             "machine.controller selects upstream named post",
@@ -152,7 +186,7 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             "unmodified_coordinates",
             "automatic_tool_length",
         ] {
-            put(
+            out.put(
                 &format!("controller.{field}"),
                 None,
                 "Carvera calibration/setup premise required by #52",
@@ -171,28 +205,28 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             ("optional_stop_switch_enabled", "optional_stop_enabled"),
             ("setting_45_46_47_mirror_image_xyz", "mirror_settings_xyz"),
         ] {
-            put(
+            out.put(
                 &format!("controller.{theirs}"),
                 settings.get(ours).cloned(),
                 &format!("controller_settings.{ours}; installed value must be verified"),
             );
         }
-        put(
+        out.put(
             "controller.curve_policy",
             Some(json!("linear")),
             "adapter conservative curve policy",
         );
-        put(
+        out.put(
             "controller.cutter_compensation",
             Some(json!(false)),
             "adapter disables wear compensation until setup wear registers are supplied",
         );
-        put(
+        out.put(
             "controller.reference",
             Some(json!("Haas NGC milling;96-8210 RevN December2020")),
             "upstream reference post identity",
         );
-        put(
+        out.put(
             "traverse_feed_mm_min",
             settings.get("max_cutting_feed_mm_min").cloned(),
             "adapter feed traverse at declared cutting ceiling",
@@ -207,6 +241,10 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
         }
         .into(),
     );
+}
+
+/// Home Z, curve capabilities and traverse, as the change location and curve policy allow.
+fn curves_and_traverse(out: &mut MachineFields, change: Option<&str>, haas: bool, supported: bool) {
     // Null here means deliberately unused, unlike an absent unknown premise.
     if change.is_some_and(|c| c != "z_home") {
         out.fields
@@ -264,6 +302,10 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             .into(),
         );
     }
+}
+
+/// What the post or each job supplies: the dialect, tools, offsets and frames.
+fn left_to_post(out: &mut MachineFields, haas: bool, supported: bool) {
     out.coverage.insert(
         "dialect".into(),
         if supported {
@@ -292,5 +334,4 @@ pub fn machine_fields(machine: &Value, library: &Value) -> MachineFields {
             "per-job: program identity".into(),
         );
     }
-    out
 }
