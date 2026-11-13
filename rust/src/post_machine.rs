@@ -328,6 +328,10 @@ fn left_to_post(out: &mut MachineFields, haas: bool, supported: bool) {
                 .into(),
         );
     }
+    out.coverage.insert(
+        "gauge_travel_mm".into(),
+        "unknown: gauge-line soft limits in machine coordinates; axes.travel_mm gives lengths, not limits; declared instead of tip_travel_mm".into(),
+    );
     if haas {
         out.coverage.insert(
             "controller.program_number".into(),

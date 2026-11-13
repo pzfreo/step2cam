@@ -200,9 +200,9 @@ CAT40 envelope. Assembly stickouts are step2cam judgement.
 
 ## Posting contract inventory
 
-Audited 2026-11-11 against `vendor/camlib/src/gcode/machine.rs` and the Rust
+Audited 2026-11-13 against `vendor/camlib/src/gcode/machine.rs` and the Rust
 `Controller` variants in `haas.rs` and `carvera.rs`,
-using [Posting without Python](https://github.com/stevecad/camlib/blob/78d3074225f9e1896c1b237970ff7394d3d39bd2/docs/posts.md#posting-without-python).
+using [Posting without Python](https://github.com/stevecad/camlib/blob/6810078b6388f750cbcb1d4c57fc3e6c79eedd5b/docs/posts.md#posting-without-python).
 This is an adapter contract inventory, not a second machine definition.
 **1** maps an existing value; **2** is controller behaviour (P marks a separate
 adapter post-policy decision, not a stored machine fact); **3** is a machine
@@ -219,6 +219,7 @@ name translation is [`machine_fields`](../rust/src/post_machine.rs).
 | frame | 4 | Setup frame |
 | work_to_machine | 4 | Located setup in machine coordinates |
 | tip_travel_mm | 4 (1) | Transform axes.travel_mm with located setup/tool geometry; travel extents alone do not locate machine zero |
+| gauge_travel_mm | 3 | Spindle gauge line's soft limits in machine coordinates, declared instead of tip_travel_mm; unknown on all three (axes.travel_mm gives lengths, not limits) |
 | output_units | 2 P / 3 | Adapter chooses mm; controller_settings.required_output_units only when controller fixes units (Carvera) |
 | decimals | 2 P | Adapter 3 metric / 4 inch; also within Haas precision limits |
 | tolerance_mm | 2 P | Adapter .001 mm (metric) / .003 mm (inch), including 3D coordinate quantisation; not the part's tolerance |
@@ -236,7 +237,7 @@ name translation is [`machine_fields`](../rust/src/post_machine.rs).
 | flood | 1 | coolant contains flood |
 | mist | 1 | coolant contains mist; air is not mist |
 | revision | 2 P | Version of adapter decisions; changes with that contract |
-| tool_change_position_mode | 3 | Controller's final tool-change position semantics |
+| tool_change_position_mode | 3 | Controller's final tool-change position semantics (camlib's preserve_spindle is not mapped) |
 | tool_change_home_z_mm | 3 | Gauge line's final machine Z, only for homing changes; null otherwise |
 | rapid_mm_min | 1 | Existing library.rapid_mm_min; verify estimated rates before real posting |
 | max_normal_accel_mm_s2 | 3 | Optional measured/configured normal acceleration ceiling; unknown on all three |
@@ -254,7 +255,7 @@ tool_word, length_word, feed_word, speed_word, parentheses_comments, tool_change
 length_activation, radius_tolerance_mm, radius_relative_tolerance, fixed_modes,
 tap_pitch_word, compensation_word, compensation_with_move, compensation_register,
 dwell_word, dwell_resolution_s, dwell_max_s, cycle_dwell_unit, peck_reentry_mm,
-chip_break_lift_mm, oriented_edge_deg, beam_s_max, beam_effect, x_diameter,
+chip_break_lift_mm, oriented_edge_deg, beam_s_max, beam_effect, beam_mark, x_diameter,
 thread_lead_word, height_control_word, css_limit_word, probing,
 probe_fast_feed_mm_min, probe_switching. Installed options/peck distances can
 parameterise those behaviours; #52 passes the declared machine settings upstream,
