@@ -287,6 +287,19 @@ fn missing_material_reference_warns_once_per_setup_not_per_operation() {
     }
 }
 #[test]
+fn unspecified_material_is_named_in_the_grouped_warning() {
+    let lib=read("libraries/haas-vf2.json");
+    let mut plan=capp::plan::plan(&read("tests/fixtures/synthetic/square-slots.analysis.json"),
+        Some(&read("tests/fixtures/synthetic/square-slots.mesh.json")),&Default::default()).unwrap();
+    capp::finish(&mut plan,&lib,&[]).unwrap();
+    let out=json!({"plan":plan});
+    let ds=decisions(&out);
+    let warnings:Vec<_>=ds.iter().filter(|d| d["outcome"]=="warning").collect();
+    let setups=out["plan"]["setups"].as_array().unwrap().iter().filter(|s| s["clamping"].is_object()).count();
+    assert_eq!(warnings.len(),setups);
+    assert!(warnings.iter().all(|d| d["says"].as_str().unwrap().ends_with("for unspecified material")));
+}
+#[test]
 fn mounting_bore_uses_the_executed_helix_pitch_not_an_imaginary_three_degree_pitch() {
     let lib=read("libraries/haas-vf2.json");
     let out=run_named("mounting-plate",&lib);

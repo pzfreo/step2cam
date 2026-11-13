@@ -60,7 +60,8 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
         setup.clamping.as_mut().unwrap()["force_check"] = detail.clone();
         let mut top = setup.stock.max[2];
         if !aluminium {
-            trace.warn(RULE, &setup.id, format!("grip not checked against the cut: no steel-jaw friction and cutting-force reference for {material}"), detail.clone());
+            let material_name = if material.is_empty() { "unspecified material" } else { material.as_str() };
+            trace.warn(RULE, &setup.id, format!("grip not checked against the cut: no steel-jaw friction and cutting-force reference for {material_name}"), detail.clone());
         }
         for (index, op) in setup.operations.iter_mut().enumerate() {
             let subject = format!("{}-{}-{}", setup.id, index+1, op.cut.kind().name());
