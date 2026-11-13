@@ -276,6 +276,10 @@ fn drill_entry_z(setup: &Setup, hole: &Holes, library: &Library, group: Option<&
             if diameter + 2. * radial < hole.diameter
                 || (flat_at_mouth && (diameter - hole.diameter) / 2. >= data("stepover_mm")?.min(diameter / 2.) / 2.) {
                 hole.top_z.max(rough.floor_z)
+            } else if rough.floor_z >= hole.top_z {
+                // camlib always cuts its last layer at the floor plus the bottom allowance, and
+                // that layer already keeps the allowance above the mouth.
+                rough.floor_z + bottom
             } else {
                 // Layers run down from the roughing top by the stepdown it cuts with, as camlib
                 // schedules them, to its floor plus the bottom allowance.
@@ -1028,6 +1032,10 @@ mod tests {
         // A mouth below the roughing floor is entered from the floor plus its bottom allowance.
         let shallow = json!({"kind": "roughing", "top_z": 0., "floor_z": -5., "web_mm": 21., "surface_error_mm": 0.});
         near(entry(json!([facing, shallow]), hole(3.3, -7., 10.), &library), -4.8);
+        // So it is with a stepdown deeper than the roughing: camlib's only layer is the clamped floor at Z-4.8.
+        let mut deep = data.clone();
+        for tool in deep["tools"].as_array_mut().unwrap().iter_mut().filter(|t| t["id"] == "em6") { tool["stepdown_mm"] = json!(10.); }
+        near(entry(json!([facing, shallow]), hole(3.3, -7., 10.), &Library::new(&deep).unwrap()), -4.8);
         // In the floor of a notch cut after it: the notch's top; beside the notch: as roughing leaves it.
         near(entry(json!([facing, roughing, notch.clone()]), hole(3.3, -7., 50.), &library), -1.);
         near(entry(json!([facing, roughing, notch]), hole(3.3, -7., 10.), &library), -6.8);
