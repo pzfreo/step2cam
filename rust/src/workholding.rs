@@ -1,6 +1,7 @@
 //! Full candidate runs, including camlib retries. Never infer one option's cost from another.
 use super::Outcome;
 use capp::model::{Cut, Plan};
+use capp::resources::Settings;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
@@ -21,7 +22,7 @@ fn consequences(
     label: &str,
     out: &Outcome,
     ordinary_height: f64,
-    library: &Value,
+    settings: &Settings,
 ) -> Value {
     let p = &out.plan;
     let operations: Vec<_> = p.setups.iter().flat_map(|s| &s.operations).collect();
@@ -59,8 +60,8 @@ fn consequences(
     let mut tools = BTreeSet::new();
     let mut previous = None;
     let mut changes = 0;
-    let rapid = library["rapid_mm_min"]
-        .as_f64()
+    let rapid = settings
+        .rapid_mm_min
         .filter(|r| *r > 0.)
         .unwrap_or(5000.);
     for program in &out.programs {
@@ -173,6 +174,7 @@ fn process_using(
     library: &Value,
     mut execute: impl FnMut(&Value, &Value, &Value, Plan) -> Result<Outcome, String>,
 ) -> Result<Value, String> {
+    let settings = Settings::new(library)?;
     let mut run_library = library.clone();
     // Check workholding choices only after all independent runs.
     if let Some(ds) = run_library
@@ -213,7 +215,7 @@ fn process_using(
                 "Vise, ordinary grip",
                 out,
                 ordinary_height,
-                library,
+                &settings,
             ),
         };
         candidates.push(c);
@@ -253,7 +255,7 @@ fn process_using(
                         "Vise, flip and face",
                         &out,
                         ordinary_height,
-                        library,
+                        &settings,
                     )
                 };
                 (c, Some(out))
@@ -399,7 +401,7 @@ mod tests {
                 "Vise, ordinary grip",
                 &out,
                 10.,
-                &json!({}),
+                &Settings::new(&json!({})).unwrap(),
             );
             assert_eq!(c["finished"], false, "{rule}");
         }

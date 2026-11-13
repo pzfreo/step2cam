@@ -1,4 +1,6 @@
 {
+ "format": "step2cam-resources",
+ "version": 1,
  "_comment": "Generic LinuxCNC 3-axis mill for the page. Machine limits, vise, tools and cutting data are placeholders copied from the benchmark library, not a validated physical machine or production parameters.",
  "machines": [
   {

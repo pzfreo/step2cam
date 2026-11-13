@@ -47,7 +47,7 @@ pub(crate) fn for_operation_with_context(op: &Operation, top: f64, library: &Lib
         Cut::WallFinish(c) => (c.floor_z, false),
         Cut::SpotDrill(_) | Cut::EdgeChamfer(_) => (top, false),
     };
-    let depth = required.unwrap_or_else(|| top - bottom + if through { library.breakthrough.max(0.) } else { 0. });
+    let depth = required.unwrap_or_else(|| top - bottom + if through { library.settings.breakthrough_mm.max(0.) } else { 0. });
     let long = format!("with flutes of at least {} mm", reach(depth));
     let mill = |selector, inputs: &[(&str, f64)]| -> Result<Query, String> {
         let base = library.needed(selector, inputs)?;

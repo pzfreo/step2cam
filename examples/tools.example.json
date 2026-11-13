@@ -1,4 +1,6 @@
 {
+ "format": "step2cam-resources",
+ "version": 1,
  "_comment": "An example tool library for step2cam. Every number here is a placeholder: set the cutting data for your tools, material and machine. camlib has no defaults for these on purpose.",
  "rapid_mm_min": 5000,
  "machines": [

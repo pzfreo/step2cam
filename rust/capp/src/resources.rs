@@ -30,10 +30,67 @@ pub(crate) fn workholding_option(data: &Value) -> Result<Option<&str>, String> {
     }
 }
 
+/// The tool library's header and scalar settings, with their defaults. Built by hand rather than
+/// derived, so that a value of the wrong type names its key.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Settings {
+    pub format: Option<String>,
+    pub version: Option<u64>,
+    pub breakthrough_mm: f64,
+    pub drill_tolerance_mm: f64,
+    pub radial_allowance_mm: f64,
+    pub bottom_allowance_mm: f64,
+    pub clearance_mm: f64,
+    pub retract_mm: f64,
+    pub rapid_mm_min: Option<f64>,
+    pub facing_tool: Option<String>,
+    pub roughing_tool: Option<String>,
+}
+
+const RESOURCES_FORMAT: &str = "step2cam-resources";
+
+impl Settings {
+    /// Reads the header. Format and version are checked when present; absent is valid.
+    pub fn new(data: &Value) -> Result<Self, String> {
+        let number = |key: &str| match data.get(key) {
+            None => Ok(None),
+            Some(v) => v.as_f64().map(Some).ok_or_else(|| format!("tool library: {key} must be a number, not {v}")),
+        };
+        let string = |key: &str| match data.get(key) {
+            None => Ok(None),
+            Some(v) => v.as_str().map(|s| Some(s.to_string())).ok_or_else(|| format!("tool library: {key} must be a string, not {v}")),
+        };
+        let format = match data.get("format") {
+            None => None,
+            Some(v) if v.as_str() == Some(RESOURCES_FORMAT) => Some(RESOURCES_FORMAT.to_string()),
+            Some(v) => return Err(format!("tool library: format must be \"{RESOURCES_FORMAT}\", not {v}")),
+        };
+        let version = match data.get("version") {
+            None => None,
+            Some(v) if v.as_u64() == Some(1) => Some(1),
+            Some(v) => return Err(format!("tool library: version {v} is not supported; this step2cam reads version 1")),
+        };
+        Ok(Self {
+            format,
+            version,
+            breakthrough_mm: number("breakthrough_mm")?.unwrap_or(1.),
+            drill_tolerance_mm: number("drill_tolerance_mm")?.unwrap_or(0.05),
+            radial_allowance_mm: number("radial_allowance_mm")?.unwrap_or(0.3),
+            bottom_allowance_mm: number("bottom_allowance_mm")?.unwrap_or(0.2),
+            clearance_mm: number("clearance_mm")?.unwrap_or(10.),
+            retract_mm: number("retract_mm")?.unwrap_or(2.),
+            rapid_mm_min: number("rapid_mm_min")?,
+            facing_tool: string("facing_tool")?,
+            roughing_tool: string("roughing_tool")?,
+        })
+    }
+}
+
 /// Translate ISO symbols once at the library boundary. Downstream readers use current names.
 /// Equal numeric pairs (including 6 and 6.0) are accepted; a disagreement names both inputs.
 pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
     workholding_option(data)?;
+    Settings::new(data)?;
     let mut out = Cow::Borrowed(data);
     for (n, tool) in data["tools"].as_array().into_iter().flatten().enumerate() {
         for row in crate::reference::iso13399_fields()["fields"].as_array().expect("tool fields") {
@@ -103,8 +160,7 @@ pub struct Library<'a> {
     tools: Vec<&'a Value>,
     /// Tools left out because the mill's spindle cannot hold them, and why.
     pub too_big: Vec<(&'a Value, String)>,
-    drill_tolerance: f64,
-    pub breakthrough: f64,
+    pub settings: Settings,
 }
 
 impl<'a> Library<'a> {
@@ -173,19 +229,18 @@ impl<'a> Library<'a> {
             data,
             tools,
             too_big,
-            drill_tolerance: data.get("drill_tolerance_mm").and_then(Value::as_f64).unwrap_or(0.05),
-            breakthrough: data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.),
+            settings: Settings::new(data)?,
         })
     }
     /// The tool the named selector in `rulebase/rules/tools.json` prefers, and why it turned
     /// the others down where it says.
     fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
-        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
+        let params = HashMap::from([("drill_tolerance_mm", self.settings.drill_tolerance_mm), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
     /// Explicit last resort after the operation's fully qualifying alternatives are exhausted.
     fn select_deferred(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
-        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
+        let params = HashMap::from([("drill_tolerance_mm", self.settings.drill_tolerance_mm), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select_for_camlib(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
     pub(crate) fn deferred_drill(&self, diameter: f64, depth: f64) -> Option<&'a Value> {
@@ -202,10 +257,14 @@ impl<'a> Library<'a> {
     }
     /// The same selector expressed as a query for a tool to load or buy.
     pub fn needed(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<String, String> {
-        crate::rules::needed(selector, inputs, &[("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)])
+        crate::rules::needed(selector, inputs, &[("drill_tolerance_mm", self.settings.drill_tolerance_mm), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)])
+    }
+    /// The tool id the library names for `facing` or `roughing`, if it names one.
+    pub(crate) fn clearing_tool(&self, name: &str) -> Option<&str> {
+        match name { "facing" => self.settings.facing_tool.as_deref(), "roughing" => self.settings.roughing_tool.as_deref(), _ => None }.filter(|s| !s.is_empty())
     }
     pub fn clearing(&self, name: &str) -> Result<Option<&'a Value>, String> {
-        if let Some(wanted) = self.data.get(format!("{name}_tool")).and_then(Value::as_str).filter(|s| !s.is_empty()) {
+        if let Some(wanted) = self.clearing_tool(name) {
             return self.tools.iter().copied().find(|t| id(t) == wanted).map(Some).ok_or_else(|| format!("no tool {wanted:?} in the library"));
         }
         Ok(self.pick("largest_end_mill", &[]))
@@ -215,7 +274,7 @@ impl<'a> Library<'a> {
     /// would shorten the job. If none reaches, camlib judges the preferred fitting drill.
     pub(crate) fn drill_depth(&self, hole: &Holes, stock_top: f64) -> f64 {
         stock_top - hole.bottom_z
-            + if hole.bottom == "through" { self.breakthrough.max(0.) } else { 0. }
+            + if hole.bottom == "through" { self.settings.breakthrough_mm.max(0.) } else { 0. }
     }
     pub(crate) fn spot(&self, diameter: f64, angle: f64, reach: f64, csink_angle: f64) -> Option<&'a Value> {
         self.pick("spot_drill", &[("diameter", diameter), ("angle", angle), ("reach", reach), ("csink_angle", csink_angle)])
@@ -245,7 +304,7 @@ impl<'a> Library<'a> {
     }
     /// [`Library::considered`], as [`Considered`].
     pub(crate) fn candidates(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Considered> {
-        let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
+        let params = HashMap::from([("drill_tolerance_mm", self.settings.drill_tolerance_mm), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::considered(selector, &self.tools, &inputs.iter().copied().collect(), &params).unwrap_or_else(|e| panic!("{e}"))
     }
     /// Run the ordinary selector over exactly one supplied tool, with the operation's inputs.
@@ -312,7 +371,7 @@ impl<'a> Library<'a> {
             let Some(hole) = ops.iter().find_map(|h| match &h.cut { Cut::Holes(hole) if hole.features.contains(feature) => Some(hole), _ => None }) else { return Ok(f64::INFINITY) };
             let mut z = hole.bottom_z;
             if hole.bottom == "through" {
-                z -= self.breakthrough.max(0.);
+                z -= self.settings.breakthrough_mm.max(0.);
             } else if hole.bottom != "drill_point"
                 && let Some(drill) = self.drill(hole.diameter, self.drill_depth(hole, top)) {
                 z += drill_tip_length(drill)?;
@@ -328,7 +387,7 @@ impl<'a> Library<'a> {
         if !thread.through { return Ok(None); }
         let Some(clear) = thread.exit_clear_mm else { return Ok(None); };
         let diameter = thread.start_diameter;
-        let depth = top - thread.bottom_z + self.breakthrough.max(0.);
+        let depth = top - thread.bottom_z + self.settings.breakthrough_mm.max(0.);
         let point = self.drill(diameter, depth).map(drill_tip_length).transpose()?.unwrap_or(0.);
         Ok(Some((clear - EXIT_MARGIN).max(0.) - point))
     }

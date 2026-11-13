@@ -160,3 +160,46 @@ fn plate_has_identical_plans_jobs_and_reason_texts_with_symbols() {
     assert!(!current["programs"].as_array().unwrap().is_empty());
     assert_eq!(current, aliased);
 }
+
+#[test]
+fn library_header_errors_reach_both_entry_points() {
+    let library = fixture("../../tests/fixtures/placeholder-tools.json");
+    for (key, value, message) in [
+        ("format", json!("step2cam-tools"), r#"tool library: format must be "step2cam-resources", not "step2cam-tools""#),
+        ("version", json!(2), "tool library: version 2 is not supported; this step2cam reads version 1"),
+        ("breakthrough_mm", json!("1"), r#"tool library: breakthrough_mm must be a number, not "1""#),
+        ("drill_tolerance_mm", json!(null), "tool library: drill_tolerance_mm must be a number, not null"),
+        ("radial_allowance_mm", json!([0.3]), "tool library: radial_allowance_mm must be a number, not [0.3]"),
+        ("bottom_allowance_mm", json!("0.2"), r#"tool library: bottom_allowance_mm must be a number, not "0.2""#),
+        ("clearance_mm", json!(true), "tool library: clearance_mm must be a number, not true"),
+        ("retract_mm", json!("2"), r#"tool library: retract_mm must be a number, not "2""#),
+        ("rapid_mm_min", json!("5000"), r#"tool library: rapid_mm_min must be a number, not "5000""#),
+        ("facing_tool", json!(6), "tool library: facing_tool must be a string, not 6"),
+        ("roughing_tool", json!({"id": "em6"}), r#"tool library: roughing_tool must be a string, not {"id":"em6"}"#),
+    ] {
+        let mut bad = library.clone();
+        bad[key] = value;
+        assert_eq!(step2cam::process(&json!({}), &json!({}), &bad).unwrap_err(), message, "{key}");
+        let mut plan = json!({"setups": [], "covered_by_roughing": [], "skipped": [], "warnings": []});
+        assert_eq!(capp::finish(&mut plan, &bad, &[]).unwrap_err(), message, "{key}");
+    }
+}
+
+#[test]
+fn library_header_is_optional_and_settings_default_when_absent() {
+    use capp::resources::Settings;
+    let mut library = fixture("../../tests/fixtures/placeholder-tools.json");
+    let object = library.as_object_mut().unwrap();
+    for key in ["format", "version", "breakthrough_mm", "drill_tolerance_mm", "radial_allowance_mm", "bottom_allowance_mm", "clearance_mm", "retract_mm", "rapid_mm_min", "facing_tool", "roughing_tool"] {
+        object.remove(key);
+    }
+    assert!(normalize(&library).is_ok());
+    assert_eq!(Settings::new(&library).unwrap(), Settings {
+        format: None, version: None, breakthrough_mm: 1., drill_tolerance_mm: 0.05, radial_allowance_mm: 0.3,
+        bottom_allowance_mm: 0.2, clearance_mm: 10., retract_mm: 2., rapid_mm_min: None, facing_tool: None, roughing_tool: None,
+    });
+    for path in ["../../demo/tools.json", "../../examples/tools.example.json", "../../tools/benchmark/tools.json", "../../libraries/haas-vf2.json", "../../libraries/linuxcnc-vmc.json", "../../tests/fixtures/placeholder-tools.json"] {
+        let settings = Settings::new(&fixture(path)).unwrap();
+        assert_eq!((settings.format.as_deref(), settings.version), (Some("step2cam-resources"), Some(1)), "{path}");
+    }
+}

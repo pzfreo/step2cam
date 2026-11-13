@@ -77,7 +77,7 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Exclusion], trace
     }
     crate::spots::prune_with(plan, &Library::new(library)?, true, trace)?;
     resolve_with(plan, library, trace)?;
-    crate::clamping_history::check(plan, library, trace);
+    crate::clamping_history::check(plan, &Library::new(library)?, trace);
     crate::machines::check_changer_with(plan, library, trace);
     trace.refuse_unused();
     Ok(())
@@ -298,7 +298,7 @@ fn wall_refusal(setup: &Setup, op: &Operation, wall: &WallFinish, library: &Libr
         }
         return Ok(Some((REACH_RULE, format!("{}; none of this wall band remains above the cleared stock", reach_reason(rough, mill)?), None)));
     }
-    let radial = library.data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * rough.surface_error_mm);
+    let radial = library.settings.radial_allowance_mm.max(2. * rough.surface_error_mm);
     let needed = num(mill, "diameter")? + 2. * radial;
     let Some(room) = wall.room.filter(|room| *room < needed) else { return Ok(None); };
     let mut why = format!("{} mm beside the wall is too narrow for {} (it needs {}), so it keeps its roughing allowance", show(room), id(mill), show(r(needed)));
@@ -497,7 +497,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
             let mut needs: Option<String> = None;
             let (mut chosen, rule): (Result<&Value, Option<String>>, &str) = match &op.cut {
                 Cut::Facing { .. } | Cut::Roughing(_) => {
-                    if library.data.get(format!("{kind}_tool")).and_then(Value::as_str).is_none_or(str::is_empty) {
+                    if library.clearing_tool(kind).is_none() {
                         considered = library.candidates("largest_end_mill", &[]);
                     }
                     (library.clearing(kind)?.ok_or_else(|| Some(format!("no end mill to {} with", if op_kind == OpKind::Facing { "face" } else { "rough" }))), "tool.clearing")

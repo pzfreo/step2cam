@@ -3,7 +3,7 @@
 //! JSON, one per setup.
 use capp::model::{self, Cut, Plan, Point2, Setup, Vertex};
 use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
+use capp::resources::{Settings, TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
@@ -307,6 +307,7 @@ type Technology<'t> = Option<&'t Map<String, Value>>;
 struct SetupCut<'a> {
     plan: &'a Plan,
     library_data: &'a Value,
+    settings: Settings,
     setup: &'a Setup,
     setup_id: &'a str,
     /// The simulation stock's corners: the low one may go below the setup's stock for through taps.
@@ -329,10 +330,10 @@ struct SetupCut<'a> {
 }
 
 impl<'a> SetupCut<'a> {
-    fn new(plan: &'a Plan, library_data: &'a Value, tools: &[&'a Value], setup: &'a Setup) -> Result<Self, String> {
-        let breakthrough = library_data.get("breakthrough_mm").and_then(Value::as_f64).unwrap_or(1.);
-        let clearance_above = library_data.get("clearance_mm").and_then(Value::as_f64).unwrap_or(10.);
-        let retract_above = library_data.get("retract_mm").and_then(Value::as_f64).unwrap_or(2.);
+    fn new(plan: &'a Plan, library_data: &'a Value, settings: &Settings, tools: &[&'a Value], setup: &'a Setup) -> Result<Self, String> {
+        let breakthrough = settings.breakthrough_mm;
+        let clearance_above = settings.clearance_mm;
+        let retract_above = settings.retract_mm;
         let setup_id = setup.id.as_str();
         let mut stock_lo = setup.stock.min;
         let mut tap_travel: HashMap<String, f64> = HashMap::new();
@@ -365,7 +366,7 @@ impl<'a> SetupCut<'a> {
         let clearance = top + clearance_above;
         let retract = (top + retract_above).min(clearance);
         Ok(SetupCut {
-            plan, library_data, setup, setup_id, lo: stock_lo, hi, stock_bottom, breakthrough, clearance, retract, tap_travel,
+            plan, library_data, settings: settings.clone(), setup, setup_id, lo: stock_lo, hi, stock_bottom, breakthrough, clearance, retract, tap_travel,
             operations: vec![], used: vec![], notes: vec![], full_diameter_z: HashMap::new(), drill_tip_z: HashMap::new(),
             needs_cell: None, local_pocket_tops: HashMap::new(),
         })
@@ -390,9 +391,10 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
 /// [`jobs`] for a plan as types (its format is not checked).
 pub(crate) fn jobs_from(plan: &Plan, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
     let tools: Vec<&Value> = library_data.get("tools").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
+    let settings = Settings::new(library_data)?;
     let (mut jobs, mut log) = (vec![], vec![]);
     for setup in &plan.setups {
-        let mut cx = SetupCut::new(plan, library_data, &tools, setup)?;
+        let mut cx = SetupCut::new(plan, library_data, &settings, &tools, setup)?;
         cut_operations(&mut cx, &tools)?;
         if cx.operations.is_empty() {
             log.extend(cx.notes);
@@ -460,11 +462,11 @@ fn facing<'a>(cx: &mut SetupCut<'a>, floor_z: f64, technology: Technology, op_id
 fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
     let (spec, s_cut) = tool_or_skip!(tool, technology, cx.notes);
     let s = &s_cut;
-    let (setup, library_data) = (cx.setup, cx.library_data);
+    let setup = cx.setup;
     let stepover = num(s, "stepover_mm")?.min(num(s, "diameter")? / 2.);
     let error = op.surface_error_mm;
-    let radial = library_data.get("radial_allowance_mm").and_then(Value::as_f64).unwrap_or(0.3).max(2. * error);
-    let bottom = library_data.get("bottom_allowance_mm").and_then(Value::as_f64).unwrap_or(0.2).max(2. * error);
+    let radial = cx.settings.radial_allowance_mm.max(2. * error);
+    let bottom = cx.settings.bottom_allowance_mm.max(2. * error);
     let mut out = json!({
         "kind": "roughing", "omit_empty_cuts": true, "id": op_id, "tool": id(s), "target": surface(op)?,
         "clearing": {"kind": "raster", "stepover_mm": stepover, "routing": "economical"},
