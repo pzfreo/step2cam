@@ -1,7 +1,7 @@
 // Everything happens here, in the visitor's browser: specify-core recognises the features,
 // step2cam plans them and camlib makes and checks the toolpaths. Nothing is uploaded.
 import initSpecify, { IntentEngine } from "./specify/specify_core_wasm.js";
-import initCam, { process } from "./step2cam/step2cam.js";
+import initCam, { process, lastPanic } from "./step2cam/step2cam.js";
 
 const ready = Promise.all([initSpecify(), initCam()]);
 const libraries = new Map();
@@ -45,6 +45,8 @@ self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => 
       data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
     });
   } catch (error) {
-    self.postMessage({ id, error: String(error?.message ?? error) });
+    // A panic in step2cam traps with no message; it kept the message.
+    const panic = error instanceof WebAssembly.RuntimeError ? lastPanic() : null;
+    self.postMessage({ id, error: panic ?? String(error?.message ?? error) });
   }
 };

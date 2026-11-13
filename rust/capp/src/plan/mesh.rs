@@ -6,7 +6,8 @@ use super::*;
 /// A mesh vertex this close to a curved face lies on it (mm).
 const ON_SURFACE: f64 = 1e-3;
 
-/// The mesh's triangles; an error, never a panic, if it is malformed.
+/// The mesh's triangles; an error, never a panic, if it is malformed. Every face's range of
+/// triangles is checked here, so the planner can slice the triangles by a face's range.
 pub(crate) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
     let p = nums(&mesh["positions"])?;
     let idx = mesh["indices"].as_array().ok_or("mesh has no indices")?;
@@ -20,6 +21,12 @@ pub(crate) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
     for t in idx.as_chunks::<3>().0 {
         let i = |k: usize| t[k].as_u64().map(|v| v as usize).ok_or("bad mesh index");
         out.push([point(i(0)?)?, point(i(1)?)?, point(i(2)?)?]);
+    }
+    for (face, range) in mesh["faces"].as_array().into_iter().flatten().enumerate() {
+        let (start, count) = (range[0].as_u64().unwrap_or(0), range[1].as_u64().unwrap_or(0));
+        if start.checked_add(count).is_none_or(|end| end > out.len() as u64) {
+            return Err(format!("mesh: face {face}'s triangles {start}..{} run past the {} in the mesh", start.saturating_add(count), out.len()));
+        }
     }
     Ok(out)
 }
