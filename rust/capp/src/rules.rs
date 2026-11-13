@@ -243,7 +243,7 @@ pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, Str
 // ---- Tool selectors ----
 
 /// A tool turned down, and why in full (`<tool id>: <reason>`).
-pub type Rejection = (String, String);
+pub(crate) type Rejection = (String, String);
 
 /// The tool a selector prefers among those that qualify, and why each other one was turned down
 /// (where the selector has words for that), in library order.
