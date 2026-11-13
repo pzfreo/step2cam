@@ -475,7 +475,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
             let because = [in_setup.clone(), order.clone(), made].into_iter().chain(holes_placed).collect();
             operations.push(model::Operation { cut, tool: None, tool_note: None, because: Some(because), iso14649: None, technology: None });
         }
-        trace.skipped.retain(|s: &Value| !chamfered.iter().any(|id| s["feature"].as_str() == Some(id.as_str())));
+        trace.skipped.retain(|s| !chamfered.contains(&s.feature));
         setups.push(frame.describe(name, operations));
     }
 
@@ -511,8 +511,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
         setups,
         covered_by_roughing: covered,
         roughing_feature_depths: Some(roughing_feature_depths),
-        // The trace keeps its skipped features as JSON until it is typed itself.
-        skipped: serde_json::from_value(Value::Array(trace.skipped)).map_err(|e| format!("skipped: {e}"))?,
+        skipped: trace.skipped,
         warnings: trace.warnings,
         decisions: Some(trace.decisions),
         rulebase: Some(crate::trace::rulebase()),

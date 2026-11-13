@@ -371,7 +371,7 @@ pub fn build_fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Pl
         &format!("vise flip option withheld; replanned without sacrificial bottom stock: {reason}"),
         json!({"chosen":{"option":"vise_flip_face","selected":true,"available":false}}),
     );
-    trace.store_plan(&mut p)?;
+    trace.store_plan(&mut p);
     Ok(p)
 }
 
@@ -465,7 +465,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         let mut p = original;
         let mut trace = Trace::take_plan(&mut p);
         trace.decide(RULE,"part","none",&reason,json!({"chosen":{"option":"vise_flip_face","selected":selected,"requested":requested,"available":available,"unavailable_reason":availability.as_ref().err()}}));
-        trace.store_plan(&mut p)?;
+        trace.store_plan(&mut p);
         return Ok(p);
     }
     let (b, mut seat, lo, hi) = availability?;
@@ -568,7 +568,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         },
     );
     setups.insert(1, bottom);
-    trace.store_plan(&mut p)?;
+    trace.store_plan(&mut p);
     Ok(p)
 }
 

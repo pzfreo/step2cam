@@ -34,7 +34,7 @@ pub fn finish_plan(plan: &mut Plan, library: &Value, exclusions: &[Value]) -> Re
     let mut trace = Trace::take_plan(plan);
     let result = finish_with(plan, library, exclusions, &mut trace);
     // Whatever happened, the plan keeps what it had changed and decided.
-    let result = trace.store_plan(plan).and(result);
+    trace.store_plan(plan);
     // The tools still needed are read from the stored trace.
     if result.is_ok() {
         crate::needed::collect(plan);
@@ -681,7 +681,7 @@ fn block_chamfers_without_openings(setup: &mut Setup, trace: &mut Trace) {
                 && o.cut.features().is_some_and(|f| f.contains(feature)));
             if opening.is_some_and(|o| matches!(o.tool, Some(Some(_)))) { return None; }
             let why = opening.and_then(|o| o.tool_note.as_ref().and_then(Option::as_deref))
-                .or_else(|| trace.skipped.iter().find(|s| s["feature"] == feature.as_str()).and_then(|s| s["reason"].as_str()))
+                .or_else(|| trace.skipped.iter().find(|s| s.feature == *feature).map(|s| s.reason.as_str()))
                 .unwrap_or("its hole or slot operation was left out");
             Some((feature.clone(), why.to_owned()))
         });

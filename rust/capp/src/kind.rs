@@ -31,7 +31,7 @@ impl OpKind {
     }
 
     /// A short operation noun for reader-facing reasons; identifiers belong to the trace.
-    pub fn noun(self) -> &'static str {
+    pub(crate) fn noun(self) -> &'static str {
         match self {
             OpKind::Facing => "facing pass",
             OpKind::Roughing => "roughing pass",
@@ -49,7 +49,7 @@ impl OpKind {
     }
 
     /// The process rule that plans an operation of this kind.
-    pub fn process_rule(self) -> &'static str {
+    pub(crate) fn process_rule(self) -> &'static str {
         match self {
             OpKind::Facing => "process.facing",
             OpKind::Roughing => "process.roughing",

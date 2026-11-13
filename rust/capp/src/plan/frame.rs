@@ -113,16 +113,15 @@ impl Frame {
     }
 }
 
-/// Rigid transform from one recorded setup frame to another. Uses the same
-/// rotation and origin that Frame::describe records for operations and stock.
+/// Rigid transform from one recorded setup frame (its rotation and origin) to another. Uses the
+/// same rotation and origin that Frame::describe records for operations and stock.
 /// R_to * transpose(R_from), R_to * (origin_from - origin_to).
-pub fn between_setups(from: &Value, to: &Value) -> Result<(Rows, V3), String> {
-    let read_rows = |s: &Value| -> Result<Rows, String> {
-        Ok([v3(&s["rotation"][0])?, v3(&s["rotation"][1])?, v3(&s["rotation"][2])?])
-    };
-    let a = read_rows(from)?;
-    let b = read_rows(to)?;
+pub fn between_setups(from: (Option<[[i8; 3]; 3]>, Option<V3>), to: (Option<[[i8; 3]; 3]>, Option<V3>)) -> Result<(Rows, V3), String> {
+    let missing = || "expected a list of numbers".to_string();
+    let read_rows = |rows: Option<[[i8; 3]; 3]>| rows.map(|rows| rows.map(|row| row.map(f64::from))).ok_or_else(missing);
+    let a = read_rows(from.0)?;
+    let b = read_rows(to.0)?;
     let rotation = std::array::from_fn(|i| std::array::from_fn(|j| dot(b[i], a[j])));
-    let offset = add(v3(&from["origin_model"])?, scale(v3(&to["origin_model"])?, -1.));
+    let offset = add(from.1.ok_or_else(missing)?, scale(to.1.ok_or_else(missing)?, -1.));
     Ok((rotation, rotate(&b, offset)))
 }

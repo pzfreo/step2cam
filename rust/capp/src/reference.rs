@@ -57,7 +57,7 @@ pub fn full_thread(depth: f64, pitch: f64) -> f64 {
 /// The ISO 14649 names for an operation once its tool is known: the feature it machines, the
 /// operation, a hole's bottom condition, and whether the names fit it exactly
 /// (`iso14649-names.json`). None for a kind the table does not have.
-pub fn iso14649(op: &Operation, tool_type: Option<&str>) -> Option<Value> {
+pub(crate) fn iso14649(op: &Operation, tool_type: Option<&str>) -> Option<Value> {
     static NAMES: OnceLock<Value> = OnceLock::new();
     let names = NAMES.get_or_init(|| table("iso14649-names.json"));
     let entry = names["kinds"].get(op.cut.kind().name())?;
@@ -116,7 +116,7 @@ fn drilling_parameters() -> &'static Value {
 
 /// Depth/D only for holes beyond the reference's deep-hole warning threshold.
 /// Use the same stock-top depth and drill diameter as the peck decision.
-pub fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
+pub(crate) fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
     (depth > drilling_parameters()["deep_hole_above_d"].as_f64().unwrap() * diameter)
         .then_some(depth / diameter)
 }
@@ -124,7 +124,7 @@ pub fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
 /// Default drilling cycle for conventional drills. Depth includes stock above the feature
 /// and requested breakthrough; point height is a reach allowance, not the hole's depth.
 /// A positive library peck is a cap only when the rule calls for pecking; zero/absent is no cap.
-pub fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
+pub(crate) fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
     let p = drilling_parameters();
     let peck = if depth <= p["no_peck_through_d"].as_f64().unwrap() * diameter {
         None
@@ -137,7 +137,7 @@ pub fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
 }
 
 /// Tap drill reference and shop process policy; no hole geometry is changed.
-pub fn tap_drills() -> &'static Value {
+pub(crate) fn tap_drills() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
     DATA.get_or_init(|| table("tap-drills.json"))
 }

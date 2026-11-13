@@ -57,10 +57,10 @@ pub(crate) fn prune_with(plan: &mut Plan, library: &Library, finalize: bool, tra
     for feature in cut.iter().map(String::as_str) {
         let made = trace.decide("process.spot_drill", feature, "cut", "countersink cut by matching spot drill", Value::Null);
         // Only replace the countersink skip, never other skips on the same feature.
-        let decisions: Vec<Value> = trace.skipped.iter().filter(|s| s["feature"] == feature && s["reason"].as_str().is_some_and(|r| r.starts_with("countersink:"))).filter_map(|s| s.get("decision").cloned()).collect();
-        trace.skipped.retain(|s| !(s["feature"] == feature && s["reason"].as_str().is_some_and(|r| r.starts_with("countersink:"))));
+        let decisions: Vec<String> = trace.skipped.iter().filter(|s| s.feature == feature && s.reason.starts_with("countersink:")).filter_map(|s| s.decision.clone()).collect();
+        trace.skipped.retain(|s| !(s.feature == feature && s.reason.starts_with("countersink:")));
         for d in &mut trace.decisions {
-            if decisions.contains(&d["id"]) { d["superseded_by"] = json!(made); }
+            if decisions.iter().any(|id| d["id"] == id.as_str()) { d["superseded_by"] = json!(made); }
         }
     }
     Ok(())
