@@ -37,6 +37,7 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
     let rough = log.iter().find(|l| l.contains("-roughing: clears in raster passes")).unwrap();
     assert!(rough.contains("(process.roughing.clearing@1), leaving 0.3 mm on the walls and 0.2 mm on the floors (process.roughing.allowance@1)"), "{rough}");
     assert!(rough.contains("by a 3° helix (process.entry.helix@1)"), "{rough}");
+    assert!(rough.contains("its tool centre stays within one cutter radius of the stock (process.roughing.region@1)"), "{rough}");
     assert!(log.iter().any(|l| l.contains("-slot enter by a 3° helix (process.entry.helix@1)")), "{log:?}");
     // Each helix the notes cite is the one the job gives camlib.
     for program in list(&out["programs"]) {
@@ -44,6 +45,30 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
             assert_close(number(&op["entry"]["angle_rad"]), 3f64.to_radians());
         }
     }
+    // Roughing never moves its centre more than a cutter radius (and 0.1 mm of air) off the stock.
+    let mut roughed = 0;
+    for program in list(&out["programs"]) {
+        let job = &program["job"];
+        let (lo, hi) = (list(&job["stock"]["min_mm"]), list(&job["stock"]["max_mm"]));
+        for op in list(&job["operations"]).iter().filter(|o| o["kind"] == "roughing") {
+            let tool = list(&job["tools"]).iter().find(|t| t["id"] == op["tool"]).unwrap();
+            let radius = number(&tool["cutter"]["diameter_mm"]) / 2.;
+            let reach = radius + 0.1;
+            // The whole cutter stays inside the containment: the stock grown by its diameter and the air.
+            let outer = list(&op["limits"]["contain"]["components"][0]["outer"]["vertices"]);
+            assert_close(number(&outer[0][0]), number(&lo[0]) - radius - reach);
+            assert_close(number(&outer[2][1]), number(&hi[1]) + radius + reach);
+            for m in list(&program["moves"]).iter().filter(|m| m["op"] == op["id"] && m["kind"] != "rapid") {
+                for q in list(&m["points"]) {
+                    for k in 0..2 {
+                        assert!(number(&q[k]) >= number(&lo[k]) - reach && number(&q[k]) <= number(&hi[k]) + reach, "{} at {q} beyond the stock", op["id"]);
+                    }
+                }
+                roughed += 1;
+            }
+        }
+    }
+    assert!(roughed > 0);
 }
 
 #[test]

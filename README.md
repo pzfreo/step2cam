@@ -232,7 +232,7 @@ The plan says **what** to cut, independent of tools and machine.
   what becomes of each feature family (`rules/process.json`). The geometry the rules ask about
   (reachability, room beside a wall and the like) stays code. The camlib adapter's process
   choices are not decisions in the plan: its notes in the log cite their rules the same way
-  (`process.roughing.clearing`, `process.roughing.allowance`, `process.entry.helix`,
+  (`process.roughing.clearing`, `process.roughing.allowance`, `process.roughing.region`, `process.entry.helix`,
   `tool.flutes.default`, `tool.material.default`). Each operation's `because` names the
   decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each

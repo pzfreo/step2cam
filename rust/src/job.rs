@@ -31,6 +31,10 @@ const THREAD_CELL_SAFETY: f64 = 1.25;
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
 /// The ramp of a helix entry, in degrees (`process.entry.helix`).
 const ENTRY_ANGLE_DEG: f64 = 3.;
+/// How far past one cutter radius from the stock a roughing tool centre may go, so a pass can
+/// start with the cutter just clear of the stock (`process.roughing.region`). It covers camlib's
+/// 0.02 mm containment clearance with some to spare.
+const REGION_AIR_MM: f64 = 0.1;
 
 /// The tool's flute count and material from the library, or the stated defaults where it gives
 /// none (`capp::resources::DEFAULT_FLUTES`).
@@ -487,10 +491,11 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         "stepdown_mm": num(s, "stepdown_mm")?, "clearance_z_mm": cx.clearance,
         "radial_allowance_mm": radial, "bottom_allowance_mm": bottom, "clockwise": true,
         "entry": {"kind": "stock_edge_or_helix", "angle_rad": ENTRY_ANGLE_DEG.to_radians()},
+        "limits": {"contain": stock_band(cx, op_id, num(s, "diameter")? / 2.)},
     });
     cutting(&mut out, s, true)?;
-    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({})",
-        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix")));
+    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius of the stock ({})",
+        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix"), cite("process.roughing.region")));
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
     } else {
@@ -503,6 +508,16 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         cx.notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
     }
     Ok(Some((out, spec)))
+}
+
+/// Where a roughing cutter may be: the setup's stock grown by its diameter and a little air, so
+/// its centre comes at most one radius (and `REGION_AIR_MM`) off the stock. camlib's own roughing
+/// region is the stock grown by four times the tool's reach, which it rasters through in air.
+fn stock_band(cx: &SetupCut<'_>, op_id: &str, radius: f64) -> Value {
+    let grow = 2. * radius + REGION_AIR_MM;
+    let ([x0, y0, _], [x1, y1, _]) = (cx.lo, *cx.hi);
+    let (x0, y0, x1, y1) = (x0 - grow, y0 - grow, x1 + grow, y1 + grow);
+    region(&format!("{op_id}-stock"), &[[x0, y0, 0.], [x1, y0, 0.], [x1, y1, 0.], [x0, y1, 0.]], &[])
 }
 
 fn flats<'a>(cx: &mut SetupCut<'a>, floor_z: f64, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {

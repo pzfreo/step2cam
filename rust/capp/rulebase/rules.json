@@ -1168,6 +1168,19 @@
    ]
   },
   {
+   "id": "process.roughing.region",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing keeps its tool centre within one cutter radius (and 0.1 mm of air) of the setup's stock, so no pass runs wholly in the air beside it; the stock edge is still cut, and a pass can still start beside the stock. camlib's own roughing region is the stock grown by four times the tool's reach, which raster passes and links sweep through at feed. The job's roughing note cites this rule.",
+   "code": "rust/src/job.rs stock_band",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: material is only ever within one radius of the stock box, so a tool centre farther out cuts nothing"
+    }
+   ]
+  },
+  {
    "id": "process.roughing.allowance",
    "version": 1,
    "stage": "process",
