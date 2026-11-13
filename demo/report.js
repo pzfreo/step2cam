@@ -436,7 +436,7 @@ export function toolChoiceRows(op, decisions) {
       const others = considered.filter((c) => c.candidate !== d.chosen);
       const preference = ["the largest", "the smallest", "the first in the library"].find((p) =>
         others.some((c) => c.rejected === `qualifies, but ${d.chosen} is preferred (${p})`));
-      const only = others.length && others.every((c) => c.rejected?.trim() && !c.rejected.startsWith("qualifies, but"));
+      const only = others.length && others.every((c) => c.rejected?.trim() && !c.qualifies);
       const reason = preference ? `${preference} that qualifies` : only ? "the only one that qualifies" : d.says || "chosen";
       rows.set(d.chosen, { chosen: true, reason });
     }

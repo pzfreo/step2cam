@@ -136,10 +136,12 @@ pub(super) struct Placed {
     pub(super) blocked: Vec<&'static str>,
 }
 
-/// A hole no setup can cut: the rule that refused it and why.
+/// A hole no setup can cut: the rule that refused it, why, and what the why ends by saying is
+/// needed (after `: needs `), if anything.
 pub(super) struct Refused {
     pub(super) rule: &'static str,
     pub(super) reason: String,
+    pub(super) needs: Option<&'static str>,
 }
 
 /// A hole as setup-frame geometry, or why it is skipped. The outer error stops planning.
@@ -176,13 +178,14 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
             return Ok(Err(Refused { rule: "setup.hole.blocked_above", reason: format!(
                 "part material above its opening from {}: a three-axis tool cannot reach it",
                 blocked.join(", ")
-            ) }));
+            ), needs: None }));
         }
         let axis = v3(&record["axis"])?;
+        let needs = "a setup this bridge does not make";
         return Ok(Err(Refused { rule: "setup.hole.oblique", reason: format!(
-            "oblique axis [{}, {}, {}]: needs a setup this bridge does not make",
+            "oblique axis [{}, {}, {}]: needs {needs}",
             show(r(axis[0])), show(r(axis[1])), show(r(axis[2]))
-        ) }));
+        ), needs: Some(needs) }));
     }
     let rank = |name: &str| cx.preferred.iter().position(|p| *p == name).unwrap_or(usize::MAX);
     let mut best = 0;
