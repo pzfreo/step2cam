@@ -367,10 +367,9 @@ pub fn rank(kind: &str) -> Result<usize, String> {
 /// becomes of it. `holds` answers a named condition.
 pub(crate) fn case_for(family: &str, holds: &mut dyn FnMut(&str) -> Result<bool, String>) -> Result<&'static Value, String> {
     for case in process()["cases"].as_array().into_iter().flatten() {
-        if let Some(families) = case["families"].as_array() {
-            if !families.iter().any(|f| f == family) {
-                continue;
-            }
+        if let Some(families) = case["families"].as_array()
+            && !families.iter().any(|f| f == family) {
+            continue;
         }
         let mut all = true;
         for condition in case["when"].as_array().into_iter().flatten().filter_map(Value::as_str) {

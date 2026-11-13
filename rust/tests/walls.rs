@@ -187,9 +187,7 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
     assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap() < 500., "{material}");
-    for part in ["stepped-plate-chamfered"] {
-        assert_eq!(process(part)["programs"][0]["material"]["gouge"]["definite_cells"], 0);
-    }
+    assert_eq!(process("stepped-plate-chamfered")["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }
 
 fn job_of_stepped() -> Value {

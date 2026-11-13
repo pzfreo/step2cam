@@ -163,7 +163,7 @@ fn a_thread_another_tool_wrote_is_a_warning() {
 }
 
 fn jobs_note(plan: &Value, library: &Value) -> (Vec<step2cam::job::Job>, String) {
-    let (jobs, log) = step2cam::job::jobs(&finished(&plan, library), library).unwrap();
+    let (jobs, log) = step2cam::job::jobs(&finished(plan, library), library).unwrap();
     let notes = jobs.iter().flat_map(|j| j.notes.clone()).chain(log).collect::<Vec<_>>().join("\n");
     (jobs, notes)
 }

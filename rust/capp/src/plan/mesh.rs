@@ -13,7 +13,7 @@ pub(super) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
         Ok([p[3 * i], p[3 * i + 1], p[3 * i + 2]])
     };
     let mut out = Vec::with_capacity(idx.len() / 3);
-    for t in idx.chunks_exact(3) {
+    for t in idx.as_chunks::<3>().0 {
         let i = |k: usize| t[k].as_u64().map(|v| v as usize).ok_or("bad mesh index");
         out.push([point(i(0)?)?, point(i(1)?)?, point(i(2)?)?]);
     }

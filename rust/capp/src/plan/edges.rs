@@ -7,6 +7,7 @@ use super::*;
 /// A loop qualifies only if its whole top edge has the one radius and its wall ends up at size:
 /// the outside (`wall` is the operation that finishes this outline) or a hole or slot's (already
 /// cut). An outside chamfer says which wall it needs, as that wall can still be left out.
+#[allow(clippy::too_many_arguments)] // Each is a different piece of the setup; a struct would only rename them.
 pub(super) fn edge_operations(mesh: &Value, triangles: &[Tri], cx: &Context, faces: &HashMap<u64, &Value>, setup: &'static str, part_top: f64, floor: f64, holes: &[Hole], slots: &[model::Cut], wall: &dyn Fn(&[Cut]) -> Option<String>) -> Result<(Vec<model::Cut>, Vec<String>), String> {
     let nothing = (vec![], vec![]);
     let frame = &cx.frames[setup];

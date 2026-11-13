@@ -14,6 +14,7 @@ fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
 /// starts at the top of the stock. The outline is the band's middle, or lower where a side hole
 /// breaks that: what tapers in stays clear of the cutter, and what flares out at the foot or
 /// overhangs above leaves no room beside it. Returns the operations and each one's outline.
+#[allow(clippy::too_many_arguments)] // Each is a different piece of the setup; a struct would only rename them.
 pub(super) fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashMap<u64, &Value>, frame: &Frame, rows: &Rows, heights: &[f64], own: f64, trace: &mut Trace, setup: &str) -> Result<(Vec<model::WallFinish>, Vec<Vec<Cut>>), String> {
     const ABOVE: f64 = 0.05;
     const SMALLEST: f64 = 0.5; // mm²: less is a sliver between faces, not an outline.

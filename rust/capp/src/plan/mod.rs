@@ -365,7 +365,9 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                         ));
                     } else {
                         let positions: Vec<f64> = nums(&m["positions"])?
-                            .chunks_exact(3)
+                            .as_chunks::<3>()
+                            .0
+                            .iter()
                             .flat_map(|p| frame.point([p[0], p[1], p[2]]).map(r))
                             .collect();
                         ops.push(model::Cut::Roughing(model::Roughing {
@@ -384,7 +386,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                             .values()
                             .filter(|f| f["kind"] == "plane")
                             .filter_map(|f| {
-                                let up = rotate(&frame.rows, v3(&f["direction"]).ok()?)[2] > 1. - 1e-9;
+                                let up = rotate(frame.rows, v3(&f["direction"]).ok()?)[2] > 1. - 1e-9;
                                 up.then(|| Some(r(frame.point(v3(&f["centroid"]).ok()?)[2])))?
                             })
                             .filter(|z| *z > floor && *z < r(top))
@@ -413,7 +415,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
             let error = ops.iter().find_map(|o| match o { model::Cut::Roughing(c) => Some(c.surface_error_mm), _ => None }).unwrap_or(0.);
             let own = (2. * error).max(0.01);
             let (walls, outlines) = match m["faces"].as_array() {
-                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut trace, name)?,
+                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, frame, rows_of(name), &heights, own, &mut trace, name)?,
                 None => (vec![], vec![]),
             };
             // Modelled chamfers may be on a lower flat; rounds retain their floor rule.
