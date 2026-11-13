@@ -9,6 +9,7 @@
 //!
 //! An expression is evaluated left to right with the usual precedence, so it does the same
 //! floating-point arithmetic, in the same order, as the code it replaced.
+use crate::model::Considered;
 use crate::plan::{r, show};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -242,27 +243,24 @@ pub fn fill(template: &str, tool: &Value, lookup: &Lookup) -> Result<String, Str
 
 // ---- Tool selectors ----
 
-/// A tool turned down, and why in full (`<tool id>: <reason>`).
-pub(crate) type Rejection = (String, String);
-
 /// The tool a selector prefers among those that qualify, and why each other one was turned down
 /// (where the selector has words for that), in library order.
-pub(crate) fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+pub(crate) fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
     select_with_reach(selector, tools, inputs, params, false)
 }
 
 /// Keep the normal preference; only defer explicitly marked reach conditions if necessary.
-pub(crate) fn select_for_camlib<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+pub(crate) fn select_for_camlib<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
     let normal = select(selector, tools, inputs, params)?;
     if normal.0.is_some() { return Ok(normal); }
     Ok((select_with_reach(selector, tools, inputs, params, true)?.0, normal.1))
 }
 
-fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>, defer_reach: bool) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>, defer_reach: bool) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
     let rule = tools_rule(selector)?;
     let wanted = rule["tool_type"].as_str().ok_or_else(|| format!("selector {selector} has no tool_type"))?;
     let defaults = &rule["defaults"];
-    let (mut kept, mut why): (Vec<&Value>, Vec<Rejection>) = (vec![], vec![]);
+    let (mut kept, mut why): (Vec<&Value>, Vec<Considered>) = (vec![], vec![]);
     for tool in tools.iter().copied().filter(|t| t["type"] == wanted) {
         let mut values: HashMap<String, f64> = HashMap::new();
         let lookup_in = |values: &HashMap<String, f64>, name: &str| -> Result<f64, String> {
@@ -295,7 +293,10 @@ fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&
             let lookup = |n: &str| lookup_in(&values, n);
             if eval(condition["if"].as_str().unwrap_or(""), &lookup)? == 0. {
                 if let Some(template) = condition["else_reject"].as_str() {
-                    why.push((tool["id"].as_str().unwrap_or("").to_string(), fill(template, tool, &lookup)?));
+                    let id = tool["id"].as_str().unwrap_or("");
+                    let text = fill(template, tool, &lookup)?;
+                    let rejected = text.strip_prefix(&format!("{id}: ")).unwrap_or(&text).to_string();
+                    why.push(Considered { candidate: id.to_string(), rejected, qualifies: false, deferred: condition["reach"] == true });
                 }
                 ok = false;
                 break;
@@ -329,7 +330,7 @@ fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&
 
 /// Every tool of the selector's type with what became of it: chosen, turned down (and why), or
 /// qualified but passed over for the one preferred. For the decision trace.
-pub(crate) fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<Vec<Value>, String> {
+pub(crate) fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<Vec<Considered>, String> {
     let rule = tools_rule(selector)?;
     let (chosen, why) = select(selector, tools, inputs, params)?;
     let chosen_id = chosen.and_then(|t| t["id"].as_str()).unwrap_or("");
@@ -340,11 +341,10 @@ pub(crate) fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str
         if id == chosen_id {
             continue;
         }
-        let rejected = match why.iter().find(|(who, _)| who == id) {
-            Some((_, text)) => text.strip_prefix(&format!("{id}: ")).unwrap_or(text).to_string(),
-            None => format!("qualifies, but {chosen_id} is preferred ({prefer})"),
-        };
-        out.push(serde_json::json!({"candidate": id, "rejected": rejected}));
+        out.push(match why.iter().find(|c| c.candidate == id) {
+            Some(rejected) => rejected.clone(),
+            None => Considered::passed_over(id, format!("qualifies, but {chosen_id} is preferred ({prefer})")),
+        });
     }
     Ok(out)
 }

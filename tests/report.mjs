@@ -1,7 +1,7 @@
 // Content and escaping checks; no output hashes or dependency on a browser.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, operationTime, setupDetails, workholdingText, setupZero, NOT_FEATURES } from '../demo/report.js';
+import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, operationTime, setupDetails, workholdingText, setupZero, NOT_FEATURES, toolChoiceRows } from '../demo/report.js';
 const data = {
   name: '<part & "test">.step', library: { machine: 'mill' }, tools: [
     { id: 'a', number: 7, type: 'end_mill', diameter: 6, shank_diameter: 6 },
@@ -257,3 +257,11 @@ assert.ok(carriedText.indexOf('Break out before') < carriedText.indexOf('Faces i
 const fallback = structuredClone(data);
 fallback.plan.setups[0].stock_note = 'Assumes a freed, part-sized block; stock carry unavailable: closed mesh refused.';
 assert.ok(reportText(reportDocument(fallback, options)).includes(fallback.plan.setups[0].stock_note));
+
+// Whether another candidate qualifies is read from its `qualifies` field, not from its words.
+const choice = (considered) => toolChoiceRows({ tool: 'a', because: ['t'] }, new Map([['t', { id: 't', stage: 'tools', chosen: 'a', says: 'a cuts it', considered }]])).get('a').reason;
+assert.equal(choice([{ candidate: 'b', rejected: 'qualifies, but supplied choice is used', qualifies: true }]), 'a cuts it');
+assert.equal(choice([{ candidate: 'b', rejected: 'too wide for the 4 mm width' }]), 'the only one that qualifies');
+// Where the words and the field disagree, the field decides.
+assert.equal(choice([{ candidate: 'b', rejected: 'qualifies, but supplied choice is used' }]), 'the only one that qualifies');
+assert.equal(choice([{ candidate: 'b', rejected: 'held back for a later setup', qualifies: true }]), 'a cuts it');

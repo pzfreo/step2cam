@@ -2417,6 +2417,10 @@
     "says": {
      "type": "string"
     },
+    "needs": {
+     "type": "string",
+     "description": "What says ends by naming as needed: the description after its last \": needs \", as tools_needed lists it."
+    },
     "chosen": {
      "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
     },
@@ -2438,6 +2442,10 @@
        },
        "rejected": {
         "type": "string"
+       },
+       "qualifies": {
+        "const": true,
+        "description": "The candidate qualifies, but another tool is used (rejected says which and why). Written only when true."
        }
       },
       "additionalProperties": false

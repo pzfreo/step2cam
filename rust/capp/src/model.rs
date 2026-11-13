@@ -532,6 +532,35 @@ pub struct Need {
     pub operations: Vec<String>,
 }
 
+/// A tool a decision did not choose, and why: an entry of its `considered`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Considered {
+    /// The tool's id.
+    pub candidate: String,
+    /// Why it was not chosen, as text.
+    pub rejected: String,
+    /// It qualifies, but another tool is used (`rejected` says which and why). Written only when
+    /// true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub qualifies: bool,
+    /// Turned down by a reach condition, which the execution engine checks instead when the tool
+    /// is chosen anyway (`rulebase/rules/tools.json`, `"reach": true`). Not written.
+    #[serde(skip)]
+    pub deferred: bool,
+}
+
+impl Considered {
+    /// A tool turned down, for the reason given.
+    pub(crate) fn rejected(candidate: &str, why: impl Into<String>) -> Self {
+        Self { candidate: candidate.into(), rejected: why.into(), qualifies: false, deferred: false }
+    }
+
+    /// A tool that qualifies, passed over for the reason given (`qualifies, but …`).
+    pub(crate) fn passed_over(candidate: &str, why: impl Into<String>) -> Self {
+        Self { candidate: candidate.into(), rejected: why.into(), qualifies: true, deferred: false }
+    }
+}
+
 /// How deep roughing must reach for one feature it covers.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Depth {

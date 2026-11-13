@@ -113,6 +113,14 @@ impl Trace {
         id
     }
 
+    /// Records the tool the decision `id` says is needed (`needs`): the description its text ends
+    /// with, after `: needs `.
+    pub(crate) fn needs(&mut self, id: &str, need: Option<&str>) {
+        if let Some(need) = need && let Some(decision) = self.decisions.iter_mut().rev().find(|d| d["id"] == id) {
+            decision["needs"] = json!(need);
+        }
+    }
+
     /// Marks earlier decisions about `subject` with this outcome as replaced by a later one.
     pub(crate) fn supersede(&mut self, subject: &str, outcome: &str, by: &str) {
         for d in self.decisions.iter_mut().filter(|d| d["subject"] == subject && d["outcome"] == outcome && d.get("superseded_by").is_none()) {

@@ -155,3 +155,65 @@ fn decimal_bound_formatting_preserves_hundredths_and_rounds_real_fractions_outwa
         assert_eq!(capp::rules::fill("{x:up2}/{x:down2}", &Value::Null, &|_| Ok(value)).unwrap(), expected);
     }
 }
+
+/// What a finished plan says about needed tools and considered candidates, as fields: every
+/// decision whose text ends with `: needs X` has `needs` X (and only those have `needs`), every
+/// entry of `tools_needed` is some decision's `needs`, and a considered candidate has
+/// `qualifies` exactly when its text says it qualifies. Returns how many decisions name a need.
+fn needs_as_fields(plan: &Value) -> usize {
+    let decisions = plan["decisions"].as_array().unwrap();
+    let mut named = 0;
+    for d in decisions {
+        let suffix = d["says"].as_str().and_then(|says| says.rsplit_once(": needs ")).map(|(_, need)| need);
+        assert_eq!(d["needs"].as_str(), suffix, "{d}");
+        named += usize::from(suffix.is_some());
+        for c in d["considered"].as_array().into_iter().flatten().filter(|c| c.get("rejected").is_some()) {
+            assert_eq!(c.get("qualifies").is_some(), c["rejected"].as_str().unwrap().starts_with("qualifies, but"), "{c}");
+            assert!(c.get("qualifies").is_none_or(|q| q == true), "{c}");
+        }
+    }
+    for need in plan["tools_needed"].as_array().unwrap() {
+        assert!(decisions.iter().any(|d| d["needs"] == need["description"]), "{need}");
+    }
+    named
+}
+
+#[test]
+fn needs_suffixes_are_decision_fields() {
+    let parts = ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered", "synthetic/stepped-plate-chamfer-mouths",
+        "synthetic/stepped-plate-large-chamfer", "synthetic/tall-wall-pocket", "synthetic/square-slots"];
+    let libraries = ["../../demo/tools.json", "../../libraries/haas-vf2.json", "../../libraries/linuxcnc-vmc.json", "../../tests/fixtures/placeholder-tools.json"];
+    let (mut plans, mut named, mut refused) = (0, 0, 0);
+    for part in parts {
+        let analysis = fixture(&format!("{part}.analysis.json"));
+        let mesh = fixture(&format!("{part}.mesh.json"));
+        let planned = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+        for path in libraries {
+            let library = fixture(path);
+            let mut done = planned.clone();
+            capp::finish(&mut done, &library, &[]).unwrap();
+            named += needs_as_fields(&done);
+            plans += 1;
+            // Each operation refused: by the engine in words that name a need, and for reach.
+            for setup in done["setups"].as_array().unwrap() {
+                let top = setup["stock"]["max"][2].as_f64().unwrap();
+                for (i, op) in setup["operations"].as_array().unwrap().iter().enumerate() {
+                    let id = format!("{}-{}-{}", setup["id"].as_str().unwrap(), i + 1, op["kind"].as_str().unwrap());
+                    for exclusion in [
+                        json!({"operation": id, "message": "refused: the holder hits the stock: needs an end mill of ⌀6 with its holder at least 40 mm above the tip"}),
+                        json!({"operation": id, "message": "depth exceeds the cutting length", "reach": {"limit": "cutting_length", "depth_needed_mm": 12., "depth_available_mm": 5., "top_z_mm": top}}),
+                        json!({"operation": id, "message": "holder collides", "reach": {"limit": "holder", "holder_section": 0, "depth_needed_mm": 12., "top_z_mm": top - 1., "z_mm": top - 12.}}),
+                    ] {
+                        let mut plan = planned.clone();
+                        if capp::finish(&mut plan, &library, &[exclusion]).is_err() { continue; }
+                        named += needs_as_fields(&plan);
+                        plans += 1;
+                        refused += usize::from(plan["decisions"].as_array().unwrap().iter().any(|d| d["rule"].as_str().unwrap().starts_with("execution.refused@") && d.get("needs").is_some()));
+                    }
+                }
+            }
+        }
+    }
+    // 896, 4,301 and 864 when this was written.
+    assert!(plans > 800 && named > 3000 && refused > 700, "{plans} plans, {named} decisions naming a need, {refused} refusals with a need");
+}

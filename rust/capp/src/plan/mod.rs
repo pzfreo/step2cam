@@ -264,8 +264,9 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                         trace.warn(rule, id, text, json!({"features": [id]}));
                     }
                 }
-                Err(Refused { rule, reason }) => {
-                    trace.skip(rule, id, reason);
+                Err(Refused { rule, reason, needs }) => {
+                    let skipped = trace.skip(rule, id, reason);
+                    trace.needs(&skipped, needs);
                     if let Some(thread) = asked.get(id) {
                         trace.skip("process.hole.thread_lost", id, format!("its {} thread: the hole is not cut", thread.spec));
                     }

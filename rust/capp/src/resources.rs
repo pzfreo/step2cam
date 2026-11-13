@@ -1,7 +1,7 @@
 //! The shop's resources as CAPP reads them: the tool library, and which tool can cut what.
 //! Every number in it is the shop's (see `schemas/resources-1.schema.json`); nothing here is a
 //! standard.
-use crate::model::{Counterbore, Cut, Holes, Operation, Setup, Thread};
+use crate::model::{Considered, Counterbore, Cut, Holes, Operation, Setup, Thread};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::borrow::Cow;
@@ -179,12 +179,12 @@ impl<'a> Library<'a> {
     }
     /// The tool the named selector in `rulebase/rules/tools.json` prefers, and why it turned
     /// the others down where it says.
-    fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
+    fn select(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
     /// Explicit last resort after the operation's fully qualifying alternatives are exhausted.
-    fn select_deferred(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
+    fn select_deferred(&self, selector: &str, inputs: &[(&str, f64)]) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::select_for_camlib(selector, &self.tools, &inputs.iter().copied().collect(), &params)
     }
@@ -238,16 +238,21 @@ impl<'a> Library<'a> {
     pub fn chamfer_mill_in(&self, width: f64, maximum_diameter: f64, depth: f64, room: f64) -> Option<&'a Value> {
         self.pick("chamfer_mill", &[("width", width), ("maximum_diameter", maximum_diameter), ("depth", depth), ("room", room)])
     }
-    /// What a selector made of every tool of its type, for the trace (`rules::considered`).
+    /// What a selector made of every tool of its type, for the trace (`rules::considered`), as
+    /// JSON.
     pub fn considered(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Value> {
+        self.candidates(selector, inputs).iter().map(|c| serde_json::to_value(c).unwrap()).collect()
+    }
+    /// [`Library::considered`], as [`Considered`].
+    pub(crate) fn candidates(&self, selector: &str, inputs: &[(&str, f64)]) -> Vec<Considered> {
         let params = HashMap::from([("drill_tolerance_mm", self.drill_tolerance), ("tip_clearance_mm", TIP_CLEARANCE), ("drilling_guard_mm", DRILLING_GUARD)]);
         crate::rules::considered(selector, &self.tools, &inputs.iter().copied().collect(), &params).unwrap_or_else(|e| panic!("{e}"))
     }
     /// Run the ordinary selector over exactly one supplied tool, with the operation's inputs.
-    pub(crate) fn supplied_tool(&self, op: &Operation, top: f64, choice: &Value) -> Result<(&'a Value, Vec<Value>), String> {
+    pub(crate) fn supplied_tool(&self, op: &Operation, top: f64, choice: &Value) -> Result<(&'a Value, Vec<Considered>), String> {
         self.supplied_thread_tool(op, top, choice, None, None)
     }
-    pub(crate) fn supplied_thread_tool(&self, op: &Operation, top: f64, choice: &Value, setup: Option<&Setup>, group: Option<&str>) -> Result<(&'a Value, Vec<Value>), String> {
+    pub(crate) fn supplied_thread_tool(&self, op: &Operation, top: f64, choice: &Value, setup: Option<&Setup>, group: Option<&str>) -> Result<(&'a Value, Vec<Considered>), String> {
         let name = choice.as_str().ok_or("tool choice must be a tool id string")?;
         let tool = self.tools.iter().copied().find(|t| id(t) == name).ok_or_else(|| {
             self.too_big.iter().find(|(t, _)| id(t) == name).map(|(_, why)| why.clone()).unwrap_or_else(|| format!("{name} is not in the library"))
@@ -257,7 +262,7 @@ impl<'a> Library<'a> {
                 return Err(format!("{name}: {reason}"));
             }
             let (_, mut considered) = self.tap(thread, top, self.thread_open_z(thread, setup, top)?, group)?;
-            considered.retain(|c| c["candidate"] != name);
+            considered.retain(|c| c.candidate != name);
             return Ok((tool, considered));
         }
         let (selector, inputs) = match &op.cut {
@@ -273,7 +278,7 @@ impl<'a> Library<'a> {
         let mut single = Self::new(self.data)?;
         single.tools = vec![tool];
         let (kept, why) = single.select_deferred(selector, &inputs)?;
-        let kept = kept.ok_or_else(|| why.first().map(|(_, reason)| reason.clone()).unwrap_or_else(|| format!("{name}: wrong tool type or selector keep conditions reject it")))?;
+        let kept = kept.ok_or_else(|| why.first().map(|c| format!("{}: {}", c.candidate, c.rejected)).unwrap_or_else(|| format!("{name}: wrong tool type or selector keep conditions reject it")))?;
         let mut queries = vec![(selector, inputs)];
         if let Cut::Holes(hole) = &op.cut {
             queries.push(if selector == "drill" { ("bore_mill", vec![("diameter", hole.diameter)]) }
@@ -281,15 +286,15 @@ impl<'a> Library<'a> {
         }
         let mut considered = vec![];
         for (selector, inputs) in queries {
-            let mut candidates = self.considered(selector, &inputs);
+            let mut candidates = self.candidates(selector, &inputs);
             if let Some(preferred) = self.select(selector, &inputs)?.0
                 && id(preferred) != name {
-                candidates.push(serde_json::json!({"candidate": id(preferred), "rejected": "qualifies, but supplied choice is used"}));
+                candidates.push(Considered::passed_over(id(preferred), "qualifies, but supplied choice is used"));
             }
             for mut candidate in candidates {
-                if candidate["candidate"] == name && !why.iter().any(|(id, _)| id == name) { continue; }
-                if candidate["rejected"].as_str().is_some_and(|s| s.starts_with("qualifies, but")) {
-                    candidate["rejected"] = serde_json::json!("qualifies, but supplied choice is used");
+                if candidate.candidate == name && !why.iter().any(|c| c.candidate == name) { continue; }
+                if candidate.qualifies {
+                    candidate.rejected = "qualifies, but supplied choice is used".into();
                 }
                 considered.push(candidate);
             }
@@ -329,15 +334,15 @@ impl<'a> Library<'a> {
     }
 
     /// Process rule tool.thread.tap_or_mill; first qualifying tap in library order.
-    pub(crate) fn tap(&self, thread: &Thread, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Value>), String> {
+    pub(crate) fn tap(&self, thread: &Thread, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
         let mut chosen = None;
         let mut considered = vec![];
         for tool in self.tools.iter().copied().filter(|t| t["type"] == "tap") {
             let reason = self.tap_rejection(tool, thread, top, open_z, group)?;
             if let Some(reason) = reason {
-                considered.push(serde_json::json!({"candidate": id(tool), "rejected": reason}));
+                considered.push(Considered::rejected(id(tool), reason));
             } else if chosen.is_none() { chosen = Some(tool); }
-            else { considered.push(serde_json::json!({"candidate": id(tool), "rejected": "qualifies, but first matching tap is preferred"})); }
+            else { considered.push(Considered::passed_over(id(tool), "qualifies, but first matching tap is preferred")); }
         }
         Ok((chosen, considered))
     }
@@ -375,7 +380,7 @@ impl<'a> Library<'a> {
     }
 
     /// The thread mill for this thread operation, and why the others were turned down.
-    pub fn thread_mill(&self, thread: &Thread, stock_top: f64) -> Result<(Option<&'a Value>, Vec<crate::rules::Rejection>), String> {
+    pub fn thread_mill(&self, thread: &Thread, stock_top: f64) -> Result<(Option<&'a Value>, Vec<Considered>), String> {
         let inputs = [
             ("major", thread.major), ("start_diameter", thread.start_diameter), ("pitch", thread.pitch),
             ("stock_top", stock_top), ("bottom_z", thread.bottom_z),
