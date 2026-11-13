@@ -189,9 +189,9 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     let mut plan;
     let mut setup_cache = vec![];
     let mut fell_back = false;
-    // Since the last start: the operations left out, and how many the first finished plan had.
-    let mut refused: Vec<Option<capp::model::Operation>> = vec![];
-    let mut planned_operations = None;
+    // Since the last start: the operations left out, and the first finished plan's operations.
+    let mut refused: Vec<Option<Key>> = vec![];
+    let mut started = None;
     loop {
         programs.clear();
         log.clear();
@@ -200,7 +200,9 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             error = Some(message);
             break;
         }
-        let operations = *planned_operations.get_or_insert_with(|| plan.setups.iter().map(|s| s.operations.len()).sum::<usize>());
+        let start: &Vec<Key> = started.get_or_insert_with(|| plan.setups.iter()
+            .flat_map(|s| s.operations.iter().map(|op| cut_of(&s.id, op))).collect());
+        let operations = start.len();
         if let Some(bottom)=plan.setups.iter().find(|s|s.flip_seating.as_ref().is_some_and(Value::is_object))
             && !flip_ready(&plan,bottom) {
             if fell_back {
@@ -212,7 +214,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
             exclusions.clear();
-            (fell_back, refused, planned_operations) = (true, vec![], None);
+            (fell_back, refused, started) = (true, vec![], None);
             continue;
         }
         let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {
@@ -229,9 +231,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let refused_op = plan.setups.iter().find(|s| s.id == operation.setup)
             .and_then(|s| operation.number.checked_sub(1).and_then(|i| s.operations.get(i)));
         // Leaving out what is already left out, or more operations than there were, would not end.
-        // The same cut is the same operation, whichever decisions the pass numbered behind it.
-        let cut = refused_op.map(|op| capp::model::Operation { because: None, ..op.clone() });
-        let stop = if cut.is_some() && refused.contains(&cut) {
+        let cut = refused_op.map(|op| cut_of(&operation.setup, op));
+        let stop = if cut.as_ref().is_some_and(|cut| repeated(start, &refused, cut)) {
             Some(format!("replanning stopped: camlib refused {operation} again after it was left out ({})", failure.message))
         } else if refused.len() >= operations {
             Some(format!("replanning stopped after leaving out {} of {operations} operations: camlib still refused {operation} ({})", refused.len(), failure.message))
@@ -255,6 +256,21 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         log.push(format!("tools needed: {}", needs.join("; ")));
     }
     Ok(Outcome { plan, programs, log, error })
+}
+
+/// An operation as the replan loop compares it: its setup and the operation without the decisions
+/// behind it, which each pass numbers again.
+type Key = (String, capp::model::Operation);
+
+fn cut_of(setup: &str, op: &capp::model::Operation) -> Key {
+    (setup.to_string(), capp::model::Operation { because: None, ..op.clone() })
+}
+
+/// Whether camlib refusing `cut` again means one already left out came back: it has refused as
+/// many copies of it as the start's plan had (or any, for a cut that plan did not have).
+fn repeated(start: &[Key], refused: &[Option<Key>], cut: &Key) -> bool {
+    let left_out = refused.iter().flatten().filter(|r| *r == cut).count();
+    left_out > 0 && left_out >= start.iter().filter(|c| *c == cut).count()
 }
 
 thread_local! {
@@ -462,11 +478,11 @@ mod robust_tests {
     }
 
     #[test]
-    fn camlib_refusing_an_operation_already_left_out_stops_replanning() {
+    fn two_identical_operations_camlib_refuses_are_both_left_out() {
         let a=fixture(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json"));
         let m=fixture(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json"));
         let t=fixture(include_str!("../../tests/fixtures/placeholder-tools.json"));
-        // Two copies of a wall finish camlib refuses: the second is the same cut, refused again.
+        // Two copies of a wall finish camlib refuses: two operations, not one refused again.
         let mut p=serde_json::to_value(capp::plan::build(&a,Some(&m),&Default::default()).unwrap()).unwrap();
         let ops=p["setups"][0]["operations"].as_array_mut().unwrap();
         let n=ops.iter().position(|o|o["kind"]=="wall_finish").unwrap();
@@ -474,9 +490,29 @@ mod robust_tests {
         let copy=ops[n].clone();
         ops.insert(n,copy);
         let out=process_planned(&a,&m,&t,serde_json::from_value(p).unwrap(),vec![]).unwrap().json();
-        let error=out["error"].as_str().unwrap();
-        assert!(error.starts_with("replanning stopped: camlib refused top-") && error.contains("-wall_finish again after it was left out"),"{error}");
-        assert_eq!(out["programs"],json!([]));
+        assert_eq!(out["error"],Value::Null);
+        let left_out=out["plan"]["warnings"].as_array().unwrap().iter().filter(|w|w.as_str().unwrap().contains("-wall_finish left out: ")).count();
+        assert_eq!(left_out,2);
+        assert!(!out["programs"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn camlib_refusing_a_cut_more_often_than_the_plan_had_it_is_a_repeat() {
+        let a=fixture(include_str!("../../tests/fixtures/plate.analysis.json"));
+        let m=fixture(include_str!("../../tests/fixtures/plate.mesh.json"));
+        let p=capp::plan::build(&a,Some(&m),&Default::default()).unwrap();
+        let (top,bottom)=(cut_of("top",&p.setups[0].operations[0]),cut_of("bottom",&p.setups[0].operations[0]));
+        // Once in the plan: refusing it after leaving it out is a repeat; once is not.
+        assert!(!repeated(std::slice::from_ref(&top),&[],&top));
+        assert!(repeated(std::slice::from_ref(&top),&[Some(top.clone())],&top));
+        // Twice in the plan: the second refusal is the other copy, the third a repeat.
+        let twice=[top.clone(),top.clone()];
+        assert!(!repeated(&twice,&[Some(top.clone())],&top));
+        assert!(repeated(&twice,&[Some(top.clone()),Some(top.clone())],&top));
+        // The same cut in another setup is another operation.
+        assert!(!repeated(&[top.clone(),bottom.clone()],&[Some(top.clone())],&bottom));
+        // A cut the plan did not have, refused again once left out, is a repeat.
+        assert!(repeated(&[],&[Some(bottom.clone())],&bottom));
     }
 
     #[test]
