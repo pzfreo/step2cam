@@ -262,3 +262,6 @@ assert.ok(reportText(reportDocument(fallback, options)).includes(fallback.plan.s
 const choice = (considered) => toolChoiceRows({ tool: 'a', because: ['t'] }, new Map([['t', { id: 't', stage: 'tools', chosen: 'a', says: 'a cuts it', considered }]])).get('a').reason;
 assert.equal(choice([{ candidate: 'b', rejected: 'qualifies, but supplied choice is used', qualifies: true }]), 'a cuts it');
 assert.equal(choice([{ candidate: 'b', rejected: 'too wide for the 4 mm width' }]), 'the only one that qualifies');
+// Where the words and the field disagree, the field decides.
+assert.equal(choice([{ candidate: 'b', rejected: 'qualifies, but supplied choice is used' }]), 'the only one that qualifies');
+assert.equal(choice([{ candidate: 'b', rejected: 'held back for a later setup', qualifies: true }]), 'a cuts it');
