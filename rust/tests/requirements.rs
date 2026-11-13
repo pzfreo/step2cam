@@ -40,15 +40,40 @@ fn stepped_plate_names_each_requirement_not_acted_on() {
     keys.sort_unstable();
     assert_eq!(keys, ["hole.position:hole_patterns.rectangle:16.29.35.45", "hole.position:hole_patterns.set:48.49.57.58", "hole.position:holes:36"]);
     assert_eq!(position["says"], "position not checked: ⌀0.4 on the 4 ⌀4.4 holes (clearance M4); ⌀0.2 on the 2 ⌀2.5 holes (tapped M3); ⌀2 on the ⌀10 hole (fit H7)");
-    // Acted on: the M3 thread and its depth, the M4 clearance size, the material; datums and
-    // locating are choices.
+    // The full-thread depth asked of the M3 holes is not read.
+    let full = by_key(&found, "hole.full_thread:hole_patterns.set:48.49.57.58");
+    assert_eq!(full["says"], "full thread 8.5 on the 2 ⌀2.5 holes (tapped M3): not applied: the plan sets the thread depth itself");
+    // Acted on: the M3 thread, the M4 clearance size, the material; datums and locating are
+    // choices; Specify asks no position of the general pattern and writes none.
     let keys: Vec<&str> = found.iter().flat_map(|d| d["requirements"].as_array().unwrap().iter().map(|k| k.as_str().unwrap())).collect();
-    for key in ["hole.function:hole_patterns.set:48.49.57.58", "hole.full_thread:hole_patterns.set:48.49.57.58",
+    for key in ["hole.function:hole_patterns.set:48.49.57.58",
         "hole.function:hole_patterns.rectangle:16.29.35.45", "hole.position:hole_patterns.rectangle:17.22.30.31",
         "part.material", "part.coating", "part.heat_treatment", "part.locating", "datum.A"] {
         assert!(!keys.contains(&key), "{key}: {keys:?}");
     }
-    assert_eq!(found.len(), 8, "{found:#?}");
+    assert_eq!(found.len(), 9, "{found:#?}");
+}
+
+#[test]
+fn answers_to_questions_not_asked_under_the_locating_mode_are_not_warned_of() {
+    // Under "± dimensions" Specify asks no datum flatness or control, position or runout; under
+    // "position tolerances" no ± location. Callers keep both modes' answers.
+    let mut analysis = fixture("synthetic/stepped-plate.analysis.json");
+    analysis["resume"]["answers"]["hole.location:holes:36"] = json!("±0.1");
+    let warned = |analysis: &Value| -> Vec<String> {
+        let plan = capp::plan::plan(analysis, None, &Default::default()).unwrap();
+        plan["decisions"].as_array().unwrap().iter().filter(|d| d["rule"] == "requirement.not_acted_on@1")
+            .flat_map(|d| d["requirements"].as_array().unwrap().iter().map(|k| k.as_str().unwrap().to_string())).collect()
+    };
+    let positional = warned(&analysis);
+    assert!(positional.iter().any(|k| k == "datum.A.flatness") && positional.iter().any(|k| k.starts_with("hole.position:")), "{positional:?}");
+    assert!(!positional.iter().any(|k| k.starts_with("hole.location:")), "{positional:?}");
+    analysis["resume"]["answers"]["part.locating"] = json!("± dimensions");
+    let plus_minus = warned(&analysis);
+    assert!(plus_minus.iter().any(|k| k == "hole.location:holes:36"), "{plus_minus:?}");
+    for k in &plus_minus {
+        assert!(!k.starts_with("hole.position:") && !k.ends_with(".flatness") && !k.ends_with(".control"), "{k}: {plus_minus:?}");
+    }
 }
 
 #[test]

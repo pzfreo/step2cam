@@ -187,6 +187,7 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "perpendicularity 0.05 on datum B (face 0): not checked",
         "perpendicularity 0.05 on datum C (face 5): not checked",
         "fit H7 on the ⌀10 hole: not held: cut to the drawn size with no finishing pass, ream or bore",
+        "full thread 8.5 on the 2 ⌀2.5 holes (tapped M3): not applied: the plan sets the thread depth itself",
         "position not checked: ⌀0.4 on the 4 ⌀4.4 holes (clearance M4); ⌀0.2 on the 2 ⌀2.5 holes (tapped M3); ⌀2 on the ⌀10 hole (fit H7)",
         "setup top: 3.3 mm holes, depth/D 6.1: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
         "setup top: 6 mm notch: its 4 inside corners are left r1.5 by em3 (the model has r1.2)",

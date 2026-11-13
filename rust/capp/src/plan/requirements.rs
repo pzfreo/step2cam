@@ -1,6 +1,7 @@
 //! What the drawing asks for that the plan does not do: one warning per requirement in Specify's
-//! answers that no rule acts on. The material, threads, clearance holes and full-thread depths are
-//! acted on; datums and how holes are located are choices, not requirements.
+//! answers that no rule acts on. The material, threads and clearance holes are acted on; datums
+//! and how holes are located are choices, not requirements. Answers to questions specify-core did
+//! not ask, given the other answers, write nothing on the drawing and are not warned of.
 
 use super::*;
 
@@ -34,6 +35,10 @@ pub(super) fn not_acted_on(analysis: &Value, trace: &mut Trace) {
     let Some(all) = answers.as_object() else { return };
     let features: &[Value] = analysis["features"].as_array().map_or(&[], Vec::as_slice);
     let text = |key: &str| answers[key].as_str().filter(|v| !nothing(v));
+    // specify-core asks no datum flatness or control, position or runout under "± dimensions",
+    // and no ± location under "position tolerances"; callers keep both modes' answers.
+    let locating = answers["part.locating"].as_str().unwrap_or("").trim().to_lowercase();
+    let plus_minus = locating == "± dimensions";
     for (key, what, not) in [
         ("part.general_tolerance", "general tolerance", "not checked"),
         ("part.surface_finish", "surface finish", "not checked"),
@@ -53,11 +58,11 @@ pub(super) fn not_acted_on(analysis: &Value, trace: &mut Trace) {
         let faces: Vec<String> = answers[format!("datum.{letter}")].as_array().into_iter().flatten().map(Value::to_string).collect();
         let on = if faces.is_empty() { format!("datum {letter}") } else { format!("datum {letter} (face {})", faces.join(", ")) };
         let key = format!("datum.{letter}.flatness");
-        if let Some(value) = text(&key) {
+        if let Some(value) = text(&key).filter(|_| !plus_minus) {
             trace.warn(RULE, &format!("datum {letter}"), format!("flatness {value} on {on}: not checked"), json!({"requirements": [key]}));
         }
         let key = format!("datum.{letter}.control");
-        if let Some(value) = text(&key) {
+        if let Some(value) = text(&key).filter(|_| !plus_minus) {
             // specify-core writes the control it chose (perpendicularity or position) on the
             // datum's faces; its answer does not say which.
             let kind = analysis["characteristics"].as_array().into_iter().flatten()
@@ -85,16 +90,32 @@ pub(super) fn not_acted_on(analysis: &Value, trace: &mut Trace) {
             "fit" => format!("fit {spec} on {on}: not held: no finishing pass is planned"),
             _ => format!("{kind} {spec} on {on}: not planned"),
         };
-        trace.warn(RULE, target, says, json!({"features": ids, "requirements": [key]}));
+        // Subject the part, not the hole: a hole's warning would be borrowed by every operation on
+        // it, its spot drill included.
+        trace.warn(RULE, "part", says, json!({"features": ids, "requirements": [key]}));
+    }
+    // A full-thread depth (asked only of a tapped hole) is not read: the thread depth comes from
+    // the hole and the tapped answer.
+    for (key, value) in all {
+        let (Some(target), Some(value)) = (key.strip_prefix("hole.full_thread:"), value.as_str().filter(|v| !nothing(v))) else { continue };
+        let Some(spec) = answers[format!("hole.function:{target}")].as_str().and_then(|f| f.strip_prefix("tapped:")) else { continue };
+        let (on, ids) = named(features, target);
+        let spec = spec.split('@').next().unwrap_or(spec);
+        trace.warn(RULE, "part", format!("full thread {value} on {on} (tapped {spec}): not applied: the plan sets the thread depth itself"), json!({"features": ids, "requirements": [key]}));
     }
     // Position, ± location and runout tolerances: one warning each, listing where. The page
     // would put every operation on those features before it, so it names none.
     for (prefix, what, sign) in [("hole.position:", "position", "⌀"), ("hole.location:", "location", ""), ("diameter.runout:", "runout", "")] {
+        let unasked = if prefix == "hole.location:" { locating == "position tolerances" } else { plus_minus };
+        if unasked {
+            continue;
+        }
         let (mut listed, mut keys) = (vec![], vec![]);
         for (key, value) in all {
             let (Some(target), Some(value)) = (key.strip_prefix(prefix), value.as_str().filter(|v| !nothing(v))) else { continue };
             let function = answers[format!("hole.function:{target}")].as_str();
-            // specify-core asks no position of a hole whose function is general.
+            // specify-core asks no position of a hole whose function is general, and writes none
+            // (its write report lists such an answer as not written).
             if prefix == "hole.position:" && function.is_some_and(nothing) {
                 continue;
             }
