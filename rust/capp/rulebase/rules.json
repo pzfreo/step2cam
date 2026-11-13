@@ -1184,7 +1184,7 @@
    "id": "process.roughing.region",
    "version": 1,
    "stage": "process",
-   "rationale": "Roughing keeps its tool centre within one cutter radius and 1 mm of the setup's stock, so no pass runs far out in the air beside it; the stock edge is still cut, and a pass can still start beside the stock. The 1 mm lets camlib prove a link along the stock's edge clear of the stock, so it is fed at the cutting feed rather than the entry feed. camlib's own roughing region is the stock grown by four times the tool's reach, which raster passes and links sweep through at feed. Where camlib cannot build a layer within the band (its intersection of the layer with the band can fail where the layer alone builds), that roughing is simulated again over camlib's own region and the log says so. The job's roughing note cites this rule.",
+   "rationale": "Roughing keeps its tool centre within one cutter radius and 1 mm of the setup's stock, so no pass runs far out in the air beside it; the stock edge is still cut, and a pass can still start beside the stock. The 1 mm lets camlib prove a link along the stock's edge clear of the stock, so it is fed at the cutting feed rather than the entry feed. camlib's own roughing region is the stock grown by four times the tool's reach, which raster passes and links sweep through at feed. Where camlib cannot build a layer within the band (its intersection of the layer with the band can fail where the layer alone builds), that roughing is simulated again over camlib's own region and the log says so; only camlib's region-construction errors do this, and any other refusal of the roughing stands. The job's roughing note cites this rule.",
    "code": "rust/src/job.rs stock_band; rust/src/lib.rs simulate_all",
    "sources": [
     {
