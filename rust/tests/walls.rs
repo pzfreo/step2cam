@@ -176,7 +176,7 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     assert_eq!((of("notch"), of("v_channel")), (3, 1), "{ops:?}");
     let log = out["log"].to_string();
     assert!(log.contains("vb60 is a 60.0° bit in a 61.9275° channel: its walls keep up to 0.034 mm"), "{log}");
-    // The ⌀3.3 holes are 13.2 mm (4.0×D) below where roughing leaves the stock over their mouth: no deep-hole
+    // The ⌀3.3 holes are 13 mm (3.9×D) below their mouth, which roughing and flats clear: no deep-hole
     // warning. Corner deviations now belong to the plan:
     // r1.5 versus the recovered r1.2 slot, and r3 at each notch's two sharp corners.
     assert_eq!(out["plan"]["warnings"], json!([

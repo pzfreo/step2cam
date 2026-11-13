@@ -208,9 +208,9 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())), "{d}");
     }
-    // The ⌀3.3 holes are entered at Z-6.8, em6's last roughing layer above their mouth at Z-7
-    // (em6 is too big for them), and go through Z-19 plus 1 mm of breakthrough: 13.2 mm, 4.0×D,
-    // under the 5×D deep-hole threshold. From the stock top it would
+    // The ⌀3.3 holes go from Z-7, their mouth, which the flats pass there clears (em6 sweeps the
+    // whole disc), through Z-19 plus 1 mm of breakthrough: 13 mm, 3.9×D, under the 5×D deep-hole
+    // threshold. From the stock top it would
     // be 20 mm, 6.1×D, but roughing has already cut that stock away.
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
     assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-7.)));
