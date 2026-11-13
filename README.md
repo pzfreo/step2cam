@@ -162,7 +162,8 @@ The plan says **what** to cut, independent of tools and machine.
     the part altogether;
   - `counterbore`: the enlargements at hole mouths (spotfaces, counterbores, stepped mouths),
     widest and outermost first;
-  - `thread`: internal threads, from Specify's answers (see [Threads](#threads));
+  - `thread`: internal threads, from Specify's answers (see [Threads](#threads)). A blind thread
+    whose depth is the default, not asked for, carries `default_depth: true`;
   - `slot`: a closed slot with round ends, cut to size with a camlib `Pocket` of its outline and
     the largest end mill that fits, after roughing, from whichever setup reaches it. Other slots
     are left to roughing;
@@ -260,7 +261,12 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
 - **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
   answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
   Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
-  (`rulebase/reference/full-thread.json`).
+  (`rulebase/reference/full-thread.json`). A tap needs its lead plus one pitch of clearance below
+  the thread, which for a three-pitch lead is more than those three pitches, so a tap cuts a
+  default thread shallower when it must: the drilled full diameter less its lead and one pitch,
+  rounded down to 0.5 mm, and the log says so. An asked depth is
+  never shortened: if the tap cannot reach it, the tap is refused and a thread mill is
+  used instead, if one fits.
 - **How:** tapped when a matching M3–M6 tap is available in ISO 513 group N material,
   otherwise milled with a single-profile thread mill to the thread's major diameter, after the
   hole is drilled. The hole must already be at full diameter as deep as the thread goes;
