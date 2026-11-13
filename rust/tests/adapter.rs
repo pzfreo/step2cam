@@ -37,7 +37,7 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
     let rough = log.iter().find(|l| l.contains("-roughing: clears in raster passes")).unwrap();
     assert!(rough.contains("(process.roughing.clearing@1), leaving 0.3 mm on the walls and 0.2 mm on the floors (process.roughing.allowance@1)"), "{rough}");
     assert!(rough.contains("by a 3° helix (process.entry.helix@1)"), "{rough}");
-    assert!(rough.contains("its tool centre stays within one cutter radius of the stock (process.roughing.region@1)"), "{rough}");
+    assert!(rough.contains("its tool centre stays within one cutter radius and 1 mm of the stock (process.roughing.region@1)"), "{rough}");
     assert!(log.iter().any(|l| l.contains("-slot enter by a 3° helix (process.entry.helix@1)")), "{log:?}");
     // Each helix the notes cite is the one the job gives camlib.
     for program in list(&out["programs"]) {
@@ -45,7 +45,7 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
             assert_close(number(&op["entry"]["angle_rad"]), 3f64.to_radians());
         }
     }
-    // Roughing never moves its centre more than a cutter radius (and 0.1 mm of air) off the stock.
+    // Roughing never moves its centre more than a cutter radius and 1 mm off the stock.
     let mut roughed = 0;
     for program in list(&out["programs"]) {
         let job = &program["job"];
@@ -53,7 +53,7 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
         for op in list(&job["operations"]).iter().filter(|o| o["kind"] == "roughing") {
             let tool = list(&job["tools"]).iter().find(|t| t["id"] == op["tool"]).unwrap();
             let radius = number(&tool["cutter"]["diameter_mm"]) / 2.;
-            let reach = radius + 0.1;
+            let reach = radius + 1.;
             // The whole cutter stays inside the containment: the stock grown by its diameter and the air.
             let outer = list(&op["limits"]["contain"]["components"][0]["outer"]["vertices"]);
             assert_close(number(&outer[0][0]), number(&lo[0]) - radius - reach);

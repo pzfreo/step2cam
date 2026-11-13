@@ -31,10 +31,11 @@ const THREAD_CELL_SAFETY: f64 = 1.25;
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
 /// The ramp of a helix entry, in degrees (`process.entry.helix`).
 const ENTRY_ANGLE_DEG: f64 = 3.;
-/// How far past one cutter radius from the stock a roughing tool centre may go, so a pass can
-/// start with the cutter just clear of the stock (`process.roughing.region`). It covers camlib's
-/// 0.02 mm containment clearance with some to spare.
-const REGION_AIR_MM: f64 = 0.1;
+/// How far past one cutter radius from the stock a roughing tool centre may go
+/// (`process.roughing.region`): enough for camlib to prove a link beside the stock clear of it
+/// from its stock grid, so it runs at the cutting feed, not the entry feed. Measured on
+/// tall-wall-pocket with the Carvera library, 0.1 mm left 30,317 s of links at the entry feed.
+const REGION_AIR_MM: f64 = 1.0;
 
 /// The tool's flute count and material from the library, or the stated defaults where it gives
 /// none (`capp::resources::DEFAULT_FLUTES`).
@@ -494,8 +495,8 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         "limits": {"contain": stock_band(cx, op_id, num(s, "diameter")? / 2.)},
     });
     cutting(&mut out, s, true)?;
-    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius of the stock ({})",
-        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix"), cite("process.roughing.region")));
+    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius and {} mm of the stock ({})",
+        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix"), show(REGION_AIR_MM), cite("process.roughing.region")));
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
     } else {
@@ -510,8 +511,8 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
     Ok(Some((out, spec)))
 }
 
-/// Where a roughing cutter may be: the setup's stock grown by its diameter and a little air, so
-/// its centre comes at most one radius (and `REGION_AIR_MM`) off the stock. camlib's own roughing
+/// Where a roughing cutter may be: the setup's stock grown by its diameter and `REGION_AIR_MM`, so
+/// its centre comes at most one radius and that air off the stock. camlib's own roughing
 /// region is the stock grown by four times the tool's reach, which it rasters through in air.
 fn stock_band(cx: &SetupCut<'_>, op_id: &str, radius: f64) -> Value {
     let grow = 2. * radius + REGION_AIR_MM;
