@@ -343,13 +343,18 @@ states the torque associated with that force. Positive finite values and a citat
 `_sources.clamp_force` (`url`, `read`, `note`) are required when a force is present.
 Never infer force from dimensions or put a guessed value on a placeholder vise.
 
-The Haas Kurt DX6 uses [Kurt’s maker table](https://www.kurtworkholding.com/product/kurt-dx6-crossover-vise/),
-read **2026-11-13**: **500 lbf at 10 ft·lbf**, converted to **2224.11080763025 N at
-13.558179483314 Nm**. Choosing the lowest published torque row is conservative step2cam
-judgement for the thin grip, not a maximum-force claim. This torque must be applied and
-actual grip verified. The demo’s unvalidated vise has no force and gets a not-checked
-warning, with no cutting-data changes.
+The Haas Kurt DX6 uses the [Kurt DX6 manual](https://docs.travers.com/assets/pdf/61-421-171_manual.pdf),
+read **2026-11-13**, printed/PDF p4 force table: **3440 lbf at 40 ft·lbf**, converted to
+**15301.88235649612 N at 54.232717933256 Nm**. Choosing 40 ft·lbf is step2cam judgement:
+moderate hand tightening, half the rated maximum 80 ft·lbf. The manual's 10 ft·lbf row is
+512 lbf; the manual table supersedes the product-page figures. Its p5 says the supplied
+handle with correct torque provides the needed force; no extensions or impacts. Apply
+the planned torque and verify actual grip. Force and torque are paired in the setup's
+clamping and candidate grip data. The demo’s unvalidated vise has no force and gets a
+not-checked warning, with no cutting-data changes.
 
-[The grip rule](../docs/capp-plan.md#vise-grip-against-the-cut-m3) documents μ = 0.0665,
-safety factor 2, ISCAR aluminium cutting constants, engagement assumptions and limits.
+[The grip rule](../docs/capp-plan.md#vise-grip-against-the-cut-m3) documents μ = 0.095
+(machined/sawn aluminium side in smooth steel jaws), safety factor 2, ISCAR aluminium
+cutting constants and full-width roughing engagement. Axial cycles are thrust into
+supports, not checked against sliding capacity; helix milling remains a sideways check.
 Holding capacity does not scale with contact area; pressure and overturning remain unchecked.

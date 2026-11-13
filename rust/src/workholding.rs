@@ -99,7 +99,9 @@ fn consequences(
         let height=s.stock.max[2] - s.stock.min[2];
         let wall=s.flip_seating.as_ref().is_some_and(Value::is_object);
         risks.push(format!("{}: grips {grip} mm ({:.1}% of setup stock height){}",s.id,100.*grip/height,if wall {" on finished wall; soft jaws advised"} else {""}));
-        Some(json!({"setup":s.id,"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall}))
+        let mut entry = json!({"setup":s.id,"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall});
+        if let Some(force) = s.clamping.as_ref()?.get("force_check") { entry["force_check"] = force.clone(); }
+        Some(entry)
     }).collect();
     risks.extend(p.warnings.iter().cloned());
     risks.push("Cited vise force is screened against estimated mean tangential cutting force with a safety factor; facing is stepped down when needed. Missing clamping force warns not checked. Contact pressure, lift, overturning, peak loads and support flatness are not simulated. Without modeled parallels, through cuts are not checked against supports or the bed.".into());

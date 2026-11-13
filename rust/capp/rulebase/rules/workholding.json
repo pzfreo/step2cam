@@ -13,7 +13,7 @@
  "flip_frame_tolerance_mm": 0.0002,
  "_flip_contact_comment": "Judgement: each jaw band needs at least 60% actual planar face area and 3.175 mm area/grip effective length. Each support footprint needs 75% horizontal face area and 3.175 mm area/width effective length. Search supports inward up to 16 mm in 0.25 mm steps (also used to search grip from the minimum up to the existing 50% limit when an edge break leaves too little contact); reject interference by material below the flipped seat. Contact may bridge holes and edge breaks; these are area checks, not force calculations. Numerical frame tolerance 0.0002 mm covers compounded four-decimal frame serialization, not manufacturing tolerance.",
  "grip_force": {
-  "friction_coefficient": 0.0665,
+  "friction_coefficient": 0.095,
   "safety_factor": 2,
   "kc1_n_mm2": 800,
   "mc": 0.25,

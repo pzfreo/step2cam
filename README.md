@@ -330,6 +330,16 @@ choice and alternatives; selecting another available option replans it. Both vis
 routes require a dimensioned vise in the first mill. Fixture plates and margins/tabs
 are listed with their implementation blockers, without simulated results.
 
+
+Vise setups screen estimated mean tangential milling force against cited clamping
+force (`machine.grip_vs_cut`). The Haas DX6 plans 3440 lbf at 40 ft·lbf: moderate
+hand tightening, half its rated maximum (step2cam judgement). Feasible over-capacity
+facing is split into passes; other milling cuts warn. Drilling, spotting and tapping
+record thrust into the supports rather than a sideways grip load. The demo vise has
+no published force and warns “grip not checked against the cut” once per setup,
+keeping its cutting data. Contact pressure, lift and turning moments remain unchecked.
+See [formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).
+
 Supply a choice with `decisions`:
 `{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"shop preference"}`.
 The checked choice and its provenance are stored in `plan.supplied_decisions` for replay.
@@ -540,11 +550,3 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
-
-
-Vise setups now screen estimated mean tangential cutting force against cited clamping
-force (`machine.grip_vs_cut`). The Haas DX6 uses the published 500 lbf at 10 ft·lbf
-row, a conservative step2cam torque choice. Over-capacity facing is split into passes;
-other operations warn. The demo vise has no published force and warns “grip not checked
-against the cut” once per setup, keeping its cutting data. Contact pressure, lift and
-turning moments remain unchecked. See [formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).
