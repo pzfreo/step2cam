@@ -509,8 +509,11 @@ allowance is deliberately conservative for tip-referenced bottoms and obstructed
 Missing-tool queries restate this same reach requirement, rounded upwards.
 
 `reference/drilling.json` records the public sources and parameters for conventional drills:
-one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from stock top,
-including requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
+one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from where the drill enters: after roughing, the hole's mouth
+when the roughing cutter fits the hole or a flats pass at the mouth's height sweeps the whole
+disc over it (the cutter outreaches the hole by half a stepover), otherwise the lowest roughing
+layer that keeps the bottom allowance above the mouth; without roughing, the stock top as faced; or the top of a slot, notch
+or V-channel (cut after holes) whose floor it is in; it includes requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
 the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
 Tool’s published ranges. Applying it as a constant across materials is a conservative starting
 policy, not a universal manufacturer value. Full retract is used at intermediate and greater depths because the
@@ -521,7 +524,7 @@ camlib options and its trace cites `process.hole.peck_by_depth`. Above the refer
 threshold, the plan also warns with the hole feature IDs and depth/D ratio that deep-hole
 drilling (pilot plus deep-hole drill) is not planned, so full-retract pecks are used. The warning
 is linked to the operation in its trace. At or below 5×D this warning is absent; the threshold
-uses the same stock-top depth (including requested breakthrough) and selected drill diameter
+uses the same depth below the entry surface (including requested breakthrough) and selected drill diameter
 as the peck decision. It is a planning warning threshold, not a universal drill capability limit.
 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
@@ -561,6 +564,14 @@ the analysis and answers currently have no way to request it.
 Matching upright concave corner fillets can recover straight-wall records' missing ends and
 radius. A corner pair implies an open opposite end only when the mesh clears the full run-out;
 otherwise the previously validated interior cut is retained for that partial record.
+
+### V-channels
+
+A V-channel is cut by running the widest sharp V-bit no wider than the channel's angle along
+it, its tip on the root. A narrower bit leaves a wedge of stock on each wall, widest at the
+top: (width - tip diameter) / 2 - depth × tan(bit angle / 2). Above 0.005 mm,
+`process.v_channel.wall_stock` warns in the plan that the channel is partly cut and records
+that stock as `wall_stock_mm`, as `process.notch.corner_radius` does for corners.
 
 ### Spot drilling
 

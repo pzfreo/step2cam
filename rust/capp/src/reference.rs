@@ -128,14 +128,15 @@ fn drilling_parameters() -> &'static Value {
 }
 
 /// Depth/D only for holes beyond the reference's deep-hole warning threshold.
-/// Use the same stock-top depth and drill diameter as the peck decision.
+/// Use the same depth below the entry surface and drill diameter as the peck decision.
 pub(crate) fn deep_drilling_ratio(depth: f64, diameter: f64) -> Option<f64> {
     (depth > drilling_parameters()["deep_hole_above_d"].as_f64().unwrap() * diameter)
         .then_some(depth / diameter)
 }
 
-/// Default drilling cycle for conventional drills. Depth includes stock above the feature
-/// and requested breakthrough; point height is a reach allowance, not the hole's depth.
+/// Default drilling cycle for conventional drills. Depth runs from where the drill enters (any
+/// stock left above the mouth) and includes requested breakthrough; point height is a reach
+/// allowance, not the hole's depth.
 /// A positive library peck is a cap only when the rule calls for pecking; zero/absent is no cap.
 pub(crate) fn drilling(depth: f64, diameter: f64, tool: &Value) -> Value {
     let p = drilling_parameters();

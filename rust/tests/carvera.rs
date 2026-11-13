@@ -58,6 +58,18 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
                 d["rule"] == "process.notch.corner_radius@1" && d["radius"] == 2.0
                 && d["model_radius"] == 1.2 && d["features"].as_array().is_some_and(|f| f.iter().any(|id| id == "slots:37.40.41.44"))),
                 "the r2 outcome must be reported against model r1.2");
+            // M6: the 30° sharp bit in the 61.9275° channel, 1.8 mm wide and 1.5 deep, leaves
+            // 0.9 - 1.5 × tan 15° = 0.4981 mm across the top of each wall: the channel is partly cut.
+            let channel = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
+                .find(|op| op["kind"] == "v_channel").expect("the V-channel is cut");
+            assert_eq!(channel["tool"], "vb30-sharp");
+            let stock = out["plan"]["decisions"].as_array().unwrap().iter()
+                .find(|d| d["rule"] == "process.v_channel.wall_stock@1" && d["features"] == channel["features"])
+                .expect("the V-channel's wall stock is reported");
+            assert_eq!(stock["outcome"], "warning");
+            assert_eq!(stock["wall_stock_mm"], 0.4981);
+            assert!(stock["says"].as_str().unwrap().contains("left up to 0.498 mm thick at the top by vb30-sharp, a 30° bit in the 61.9275° channel"), "{stock}");
+            assert!(channel["because"].as_array().unwrap().contains(&stock["id"]));
             let cut_operations = setups.iter().flat_map(|s| s["operations"].as_array().unwrap())
                 .filter(|op| op["tool"].is_string()).count();
             // Entry-aware grid refinement recovers both front threads while retaining ordinary coverage.

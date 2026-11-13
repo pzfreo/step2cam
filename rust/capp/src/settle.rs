@@ -6,7 +6,7 @@
 //! tool (`tool`); one no tool cuts is taken out and its features say why. [`resolve`] alone leaves
 //! it in place and says why it has none (`tool_note`, null when nothing needs saying).
 use crate::kind::{OpId, OpKind, OpRef};
-use crate::model::{Considered, Cut, Exclusion, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
+use crate::model::{Considered, Cut, Exclusion, Holes, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
 use crate::plan::{r, show};
 use crate::resources::{Library, id, num};
 use crate::trace::{Trace, because_op};
@@ -254,6 +254,60 @@ fn roughing(setup: &Setup) -> Option<&Roughing> {
     setup.operations.iter().find_map(|o| match &o.cut { Cut::Roughing(rough) => Some(rough), _ => None })
 }
 
+/// Where the drill enters these holes. After roughing: their mouth when the roughing cutter fits
+/// them, or when a flats pass at the mouth's height sweeps the whole disc over them (its cutter,
+/// the roughing one, outreaches the hole by half a stepover, so a raster pass lies over it);
+/// otherwise the lowest roughing layer that keeps the bottom allowance above the mouth, since a
+/// cutter too big for the hole stops there and flats leave part of the disc. Without roughing,
+/// the stock's top as facing leaves it. Clearing no tool cuts is taken out, so it does not count.
+/// Slots, notches and V-channels are cut after holes, so a hole in one's floor is entered from
+/// that recess's top.
+fn drill_entry_z(setup: &Setup, hole: &Holes, library: &Library, group: Option<&str>) -> Result<f64, String> {
+    let faced = setup.operations.iter().find_map(|o| match &o.cut { Cut::Facing { floor_z } => Some(*floor_z), _ => None });
+    let top = faced.filter(|_| library.clearing("facing").is_ok_and(|t| t.is_some())).unwrap_or(setup.stock.max[2]);
+    let roughed = match (roughing(setup), library.clearing("roughing")?) {
+        (Some(rough), Some(mill)) => {
+            let radial = library.settings.radial_allowance_mm.max(2. * rough.surface_error_mm);
+            let bottom = library.settings.bottom_allowance_mm.max(2. * rough.surface_error_mm);
+            let (cutting, _) = technology(mill, group);
+            let data = |key: &str| cutting.get(key).and_then(Value::as_f64).ok_or_else(|| format!("{} has no {key}", id(mill)));
+            let diameter = num(mill, "diameter")?;
+            let flat_at_mouth = setup.operations.iter().any(|o| matches!(&o.cut, Cut::Flats { levels, .. } if levels.iter().any(|z| (z - hole.top_z).abs() < 1e-6)));
+            if diameter + 2. * radial < hole.diameter
+                || (flat_at_mouth && (diameter - hole.diameter) / 2. >= data("stepover_mm")?.min(diameter / 2.) / 2.) {
+                hole.top_z.max(rough.floor_z)
+            } else if rough.floor_z >= hole.top_z {
+                // camlib always cuts its last layer at the floor plus the bottom allowance, and
+                // that layer already keeps the allowance above the mouth.
+                rough.floor_z + bottom
+            } else {
+                // Layers run down from the roughing top by the stepdown it cuts with, as camlib
+                // schedules them, to its floor plus the bottom allowance.
+                let step = data("stepdown_mm")?;
+                let layers = ((rough.top_z - hole.top_z - bottom) / step + 1e-9).floor().max(0.);
+                (rough.top_z - layers * step).max(rough.floor_z + bottom)
+            }
+        }
+        _ => return Ok(top),
+    };
+    let near = |a: [f64; 2], b: [f64; 2], half: f64| hole.centers.iter().any(|c| {
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+        let t = (((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / (dx * dx + dy * dy).max(1e-12)).clamp(0., 1.);
+        (c[0] - a[0] - t * dx).hypot(c[1] - a[1] - t * dy) <= half
+    });
+    let recessed = setup.operations.iter().filter_map(|o| match &o.cut {
+        Cut::Notch(notch) => {
+            let (xs, ys) = (notch.outer.iter().map(|v| v[0]), notch.outer.iter().map(|v| v[1]));
+            let (x0, x1) = (xs.clone().fold(f64::MAX, f64::min), xs.fold(f64::MIN, f64::max));
+            let (y0, y1) = (ys.clone().fold(f64::MAX, f64::min), ys.fold(f64::MIN, f64::max));
+            hole.centers.iter().any(|c| (x0..=x1).contains(&c[0]) && (y0..=y1).contains(&c[1])).then_some(notch.top_z)
+        }
+        Cut::Slot(Slot { a, b, width, top_z, .. }) | Cut::VChannel(VChannel { a, b, width, top_z, .. }) => near(*a, *b, width / 2.).then_some(*top_z),
+        _ => None,
+    }).fold(roughed, f64::max);
+    Ok(recessed.min(top))
+}
+
 /// Where the vise jaws stop side cutting in this setup: jaw top plus clearance. None without jaws.
 fn jaw_cap(setup: &Setup) -> Option<f64> {
     let clamping = setup.clamping.as_ref()?;
@@ -388,6 +442,14 @@ fn wall_refusal(setup: &Setup, op: &Operation, wall: &WallFinish, library: &Libr
         needs = Some(need);
     }
     Ok(Some(("feasibility.wall.room", why, needs)))
+}
+
+/// The stock a V-bit run with its tip on the channel's root leaves on each wall, measured across
+/// the channel's top: its half-width less the bit's half-width at the channel's depth.
+fn v_channel_wall_stock(channel: &VChannel, bit: &Value) -> Result<f64, String> {
+    let tip = bit.get("tip_diameter").and_then(Value::as_f64).unwrap_or(0.);
+    let half = (num(bit, "angle")? / 2.).to_radians().tan();
+    Ok((channel.width - tip) / 2. - channel.depth * half)
 }
 
 /// Why this V-channel cannot be cut, if it cannot.
@@ -756,6 +818,15 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                         why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, warning_number(radius)), json!({"features": op.cut.features(), "radius": radius, "model_radius": model, "corners": corners})));
                     }
                 }
+                if let Cut::VChannel(channel) = &op.cut {
+                    let left = v_channel_wall_stock(channel, spec)?;
+                    if left > 0.005 {
+                        let bit = num(spec, "angle")?;
+                        why.push(trace.warn("process.v_channel.wall_stock", &subject, format!("setup {setup_id}: {} mm V-channel: its walls are left up to {left:.3} mm thick at the top by {name}, a {}° bit in the {}° channel",
+                            warning_number(channel.width), warning_number(bit), warning_number(channel.angle)),
+                            json!({"features": op.cut.features(), "wall_stock_mm": r(left)})));
+                    }
+                }
                 let (mut technology, source) = technology(spec, group.as_deref());
                 if spec["type"] == "tap" { technology.remove("feed_mm_min"); }
                 let says = match &group {
@@ -769,7 +840,8 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                     why.push(trace.decide("machine.spindle.max_rpm", &subject, "chosen", &capped, json!({"chosen": technology["spindle_rpm"]})));
                 }
                 if let Cut::Holes(hole) = &op.cut && spec["type"] == "drill" {
-                    let depth = library.drill_depth(hole, top);
+                    // The depth in material: from where the drill enters, not the stock top.
+                    let depth = library.drill_depth(hole, drill_entry_z(&view, hole, &library, group.as_deref())?);
                     let diameter = num(spec, "diameter")?;
                     let cycle = crate::reference::drilling(depth, diameter, spec);
                     if let Some(ratio) = crate::reference::deep_drilling_ratio(depth, diameter) {
@@ -778,7 +850,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                             warning_number(diameter)), json!({"features": op.cut.features(), "depth_diameter_ratio": ratio})));
                     }
                     why.push(trace.decide("process.hole.peck_by_depth", &subject, "chosen",
-                        "Drilling cycle from stock-top depth / drill diameter; positive tool peck_mm caps the increment",
+                        "Drilling cycle from depth below the surface the drill enters / drill diameter; positive tool peck_mm caps the increment",
                         json!({"chosen": cycle})));
                     technology.extend(cycle.as_object().unwrap().clone());
                 }
@@ -902,4 +974,70 @@ fn material(plan: &mut Plan, library: &Value, trace: &mut Trace) -> Option<Strin
 /// Millimetres in warning prose, rounded without trailing zeroes.
 fn warning_number(value: f64) -> String {
     crate::plan::r(value).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn v_channel_wall_stock_is_the_half_width_the_bit_does_not_reach() {
+        // The stepped plate's channel: 1.8 mm wide, 1.5 deep, so 61.9275° included.
+        let channel = VChannel { angle: 61.9275, width: 1.8, depth: 1.5, length: 10., a: [0., 0.], b: [10., 0.],
+            top_z: 0., root_z: -1.5, on_flat: false, room: None, features: vec![] };
+        let stock = |angle: f64, tip: f64| v_channel_wall_stock(&channel, &json!({"angle": angle, "tip_diameter": tip})).unwrap();
+        // 0.9 - 1.5 × tan 15° = 0.9 - 0.40192 = 0.49808.
+        assert!((stock(30., 0.) - 0.49808).abs() < 1e-5, "{}", stock(30., 0.));
+        // 0.9 - 1.5 × tan 30° = 0.9 - 0.86603 = 0.03397.
+        assert!((stock(60., 0.) - 0.03397).abs() < 1e-5, "{}", stock(60., 0.));
+        // A bit of the channel's own angle leaves nothing.
+        assert!(stock(61.9275, 0.).abs() < 1e-4, "{}", stock(61.9275, 0.));
+        // A 0.2 mm flat tip carries the flank 0.1 mm further out.
+        assert!((stock(30., 0.2) - 0.39808).abs() < 1e-5, "{}", stock(30., 0.2));
+    }
+
+    #[test]
+    fn a_drill_enters_where_the_operations_before_it_leave_the_surface() {
+        let data: Value = serde_json::from_str(include_str!("../../../demo/tools.json")).unwrap();
+        let library = Library::new(&data).unwrap();
+        let hole = |diameter: f64, top_z: f64, x: f64| -> Holes { serde_json::from_value(json!({"diameter": diameter, "top_z": top_z, "bore_top_z": top_z,
+            "bottom_z": -19., "bottom": "through", "centers": [[x, 10.]], "exit_clear_mm": null})).unwrap() };
+        let setup = |ops: Value| -> Setup { serde_json::from_value(json!({"id": "top", "stock": {"min": [0., 0., -26.], "max": [100., 60., 0.]}, "operations": ops})).unwrap() };
+        let entry = |ops: Value, hole: Holes, library: &Library| drill_entry_z(&setup(ops), &hole, library, None).unwrap();
+        let near = |got: f64, want: f64| assert!((got - want).abs() < 1e-9, "{got} != {want}");
+        let facing = json!({"kind": "facing", "floor_z": -1.});
+        let roughing = json!({"kind": "roughing", "top_z": 0., "floor_z": -19., "web_mm": 7., "surface_error_mm": 0.});
+        let notch = json!({"kind": "notch", "width": 8., "length": 20., "open": false, "outer": [[40., 6., 0.], [60., 6., 0.], [60., 14., 0.], [40., 14., 0.]],
+            "top_z": -1., "floor_z": -7., "wall_top": -1., "bottom": "blind"});
+        // Unfaced and unroughed: the stock top.
+        near(entry(json!([]), hole(3.3, -7., 10.), &library), 0.);
+        // Faced only: the faced top, however low the mouth.
+        near(entry(json!([facing]), hole(3.3, -7., 10.), &library), -1.);
+        // Roughed by em6 (0.2 mm stepdown), too big for the stepped plate's 3.3 mm holes at Z-7:
+        // its last layer that keeps the 0.2 mm bottom allowance above the mouth, Z-6.8.
+        near(entry(json!([facing, roughing]), hole(3.3, -7., 10.), &library), -6.8);
+        // An 8 mm hole takes em6 with its 0.3 mm radial allowance (6.6 mm), so roughing reaches the mouth.
+        near(entry(json!([facing, roughing]), hole(8., -7., 10.), &library), -7.);
+        // With a 2 mm stepdown the layers are Z-2, -4, -6, -8: the disc over the mouth is left at Z-6.
+        let mut coarse = data.clone();
+        for tool in coarse["tools"].as_array_mut().unwrap().iter_mut().filter(|t| t["id"] == "em6") { tool["stepdown_mm"] = json!(2.); }
+        near(entry(json!([facing, roughing]), hole(3.3, -7., 10.), &Library::new(&coarse).unwrap()), -6.);
+        // A flats pass at the mouth: em6 outreaches the 3.3 mm hole by 1.35 mm, over half its
+        // 2.4 mm stepover, so a pass sweeps the whole disc and the drill enters at the mouth; a
+        // 5.5 mm hole it outreaches by only 0.25 mm keeps the cap over it, as the review's 12 mm
+        // hole under em12 did (mouth Z-21.6, cleared over all its disc only to the Z-20 layer).
+        let flats = json!({"kind": "flats", "floor_z": -19., "levels": [-7.]});
+        near(entry(json!([facing, roughing, flats]), hole(3.3, -7., 10.), &library), -7.);
+        near(entry(json!([facing, roughing, flats]), hole(5.5, -7., 10.), &library), -6.8);
+        // A mouth below the roughing floor is entered from the floor plus its bottom allowance.
+        let shallow = json!({"kind": "roughing", "top_z": 0., "floor_z": -5., "web_mm": 21., "surface_error_mm": 0.});
+        near(entry(json!([facing, shallow]), hole(3.3, -7., 10.), &library), -4.8);
+        // So it is with a stepdown deeper than the roughing: camlib's only layer is the clamped floor at Z-4.8.
+        let mut deep = data.clone();
+        for tool in deep["tools"].as_array_mut().unwrap().iter_mut().filter(|t| t["id"] == "em6") { tool["stepdown_mm"] = json!(10.); }
+        near(entry(json!([facing, shallow]), hole(3.3, -7., 10.), &Library::new(&deep).unwrap()), -4.8);
+        // In the floor of a notch cut after it: the notch's top; beside the notch: as roughing leaves it.
+        near(entry(json!([facing, roughing, notch.clone()]), hole(3.3, -7., 50.), &library), -1.);
+        near(entry(json!([facing, roughing, notch]), hole(3.3, -7., 10.), &library), -6.8);
+    }
 }

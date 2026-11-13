@@ -176,7 +176,8 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     assert_eq!((of("notch"), of("v_channel")), (3, 1), "{ops:?}");
     let log = out["log"].to_string();
     assert!(log.contains("vb60 is a 60.0° bit in a 61.9275° channel: its walls keep up to 0.034 mm"), "{log}");
-    // The deep holes retain their warning. Corner deviations now belong to the plan:
+    // The ⌀3.3 holes are 13 mm (3.9×D) below their mouth, which roughing and flats clear: no deep-hole
+    // warning. Corner deviations now belong to the plan:
     // r1.5 versus the recovered r1.2 slot, and r3 at each notch's two sharp corners.
     assert_eq!(out["plan"]["warnings"], json!([
         // The drawing's requirements the plan does not act on come first.
@@ -188,10 +189,10 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "perpendicularity 0.05 on datum C (face 5): not checked",
         "fit H7 on the ⌀10 hole: not held: cut to the drawn size with no finishing pass, ream or bore",
         "position not checked: ⌀0.4 on the 4 ⌀4.4 holes (clearance M4); ⌀0.2 on the 2 ⌀2.5 holes (tapped M3); ⌀2 on the ⌀10 hole (fit H7)",
-        "setup top: 3.3 mm holes, depth/D 6.1: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
         "setup top: 6 mm notch: its 4 inside corners are left r1.5 by em3 (the model has r1.2)",
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
+        "setup top: 1.8 mm V-channel: its walls are left up to 0.034 mm thick at the top by vb60, a 60° bit in the 61.9275° channel",
         // This library has no spot drill for the ⌀10 hole: its spot drilling is left out.
         "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth"
     ]));

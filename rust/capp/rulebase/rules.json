@@ -771,6 +771,15 @@
    "sources": [{ "kind": "step2cam" }]
   },
   {
+   "id": "process.v_channel.wall_stock",
+   "warning_label": "V-channel walls left with stock",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A sharp V-bit narrower than the channel, run with its tip on the root, leaves a wedge of stock on each wall. Its width across the top is the channel's half-width less the bit's half-width at the channel's depth, (width - tip diameter) / 2 - depth × tan(bit angle / 2); above 0.005 mm the channel is reported as partly cut with that stock left, as wider notch corners are.",
+   "code": "settle.rs resolve_with",
+   "sources": [{ "kind": "step2cam" }]
+  },
+  {
    "id": "tool.notch.pocket_mill",
    "version": 1,
    "stage": "tools",
@@ -953,9 +962,9 @@
   {
    "id": "process.hole.peck_by_depth",
    "warning_label": "deep holes pecked",
-   "version": 2,
+   "version": 3,
    "stage": "tools",
-   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration. Above the reference deep-hole threshold (5D), warn and trace the hole identity and ratio: pilot plus deep-hole drilling is not planned, so full-retract pecking remains the fallback.",
+   "rationale": "Single plunge through 3 diameters; beyond that full-retract pecks of half a diameter, capped by a positive library peck_mm. Full retract is used even at intermediate depths because drills have no through-tool coolant declaration. Depth is measured from where the drill enters, not the stock top: after roughing, the hole's mouth when the roughing cutter with its radial allowance fits the hole, or when a flats pass at the mouth's height sweeps the whole disc over it (the cutter outreaches the hole by at least half its stepover); otherwise the lowest roughing layer (stepping down from its top) that keeps the bottom allowance above the mouth, since a cutter too big for the hole cannot clear the disc over it; without roughing, the stock top as faced; and the top of any slot, notch or V-channel whose floor it is in, as those are cut after holes. Above the reference deep-hole threshold (5D), warn and trace the hole identity and ratio: pilot plus deep-hole drilling is not planned, so full-retract pecking remains the fallback.",
    "code": "reference.rs drilling; settle.rs tools",
    "sources": [
     {

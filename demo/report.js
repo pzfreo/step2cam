@@ -63,6 +63,7 @@ export function warningText(m, d, brief = false) {
   else if (brief && d.rule.startsWith("machine.clamping@") && d.jaw_cap_z != null) text = d.subject.endsWith(":roughing")
     ? `side cutting stops at Z${trim(d.jaw_cap_z)} (jaws)`
     : `below Z${trim(d.jaw_cap_z)} jaw clearance: left for a later setup`;
+  else if (brief && d.wall_stock_mm != null) text = `Walls left up to ${Number(d.wall_stock_mm).toFixed(3)} mm thick at the top`;
   else if (brief && d.radius != null) text = `Inside corners left r${trim(d.radius)} (${d.model_radius ? `model r${trim(d.model_radius)}` : "sharp in the model"})`;
   // Older subject-specific warnings still include their subject in the prose.
   for (const id of d.features || []) {

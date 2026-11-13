@@ -1,7 +1,7 @@
 // Content and escaping checks; no output hashes or dependency on a browser.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, operationTime, setupDetails, workholdingText, setupZero, NOT_FEATURES, toolChoiceRows } from '../demo/report.js';
+import { reportDocument, reportLength, reportDuration, sheetWords, checkText, featureName, operationName, operationTime, setupDetails, workholdingText, setupZero, NOT_FEATURES, toolChoiceRows, warningText } from '../demo/report.js';
 const data = {
   name: '<part & "test">.step', library: { machine: 'mill' }, tools: [
     { id: 'a', number: 7, type: 'end_mill', diameter: 6, shank_diameter: 6 },
@@ -233,6 +233,17 @@ const noiseReport = reportDocument(noise, options), firstOperation = noiseReport
 assert.equal((firstOperation.match(/full-retract pecks/g) || []).length, 1);
 assert.ok(!firstOperation.includes('ISO rationale'));
 assert.ok(reportText({ blocks: noiseReport.blocks.slice(noiseReport.appendixStart) }).includes('ISO rationale retained only in appendix'));
+// Partly cut V-channel walls and notch corners get their own brief notes in the operation's row.
+const partly = structuredClone(detailed);
+partly.plan.decisions.push({ id: 'walls', stage: 'tools', rule: 'process.v_channel.wall_stock@1', outcome: 'warning', says: 'Long wall stock warning', wall_stock_mm: 0.4981 },
+  { id: 'corners', stage: 'tools', rule: 'process.notch.corner_radius@1', outcome: 'warning', says: 'Long corner warning', radius: 3, model_radius: 0 });
+partly.plan.setups[0].operations[0].because.push('walls', 'corners');
+const partlyRow = reportDocument(partly, options).blocks.find(b => b.id === 'operations').rows[0][1];
+// The sheet shows lengths to two decimals; the brief text itself (also the app's) keeps three.
+assert.ok(partlyRow.includes('Walls left up to 0.5 mm thick at the top'), partlyRow);
+assert.equal(warningText({ features: new Map() }, partly.plan.decisions.find(d => d.id === 'walls'), true), 'Walls left up to 0.498 mm thick at the top');
+assert.ok(partlyRow.includes('Inside corners left r3 (sharp in the model)'), partlyRow);
+assert.ok(!partlyRow.includes('Long wall stock warning') && !partlyRow.includes('Long corner warning'), partlyRow);
 assert.ok(document.blocks.find(b => b.id === 'operations').headers.includes('Stepdown / stepover mm'));
 const slotShape = structuredClone(data);
 slotShape.plan.setups[0].operations[0] = { kind: 'slot', width: 4, length: 8, tool: 'a', iso14649: { note: 'a Closed_slot with Radiused_slot_end_type ends' } };
