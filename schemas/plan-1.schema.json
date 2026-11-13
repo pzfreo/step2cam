@@ -2419,7 +2419,7 @@
     },
     "needs": {
      "type": "string",
-     "description": "The tool says ends by saying is needed: the description after its last \": needs \", as tools_needed lists it."
+     "description": "What says ends by naming as needed: the description after its last \": needs \", as tools_needed lists it."
     },
     "chosen": {
      "description": "What was chosen or given: setup/tool ID, clamping proposal and prior-setup audit, or null for none."
