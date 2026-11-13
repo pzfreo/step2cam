@@ -319,6 +319,19 @@
    ]
   },
   {
+   "id": "process.wall_finish.lead",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A wall finishing contour around a convex outline comes down one cutter radius before the start of its loop and leads onto the wall along its tangent, and leaves it the same way, so the cutter neither plunges nor stops against the finished wall. camlib's contour takes straight tangent leads only (lead_in_mm, lead_out_mm), not arcs, starts the loop where it chooses, and refuses a lead that cuts into the part. Only on a convex outline is every tangent of the tool path clear of the part, so any other outline is plunged at the wall with no lead, as before. The job's wall finishing note cites this rule.",
+   "code": "rust/src/job.rs wall_finish",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: one radius takes the plunge off the wall; an arc lead would be the usual choice where camlib offers one"
+    }
+   ]
+  },
+  {
    "id": "process.wall_finish.not_upright",
    "warning_label": "outside walls keep allowance",
    "version": 1,

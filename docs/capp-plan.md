@@ -663,6 +663,11 @@ stock-top-to-floor depth divided into the fewest equal passes no deeper than the
 selected tool's flute length. This replaces the roughing stepdown for finishing
 only, in operation technology consumed by the camlib adapter. Full reach and
 stock-contact checks still apply; equal layers do not excuse insufficient reach.
+The adapter leads a wall finish onto and off its wall along the tangent, one
+cutter radius long, where the outline is convex (`process.wall_finish.lead`):
+camlib's contour takes straight tangent leads only and chooses where the loop
+starts, so on any other outline a lead could cut into the part and the cutter
+plunges at the wall instead.
 
 An optional machine `spindle.collet_change` (`manual` or `automatic`) describes
 swapping the spindle collet, separately from swapping complete tool holders.

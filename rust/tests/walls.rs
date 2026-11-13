@@ -298,7 +298,13 @@ fn finishing_walls_cuts_full_depth_despite_a_shallow_roughing_stepdown() {
         let cuts: Vec<_> = program["moves"].as_array().unwrap().iter().filter(|m| m["op"] == contour["id"] && m["kind"] == "cut").collect();
         assert!(!cuts.is_empty());
         assert!(cuts.iter().all(|m| m["points"].as_array().unwrap().iter().all(|p| (number(&p[2]) - floor).abs() < 1e-9)), "{cuts:?}");
+        // The round boss is convex: the cutter comes down a radius off the wall and leads on and off it.
+        let radius = number(&program["job"]["tools"].as_array().unwrap().iter().find(|t| t["id"] == contour["tool"]).unwrap()["cutter"]["diameter_mm"]) / 2.;
+        assert_eq!((number(&contour["lead_in_mm"]), number(&contour["lead_out_mm"])), (radius, radius));
+        let leads = program["moves"].as_array().unwrap().iter().filter(|m| m["op"] == contour["id"] && m["kind"] == "lead").count();
+        assert_eq!(leads, 2);
     }
+    assert!(out["log"].as_array().unwrap().iter().any(|l| l.as_str().unwrap().contains("leads onto it along its tangent, and off it the same way (process.wall_finish.lead@1)")));
     assert_eq!(program["material"]["gouge"]["definite_cells"], 0);
     assert!(out["plan"]["decisions"].as_array().unwrap().iter().any(|d| d["rule"] == "process.wall_finish.axial_passes@1" && d["chosen"]["passes"] == 1));
 }
