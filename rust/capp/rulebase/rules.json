@@ -1067,7 +1067,7 @@
    "version": 1,
    "stage": "tools",
    "warning_label": "holes drilled without spotting",
-   "rationale": "Spot drilling no tool cuts is taken out; its holes are still drilled, so their features are skipped by this rule (not counted as left out) and one warning per setup says how many holes are drilled without spotting and which spot drill is needed.",
+   "rationale": "Spot drilling no tool cuts is taken out; its holes are still drilled, so they are not skipped: one warning per setup names them, says how many holes are drilled without spotting and which spot drill is needed.",
    "code": "settle.rs leave_out_untooled",
    "sources": [
     {

@@ -216,9 +216,10 @@ pub(crate) fn collect(plan: &mut Plan) {
         add(skipped.decision.as_deref().and_then(|id| need_of(decisions, id)), std::slice::from_ref(&skipped.feature), None);
     }
     // Settling can remove a V-channel or a wall before tool resolution; an operation no tool cuts
-    // is removed after it, and named as it was numbered then.
+    // is removed after it, and named as it was numbered then, with the features it would cut.
     for decision in decisions.iter().filter(|d| (d["outcome"] == "warning" || d["outcome"] == "removed") && d.get("superseded_by").is_none()) {
-        add(decision["needs"].as_str(), &[], decision["subject"].as_str().map(String::from));
+        let features: Vec<String> = if decision["outcome"] == "removed" { serde_json::from_value(decision["features"].clone()).unwrap_or_default() } else { vec![] };
+        add(decision["needs"].as_str(), &features, decision["subject"].as_str().map(String::from));
     }
     plan.tools_needed = Some(needs);
 }

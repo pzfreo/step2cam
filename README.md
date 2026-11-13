@@ -206,10 +206,10 @@ The plan says **what** to cut, independent of tools and machine.
 - **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
   that cuts it. An operation no tool cuts is taken out of `operations` (those after it are
   numbered again) and each of its features is in `skipped` with why and the tool it needs; one
-  with no features of its own gets a warning instead. Spot drilling left out this way skips its
-  holes by rule `tool.none.unspotted`: they are still drilled, and a warning per setup says how
-  many holes are drilled without spotting. `capp::resolve` alone still leaves such an operation
-  in place with `tool: null` and why (`tool_note`).
+  with no features of its own gets a warning instead. Spot drilling left out this way does not
+  skip its holes, since they are still drilled: a warning per setup (rule `tool.none.unspotted`)
+  says how many holes are drilled without spotting and names them. `capp::resolve` alone still
+  leaves such an operation in place with `tool: null` and why (`tool_note`).
 - **`tools_needed`**, after `capp::finish`: missing-tool queries, each with a `description`,
   `features` and `operations` (operation ids or decision subjects; an operation no tool cuts is
   named as it was numbered before it was taken out). Identical descriptions merge;

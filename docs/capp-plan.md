@@ -573,8 +573,8 @@ no refused spot is recreated.
 
 After tool resolution, `finish` takes out every operation no tool cuts (`tool.none.left_out`)
 and numbers the rest again, as after an exclusion. Its features are skipped with its reason and
-need. Spot drilling left out this way (`tool.none.unspotted`) skips its holes without counting
-them as left out, since they are still drilled, and warns once per setup, for example
+need. Spot drilling left out this way does not skip its holes, since they are still drilled;
+instead one warning per setup (`tool.none.unspotted`) names them, for example
 `setup top: 9 holes drilled without spotting: no usable spot drill: needs …`. Execution names
 in exclusions and supplied choices count only the operations the finished plan has: an
 exclusion is mapped back by resolving a copy of the plan as the engine saw it.

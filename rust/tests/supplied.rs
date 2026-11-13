@@ -190,7 +190,7 @@ fn supplied_hole_numbers_skip_spot_drilling_no_tool_cuts() {
     oracle["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "drill4.2");
     let plan = with_hole_tool(4.2, &tools, "reserved", &oracle);
     assert!(list(&plan["setups"][0]["operations"]).iter().all(|o| o["kind"] != "spot_drill"));
-    assert!(list(&plan["skipped"]).iter().any(|s| s["reason"].as_str().unwrap().starts_with("spot drilling left out: ")));
+    assert!(list(&plan["warnings"]).iter().any(|w| w.as_str().unwrap().contains(" drilled without spotting: ")));
     // A supplied 140° drill no spot drill covers: its spots are left out, the other holes' stay.
     let mut tools = example_tools();
     add_tool(&mut tools, "drill4.2", "drill140", &[("point_angle", 140.)]);

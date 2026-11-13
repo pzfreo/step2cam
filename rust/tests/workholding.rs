@@ -157,19 +157,21 @@ fn haas_flip_finishes_despite_missing_spot_tools() {
     assert_eq!(flip["finished"], true);
     assert_eq!(flip["reason"], "finished");
     assert_eq!(flip["tools_needed"], out["plan"]["tools_needed"]);
-    // The spot drilling no tool cuts is not an operation; its holes are skipped by it, still
-    // drilled, not counted as left out, and the setup warns that they are not spotted.
+    // The spot drilling no tool cuts is not an operation; its holes are still drilled, so they are
+    // neither skipped nor counted as left out, and the setup warns that they are not spotted.
     assert!(list(&out["plan"]["setups"]).iter().all(|s| list(&s["operations"]).iter().all(|o| o["kind"] != "spot_drill")));
-    let unspotted: Vec<_> = list(&out["plan"]["skipped"])
+    let unspotted: Vec<_> = list(&out["plan"]["decisions"])
         .iter()
-        .filter(|s| s["reason"].as_str().unwrap().starts_with("spot drilling left out: no usable spot drill"))
+        .filter(|d| d["rule"] == "tool.none.unspotted@1" && d["outcome"] == "warning")
+        .flat_map(|d| list(&d["features"]))
         .collect();
     assert!(!unspotted.is_empty(), "spot drilling must exercise an operation without a tool");
-    for s in &unspotted {
+    for f in &unspotted {
         assert!(list(&out["plan"]["setups"]).iter().any(|setup| list(&setup["operations"])
             .iter()
-            .any(|o| o["kind"] == "holes" && o["tool"].is_string() && list(&o["features"]).contains(&s["feature"]))), "{s}");
-        assert!(list(&flip["features_left_out"]).iter().all(|f| f["feature"] != s["feature"]));
+            .any(|o| o["kind"] == "holes" && o["tool"].is_string() && list(&o["features"]).contains(*f))), "{f}");
+        assert!(list(&out["plan"]["skipped"]).iter().all(|s| &s["feature"] != *f), "{f}");
+        assert!(list(&flip["features_left_out"]).iter().all(|l| &l["feature"] != *f));
     }
     assert!(list(&out["plan"]["warnings"]).iter().any(|w| w.as_str().unwrap().contains(" drilled without spotting: no usable spot drill")));
     assert!(list(&flip["tools_needed"]).iter().any(|n| {

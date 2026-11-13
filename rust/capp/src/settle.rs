@@ -98,8 +98,9 @@ fn unfinished_id(plan: &Plan, library: &Value, trace: &Trace, id: &OpId) -> Resu
     Ok(OpId { number: number.unwrap_or(usize::MAX), ..id.clone() })
 }
 
-/// Takes each operation that no tool cuts out of its setup. Its features are skipped with why,
-/// and a spot drilling left out warns, once per setup, which holes are drilled without spotting.
+/// Takes each operation that no tool cuts out of its setup. Its features are skipped with why;
+/// a spot drilling's holes are still drilled, so instead of being skipped they are named by one
+/// warning per setup, which says they are drilled without spotting.
 /// The operations after it are numbered again, as after an exclusion.
 fn leave_out_untooled(plan: &mut Plan, trace: &mut Trace) {
     for setup in 0..plan.setups.len() {
@@ -116,14 +117,15 @@ fn leave_out_untooled(plan: &mut Plan, trace: &mut Trace) {
             let need = crate::needed::op_need(&trace.decisions, &removed).map(String::from);
             let noun = crate::plan::operation_noun(id.kind.name());
             let reason = match note.strip_prefix("left out: ") { Some(rest) => format!("{noun} left out: {rest}"), None => format!("{noun} left out: {note}") };
-            let left = trace.decide(UNTOOLED, &operation, "removed", &reason, json!({"operation": OpRef::from(id)}));
-            trace.needs(&left, need.as_deref());
             let features = removed.cut.features().unwrap_or_default();
-            // Spot drilling's holes are still drilled: its features are skipped by a rule of their own.
-            let rule = if id.kind == OpKind::SpotDrill { UNSPOTTED } else { UNTOOLED };
-            for feature in features {
-                let skipped = trace.skip(rule, feature, reason.clone());
-                trace.needs(&skipped, need.as_deref());
+            let left = trace.decide(UNTOOLED, &operation, "removed", &reason, json!({"operation": OpRef::from(id), "features": features}));
+            trace.needs(&left, need.as_deref());
+            // Spot drilling's holes are still drilled, so they are not skipped: the warning below names them.
+            if id.kind != OpKind::SpotDrill {
+                for feature in features {
+                    let skipped = trace.skip(UNTOOLED, feature, reason.clone());
+                    trace.needs(&skipped, need.as_deref());
+                }
             }
             // Nothing is covered by roughing that does not run.
             if id.kind == OpKind::Roughing {

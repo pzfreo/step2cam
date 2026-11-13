@@ -59,20 +59,20 @@ fn missing_spot_tool_keeps_drilling_and_describes_the_needed_tool() {
     let mut lib=example_tools();
     lib["tools"].as_array_mut().unwrap().retain(|t| t["type"]!="spot_drill");
     let p=finish(&holes_only(&[down(0.,0.,4.2,8.,"flat")]),&lib);
-    // The spot drilling no tool cuts is not an operation: its hole says why, and a warning says
-    // the hole is drilled without spotting.
+    // The spot drilling no tool cuts is not an operation. Its hole is still drilled, so it is not
+    // skipped: a warning names it as drilled without spotting.
     assert!(ops(&p,"spot_drill").is_empty());
-    let skipped=p["skipped"].as_array().unwrap();
-    assert_eq!(skipped.len(),1,"{skipped:?}");
-    let reason=skipped[0]["reason"].as_str().unwrap();
+    assert!(p["skipped"].as_array().unwrap().is_empty(),"{}",p["skipped"]);
+    let removed=p["decisions"].as_array().unwrap().iter().find(|d| d["rule"]=="tool.none.left_out@1" && d["outcome"]=="removed").unwrap();
+    let reason=removed["says"].as_str().unwrap();
     assert!(reason.starts_with("spot drilling left out: no usable spot drill: needs a spot drill"),"{reason}");
     let setup=p["setups"][0]["id"].as_str().unwrap();
     let need=reason.split_once(": needs ").unwrap().1;
     assert!(p["warnings"].as_array().unwrap().contains(&json!(format!("setup {setup}: 1 hole drilled without spotting: no usable spot drill: needs {need}"))),"{}",p["warnings"]);
     let warned=p["decisions"].as_array().unwrap().iter().find(|d| d["rule"]=="tool.none.unspotted@1" && d["outcome"]=="warning").unwrap();
-    assert_eq!(warned["features"],json!([skipped[0]["feature"]]));
+    assert_eq!(warned["features"],ops(&p,"holes")[0]["features"]);
     assert_eq!(p["tools_needed"][0]["description"],need);
-    assert_eq!(p["tools_needed"][0]["features"],skipped[0]["feature"].as_str().map(|f| json!([f])).unwrap());
+    assert_eq!(p["tools_needed"][0]["features"],warned["features"]);
     assert_eq!(ops(&p,"holes")[0]["tool"],"drill4.2");
     let (jobs,_) = step2cam::job::jobs(&p,&lib).unwrap();
     assert_eq!(jobs[0].manifest["operations"].as_array().unwrap().len(),1);
@@ -153,7 +153,8 @@ fn unusable_spot_tools_do_not_substitute_an_undersized_or_sharper_spot() {
         lib["tools"].as_array_mut().unwrap().push(t);
         let p=finish(&holes_only(&[down(0.,0.,4.2,8.,"flat")]),&lib);
         assert!(ops(&p,"spot_drill").is_empty(),"{field}");
-        assert!(p["skipped"][0]["reason"].as_str().unwrap().starts_with("spot drilling left out: no usable spot drill"),"{field}");
+        assert!(p["skipped"].as_array().unwrap().is_empty(),"{field}");
+        assert!(p["warnings"].as_array().unwrap().iter().any(|w| w.as_str().unwrap().contains(" drilled without spotting: no usable spot drill")),"{field}");
         assert_eq!(ops(&p,"holes")[0]["tool"],"drill4.2");
     }
 }
@@ -182,10 +183,11 @@ fn pruning_updates_the_missing_tool_query_to_the_remaining_spots() {
     assert!(ops(&p,"spot_drill").is_empty());
     assert_eq!(ops(&p,"holes").len(),1);
     assert_eq!(ops(&p,"holes")[0]["diameter"],4.2);
-    let spot:Vec<_>=p["skipped"].as_array().unwrap().iter().filter(|s| s["reason"].as_str().unwrap().starts_with("spot drilling left out")).collect();
-    assert_eq!(spot.len(),1);
-    assert!(spot[0]["reason"].as_str().unwrap().contains("at least ⌀4.2"));
-    assert!(p["warnings"].as_array().unwrap().iter().any(|w| w.as_str().unwrap().contains(": 1 hole drilled without spotting: ")));
+    // The refused holes are skipped; the hole still drilled is not, and its warning asks for a spot
+    // drill for it alone.
+    assert!(p["skipped"].as_array().unwrap().iter().all(|s| !s["reason"].as_str().unwrap().starts_with("spot drilling left out")));
+    let warning=p["warnings"].as_array().unwrap().iter().map(|w| w.as_str().unwrap()).find(|w| w.contains(": 1 hole drilled without spotting: ")).unwrap();
+    assert!(warning.contains("at least ⌀4.2"),"{warning}");
 }
 
 #[test]
