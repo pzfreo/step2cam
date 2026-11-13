@@ -793,7 +793,9 @@ fn wall_finish<'a>(cx: &mut SetupCut<'a>, op: &model::WallFinish, technology: Te
     let mill = &mill_cut;
     // A straight tangent lead one cutter radius long (camlib's contour offers no arc lead), where
     // the outline is convex: camlib starts the loop where it chooses, and only on a convex outline
-    // is every tangent of the tool path clear of the part.
+    // is every tangent of the tool path clear of the part. The lead extends the loop's first
+    // stroke backwards, so where the loop starts on a straight wall, or where an arc meets one,
+    // it runs along that wall and the cutter still comes down against it.
     let lead = if convex(&op.outer) { num(mill, "diameter")? / 2. } else { 0. };
     let mut out = json!({
         "kind": "contour", "id": op_id, "tool": id(mill), "region": region(op_id, &op.outer, &[]),
@@ -804,7 +806,7 @@ fn wall_finish<'a>(cx: &mut SetupCut<'a>, op: &model::WallFinish, technology: Te
     });
     cutting(&mut out, mill, true)?;
     cx.notes.push(if lead > 0. {
-        format!("{op_id}: comes down {} mm off the wall and leads onto it along its tangent, and off it the same way ({})", show(lead), cite("process.wall_finish.lead"))
+        format!("{op_id}: comes down {} mm back along the tangent of its loop start and leads onto the loop, and off it the same way; camlib chooses the start, and where that is on a straight wall or where an arc meets one, the cutter still comes down against that wall ({})", show(lead), cite("process.wall_finish.lead"))
     } else {
         format!("{op_id}: plunges at the wall with no lead, as its outline is not convex and a tangent lead could cut into the part ({})", cite("process.wall_finish.lead"))
     });
