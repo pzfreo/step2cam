@@ -57,7 +57,8 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
         }
     }
     let schema = jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
-    assert!(schema.is_valid(&out["plan"]));
+    let errors: Vec<_> = schema.iter_errors(&out["plan"]).map(|e| format!("{}: {e}", e.instance_path())).collect();
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
     // The adapter must execute the limit, not merely report it in the trace.
     let programs = out["programs"].as_array().unwrap();
     let job_face = programs.iter().flat_map(|p| p["job"]["operations"].as_array().unwrap()).find(|o| o["id"]=="bottom-1-facing").unwrap();
@@ -101,6 +102,7 @@ fn ample_force_keeps_the_original_facing_stepdown() {
 #[test]
 fn clamp_force_and_its_citation_are_validated() {
     let schema = jsonschema::validator_for(&read("schemas/resources-1.schema.json")).unwrap();
+    assert!(schema.is_valid(&read("libraries/haas-vf2.json")));
     for bad in [json!(0), json!(-1), json!("500"), Value::Null] {
         let mut lib = read("libraries/haas-vf2.json");
         lib["machines"][0]["workholding"][0]["clamp_force_n"] = bad;

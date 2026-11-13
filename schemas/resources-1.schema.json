@@ -1597,6 +1597,7 @@
         "type": "number",
         "exclusiveMinimum": 0
        },
+       "name": {"type": "string", "minLength": 1, "description": "Workholding identity used in setup force evidence and not-checked warnings."},
        "clamp_force_n": {"type": "number", "exclusiveMinimum": 0, "description": "Published normal force at EACH jaw in N, at clamp_torque_nm when specified. Requires a maker citation under _sources.clamp_force. Never estimate from dimensions."},
        "clamp_torque_nm": {"type": "number", "exclusiveMinimum": 0, "description": "Applied torque associated with clamp_force_n, from the same maker table, in Nm."},
        "_sources": {"type": "object", "description": "Provenance of inventoried vise and parallels dimensions and forces.", "properties": {"clamp_force": {"type": "object", "required": ["url", "read", "note"], "properties": {"url": {"type": "string", "minLength": 1}, "read": {"type": "string", "minLength": 1}, "note": {"type": "string", "minLength": 1}}}}},

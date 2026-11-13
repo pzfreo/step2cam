@@ -2415,7 +2415,9 @@
       "skipped",
       "warning",
       "removed",
-      "given"
+      "given",
+      "checked",
+      "stepped_down"
      ]
     },
     "says": {
@@ -2565,6 +2567,111 @@
      },
      "additionalProperties": false
     },
+     "clamp_force_n": {
+      "type": "number",
+      "minimum": 0
+     },
+     "friction_coefficient": {
+      "type": "number",
+      "minimum": 0
+     },
+     "holding_force_n": {
+      "type": "number",
+      "minimum": 0
+     },
+     "safety_factor": {
+      "type": "number",
+      "minimum": 0
+     },
+     "allowable_cutting_force_n": {
+      "type": "number",
+      "minimum": 0
+     },
+     "cutting_force_n": {
+      "type": "number",
+      "minimum": 0
+     },
+     "kc1_n_mm2": {
+      "type": "number",
+      "minimum": 0
+     },
+     "mc": {
+      "type": "number",
+      "minimum": 0
+     },
+     "kc_n_mm2": {
+      "type": "number",
+      "minimum": 0
+     },
+     "chip_thickness_mm": {
+      "type": "number",
+      "minimum": 0
+     },
+     "axial_depth_mm": {
+      "type": "number",
+      "minimum": 0
+     },
+     "radial_width_mm": {
+      "type": "number",
+      "minimum": 0
+     },
+     "feed_mm_min": {
+      "type": "number",
+      "minimum": 0
+     },
+     "spindle_rpm": {
+      "type": "number",
+      "minimum": 0
+     },
+     "flutes": {
+      "type": "number",
+      "minimum": 0
+     },
+     "stepdown_mm": {
+      "type": "number",
+      "minimum": 0
+     },
+     "per_pass_force_n": {
+      "type": "number",
+      "minimum": 0
+     },
+     "clamp_torque_nm": {
+      "type": [
+       "number",
+       "null"
+      ],
+      "exclusiveMinimum": 0
+     },
+     "jaw_faces": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "passes": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "force_model": {
+      "type": "string"
+     },
+     "clamp_source": {
+      "type": "object",
+      "required": [
+       "url",
+       "read",
+       "note"
+      ],
+      "properties": {
+       "url": {
+        "type": "string"
+       },
+       "read": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     },
     "jaw_cap_z": {
      "type": "number",
      "description": "Side-cutting jaw clearance cap in setup coordinates, in mm."

@@ -45,10 +45,11 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) -> Resu
         };
         let faces = setup.clamping.as_ref().unwrap()["faces"].as_array().map_or(0, Vec::len);
         let holding = mu * clamp * faces as f64;
+        let torque = vise["clamp_torque_nm"].as_f64().map_or_else(|| "torque unspecified".into(), |n| format!("at {n} Nm"));
         let detail = json!({"clamp_force_n":clamp,"clamp_torque_nm":vise["clamp_torque_nm"],"friction_coefficient":mu,
             "jaw_faces":faces,"holding_force_n":holding,"safety_factor":safety,"allowable_cutting_force_n":holding/safety,
             "clamp_source":vise["_sources"]["clamp_force"]});
-        trace.decide(RULE, &setup.id, "checked", &format!("{name}: clamp {clamp:.2} N at {} Nm, mu {mu}, {faces} jaw faces: holding force {holding:.2} N; safety factor {safety}, allowable cutting force {:.2} N. Sliding only; contact pressure, lift and overturning are not checked", vise["clamp_torque_nm"], holding/safety), detail.clone());
+        trace.decide(RULE, &setup.id, "checked", &format!("{name}: clamp {clamp:.2} N {torque}, mu {mu}, {faces} jaw faces: holding force {holding:.2} N; safety factor {safety}, allowable cutting force {:.2} N. Sliding only; contact pressure, lift and overturning are not checked", holding/safety), detail.clone());
         let top = setup.stock.max[2];
         for (index, op) in setup.operations.iter_mut().enumerate() {
             let subject = format!("{}-{}-{}", setup.id, index+1, op.cut.kind().name());

@@ -730,7 +730,7 @@ smooth-jaw values to a vise is step2cam judgement. Grip height does not multiply
 Coulomb friction capacity: small contact area still needs pressure and moment checks.
 
 The [ISCAR aluminium guide](https://www.iscar.ru/Catalogs/Publication/english_1/ALUMINUM_MACHINING/ALUMINUM_MACHINING.pdf),
-USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought ISO N group 22
+p161, USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought ISO N group 22
 **kc₁ = 800 N/mm², m꜀ = 0.25**. That row is our conservative aluminium proxy
 (step2cam judgement); other materials warn that no applicable reference is implemented.
 For milling, `fz = feed/(rpm × flutes)`, `φ = acos(1 − 2ae/D)`,
@@ -740,7 +740,7 @@ Each operation uses its resolved feed, rpm and engagement. Clearing uses at most
 stepover; pockets use full-slot engagement, walls the radial allowance, flats the
 roughing step envelope. Drilling/spotting/tapping use a full-cylinder removal proxy
 `F = kc × (πae²/4) × feed/(πD × rpm)` and `h = feed/(rpm × flutes)`;
-tapping feed is rpm × pitch. These envelopes and default flute counts (2 for drills,
+tapping feed is rpm × pitch. These envelopes and default flute counts (2 for drills and spot drills,
 3 otherwise, matching the adapter) are step2cam judgement, recorded in the rule.
 
 Compare **2F** with holding force. Facing above capacity gets the largest fitting depth,
