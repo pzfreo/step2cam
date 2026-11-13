@@ -708,7 +708,7 @@ Capp's frame/box decision remains unchanged; execution premises live in `stock_n
 
 ### Vise grip against the cut (M3)
 
-`workholding.grip_vs_cut` screens each gripped setup after tool resolution. A vise may
+`machine.grip_vs_cut` screens each gripped setup after tool resolution. A vise may
 supply positive `clamp_force_n` and optional `clamp_torque_nm`, with maker URL, date read
 and explanation in `_sources.clamp_force`. Missing force gives one “grip not checked
 against the cut: the library gives no clamping force for <vise>” warning per setup;

@@ -4,7 +4,7 @@ use crate::trace::{Trace, because_op};
 use serde_json::{Value, json};
 use std::f64::consts::PI;
 
-const RULE: &str = "workholding.grip_vs_cut";
+const RULE: &str = "machine.grip_vs_cut";
 
 // Engagement envelopes are deliberately simple; the trace states the inputs, including
 // full-slot assumptions for pockets and a full-cylinder removal proxy for tapping.

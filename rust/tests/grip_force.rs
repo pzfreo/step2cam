@@ -14,7 +14,7 @@ fn run(library: &Value) -> Value {
 fn near(a: f64, b: f64) { assert!((a-b).abs()<1e-8, "{a} != {b}"); }
 fn num(v: &Value) -> f64 { v.as_f64().unwrap() }
 fn decisions(out: &Value) -> Vec<&Value> {
-    out["plan"]["decisions"].as_array().unwrap().iter().filter(|d| d["rule"]=="workholding.grip_vs_cut@1").collect()
+    out["plan"]["decisions"].as_array().unwrap().iter().filter(|d| d["rule"]=="machine.grip_vs_cut@1").collect()
 }
 #[test]
 fn thin_flip_facing_is_split_by_the_force_formula() {

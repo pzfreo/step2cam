@@ -1246,14 +1246,14 @@
    ]
   },
   {
-   "id": "workholding.grip_vs_cut",
+   "id": "machine.grip_vs_cut",
    "version": 1,
    "stage": "machine",
    "warning_label": "grip versus cutting force",
    "rationale": "With a cited library clamp force, sliding capacity H = mu * clamp_force_n * contacted jaw faces. Compare safety_factor * F to H. Aluminium uses ISCAR hardenable wrought ISO N group 22 as a conservative group proxy (step2cam judgement; other materials warn not checked). kc = kc1 * h^(-mc); mean chip h = fz*(1-cos(phi))/phi, phi=acos(1-2*ae/D), fz=feed/(rpm*flutes). Mean tangential F = kc*ap*ae*feed/(pi*D*rpm), equivalent to P/vc from volume removal. Milling ap is the operation depth capped by its own stepdown; ae is its stepover capped at D/2 for clearing, full slot for pockets, radial allowance for walls. Flats use the roughing step envelope. Drilling, spotting and tapping use a full-cylinder removal proxy F=kc*(pi*ae^2/4)*feed/(pi*D*rpm), h=feed/(rpm*flutes); tapping feed=rpm*pitch. This is a mean tangential screening estimate, not peak load, thrust, chatter, pressure, lift or overturning simulation. For facing above capacity, maximum depth = floor((ap*H/(safety_factor*F))/0.05)*0.05 mm; pass count=ceil(total_depth/maximum_depth), final pass is the remainder. If 0.05 mm cannot fit, return an error. Other operations warn with both forces and remain unchanged. No force means one not-checked warning per gripped setup. Grip height is not a force multiplier. Default flute counts match the adapter and are step2cam judgement. Depth quantum 0.05 mm is step2cam judgement.",
    "code": "grip_force.rs check; resources.rs normalize",
    "data": [
-    "rules/workholding.json#grip_force"
+    "rules/workholding.json"
    ],
    "sources": [
     {
