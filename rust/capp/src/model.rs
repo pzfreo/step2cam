@@ -369,6 +369,10 @@ pub struct Thread {
     /// obstruction, never `null`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit_clear_mm: Option<f64>,
+    /// Whether a blind thread's depth is the default one, not asked for, so that a tap may cut
+    /// less of it to fit its lead. Rule 1: written only as `true`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub default_depth: bool,
 }
 
 /// A straight slot from `a` to `b`.

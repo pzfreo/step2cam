@@ -1195,6 +1195,10 @@
        "type": ["number", "null"],
        "description": "Measured clear depth below a through thread's exit; absent or null means no obstruction was found."
       },
+      "default_depth": {
+       "const": true,
+       "description": "A blind thread whose full-thread depth is the default, not asked for: a tap may cut less of it to leave room for its lead and one pitch of bottom clearance."
+      },
       "spec": {
        "type": "string"
       },

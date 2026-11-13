@@ -611,11 +611,24 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                         Err(reason) => trace.refuse(n, &reason),
                     }
             }
+            // A tap cuts a default blind thread only as deep as its lead leaves room for.
+            let mut shortened = None;
+            if let (Ok(tool), Cut::Thread(thread)) = (&chosen, &mut op.cut) && tool["type"] == "tap"
+                && let Some(bottom) = library.tap_bottom(tool, thread, library.thread_open_z(thread, Some(&view), top)?)?
+                && bottom != thread.bottom_z {
+                shortened = Some((r(thread.top_z - thread.bottom_z), r(thread.top_z - bottom)));
+                thread.bottom_z = bottom;
+            }
             let (tool, note, decided) = match chosen {
                 Ok(tool) => {
                     let deferred = considered.iter().any(|c| c.candidate == id(tool) && c.deferred);
-                    let says = if deferred { format!("{} selected; reach is left to camlib's check", id(tool)) } else if tool["type"] == "tap" { format!("{} taps the small metric thread in ISO N material: matching pitch, hand and pre-drill; chamfer, one-pitch bottom clearance and reach fit", id(tool)) } else { format!("{} cuts it", id(tool)) };
-                    let decided = trace.decide(rule, &subject, "chosen", &says, json!({"chosen": id(tool), "considered": considered}));
+                    let mut says = if deferred { format!("{} selected; reach is left to camlib's check", id(tool)) } else if tool["type"] == "tap" { format!("{} taps the small metric thread in ISO N material: matching pitch, hand and pre-drill; chamfer, one-pitch bottom clearance and reach fit", id(tool)) } else { format!("{} cuts it", id(tool)) };
+                    let mut data = json!({"chosen": id(tool), "considered": considered});
+                    if let Some((default, cut)) = shortened {
+                        says.push_str(&format!("; the default {} mm full thread is cut {} mm deep, leaving room for its lead and one pitch above the drilled full diameter", show(default), show(cut)));
+                        data["full_thread_mm"] = json!(cut);
+                    }
+                    let decided = trace.decide(rule, &subject, "chosen", &says, data);
                     (Some(id(tool).to_string()), None, decided)
                 }
                 Err(note) => {

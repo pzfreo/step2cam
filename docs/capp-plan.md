@@ -476,7 +476,10 @@ table checked in the ISO 2306 Table 1 preview (which also gives minor diameter l
 of 65% thread. Only the cut rows are checked against the standard preview; the form formula is not. The model bore
 must be within 0.02 mm of the reference; drilling diameters are never changed.
 A blind tap must cover full thread plus its chamfer and leave one pitch of drilled
-bottom clearance. Thread length and stickout reach from stock top to tip plus camlib’s
+bottom clearance. Specify's default full thread (drill depth less three pitches) leaves less
+than that for a three-pitch lead, so for a default depth (`default_depth` on the thread) the tap cuts the drilled
+full-diameter depth less its chamfer and one pitch, rounded down to 0.5 mm, and is refused only
+below one pitch; the trace records the depth cut. An asked depth is never shortened. Thread length and stickout reach from stock top to tip plus camlib’s
 guard. Rejections include the numeric depths. With no suitable tap the existing
 thread-mill selector runs. Missing-tool text offers a cut tap only when the same material,
 size and pre-drill conditions pass. Blind queries give maximum chamfer (mm and pitches)

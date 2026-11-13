@@ -44,14 +44,27 @@ pub fn coarse_pitch(size: &str) -> Option<f64> {
 /// The minimum full thread in a blind tapped hole of drill depth `depth`, when none is asked for:
 /// the depth less some pitches, rounded down, at least some pitches (`full-thread.json`).
 pub fn full_thread(depth: f64, pitch: f64) -> f64 {
+    let (less, step, least) = full_thread_parameters();
+    let down = ((depth - less * pitch) / step).floor() * step;
+    if down > least * pitch { down } else { least * pitch }
+}
+
+/// The default full thread a tap can cut when only `room` mm of the drilled full diameter lies
+/// below the thread's top after its lead and bottom clearance: `room` rounded down as
+/// [`full_thread`] rounds, or None when that is less than its least full thread.
+pub fn full_thread_within(room: f64, pitch: f64) -> Option<f64> {
+    let (_, step, least) = full_thread_parameters();
+    let down = ((room + 1e-9) / step).floor() * step;
+    (down >= least * pitch - 1e-9).then_some(down)
+}
+
+fn full_thread_parameters() -> (f64, f64, f64) {
     static PARAMETERS: OnceLock<(f64, f64, f64)> = OnceLock::new();
-    let (less, step, least) = *PARAMETERS.get_or_init(|| {
+    *PARAMETERS.get_or_init(|| {
         let p = &table("full-thread.json")["parameters"];
         let get = |key: &str| p[key].as_f64().unwrap_or_else(|| panic!("full-thread.json has no {key}"));
         (get("less_pitches"), get("round_down_mm"), get("at_least_pitches"))
-    });
-    let down = ((depth - less * pitch) / step).floor() * step;
-    if down > least * pitch { down } else { least * pitch }
+    })
 }
 
 /// The ISO 14649 names for an operation once its tool is known: the feature it machines, the

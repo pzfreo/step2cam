@@ -49,6 +49,7 @@ struct Tapped {
     pitch: f64,
     top_z: f64,
     bottom_z: f64,
+    default_depth: bool,
 }
 
 /// An internal thread asked for on a hole.
@@ -250,8 +251,9 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
         let (top, mut end) = (hole.bore_top_z, hole.bottom_z);
         let length = top - end;
         let mut fits = true;
+        let asked = thread.full_depth.filter(|d| *d != 0.);
         if hole.bottom != "through" {
-            let full = thread.full_depth.filter(|d| *d != 0.).unwrap_or_else(|| crate::reference::full_thread(depth, thread.pitch));
+            let full = asked.unwrap_or_else(|| crate::reference::full_thread(depth, thread.pitch));
             if full > length + 1e-9 {
                 warnings.push(("requirement.thread.too_deep", format!("{id}: {} thread {} mm deep is deeper than the hole ({} mm); not threaded", thread.spec, show(full), show(r(length)))));
                 fits = false;
@@ -260,7 +262,8 @@ pub(super) fn hole_geometry(feature: &Value, cx: &Context, thread: Option<&Threa
             }
         }
         if fits {
-            hole.thread = Some(Tapped { spec: thread.spec.clone(), major: r(thread.major), pitch: thread.pitch, top_z: r(top), bottom_z: r(end) });
+            hole.thread = Some(Tapped { spec: thread.spec.clone(), major: r(thread.major), pitch: thread.pitch, top_z: r(top), bottom_z: r(end),
+                default_depth: hole.bottom != "through" && asked.is_none() });
         }
     }
     hole.csink = if !chosen.reversed && truthy(record.get("csink")) { record["csink"].clone() } else { Value::Null };
@@ -345,6 +348,7 @@ struct ThreadKey {
     bottom_z: f64,
     through: bool,
     exit_clear: Option<f64>,
+    default_depth: bool,
 }
 
 impl ThreadKey {
@@ -369,6 +373,7 @@ pub(super) fn thread_operations(holes: &[Hole]) -> Vec<model::Cut> {
         let k = ThreadKey {
             spec: t.spec.clone(), major: t.major, pitch: t.pitch, start_diameter: h.diameter,
             top_z: t.top_z, bottom_z: t.bottom_z, through: h.bottom == "through", exit_clear: h.exit_clear,
+            default_depth: t.default_depth,
         };
         match groups.iter_mut().find(|g| g.0 == k) {
             Some(g) => g.1.push(h),
@@ -387,6 +392,7 @@ pub(super) fn thread_operations(holes: &[Hole]) -> Vec<model::Cut> {
                 hand: None,
                 // Preserve unrestricted legacy plans; only a measured obstruction adds a bound.
                 exit_clear_mm: k.exit_clear.filter(|_| k.through),
+                default_depth: k.default_depth,
             })
         })
         .collect()
