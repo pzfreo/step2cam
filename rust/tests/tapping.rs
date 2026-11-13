@@ -70,9 +70,22 @@ fn stepped_m3_chamfer_and_form_predrill_are_checked_with_numbers() {
     // The fixture represents two bores (face pairs 48/57 and 49/58), two tap moves each.
     assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 4);
 
-    // A plug lead of 4 pitches needs 8.5 + 2 + 0.5 = 11 mm; only 10 exists.
+    // A plug lead of 4 pitches needs 8.5 + 2 + 0.5 = 11 mm; only 10 exists. The 8.5 mm is the
+    // default full thread, so the tap cuts what fits: 10 - 2 - 0.5 = 7.5 mm.
     tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["type"] == "tap").unwrap()["chamfer_pitches"] = json!(4);
-    let rejected = finished(&p, &tools);
+    let shortened = finished(&p, &tools);
+    assert_eq!(thread(&shortened)["tool"], "tap", "{}", decisions(&shortened));
+    assert_close(number(&thread(&shortened)["top_z"]) - number(&thread(&shortened)["bottom_z"]), 7.5);
+    assert!(decisions(&shortened).contains("the default 8.5 mm full thread is cut 7.5 mm deep"), "{}", decisions(&shortened));
+    // The same 8.5 mm asked for is refused.
+    let mut asked = p.clone();
+    for setup in asked["setups"].as_array_mut().unwrap() {
+        for op in setup["operations"].as_array_mut().unwrap().iter_mut().filter(|o| o["kind"] == "thread") {
+            assert_eq!(op["default_depth"], true);
+            op.as_object_mut().unwrap().remove("default_depth");
+        }
+    }
+    let rejected = finished(&asked, &tools);
     let text = decisions(&rejected);
     assert!(text.contains("requires 11.00 mm; drilled full diameter is 10.00 mm"), "{text}");
     assert_ne!(thread(&rejected)["tool"], "tap");
@@ -361,4 +374,44 @@ fn review_limited_exit_selects_milling_before_the_job_is_built() {
             assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 4);
         }
     }
+}
+
+#[test]
+fn a_default_blind_thread_leaves_room_for_the_library_taps_lead_and_an_asked_one_does_not() {
+    // Review M7: the default full thread (depth less three pitches) left no room for a form C
+    // tap's three-pitch lead plus one pitch of clearance, so no library tap could cut it.
+    let library = read_library("libraries/haas-vf2.json");
+    let part = |answer: &str| {
+        let mut a = tapped(json!({"hole.function:holes:0": answer, "part.material": "Aluminium"}),
+            holes_only(&[down(0., 0., 4.2, 10., "drill_point")]));
+        a["features"][0]["faces"] = json!([1]);
+        capp::plan::plan(&a, None, &top_stock(0.)).unwrap()
+    };
+    let planned = part("tapped:M5");
+    // specify-core's default: floor((10 - 3 × 0.8) / 0.5) × 0.5 = 7.5 mm.
+    assert_close(number(&thread(&planned)["top_z"]) - number(&thread(&planned)["bottom_z"]), 7.5);
+    assert_eq!(thread(&planned)["default_depth"], true);
+    let settled = finished(&planned, &library);
+    let op = thread(&settled);
+    assert_eq!(op["tool"], "tapM5", "{}", decisions(&settled));
+    // tapM5 has a three-pitch lead: 10 - (3 + 1) × 0.8 = 6.8, rounded down to 6.5 mm.
+    assert_close(number(&op["top_z"]) - number(&op["bottom_z"]), 6.5);
+    assert!(decisions(&settled).contains("the default 7.5 mm full thread is cut 6.5 mm deep"), "{}", decisions(&settled));
+    let (jobs, _) = step2cam::job::jobs(&settled, &library).unwrap();
+    let tapping = jobs.iter().flat_map(|j| list(&j.manifest["operations"])).find(|o| o["kind"] == "tapping").unwrap();
+    assert_close(number(&tapping["depth_z_mm"]), number(&op["bottom_z"]) - 3. * 0.8);
+    assert!(!jobs.iter().flat_map(|j| &j.notes).any(|s| s.contains("not tapped")));
+
+    // The same depth asked for keeps its depth and is refused by the tap.
+    let asked = part("tapped:M5@7.5");
+    assert!(thread(&asked).get("default_depth").is_none());
+    let settled = finished(&asked, &library);
+    assert_ne!(thread(&settled)["tool"], "tapM5");
+    assert_close(number(&thread(&settled)["top_z"]) - number(&thread(&settled)["bottom_z"]), 7.5);
+    assert!(decisions(&settled).contains("requires 10.70 mm; drilled full diameter is 10.00 mm"), "{}", decisions(&settled));
+}
+
+fn read_library(path: &str) -> Value {
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(path);
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }

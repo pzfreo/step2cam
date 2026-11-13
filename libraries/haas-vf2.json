@@ -35,6 +35,12 @@
    "cutting": "https://guhring.com/media/speedfeed/723.pdf",
    "note": "Guhring 723 carbide uncoated 90 degree NC spot, EDP9007230100000: D10, OAL89, flute25, shank10. Al wrought <200 BHN:575 SFM (uncoated723;755 belongs to coated6027), use lower chart D9.520 feed .0125 IPR x25.4. Only spotting, not full-depth drilling."
   },
+  "spot120": {
+   "dimensions": "https://guhring.com/media/tools/724.pdf",
+   "verification": "https://guhring.com/media/tools/6028.pdf",
+   "cutting": "https://guhring.com/media/speedfeed/724.pdf",
+   "note": "Read 2026-11-13. Guhring 724 carbide uncoated 120 degree NC spot, EDP9007240100000: D10, l1 89, l2 25, shank=cut diameter 10. Spots the 118 degree 206 drills (process.spot_drill: spot angle at least the drill's). The 6028 sheet's 724 uncoated column marks aluminium optimal; the single 724 page marks it limited. speedfeed/724.pdf is the same chart as 723 (Carbide Series 546, 723, 724): Al wrought <200 BHN 575 SFM, lower chart D9.520 feed .0125 IPR x25.4. Only spotting, not full-depth drilling."
+  },
   "chamfer": {
    "url": "https://www.toyo.vc/english/product/2798.php/",
    "note": "TOYO uncoated TCM90-12:90 degree, shank/major D12, tip2.5, axial effective blade K4.75, seven flutes, OAL70. Aluminium Vc85-175 m/min, fz .015-.055 mm/tooth; use lower ends85 and .015. No D16 in this published family."
@@ -824,6 +830,23 @@
    "flute_style": "straight",
    "_flutes": 3,
    "_comment": "Dormer E559M6NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
+  },
+  {
+   "id": "spot10-120",
+   "type": "spot_drill",
+   "number": 36,
+   "diameter": 10,
+   "overall_length": 89,
+   "shank_diameter": 10,
+   "stickout": 30,
+   "holder_length": 76.2,
+   "holder_diameter": 50,
+   "feed_mm_min": 1771.02,
+   "spindle_rpm": 5578,
+   "coolant": "flood",
+   "_comment": "Guhring724 EDP9007240100000; _sources.spot120 and holder; starting values, _policy.",
+   "flute_length": 25,
+   "point_angle": 120
   }
  ]
 }

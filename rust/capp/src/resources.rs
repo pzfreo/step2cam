@@ -420,7 +420,7 @@ impl<'a> Library<'a> {
                 return Ok(Some("no verified tap drill reference for this diameter/pitch; use thread milling".into()));
             };
             let start = thread.start_diameter;
-            let tip = thread.bottom_z - num(tool, "chamfer_pitches")? * pitch;
+            let tip = self.tap_bottom(tool, thread, open_z)?.unwrap_or(thread.bottom_z) - num(tool, "chamfer_pitches")? * pitch;
             let tol = crate::reference::tap_drills()["diameter_tolerance_mm"].as_f64().unwrap();
             if (start - drill).abs() > tol + 1e-9 {
                 Some(format!("wrong pre-drill: {} tap requires ⌀{drill:.2} ±{tol} mm; model hole is ⌀{start} mm", tool["tap_type"].as_str().unwrap()))
@@ -436,6 +436,17 @@ impl<'a> Library<'a> {
             } else { None }
         };
         Ok(why)
+    }
+
+    /// Process rule tool.thread.tap_or_mill: the full thread's bottom this tap cuts. A through
+    /// thread or an asked depth keeps its own; a default blind depth is cut only as deep as the
+    /// drilled full diameter (`open_z`) leaves room for the tap's lead and one pitch of bottom
+    /// clearance, rounded as the default is. None when not even the least full thread fits.
+    pub(crate) fn tap_bottom(&self, tool: &Value, thread: &Thread, open_z: f64) -> Result<Option<f64>, String> {
+        if thread.through || !thread.default_depth { return Ok(Some(thread.bottom_z)); }
+        let lowest = open_z + (num(tool, "chamfer_pitches")? + 1.) * thread.pitch;
+        if thread.bottom_z >= lowest - 1e-9 { return Ok(Some(thread.bottom_z)); }
+        Ok(crate::reference::full_thread_within(thread.top_z - lowest, thread.pitch).map(|full| crate::plan::r(thread.top_z - full)))
     }
 
     /// The thread mill for this thread operation, and why the others were turned down.

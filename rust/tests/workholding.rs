@@ -148,10 +148,10 @@ fn each_available_choice_is_checked_traced_and_replayable() {
 }
 #[test]
 fn haas_flip_finishes_despite_missing_spot_tools() {
-    let out = run(
-        "synthetic/stepped-plate",
-        &fixture("../../libraries/haas-vf2.json"),
-    );
+    // Without its 120° spot drill the Haas library cannot spot the 118° drills.
+    let mut library = fixture("../../libraries/haas-vf2.json");
+    library["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "spot10-120");
+    let out = run("synthetic/stepped-plate", &library);
     assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
     let flip = option(&out, "vise_flip_face");
     assert_eq!(flip["finished"], true);

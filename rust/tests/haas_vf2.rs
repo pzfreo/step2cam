@@ -60,3 +60,33 @@ fn catalogue_m5_cut_tap_is_used_and_checked_on_the_threaded_plate() {
     assert!(out["programs"].as_array().unwrap().iter().flat_map(|p| p["moves"].as_array().unwrap())
         .any(|m| m["kind"] == "tap" && (m["feed"].as_f64().unwrap() - 381. * 0.8).abs() < 1e-8));
 }
+
+#[test]
+fn the_120_degree_spot_drill_spots_the_118_degree_drills_on_the_stepped_plate() {
+    // Review M5: with only the 90° spot drill no 118° drill hole was spotted.
+    let library = read("libraries/haas-vf2.json");
+    let analysis = read("tests/fixtures/synthetic/stepped-plate.analysis.json");
+    let mut plan = capp::plan::plan(&analysis, Some(&read("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
+    let unspotted = {
+        let mut lib = library.clone();
+        lib["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "spot10-120");
+        let mut p = plan.clone();
+        capp::finish(&mut p, &lib, &[]).unwrap();
+        p
+    };
+    capp::finish(&mut plan, &library, &[]).unwrap();
+    let ops = |p: &Value| -> Vec<Value> { p["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap().clone()).collect() };
+    assert!(!ops(&unspotted).iter().any(|o| o["kind"] == "spot_drill" && o["tool"].is_string()));
+    let mut spotted = 0;
+    for setup in plan["setups"].as_array().unwrap() {
+        let ops = setup["operations"].as_array().unwrap();
+        let tool = |o: &Value| o["tool"].as_str().unwrap_or("").to_string();
+        let Some(first_drill) = ops.iter().position(|o| o["kind"] == "holes" && tool(o).starts_with("drill")) else { continue };
+        let spot = ops.iter().position(|o| o["kind"] == "spot_drill").unwrap_or_else(|| panic!("{}: drilled but not spotted", setup["id"]));
+        assert!(spot < first_drill, "{}: spot after drill", setup["id"]);
+        assert_eq!(ops[spot]["tool"], "spot10-120");
+        assert_eq!(ops[spot]["angle"], 118.);
+        spotted += 1;
+    }
+    assert!(spotted > 0);
+}

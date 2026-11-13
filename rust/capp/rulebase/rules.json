@@ -85,7 +85,7 @@
    "warning_label": "thread deeper than hole",
    "version": 1,
    "stage": "requirements",
-   "rationale": "A blind thread deeper than its hole is not threaded. The full-thread depth is the one asked for, else specify-core's default: the drill depth less three pitches, rounded down to 0.5 mm, at least one pitch.",
+   "rationale": "A blind thread deeper than its hole is not threaded. The full-thread depth is the one asked for, else specify-core's default: the drill depth less three pitches, rounded down to 0.5 mm, at least one pitch. The plan marks a default depth (default_depth) so a tap may cut less of it (tool.thread.tap_or_mill); an asked depth is never shortened.",
    "code": "plan/holes.rs hole_geometry; reference.rs full_thread",
    "sources": [
     {
@@ -1064,10 +1064,10 @@
   },
   {
    "id": "tool.thread.tap_or_mill",
-   "version": 1,
+   "version": 2,
    "stage": "tools",
-   "rationale": "Prefer a matching M3–M6 tap in ISO N material; check hand, pre-drill, blind/through, chamfer plus one pitch clearance and stock-top reach. Otherwise use the unchanged thread-mill selector. Size/material cutoff is step2cam judgement.",
-   "code": "resources.rs Library::tap",
+   "rationale": "Prefer a matching M3–M6 tap in ISO N material; check hand, pre-drill, blind/through, chamfer plus one pitch clearance and stock-top reach. Otherwise use the unchanged thread-mill selector. Size/material cutoff is step2cam judgement. The default blind full thread (drill depth less three pitches) leaves less than a form C tap's three-pitch lead plus one pitch, so a library tap could never cut it: when the depth is the default, not asked for, the tap cuts the drilled full-diameter depth less its own chamfer lead and one pitch, rounded down to 0.5 mm as the default is, if that is shorter, and is refused only below one pitch. An asked depth is checked unchanged and refused if the tap cannot reach it. This is a step2cam decision (review M7); the default itself stays specify-core's.",
+   "code": "resources.rs Library::tap, Library::tap_bottom; settle.rs resolve_with",
    "sources": [
     {
      "kind": "step2cam",

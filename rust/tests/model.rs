@@ -185,7 +185,7 @@ fn samples() -> Vec<Cut> {
             features: features.clone(), exit_clear_mm: Some(None), countersinks: None }),
         Cut::Counterbore(Counterbore { diameter: 8., top_z: 0., floor_z: -4., centers: vec![[0., 0.]], features: features.clone() }),
         Cut::Thread(Thread { spec: "M5".into(), major: 5., pitch: 0.8, start_diameter: 4.2, top_z: 0., bottom_z: -8., through: false,
-            centers: vec![[0., 0.]], features: features.clone(), hand: None, exit_clear_mm: None }),
+            centers: vec![[0., 0.]], features: features.clone(), hand: None, exit_clear_mm: None, default_depth: false }),
         Cut::Slot(Slot { width: 6., length: 10., a: [0., 0.], b: [10., 0.], top_z: 0., floor_z: -3., bottom: "blind".into(), features: features.clone() }),
         Cut::Notch(Notch { width: 6., length: 10., open: false, outer: outline.clone(), corner_radius: Some(0.), inside_corners: Some(4),
             top_z: 0., floor_z: -3., wall_top: 0., bottom: "blind".into(), features: features.clone() }),

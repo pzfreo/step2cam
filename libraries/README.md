@@ -56,7 +56,8 @@ weight limit, which have no schema fields and are recorded in `_comment`.
 
 The shop inventory has six Guhring aluminium end mills (single-flute 6793 at 3–16 mm,
 four-flute RF100 A 3202 at 20 mm), fifteen Guhring 206 metric tap/clearance drills
-including 4.4, 4.5 and 10 mm, a Guhring 723 10 mm 90° spot drill, a TOYO
+including 4.4, 4.5 and 10 mm, Guhring 723 90° and 724 120° 10 mm spot drills
+(the 120° one spots the 118° drills; the 90° one cuts countersinks), a TOYO
 TCM90-12 90° chamfer mill, a Harvey 30302 90° tipped-off engraver, four Dormer E559 NO3 cut taps (M3/M4/M5/M6), and seven Harvey 8821xx single-form thread mills for
 M3, M4, M5, M6, M8, M10 and M12 coarse pitches. This inventory exceeds 20 tools;
 load only the tools a setup needs. Tool numbers identify inventory entries, not
