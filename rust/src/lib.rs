@@ -358,4 +358,34 @@ mod flip_tests {
         assert!(p["decisions"].as_array().unwrap().iter().any(|d|d["chosen"]["available"]==false && d["says"].as_str().unwrap().contains("replanned without sacrificial bottom stock")));
         assert_eq!(out["programs"].as_array().unwrap().len(),2,"log: {}; warnings: {}",out["log"],out["plan"]["warnings"]);
     }
+
+    /// The reason the flip was withheld, as the fallback plan's decision gives it.
+    fn fallback_reason(out: &Value) -> &str {
+        let says=out["plan"]["decisions"].as_array().unwrap().iter().filter_map(|d|d["says"].as_str())
+            .find_map(|s|s.strip_prefix("vise flip option withheld; replanned without sacrificial bottom stock: "));
+        says.expect("the plan fell back")
+    }
+
+    #[test]
+    fn the_fallback_reason_is_the_bottom_setup_and_wall_finish_warnings() {
+        let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
+        let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
+        let mut t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
+        t["overrides"]["workholding_option"]=json!("vise_flip_face");
+        // A wall_finish camlib refuses: its warning, and the bottom setup's, which start "setup bottom".
+        let mut p=capp::flip::plan(&a,&m,&t).unwrap();
+        let wall=p["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o|o["kind"]=="wall_finish").unwrap();
+        wall["outer"][0][2]=json!(2.);
+        let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
+        assert_eq!(fallback_reason(&out),"top-13-wall_finish left out: setup top: boundary vertices require finite coordinates within ±1e6 mm and bulge within [-1,1]; \
+            setup bottom: earlier cuts may have removed material in the later grip band: [{\"faces\":[\"stock.x.min\",\"stock.x.max\"],\"operation\":\"top-2-roughing\"}]; \
+            checks stock-face contact bands from stock bottom to jaw top against earlier tooled operations' conservative cutting envelopes, transformed through setup rotation and origin_model; \
+            roughing/contour envelopes include preserved material and grouped holes include the space between them; not a stock simulation or proof of face retention, contact area or holding strength; \
+            missing frames or geometry are unchecked; certain part-face contact per jaw: 158.7500 mm², 158.7500 mm²; carried upper-bound stock contributes no contact");
+        // A bottom operation left out: its warning starts "bottom-".
+        let p=capp::flip::plan(&a,&m,&t).unwrap();
+        let exclusion=json!({"operation":"bottom-1-facing","message":"test facing refusal"});
+        let out=process_planned(&a,&m,&t,typed(&p),vec![typed(&exclusion)]).unwrap().json();
+        assert_eq!(fallback_reason(&out),"bottom-1-facing left out: test facing refusal");
+    }
 }
