@@ -95,7 +95,7 @@ fn the_mesh_adds_roughing_in_the_setup_frame() {
     let rough = roughing(&with_mesh);
     assert_same(json!([rough["top_z"], rough["floor_z"]]), json!([0, -10.5])); // 0.5 mm skin
     let p: Vec<f64> = list(&rough["positions"]).iter().map(number).collect();
-    let (xs, zs): (Vec<f64>, Vec<f64>) = p.chunks_exact(3).map(|c| (c[0], c[2])).unzip();
+    let (xs, zs): (Vec<f64>, Vec<f64>) = p.as_chunks::<3>().0.iter().map(|c| (c[0], c[2])).unzip();
     assert_close(zs.iter().copied().fold(f64::MIN, f64::max), -1.);
     assert_close(zs.iter().copied().fold(f64::MAX, f64::min), -11.);
     assert_close(xs.iter().copied().fold(f64::MAX, f64::min), 2.);
@@ -294,7 +294,7 @@ fn the_mesh_error_is_measured_on_flats_and_cylinders() {
         let i = i.as_u64().unwrap() as usize;
         [p[3 * i], p[3 * i + 1], p[3 * i + 2]]
     };
-    let tris: Vec<[[f64; 3]; 3]> = list(&mesh["indices"]).chunks_exact(3).map(|t| [point(&t[0]), point(&t[1]), point(&t[2])]).collect();
+    let tris: Vec<[[f64; 3]; 3]> = list(&mesh["indices"]).as_chunks::<3>().0.iter().map(|t| [point(&t[0]), point(&t[1]), point(&t[2])]).collect();
     let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     let vector = |v: &Value| [number(&v[0]), number(&v[1]), number(&v[2])];
     let mut sampled: f64 = 0.;

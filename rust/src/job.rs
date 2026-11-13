@@ -234,13 +234,13 @@ fn surface(op: &model::Roughing) -> Result<Value, String> {
     });
     let point = |i: usize| [p[3 * i], p[3 * i + 1], p[3 * i + 2]];
     // A triangle with no area has no surface, and camlib refuses a mesh that has one.
-    let has_area = |t: &&[usize]| {
+    let has_area = |t: &&[usize; 3]| {
         let (a, b, c) = (point(t[0]), point(t[1]), point(t[2]));
         let (u, v) = ([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
         let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
         (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt() > NO_AREA
     };
-    let triangles: Vec<&[usize]> = idx.chunks_exact(3).filter(|t| has_area(t)).collect();
+    let triangles: Vec<&[usize; 3]> = idx.as_chunks::<3>().0.iter().filter(|t| has_area(t)).collect();
     if triangles.len() < 1024 {
         out["triangles"] = json!(triangles.iter().map(|t| [point(t[0]), point(t[1]), point(t[2])]).collect::<Vec<_>>());
     } else {

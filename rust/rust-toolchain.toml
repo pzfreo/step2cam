@@ -1,0 +1,6 @@
+# The toolchain CI and the Pages build use; camlib needs at least 1.88.
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["clippy"]
+targets = ["wasm32-unknown-unknown"]

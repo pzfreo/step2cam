@@ -3,7 +3,11 @@
 
 use super::*;
 
-pub(super) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
+/// A mesh vertex this close to a curved face lies on it (mm).
+const ON_SURFACE: f64 = 1e-3;
+
+/// The mesh's triangles; an error, never a panic, if it is malformed.
+pub(crate) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
     let p = nums(&mesh["positions"])?;
     let idx = mesh["indices"].as_array().ok_or("mesh has no indices")?;
     let point = |i: usize| -> Result<V3, String> {
@@ -13,22 +17,23 @@ pub(super) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
         Ok([p[3 * i], p[3 * i + 1], p[3 * i + 2]])
     };
     let mut out = Vec::with_capacity(idx.len() / 3);
-    for t in idx.chunks_exact(3) {
+    for t in idx.as_chunks::<3>().0 {
         let i = |k: usize| t[k].as_u64().map(|v| v as usize).ok_or("bad mesh index");
         out.push([point(i(0)?)?, point(i(1)?)?, point(i(2)?)?]);
     }
     Ok(out)
 }
 
-fn side(a: (f64, f64), b: (f64, f64), p: (f64, f64)) -> f64 {
+/// Which way `p` lies from the line a→b: positive to the left, twice the triangle's area.
+pub(super) fn turn(a: (f64, f64), b: (f64, f64), p: (f64, f64)) -> f64 {
     (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0)
 }
 fn inside(c: (f64, f64), t: [(f64, f64); 3]) -> bool {
     // A vertical triangle projects to a line: nothing is inside it, and its edges are measured.
-    if side(t[0], t[1], t[2]).abs() < 1e-9 {
+    if turn(t[0], t[1], t[2]).abs() < 1e-9 {
         return false;
     }
-    let (s1, s2, s3) = (side(t[0], t[1], c), side(t[1], t[2], c), side(t[2], t[0], c));
+    let (s1, s2, s3) = (turn(t[0], t[1], c), turn(t[1], t[2], c), turn(t[2], t[0], c));
     (s1 >= 0. && s2 >= 0. && s3 >= 0.) || (s1 <= 0. && s2 <= 0. && s3 <= 0.)
 }
 pub(super) fn segment_distance(c: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
@@ -107,7 +112,7 @@ fn torus_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
     };
     let fits = |major: f64| triangles.iter().flatten().all(|p| {
         let (rho, h) = polar(*p);
-        ((rho - major).hypot(h) - minor).abs() <= 1e-3
+        ((rho - major).hypot(h) - minor).abs() <= ON_SURFACE
     });
     let Some(first) = triangles.first().map(|t| polar(t[0])) else { return Ok(Some(0.)) };
     let offset = minor.mul_add(minor, -first.1 * first.1).max(0.).sqrt();
@@ -148,7 +153,7 @@ fn cone_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
     let slope = (high.0 - low.0) / (high.1 - low.1);
     // Distance from the cone's line, in the plane through the axis.
     let off = |p: (f64, f64)| (p.0 - (low.0 + slope * (p.1 - low.1))).abs() / slope.hypot(1.);
-    if points.iter().any(|p| off(*p) > 1e-3) {
+    if points.iter().any(|p| off(*p) > ON_SURFACE) {
         return Ok(None);
     }
     const STEPS: usize = 8;
@@ -195,5 +200,5 @@ pub(super) fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflecti
     if ranges.is_none() {
         worst = deflection;
     }
-    Ok(worst + 1e-4 * 3f64.sqrt())
+    Ok(worst + ROUNDING_ERROR)
 }

@@ -21,7 +21,7 @@ pub(super) fn cuts_at(triangles: &[Tri], ranges: &[Value], z: f64) -> Option<Vec
                 }
             }
             if let [p, q] = points[..]
-                && (p.0 - q.0).hypot(p.1 - q.1) > 1e-7
+                && (p.0 - q.0).hypot(p.1 - q.1) > SAME_POINT
             {
                 cuts.push((p, q, face));
             }
@@ -74,6 +74,7 @@ pub(super) fn reversed(chain: &[Cut]) -> Vec<Cut> {
     chain.iter().rev().map(|c| (c.1, c.0, c.2)).collect()
 }
 
+/// Whether `p` is inside the loop: an odd count of its edges along +X from it.
 pub(super) fn contains(chain: &[Cut], p: (f64, f64)) -> bool {
     chain.iter().filter(|c| (c.0.1 > p.1) != (c.1.1 > p.1) && p.0 < c.0.0 + (p.1 - c.0.1) / (c.1.1 - c.0.1) * (c.1.0 - c.0.0)).count() % 2 == 1
 }
@@ -102,7 +103,7 @@ pub(super) fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Fram
                 vertices.push([r(run[0].0.0), r(run[0].0.1), 0.]);
             }
             Some("cylinder") => {
-                if rotate(rows, v3(&face["direction"])?)[2].abs() < 0.99 {
+                if rotate(rows, v3(&face["direction"])?)[2].abs() < ALONG_AXIS {
                     return Ok(None);
                 }
                 let centre = frame.point(v3(&face["origin"])?);
@@ -141,7 +142,6 @@ pub(super) fn boundary(chain: &[Cut], faces: &HashMap<u64, &Value>, frame: &Fram
 /// `own` of the outline is the wall itself (a curved wall's facets are not all its outline's chords,
 /// so that is at least the mesh's error), and one inside it is what the wall encloses.
 pub(super) fn room_beside(triangles: &[Tri], outline: &[Cut], floor: f64, own: f64) -> Option<f64> {
-    const ABOVE_FLOOR: f64 = 1e-3;
     let distance = |p: (f64, f64)| outline.iter().map(|c| segment_distance(p, c.0, c.1)).fold(f64::MAX, f64::min);
     let outside = |p: (f64, f64)| !contains(outline, p) && distance(p) > own;
     let mut room: Option<f64> = None;
@@ -152,7 +152,6 @@ pub(super) fn room_beside(triangles: &[Tri], outline: &[Cut], floor: f64, own: f
         }
         let edges = || (0..corners.len()).map(|i| (corners[i], corners[(i + 1) % corners.len()]));
         let middle = (corners.iter().map(|c| c.0).sum::<f64>() / corners.len() as f64, corners.iter().map(|c| c.1).sum::<f64>() / corners.len() as f64);
-        let turn = |a: (f64, f64), b: (f64, f64), p: (f64, f64)| (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
         // An outline's corner well inside the face means the face spans a notch, or the outline.
         let holds = |p: (f64, f64)| {
             let sides: Vec<f64> = edges().map(|(a, b)| turn(a, b, p)).collect();
@@ -191,7 +190,6 @@ fn clip_above(triangle: &Tri, z: f64) -> Vec<(f64, f64)> {
 
 /// The distance between two segments, 0 if they cross.
 fn segments_apart(p: ((f64, f64), (f64, f64)), q: ((f64, f64), (f64, f64))) -> f64 {
-    let turn = |a: (f64, f64), b: (f64, f64), c: (f64, f64)| (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
     if (turn(p.0, p.1, q.0) > 0.) != (turn(p.0, p.1, q.1) > 0.) && (turn(q.0, q.1, p.0) > 0.) != (turn(q.0, q.1, p.1) > 0.) {
         return 0.;
     }
@@ -221,7 +219,6 @@ fn occupied_polygon(mesh: &[Tri], corners: &[(f64, f64)], z: f64) -> bool {
             return false;
         }
         let edge = |i: usize| (shape[i], shape[(i + 1) % shape.len()]);
-        let turn = |a: (f64, f64), b: (f64, f64), p: (f64, f64)| (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
         let holds = |p: (f64, f64)| {
             let sides: Vec<f64> = (0..shape.len()).map(|i| turn(edge(i).0, edge(i).1, p)).collect();
             sides.iter().all(|s| *s > 0.) || sides.iter().all(|s| *s < 0.)
@@ -242,7 +239,7 @@ pub(super) fn rounded_rectangle(lo: (f64, f64), hi: (f64, f64), radius: f64) -> 
     let mut vertices: Vec<(f64, f64, f64)> = vec![];
     for p in [(x+t,y,0.), (a-t,y,q), (a,y+t,0.), (a,b-t,q), (a-t,b,0.), (x+t,b,q), (x,b-t,0.), (x,y+t,q)] {
         // At a semicircular end the straight tangent edge has zero length.
-        if let Some(last) = vertices.last_mut().filter(|v| (v.0-p.0).hypot(v.1-p.1) < 1e-7) {
+        if let Some(last) = vertices.last_mut().filter(|v| (v.0-p.0).hypot(v.1-p.1) < SAME_POINT) {
             last.2 = p.2;
         } else {
             vertices.push(p);
@@ -263,8 +260,8 @@ pub(super) fn occupied_rounded(mesh: &[Tri], lo: (f64, f64), hi: (f64, f64), z: 
             corners.push((x+(radius-0.05).max(0.)*a.cos(),y+(radius-0.05).max(0.)*a.sin()));
         }
     }
-    corners.dedup_by(|a, b| (a.0-b.0).hypot(a.1-b.1) < 1e-7);
-    if corners.first().zip(corners.last()).is_some_and(|(a, b)| (a.0-b.0).hypot(a.1-b.1) < 1e-7) {
+    corners.dedup_by(|a, b| (a.0-b.0).hypot(a.1-b.1) < SAME_POINT);
+    if corners.first().zip(corners.last()).is_some_and(|(a, b)| (a.0-b.0).hypot(a.1-b.1) < SAME_POINT) {
         corners.pop();
     }
     occupied_polygon(mesh, &corners, z)

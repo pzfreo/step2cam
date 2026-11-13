@@ -104,7 +104,7 @@ pub fn warnings(plan: &Value) -> Vec<&str> {
 
 /// What a plan's first setup posts to: its camlib operations and tools, and every note.
 pub fn posted(plan: &Value, library: &Value) -> (Vec<Value>, Vec<Value>, Vec<String>) {
-    let (jobs, log) = step2cam::job::jobs(&finished(&plan, library), library).unwrap();
+    let (jobs, log) = step2cam::job::jobs(&finished(plan, library), library).unwrap();
     let job = jobs.iter().find(|j| j.setup == plan["setups"][0]["id"].as_str().unwrap());
     let mut notes = log;
     let (mut operations, mut tools) = (vec![], vec![]);

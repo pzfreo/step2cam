@@ -3,7 +3,9 @@ description: Builds the WebAssembly site into site/, as Pages deploys it and CI 
 runs:
   using: composite
   steps:
-    - run: rustup target add wasm32-unknown-unknown
+    # wasm-pack checks for the target with the default toolchain; cargo then builds in rust/
+    # with the one rust/rust-toolchain.toml pins, which brings the target with it.
+    - run: rustup target add wasm32-unknown-unknown && (cd rust && rustup toolchain install --no-self-update)
       shell: bash
     - name: wasm-pack, wasm-bindgen and wasm-opt, through GitHub's API
       run: .github/install-wasm-tools.sh

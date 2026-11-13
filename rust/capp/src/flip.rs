@@ -2,7 +2,7 @@
 //! independently of machine-independent planning; setup.workholding owns the choice.
 use crate::{
     model::{Box3, Cut, Operation, Plan, Setup},
-    plan::{Options, r},
+    plan::{Options, mesh_triangles, r},
     trace::{Trace, because_op},
 };
 use serde_json::{Value, json};
@@ -41,24 +41,6 @@ fn bottom_stock(height: f64, top: f64, parallel: Option<f64>, jaw: f64) -> Resul
     Ok(b)
 }
 
-fn triangles(mesh: &Value) -> Option<Vec<Tri>> {
-    let p = mesh["positions"].as_array()?;
-    mesh["indices"]
-        .as_array()?
-        .as_chunks::<3>()
-        .0
-        .iter()
-        .map(|t| {
-            let mut tri = [[0.; 3]; 3];
-            for i in 0..3 {
-                for j in 0..3 {
-                    tri[i][j] = p[t[i].as_u64()? as usize * 3 + j].as_f64()?;
-                }
-            }
-            Some(tri)
-        })
-        .collect()
-}
 pub(crate) fn area(p: &[[f64; 2]]) -> f64 {
     (0..p.len())
         .map(|i| {
@@ -112,7 +94,7 @@ fn measured(tris: &[Tri], axes: [usize; 2], rect: [[f64; 2]; 2]) -> f64 {
 /// planar face, and search inboard for supported strips below horizontal faces.
 fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, String> {
     let width = vise["jaw_width_mm"].as_f64().unwrap();
-    let tris = triangles(mesh).ok_or("flip seating needs a complete mesh")?;
+    let tris = mesh_triangles(mesh).map_err(|_| "flip seating needs a complete mesh")?;
     let rule = crate::rules::workholding();
     let bar = rule["min_grip_mm"].as_f64().unwrap();
     let fraction = rule["flip_min_contact_fraction"].as_f64().unwrap();
@@ -663,6 +645,14 @@ mod tests {
             .unwrap_err()
             .contains("no horizontal support face")
         );
+    }
+    #[test]
+    fn a_malformed_mesh_is_an_error_not_a_panic() {
+        let vise = json!({"jaw_width_mm":100.,"jaw_height_mm":20.,"max_jaw_opening_mm":150.});
+        let mut mesh = interrupted_sides(4., 7., true);
+        mesh["indices"][0] = json!(1_000_000);
+        let err = seating(&mesh, [0., 0., 0.], [40., 20., 10.], &vise).unwrap_err();
+        assert!(err.contains("complete mesh"), "{err}");
     }
     #[test]
     fn no_vise_or_missing_dimensions_traces_unavailability_without_changing_the_plan() {

@@ -156,10 +156,9 @@ pub(crate) fn check_changer_with(plan: &Plan, resources: &Value, trace: &mut Tra
             trace.warn("machine.tool_changer.manual", setup_id, format!("setup {setup_id}: {} tools, each changed by hand", tools.len()), json!({}));
             continue;
         }
-        if let Some(pockets) = changer["pockets"].as_u64() {
-            if tools.len() as u64 > pockets {
-                trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")), json!({}));
-            }
+        if let Some(pockets) = changer["pockets"].as_u64()
+            && tools.len() as u64 > pockets {
+            trace.warn("machine.tool_changer.pockets", setup_id, format!("setup {setup_id} uses {} tools and the changer holds {pockets}: swap tools part-way through ({})", tools.len(), tools.join(", ")), json!({}));
         }
     }
 }

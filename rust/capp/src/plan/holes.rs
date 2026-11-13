@@ -24,6 +24,9 @@ fn steps_of(record: &Value) -> Result<Vec<(f64, f64)>, String> {
     Ok(out)
 }
 
+/// A counterbore step: (diameter, top Z, floor Z).
+type Enlargement = (f64, f64, f64);
+
 pub(super) struct Hole {
     pub(super) feature: String,
     pub(super) center: model::Point2,
@@ -34,7 +37,7 @@ pub(super) struct Hole {
     bottom: String,
     /// For a through hole, how far below its exit the tool may go (`None`: unrestricted).
     exit_clear: Option<f64>,
-    enlargements: Vec<(f64, f64, f64)>,
+    enlargements: Vec<Enlargement>,
     pub(super) csink: Value,
     thread: Option<Tapped>,
 }
@@ -309,7 +312,7 @@ pub(super) fn hole_operations(holes: &[Hole]) -> Vec<model::Cut> {
 }
 
 pub(super) fn counterbore_operations(holes: &[Hole]) -> Vec<model::Cut> {
-    let mut groups: Vec<((f64, f64, f64), Vec<model::Point2>, Vec<String>)> = vec![];
+    let mut groups: Vec<(Enlargement, Vec<model::Point2>, Vec<String>)> = vec![];
     for h in holes {
         for e in &h.enlargements {
             match groups.iter_mut().find(|g| g.0 == *e) {

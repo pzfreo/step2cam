@@ -27,6 +27,7 @@ use walls::*;
 
 pub use frame::between_setups;
 pub use mesh::disk_meets_for_test;
+pub(crate) use mesh::mesh_triangles;
 pub use values::{assembly_requirement, display_position, operation_noun, r, show};
 
 pub const PLAN_FORMAT: &str = "specify-cam-plan";
@@ -51,6 +52,15 @@ const AXIS_TOLERANCE: f64 = 1e-6;
 const LEVEL_EPS: f64 = 0.01;
 /// camlib refuses a roughing mesh whose stated error is larger than this (mm).
 const CAMLIB_MAX_SURFACE_ERROR: f64 = 0.1;
+/// A direction counts as along an axis (as upright, in a setup's rows) when its cosine with that
+/// axis is beyond this: within about 8°.
+const ALONG_AXIS: f64 = 0.99;
+/// Points closer than this are the same point (mm).
+const SAME_POINT: f64 = 1e-7;
+/// Just above a level, so that the level's own faces do not count as standing on it (mm).
+const ABOVE_FLOOR: f64 = 1e-3;
+/// The most coordinate rounding moves a mesh point: 1e-4 mm on each axis, times √3.
+const ROUNDING_ERROR: f64 = 1e-4 * 1.7320508075688772;
 
 /// Stock and setup choices.
 #[derive(Clone, Debug)]
@@ -127,7 +137,7 @@ fn reachable(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Resu
 fn upright(feature: &Value, faces: &HashMap<u64, &Value>, rows: &Rows) -> Result<bool, String> {
     for index in feature.get("faces").and_then(Value::as_array).into_iter().flatten() {
         let Some(face) = index.as_u64().and_then(|i| faces.get(&i)) else { return Ok(false) };
-        if face["kind"].as_str() != Some("cylinder") || rotate(rows, v3(&face["direction"])?)[2].abs() < 0.99 {
+        if face["kind"].as_str() != Some("cylinder") || rotate(rows, v3(&face["direction"])?)[2].abs() < ALONG_AXIS {
             return Ok(false);
         }
     }
@@ -290,7 +300,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                         let count = range[1].as_u64()? as usize;
                         let points = triangles.as_ref()?.get(start..start + count)?;
                         let low = points.iter().flatten().map(|p| frame.point(*p)[2]).min_by(f64::total_cmp)?;
-                        let allowance = if faces.get(&index).is_some_and(|f| f["kind"] == "plane") { 1e-4 * 3f64.sqrt() } else { CAMLIB_MAX_SURFACE_ERROR };
+                        let allowance = if faces.get(&index).is_some_and(|f| f["kind"] == "plane") { ROUNDING_ERROR } else { CAMLIB_MAX_SURFACE_ERROR };
                         Some(low - allowance)
                     }).collect::<Option<Vec<_>>>()?.into_iter().min_by(f64::total_cmp)
                 }).unwrap_or(bottom);
@@ -365,7 +375,9 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                         ));
                     } else {
                         let positions: Vec<f64> = nums(&m["positions"])?
-                            .chunks_exact(3)
+                            .as_chunks::<3>()
+                            .0
+                            .iter()
                             .flat_map(|p| frame.point([p[0], p[1], p[2]]).map(r))
                             .collect();
                         ops.push(model::Cut::Roughing(model::Roughing {
@@ -384,7 +396,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                             .values()
                             .filter(|f| f["kind"] == "plane")
                             .filter_map(|f| {
-                                let up = rotate(&frame.rows, v3(&f["direction"]).ok()?)[2] > 1. - 1e-9;
+                                let up = rotate(frame.rows, v3(&f["direction"]).ok()?)[2] > 1. - 1e-9;
                                 up.then(|| Some(r(frame.point(v3(&f["centroid"]).ok()?)[2])))?
                             })
                             .filter(|z| *z > floor && *z < r(top))
@@ -413,7 +425,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
             let error = ops.iter().find_map(|o| match o { model::Cut::Roughing(c) => Some(c.surface_error_mm), _ => None }).unwrap_or(0.);
             let own = (2. * error).max(0.01);
             let (walls, outlines) = match m["faces"].as_array() {
-                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, &frame, rows_of(name), &heights, own, &mut trace, name)?,
+                Some(ranges) => wall_operations(frame.triangles(all), ranges, &faces, frame, rows_of(name), &heights, own, &mut trace, name)?,
                 None => (vec![], vec![]),
             };
             // Modelled chamfers may be on a lower flat; rounds retain their floor rule.
