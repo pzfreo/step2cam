@@ -199,7 +199,7 @@ pub(super) fn modelled_edge_operations(
                     let z = rotate(rows, v3(&face["direction"])?)[2];
                     upward &= (z - std::f64::consts::FRAC_1_SQRT_2).abs() < 0.01;
                 } else {
-                    upward &= face["kind"] == "cone" && rotate(rows, v3(&face["direction"])?)[2].abs() > 0.99;
+                    upward &= face["kind"] == "cone" && rotate(rows, v3(&face["direction"])?)[2].abs() > ALONG_AXIS;
                 }
             }
             if let Some(range) = ranges.get(id as usize) {

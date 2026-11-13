@@ -30,7 +30,7 @@ pub(super) fn slot_operation(feature: &Value, cx: &Context) -> Result<Option<(&'
         p
     };
     for name in cx.preferred {
-        if rows_of(name)[2][depth_axis].abs() < 0.99 {
+        if rows_of(name)[2][depth_axis].abs() < ALONG_AXIS {
             continue;
         }
         let frame = &cx.frames[name];
@@ -103,10 +103,10 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
     let open = record["open_sign"].as_f64().unwrap_or(0.);
     for name in cx.preferred {
         let rows = rows_of(name);
-        let Some(tool_axis) = [l, depth_axis].into_iter().find(|a| rows[2][*a].abs() >= 0.99) else { continue };
+        let Some(tool_axis) = [l, depth_axis].into_iter().find(|a| rows[2][*a].abs() >= ALONG_AXIS) else { continue };
         // This family's record states the depth axis and opening direction explicitly.
         if feature["family"] == "rectangular_blind_slots"
-            && (tool_axis != l || rows[2][l] * record["depth_sign"].as_f64().unwrap_or(1.) < 0.99) {
+            && (tool_axis != l || rows[2][l] * record["depth_sign"].as_f64().unwrap_or(1.) < ALONG_AXIS) {
             continue;
         }
         let (depth, mut side, side_axis) = if tool_axis == l { (along, across, depth_axis) } else { (across, along, l) };
@@ -161,7 +161,7 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
         let (floor, top) = (a[2].min(b[2]), a[2].max(b[2]));
         let mesh = frame.triangles(triangles);
         let invalid_radius = radius > width / 2. + LEVEL_EPS || radius > (side_ends.1 - side_ends.0) / 2. + LEVEL_EPS;
-        if invalid_radius || occupied_rounded(mesh, lo, hi, floor + 1e-3, radius) {
+        if invalid_radius || occupied_rounded(mesh, lo, hi, floor + ABOVE_FLOOR, radius) {
             // A corner pair alone cannot prove the opposite end is open. Partial records
             // of irregular recesses can have other walls there. Preserve their previously
             // validated interior cut when the inferred run-out is blocked.
@@ -181,7 +181,7 @@ fn notch_with_corner_pairs(feature: &Value, cx: &Context, recover_open: bool) ->
             let rec = &other["record"];
             if radius <= 0. || rec["side"] != "concave" || !["fillets", "blends"].contains(&other["family"].as_str().unwrap_or("")) { continue; }
             let axis_ok = rec["axis"].as_str() == Some(["x", "y", "z"][tool_axis])
-                || rec["path"]["direction"][tool_axis].as_f64().is_some_and(|v| v.abs() > 0.99);
+                || rec["path"]["direction"][tool_axis].as_f64().is_some_and(|v| v.abs() > ALONG_AXIS);
             let at = rec.get("at").unwrap_or(&rec["path"]["at"]);
             if !axis_ok || (rec["radius"].as_f64().unwrap_or(0.) - radius).abs() > LEVEL_EPS { continue; }
             let Ok(p) = v3(at) else { continue };
@@ -222,7 +222,7 @@ pub(super) fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Optio
     let (length, width, depth, angle) = (f(record, "length")?, f(record, "width")?, f(record, "depth")?, f(record, "included_angle_degrees")?);
     for name in cx.preferred {
         let rows = rows_of(name);
-        if (0..3).map(|k| rows[2][k] * opening[k]).sum::<f64>() < 0.99 {
+        if (0..3).map(|k| rows[2][k] * opening[k]).sum::<f64>() < ALONG_AXIS {
             continue;
         }
         let frame = &cx.frames[name];
@@ -246,7 +246,7 @@ pub(super) fn v_channel_operation(feature: &Value, cx: &Context) -> Result<Optio
         let mesh = frame.triangles(triangles);
         let (ends_a, ends_b) = (reach(a, out_a), reach(b, out_b));
         let whole = reach(a, b);
-        if occupied_above(mesh, ends_a.0, ends_a.1, root[2] + 1e-3) || occupied_above(mesh, ends_b.0, ends_b.1, root[2] + 1e-3) || occupied_above(mesh, whole.0, whole.1, top + 1e-3) {
+        if occupied_above(mesh, ends_a.0, ends_a.1, root[2] + ABOVE_FLOOR) || occupied_above(mesh, ends_b.0, ends_b.1, root[2] + ABOVE_FLOOR) || occupied_above(mesh, whole.0, whole.1, top + ABOVE_FLOOR) {
             continue;
         }
         // The bit's body is wider than the channel, above the surface the channel is cut in.

@@ -3,6 +3,9 @@
 
 use super::*;
 
+/// A mesh vertex this close to a curved face lies on it (mm).
+const ON_SURFACE: f64 = 1e-3;
+
 pub(super) fn mesh_triangles(mesh: &Value) -> Result<Vec<Tri>, String> {
     let p = nums(&mesh["positions"])?;
     let idx = mesh["indices"].as_array().ok_or("mesh has no indices")?;
@@ -107,7 +110,7 @@ fn torus_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
     };
     let fits = |major: f64| triangles.iter().flatten().all(|p| {
         let (rho, h) = polar(*p);
-        ((rho - major).hypot(h) - minor).abs() <= 1e-3
+        ((rho - major).hypot(h) - minor).abs() <= ON_SURFACE
     });
     let Some(first) = triangles.first().map(|t| polar(t[0])) else { return Ok(Some(0.)) };
     let offset = minor.mul_add(minor, -first.1 * first.1).max(0.).sqrt();
@@ -148,7 +151,7 @@ fn cone_error(triangles: &[Tri], face: &Value) -> Result<Option<f64>, String> {
     let slope = (high.0 - low.0) / (high.1 - low.1);
     // Distance from the cone's line, in the plane through the axis.
     let off = |p: (f64, f64)| (p.0 - (low.0 + slope * (p.1 - low.1))).abs() / slope.hypot(1.);
-    if points.iter().any(|p| off(*p) > 1e-3) {
+    if points.iter().any(|p| off(*p) > ON_SURFACE) {
         return Ok(None);
     }
     const STEPS: usize = 8;
@@ -195,5 +198,5 @@ pub(super) fn surface_error(mesh: &Value, faces: &HashMap<u64, &Value>, deflecti
     if ranges.is_none() {
         worst = deflection;
     }
-    Ok(worst + 1e-4 * 3f64.sqrt())
+    Ok(worst + ROUNDING_ERROR)
 }
