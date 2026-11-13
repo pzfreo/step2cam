@@ -477,8 +477,7 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
     } else {
-        // Until stage 8, breakout reads the setup and part as JSON.
-        let separation = crate::setup_stock::breakout(&json!(setup), &json!(cx.plan.part));
+        let separation = crate::setup_stock::breakout(setup, cx.plan.part.as_ref());
         let left = match separation.as_ref() {
             Some(step) if step["kind"] == "cut_free" => format!("leaves a {} mm band of uncut walls below Z{}", show(op.web_mm), show(op.floor_z)),
             Some(_) => format!("leaves a {} mm web below the part bottom",show(op.web_mm)),

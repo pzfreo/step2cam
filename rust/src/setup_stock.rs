@@ -1,15 +1,21 @@
 //! Sequential stock handoff. Geometry and acceptance belong to camlib.
 use camlib::stock_mesh::FinishedStock;
+use capp::model::{Box3, Cut, Plan, Setup};
 use serde_json::{Value, json};
+
+/// A setup's recorded frame, as `capp::plan::between_setups` reads it.
+fn frame_of(setup: &Setup) -> Value {
+    json!({"rotation": setup.rotation, "origin_model": setup.origin_model})
+}
 
 /// Move the previous job's finished stock using the plan's recorded frames.
 pub(crate) fn carry(
     stock: &FinishedStock,
-    from: &Value,
-    to: &Value,
+    from: &Setup,
+    to: &Setup,
     manifest: &Value,
 ) -> Result<(Value, f64), String> {
-    let (rotation, translation) = capp::plan::between_setups(from, to)?;
+    let (rotation, translation) = capp::plan::between_setups(&frame_of(from), &frame_of(to))?;
     let vertices = stock
         .mesh
         .vertices()
@@ -46,22 +52,27 @@ pub(crate) fn carry(
 pub(crate) fn adapt(
     mut carried: Value,
     bottom: f64,
-    frame: &Value,
-    part: &Value,
+    frame: &Setup,
+    part: Option<&Box3>,
     library: &Value,
 ) -> Result<crate::job::Job, String> {
     let mut receiving = frame.clone();
-    receiving["stock"] =
-        json!({"min": carried["stock"]["min_mm"], "max": carried["stock"]["max_mm"]});
-    receiving["stock"]["min"][2] = json!(bottom);
-    if receiving["flip_seating"].is_object() {
+    let corner = |key: &str| serde_json::from_value(carried["stock"][key].clone()).map_err(|e| format!("the plan does not decode: {e}"));
+    receiving.stock = Box3 { min: corner("min_mm")?, max: corner("max_mm")? };
+    receiving.stock.min[2] = bottom;
+    if let Some(seating) = receiving.flip_seating.as_mut().filter(|s| s.is_object()) {
         // The carried box already contains the residual margin. The old box
         // needed this extra overlap because it covered only the part.
-        receiving["flip_seating"]["residual_margin_mm"] = json!(0.);
+        seating["residual_margin_mm"] = json!(0.);
     }
-    let plan = json!({"format": capp::plan::PLAN_FORMAT, "part": part, "setups": [receiving],
-        "covered_by_roughing": [], "skipped": [], "warnings": []});
-    let (mut jobs, _) = crate::job::jobs(&plan, library)?;
+    let plan = Plan {
+        format: Some(capp::plan::PLAN_FORMAT.into()), version: None, units: None, source: None,
+        part: part.cloned(), setups: vec![receiving], covered_by_roughing: vec![], skipped: vec![],
+        warnings: vec![], decisions: None, material: None, rulebase: None, tools_needed: None,
+        roughing_feature_depths: None, supplied_decisions: None, workholding: None,
+        workholding_surface_model: None, contact_surface_model: None,
+    };
+    let (mut jobs, _) = crate::job::jobs_from(&plan, library)?;
     let mut job = jobs
         .pop()
         .ok_or("no executable job for the carried stock")?;
@@ -90,24 +101,11 @@ pub(crate) fn assumption(reason: &str) -> String {
 }
 
 /// A manual instruction before the next setup, attached to the existing setup list.
-pub(crate) fn part_bounds(part: &Value, frame: &Value) -> Result<[[f64; 3]; 2], String> {
+pub(crate) fn part_bounds(part: Option<&Box3>, frame: &Setup) -> Result<[[f64; 3]; 2], String> {
     let model = json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]], "origin_model":[0,0,0]});
-    let (rotation, translation) = capp::plan::between_setups(&model, frame)?;
-    let coordinate = |side: &str, i: usize| {
-        part[side][i]
-            .as_f64()
-            .ok_or_else(|| format!("missing part {side} coordinate {i}"))
-    };
-    let lo = [
-        coordinate("min", 0)?,
-        coordinate("min", 1)?,
-        coordinate("min", 2)?,
-    ];
-    let hi = [
-        coordinate("max", 0)?,
-        coordinate("max", 1)?,
-        coordinate("max", 2)?,
-    ];
+    let (rotation, translation) = capp::plan::between_setups(&model, &frame_of(frame))?;
+    let part = part.ok_or("missing part min coordinate 0")?;
+    let (lo, hi) = (part.min, part.max);
     let mut bounds = [[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]];
     for bits in 0..8 {
         let p: [f64; 3] = std::array::from_fn(|i| if bits & (1 << i) == 0 { lo[i] } else { hi[i] });
@@ -153,21 +151,21 @@ pub(crate) fn crop_cells(
     Ok(())
 }
 
-pub(crate) fn breakout(previous: &Value, part: &Value) -> Option<Value> {
-    if previous.get("flip_role").is_some() {
+pub(crate) fn breakout(previous: &Setup, part: Option<&Box3>) -> Option<Value> {
+    if previous.flip_role.is_some() {
         return None;
     }
-    let rough = previous["operations"]
-        .as_array()?
-        .iter()
-        .find(|o| o["kind"] == "roughing" && o["tool"].is_string())?;
-    let thickness = rough["web_mm"].as_f64()?;
+    let rough = previous.operations.iter().find_map(|o| match &o.cut {
+        Cut::Roughing(rough) if matches!(o.tool, Some(Some(_))) => Some(rough),
+        _ => None,
+    })?;
+    let thickness = rough.web_mm;
     if thickness <= 0. {
         return None;
     }
-    let floor = rough["floor_z"].as_f64()?;
+    let floor = rough.floor_z;
     let bottom = part_bounds(part, previous).ok()?[0][2];
-    let id = previous["id"].as_str()?;
+    let id = previous.id.as_str();
     if floor > bottom + 1e-6 {
         Some(json!({"kind":"cut_free", "after_setup":id,
             "remaining_band":{"setup":id, "bottom_z_mm":bottom, "top_z_mm":floor, "thickness_mm":capp::plan::r(floor-bottom)},
@@ -179,13 +177,12 @@ pub(crate) fn breakout(previous: &Value, part: &Value) -> Option<Value> {
     }
 }
 
-pub(crate) fn released(frame: &Value, part: &Value) -> bool {
-    (frame["flip_seating"].is_object()
-        && frame["operations"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .any(|o| o["kind"] == "facing" && o["tool"].is_string()))
+pub(crate) fn released(frame: &Setup, part: Option<&Box3>) -> bool {
+    (frame.flip_seating.as_ref().is_some_and(Value::is_object)
+        && frame
+            .operations
+            .iter()
+            .any(|o| matches!(o.cut, Cut::Facing { .. }) && matches!(o.tool, Some(Some(_)))))
         || breakout(frame, part).is_some()
 }
 
@@ -230,10 +227,11 @@ mod tests {
             .unwrap();
         // Replay the accepted top manifest once in this test to obtain camlib's
         // returned stock, and compare the actual receiving mesh structurally.
+        let typed: Plan = serde_json::from_value(plan.clone()).unwrap();
         let mut job = crate::job::Job {
             setup: "top".into(),
             return_stock: true,
-            crop_stock_to: Some(part_bounds(&plan["part"], &plan["setups"][0]).unwrap()),
+            crop_stock_to: Some(part_bounds(typed.part.as_ref(), &typed.setups[0]).unwrap()),
             manifest: top["job"].clone(),
             stock_bottom_mm: plan["setups"][0]["stock"]["min"][2].as_f64().unwrap(),
             notes: vec![],
@@ -256,7 +254,8 @@ mod tests {
                 .unwrap()
                 .contains("carried from top")
         );
-        let (expected, _) = carry(&finished, &plan["setups"][0], front, &program["job"]).unwrap();
+        let typed_front = typed.setups.iter().find(|s| s.id == "front").unwrap();
+        let (expected, _) = carry(&finished, &typed.setups[0], typed_front, &program["job"]).unwrap();
         let manifest = program["job"].clone();
         assert!(manifest["stock"]["mesh"].is_object());
         assert_eq!(manifest["stock"]["mesh"], expected["stock"]["mesh"]);
@@ -353,9 +352,10 @@ mod tests {
         let text = assumption("camlib refused an open mesh");
         assert!(text.contains("freed, part-sized block"));
         assert!(text.contains("camlib refused an open mesh"));
-        assert!(breakout(&json!({"flip_role":"sacrificial_grip"}), &Value::Null).is_none());
-        let frame = json!({"id":"top", "rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,19], "operations":[{"kind":"roughing", "tool":"em6", "web_mm":0.5, "floor_z":-19.} ]});
-        let web = breakout(&frame, &json!({"min":[0,0,0],"max":[4,2,18]})).unwrap();
+        let grip: Setup = serde_json::from_value(json!({"id":"top", "flip_role":"sacrificial_grip", "stock":{"min":[0,0,-19],"max":[4,2,0]}, "operations":[]})).unwrap();
+        assert!(breakout(&grip, None).is_none());
+        let frame: Setup = serde_json::from_value(json!({"id":"top", "rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,19], "stock":{"min":[0,0,-19],"max":[4,2,0]}, "operations":[{"kind":"roughing", "tool":"em6", "web_mm":0.5, "floor_z":-19., "top_z":0, "surface_error_mm":0} ]})).unwrap();
+        let web = breakout(&frame, Some(&serde_json::from_value(json!({"min":[0,0,0],"max":[4,2,18]})).unwrap())).unwrap();
         assert_eq!(web["kind"], "break_out");
         assert!(
             web["says"]
@@ -402,9 +402,10 @@ mod tests {
             .initial_stock(&|| false)
             .unwrap();
         assert_eq!(reread.cells(), snapshot.cells);
+        let grip: Setup = serde_json::from_value(json!({"id":"top", "flip_role":"sacrificial_grip", "stock":{"min":[0,0,-2],"max":[6,6,0]}, "operations":[]})).unwrap();
         assert!(!released(
-            &json!({"flip_role":"sacrificial_grip"}),
-            &Value::Null
+            &grip,
+            None
         ));
         assert!(carried_note("bottom", true, true).contains("bottom’s box run; the part is free"));
     }
@@ -432,9 +433,11 @@ mod tests {
         let mut programs = vec![];
         let mut log = vec![];
         let mut cache = vec![];
+        let mut plan: Plan = serde_json::from_value(plan).unwrap();
         assert!(
             crate::simulate_all(&mut plan, &library, &mut programs, &mut log, &mut cache).is_err()
         );
+        let plan = serde_json::to_value(plan).unwrap();
         assert!(
             plan["setups"]
                 .as_array()
@@ -448,11 +451,11 @@ mod tests {
     fn successor_names_the_box_run_when_a_previous_handoff_failed() {
         let library = fixture("tests/fixtures/placeholder-tools.json");
         let setup = |id: &str, rotation: Value, width: f64| json!({"id":id,"zero":"part", "rotation":rotation,"origin_model":[0,0,0],"stock":{"min":[0,0,-2],"max":[width,width,0]},"operations":[{"kind":"facing","tool":"em6","floor_z":-0.5}]});
-        let mut plan = json!({"format":capp::plan::PLAN_FORMAT,"part":{"min":[0,0,-2],"max":[10,10,0]},"decisions":[],"setups":[
+        let mut plan: Plan = serde_json::from_value(json!({"format":capp::plan::PLAN_FORMAT,"part":{"min":[0,0,-2],"max":[10,10,0]},"decisions":[],"setups":[
             setup("top",json!([[1,0,0],[0,1,0],[0,0,1]]),10.),
             setup("front",json!([[1,0,0],[0,0,1],[0,-1,0]]),4.),
             setup("back",json!([[1,0,0],[0,0,-1],[0,1,0]]),4.)],
-            "covered_by_roughing":[],"skipped":[],"warnings":[]});
+            "covered_by_roughing":[],"skipped":[],"warnings":[]})).unwrap();
         let mut bounded = library.clone();
         bounded["cell_size_mm"] = json!(1.);
         let mut programs = vec![];
@@ -464,6 +467,7 @@ mod tests {
             crate::simulate_all(&mut plan, &bounded, &mut programs, &mut log, &mut cache)
         })
         .unwrap();
+        let plan = serde_json::to_value(plan).unwrap();
         assert!(
             plan["setups"][1]["stock_note"]
                 .as_str()
