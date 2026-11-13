@@ -11,6 +11,14 @@ jobs:
         run: python3 -I -m unittest
         working-directory: tools/benchmark
       - run: rust/fetch-camlib.sh
+      - name: The toolchain rust/rust-toolchain.toml pins
+        run: rustup toolchain install --no-self-update
+        working-directory: rust
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: rust
+      - run: cargo clippy --release --workspace --all-targets -- -D warnings
+        working-directory: rust
       - run: cargo test --release --workspace
         working-directory: rust
       - name: The frozen fixtures are what specify-core writes
