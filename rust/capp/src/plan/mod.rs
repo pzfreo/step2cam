@@ -27,6 +27,7 @@ use walls::*;
 
 pub use frame::between_setups;
 pub use mesh::disk_meets_for_test;
+pub(crate) use mesh::mesh_triangles;
 pub use values::{assembly_requirement, display_position, operation_noun, r, show};
 
 pub const PLAN_FORMAT: &str = "specify-cam-plan";

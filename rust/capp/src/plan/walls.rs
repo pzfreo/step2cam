@@ -2,12 +2,6 @@
 
 use super::*;
 
-/// Whether a point is in the part's section: an odd count of the mesh's cuts along +X from it.
-fn in_section(p: (f64, f64), cuts: &[Cut]) -> bool {
-    let crosses = |c: &&Cut| (c.0.1 > p.1) != (c.1.1 > p.1) && c.0.0 + (p.1 - c.0.1) / (c.1.1 - c.0.1) * (c.1.0 - c.0.0) > p.0;
-    cuts.iter().filter(crosses).count() % 2 == 1
-}
-
 /// Finishes the outsides of the part's solid outlines, in the roughing setup, at each band between
 /// flats: a contour stops at its band's floor, so a raised part's outline is not followed through
 /// what it stands on. An outline already finished from a lower band is not repeated, as a contour
@@ -38,7 +32,8 @@ pub(super) fn wall_operations(triangles: &[Tri], ranges: &[Value], faces: &HashM
                 let Some(longest) = outline.iter().max_by(|a, b| (a.1.0 - a.0.0).hypot(a.1.1 - a.0.1).total_cmp(&(b.1.0 - b.0.0).hypot(b.1.1 - b.0.1))) else { continue };
                 let length = (longest.1.0 - longest.0.0).hypot(longest.1.1 - longest.0.1);
                 let (mid, left) = (((longest.0.0 + longest.1.0) / 2., (longest.0.1 + longest.1.1) / 2.), (-(longest.1.1 - longest.0.1) / length * ABOVE, (longest.1.0 - longest.0.0) / length * ABOVE));
-                if !in_section((mid.0 + left.0, mid.1 + left.1), &cuts) || in_section((mid.0 - left.0, mid.1 - left.1), &cuts) {
+                // In the part's section: an odd count of the mesh's cuts along +X from the point.
+                if !contains(&cuts, (mid.0 + left.0, mid.1 + left.1)) || contains(&cuts, (mid.0 - left.0, mid.1 - left.1)) {
                     continue;
                 }
                 let Some(vertices) = boundary(&outline, faces, frame, rows)? else {

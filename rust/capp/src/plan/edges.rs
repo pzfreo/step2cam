@@ -110,7 +110,6 @@ pub(super) fn convex_perimeter(chain: &[Cut]) -> Option<Vec<Cut>> {
     let mut points: Vec<_> = chain.iter().map(|c| c.0).collect();
     points.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
     points.dedup_by(|a, b| (a.0 - b.0).hypot(a.1 - b.1) < 1e-6);
-    let turn = |a: (f64, f64), b: (f64, f64), c: (f64, f64)| (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
     let mut hull = vec![];
     for half in [points.clone(), points.iter().rev().copied().collect()] {
         let mut side = vec![];
@@ -141,7 +140,7 @@ pub(super) fn convex_perimeter(chain: &[Cut]) -> Option<Vec<Cut>> {
 fn convex_bevel_clear(triangles: &[Tri], hull: &[Cut], faces: &HashMap<u64, &Value>, frame: &Frame, top: f64, width: f64) -> Result<bool, String> {
     for c in hull {
         let n = (c.1.0 - c.0.0).hypot(c.1.1 - c.0.1);
-        let support = |p: (f64, f64)| ((c.1.0 - c.0.0) * (p.1 - c.0.1) - (c.1.1 - c.0.1) * (p.0 - c.0.0)) / n;
+        let support = |p: (f64, f64)| turn(c.0, c.1, p) / n;
         let circle = match faces.get(&(c.2 as u64)).filter(|f| f["kind"] == "cylinder") {
             Some(face) => Some((frame.point(v3(&face["origin"])?), f(face, "radius")?)),
             None => None,
