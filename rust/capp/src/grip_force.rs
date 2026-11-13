@@ -7,19 +7,26 @@ use std::f64::consts::PI;
 const RULE: &str = "machine.grip_vs_cut";
 
 // Engagement envelopes are deliberately simple; the trace states the inputs, including
-// full-width opening-slot/ramp engagement for roughing. Axial cycles are handled separately.
+// unknown roughing subregion entry (full slot). Axial cycles are handled separately.
 fn engagement(op: &Operation, top: f64, diameter: f64, step: f64, over: f64, allowance: f64) -> (f64, f64) {
     match &op.cut {
         Cut::Facing { floor_z } => ((top-floor_z).max(0.).min(step), over.min(diameter)),
-        Cut::Roughing(r) => ((top-r.floor_z).max(0.).min(step), diameter),
+        Cut::Roughing(r) => {
+            // Layer heights remain authored from r.top_z, while facing removes air
+            // above `top`. Check both end layers and any full middle layer.
+            let first = (r.top_z-step).max(r.floor_z);
+            let layers = ((r.top_z-r.floor_z)/step).ceil();
+            let depth = (top-first).max(0.).max(if layers > 2. {step} else {(first-r.floor_z).max(0.)});
+            (depth.min(step), if r.entry_access.as_deref() == Some("stock_edge") {over.min(diameter)} else {diameter})
+        },
         Cut::Flats { floor_z, .. } => ((top-floor_z).max(0.).min(step), over.min(diameter)),
         Cut::WallFinish(w) => ((top-w.floor_z).max(0.).min(step), allowance.min(diameter)),
-        Cut::Holes(h) => ((h.bore_top_z-h.bottom_z).max(0.).min(step), diameter),
-        Cut::SpotDrill(_) => unreachable!("axial spotting has no sliding engagement"),
-        Cut::Thread(t) => ((t.top_z-t.bottom_z).max(0.).min(step), diameter),
-        Cut::Counterbore(b) => ((b.top_z-b.floor_z).max(0.).min(step), diameter),
-        Cut::Slot(s) => ((s.top_z-s.floor_z).max(0.).min(step), s.width.min(diameter)),
-        Cut::Notch(n) => ((n.top_z-n.floor_z).max(0.).min(step), n.width.min(diameter)),
+        Cut::Holes(h) => ((h.bore_top_z.min(top)-h.bottom_z).max(0.).min(step), diameter),
+        Cut::SpotDrill(_) => (0., 0.),
+        Cut::Thread(t) => ((t.top_z.min(top)-t.bottom_z).max(0.).min(step), diameter),
+        Cut::Counterbore(b) => ((b.top_z.min(top)-b.floor_z).max(0.).min(step), diameter),
+        Cut::Slot(s) => ((s.top_z.min(top)-s.floor_z).max(0.).min(step), s.width.min(diameter)),
+        Cut::Notch(n) => ((n.top_z.min(top)-n.floor_z).max(0.).min(step), n.width.min(diameter)),
         Cut::VChannel(c) => (c.depth.min(step), c.width.min(diameter)),
         Cut::EdgeChamfer(c) => (c.width.min(step), diameter),
     }
@@ -51,11 +58,14 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
             "clamp_source":vise["_sources"]["clamp_force"]});
         trace.decide(RULE, &setup.id, "checked", &format!("{name}: clamp {clamp:.2} N {torque}, mu {mu}, {faces} jaw faces: holding force {holding:.2} N; safety factor {safety}, allowable cutting force {:.2} N. Sliding only; contact pressure, lift and overturning are not checked", holding/safety), detail.clone());
         setup.clamping.as_mut().unwrap()["force_check"] = detail.clone();
-        let top = setup.stock.max[2];
+        let mut top = setup.stock.max[2];
+        if !aluminium {
+            trace.warn(RULE, &setup.id, format!("grip not checked against the cut: no steel-jaw friction and cutting-force reference for {material}"), detail.clone());
+        }
         for (index, op) in setup.operations.iter_mut().enumerate() {
             let subject = format!("{}-{}-{}", setup.id, index+1, op.cut.kind().name());
             let Some(tool) = op.tool.as_ref().and_then(|id| id.as_ref()).and_then(|id| library["tools"].as_array()?.iter().find(|t| t["id"] == *id)) else { continue };
-            if matches!(tool["type"].as_str(), Some("drill" | "spot_drill" | "tap")) {
+            if matches!(op.cut, Cut::SpotDrill(_)) || matches!(tool["type"].as_str(), Some("drill" | "spot_drill" | "tap")) {
                 let says = "thrust into the supports; not a sliding load on the grip";
                 let mut extra = detail.clone();
                 extra["force_model"] = json!(says);
@@ -63,7 +73,6 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
                 continue;
             }
             if !aluminium {
-                because_op(op, [trace.warn(RULE, &subject, "grip force not checked: no steel-jaw friction and cutting-force reference for this material".into(), detail.clone())]);
                 continue;
             }
             let tech = op.technology.as_ref().expect("resolved cutting data");
@@ -75,6 +84,19 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
             let over = number("stepover_mm").unwrap_or(diameter);
             let allowance = library["radial_allowance_mm"].as_f64().unwrap_or(0.3);
             let (ap, ae) = engagement(op, top, diameter, step, over, allowance);
+            // The pinned bore emits one revolution per stepdown, not a 3° helix.
+            // For holes/counterbores ap is bounded by that pitch and the material
+            // depth; do not substitute a smaller imaginary pitch for the job.
+            let assumption = match &op.cut {
+                Cut::Roughing(r) => match r.entry_access.as_deref() {
+                    Some("stock_edge") => "stock-edge raster".to_string(),
+                    Some("closed") => "closed-entry full slot".to_string(),
+                    _ => "full slot (entry unknown)".to_string(),
+                },
+                Cut::Holes(_) | Cut::Counterbore(_) => format!("helix (pitch at most {step:.2} mm/rev)"),
+                _ if ae == diameter => "full slot".to_string(),
+                _ => "radial engagement".to_string(),
+            };
             let flutes = tool["flutes"].as_f64().unwrap_or(3.);
             let fz = feed / (rpm * flutes);
             let phi = (1.-2.*ae/diameter).clamp(-1., 1.).acos();
@@ -97,8 +119,9 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
             extra["feed_mm_min"] = json!(feed);
             extra["spindle_rpm"] = json!(rpm);
             extra["flutes"] = json!(flutes);
-            extra["force_model"] = json!("mean tangential milling force; engagement envelope");
-            let mut says = format!("{subject}: cutting force {force:.2} N, safety-factored {:.2} N against holding force {holding:.2} N", safety*force);
+            extra["force_model"] = json!(format!("mean tangential milling force; {assumption}"));
+            let tightening = vise["clamp_torque_nm"].as_f64().map_or_else(|| "library clamping force (torque unspecified)".into(), |n| format!("{:.0} ft·lbf tightening", n/1.3558179483314));
+            let mut says = format!("{subject}: assumes ⌀{diameter:.2} {assumption}, ap{ap:.2} × ae{ae:.2} mm; {tightening}; F{force:.2} N, allowable {:.2} N (holding {holding:.2} N / safety {safety})", holding/safety);
             let decision = if force*safety > holding {
                 if let Cut::Facing { floor_z } = &op.cut {
                     let limit = (ap * holding / (safety*force) / quantum).floor() * quantum;
@@ -106,7 +129,9 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
                         let minimum_force = force*quantum/ap;
                         extra["per_pass_force_n"] = json!(minimum_force);
                         says.push_str(&format!("; cannot be held at any depth: even {quantum} mm needs {minimum_force:.2} N before safety factor {safety}; facing unchanged"));
+                        let faced_top = *floor_z;
                         because_op(op, [trace.warn(RULE, &subject, says, extra)]);
+                        top = top.min(faced_top);
                         continue;
                     }
                     let passes = ((top-floor_z)/limit).ceil() as u64;
@@ -117,11 +142,35 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
                     says.push_str(&format!("; face in {passes} passes at most {limit:.2} mm deep ({:.2} N per full pass), last pass takes the remainder", force*limit/ap));
                     trace.decide(RULE, &subject, "stepped_down", &says, extra)
                 } else {
-                    says.push_str("; exceeds grip capacity; operation unchanged");
+                    let limit = (ap * holding / (safety*force) / quantum).floor() * quantum;
+                    if limit >= quantum {
+                        extra["suggested_stepdown_mm"] = json!(limit);
+                        says.push_str(&format!("; reduce stepdown to ≤{limit:.2} mm under this model; operation unchanged"));
+                    } else {
+                        says.push_str(&format!("; even {quantum} mm cannot be held under this model; increase verified clamping capacity or change the engagement; operation unchanged"));
+                    }
                     trace.warn(RULE, &subject, says, extra)
                 }
             } else { trace.decide(RULE, &subject, "checked", &says, extra) };
             because_op(op, [decision]);
+            if let Cut::Facing { floor_z } = op.cut { top = top.min(floor_z); }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn spot_engagement_is_thrust_even_without_a_tool() {
+        let op: Operation = serde_json::from_value(json!({"kind":"spot_drill", "spot_tool":null,
+            "diameter":3.3,"angle":120.,"reach":1.,"features":[],"spots":[]})).unwrap();
+        assert_eq!(engagement(&op,0.,10.,5.,4.,0.3),(0.,0.));
+    }
+    #[test]
+    fn facing_air_does_not_hide_a_full_middle_roughing_layer() {
+        let op: Operation = serde_json::from_value(json!({"kind":"roughing", "top_z":0.,
+            "floor_z":-29.,"web_mm":0.,"surface_error_mm":0.01})).unwrap();
+        assert_eq!(engagement(&op,-1.,20.,10.,8.,0.3),(10.,20.));
     }
 }

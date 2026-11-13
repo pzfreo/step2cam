@@ -330,7 +330,6 @@ choice and alternatives; selecting another available option replans it. Both vis
 routes require a dimensioned vise in the first mill. Fixture plates and margins/tabs
 are listed with their implementation blockers, without simulated results.
 
-
 Vise setups screen estimated mean tangential milling force against cited clamping
 force (`machine.grip_vs_cut`). The Haas DX6 plans 3440 lbf at 40 ft·lbf: moderate
 hand tightening, half its rated maximum (step2cam judgement). Feasible over-capacity

@@ -5,9 +5,10 @@ fn read(path: &str) -> Value {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     serde_json::from_str(&std::fs::read_to_string(root.join(path)).unwrap()).unwrap()
 }
-fn run(library: &Value) -> Value {
-    let result = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
-        &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), library).unwrap();
+fn run(library: &Value) -> Value { run_named("synthetic/stepped-plate", library) }
+fn run_named(name: &str, library: &Value) -> Value {
+    let result = step2cam::process(&read(&format!("tests/fixtures/{name}.analysis.json")),
+        &read(&format!("tests/fixtures/{name}.mesh.json")), library).unwrap();
     assert!(result["error"].is_null(), "{}", result["error"]);
     result
 }
@@ -184,8 +185,14 @@ fn engagement_above_half_diameter_and_full_width_roughing_are_checked() {
     assert!(num(&face["cutting_force_n"]) > force(1.,10.,20.,4804.87,7882.,4.));
     let rough = ds.iter().find(|d| d["subject"]=="top-2-roughing").unwrap();
     near(num(&rough["radial_width_mm"]), 20.);
-    near(num(&rough["cutting_force_n"]), force(10.,20.,20.,4804.87,7882.,4.));
+    near(num(&rough["cutting_force_n"]), force(9.,20.,20.,4804.87,7882.,4.));
     assert_eq!(rough["outcome"], "warning");
+    near(num(&rough["axial_depth_mm"]), 9.);
+    near(num(&rough["suggested_stepdown_mm"]), 5.2);
+    let text = rough["says"].as_str().unwrap();
+    for premise in ["entry unknown", "40 ft·lbf", "ap9.00 × ae20.00", "reduce stepdown to ≤5.20"] {
+        assert!(text.contains(premise), "{text}");
+    }
     // ae remains bounded by D even when the library requests a larger stepover.
     lib["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"]=="em20").unwrap()["stepover_mm"] = json!(25.);
     let wide = settled(&lib);
@@ -239,4 +246,72 @@ fn helix_milled_holes_stay_sideways_while_spots_and_taps_are_axial() {
     assert_eq!(own["outcome"], "none");
     assert_eq!(own["force_model"], "thrust into the supports; not a sliding load on the grip");
     assert!(own.get("cutting_force_n").is_none());
+}
+
+
+#[test]
+fn classified_stock_edge_roughing_uses_stepover_and_closed_entry_uses_a_slot() {
+    let lib = read("libraries/haas-vf2.json");
+    for (access, width, outcome) in [("stock_edge", 8., "checked"), ("closed",20.,"warning"), ("unknown",20.,"warning")] {
+        let mut plan = capp::plan::plan(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
+            Some(&read("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
+        plan["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"]=="roughing").unwrap()["entry_access"] = json!(access);
+        capp::finish(&mut plan, &lib, &[]).unwrap();
+        let out = json!({"plan":plan});
+        let ds = decisions(&out);
+        let rough = ds.iter().find(|d| d["subject"]=="top-2-roughing").unwrap();
+        near(num(&rough["axial_depth_mm"]),9.);
+        near(num(&rough["radial_width_mm"]),width);
+        near(num(&rough["cutting_force_n"]),force(9.,width,20.,4804.87,7882.,4.));
+        assert_eq!(rough["outcome"],outcome);
+        if outcome=="warning" {
+            let limit=num(&rough["suggested_stepdown_mm"]);
+            assert!(force(limit,width,20.,4804.87,7882.,4.)<=num(&rough["allowable_cutting_force_n"]));
+            assert!(force(limit+0.05,width,20.,4804.87,7882.,4.)>num(&rough["allowable_cutting_force_n"]));
+        }
+        let schema=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
+        assert!(schema.is_valid(&out["plan"]));
+    }
+}
+#[test]
+fn missing_material_reference_warns_once_per_setup_not_per_operation() {
+    let mut lib=read("libraries/haas-vf2.json");
+    lib["overrides"]["material"]=json!("Steel");
+    let out=settled(&lib);
+    let ds=decisions(&out);
+    let warnings:Vec<_>=ds.iter().filter(|d| d["outcome"]=="warning").collect();
+    let setups:Vec<_>=out["plan"]["setups"].as_array().unwrap().iter().filter(|s| s["clamping"].is_object()).collect();
+    assert_eq!(warnings.len(),setups.len());
+    for setup in setups {
+        assert_eq!(warnings.iter().filter(|d| d["subject"]==setup["id"]).count(),1);
+    }
+}
+#[test]
+fn mounting_bore_uses_the_executed_helix_pitch_not_an_imaginary_three_degree_pitch() {
+    let lib=read("libraries/haas-vf2.json");
+    let out=run_named("mounting-plate",&lib);
+    let program=&out["programs"][0];
+    let job=program["job"]["operations"].as_array().unwrap().iter().find(|o| o["id"]=="top-5-holes").unwrap();
+    near(num(&job["stepdown_mm"]),10.);
+    let operation=program["operations"].as_array().unwrap().iter().find(|o| o["id"]=="top-5-holes").unwrap();
+    let moves=&program["moves"].as_array().unwrap()[operation["start"].as_u64().unwrap() as usize..operation["end"].as_u64().unwrap() as usize];
+    let helix=moves.iter().find(|m| m["kind"]=="lead").unwrap();
+    let points=helix["points"].as_array().unwrap();
+    let center=&job["centers_mm"][0];
+    let turns=points.windows(2).map(|p| {
+        let a=[num(&p[0][0])-num(&center[0]),num(&p[0][1])-num(&center[1])];
+        let b=[num(&p[1][0])-num(&center[0]),num(&p[1][1])-num(&center[1])];
+        (a[0]*b[1]-a[1]*b[0]).atan2(a[0]*b[0]+a[1]*b[1])
+    }).sum::<f64>().abs()/(2.*PI);
+    near(turns,1.);
+    let pitch=(num(&points.first().unwrap()[2])-num(&points.last().unwrap()[2]))/turns;
+    near(pitch,9.5);
+    let ds=decisions(&out);
+    let bore=ds.iter().find(|d| d["subject"]=="top-5-holes").unwrap();
+    // Eight mm of actual part material, below the faced top, is less than
+    // the executed pitch. A hypothetical 1.3 mm pitch must not lower this load.
+    near(num(&bore["axial_depth_mm"]),8.);
+    near(num(&bore["cutting_force_n"]),force(8.,20.,20.,4804.87,7882.,4.));
+    assert_eq!(bore["outcome"],"warning");
+    near(num(&bore["suggested_stepdown_mm"]),5.2);
 }
