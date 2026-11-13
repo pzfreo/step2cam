@@ -121,7 +121,7 @@ fn a_hole_says_which_setup_and_which_tool() {
     let decisions: HashMap<&str, &Value> = plan["decisions"].as_array().unwrap().iter().map(|d| (d["id"].as_str().unwrap(), d)).collect();
     let holes = plan["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes" && o["tool"] == "drill4.2").unwrap();
     let rules: Vec<&str> = holes["because"].as_array().unwrap().iter().map(|id| decisions[id.as_str().unwrap()]["rule"].as_str().unwrap()).collect();
-    for rule in ["setup.stock.part_box_with_margins@1", "sequence.fixed_order@1", "process.holes@1", "setup.hole.first_reachable@1", "tool.hole.drill_or_bore@2", "process.hole.peck_by_depth@2"] {
+    for rule in ["setup.stock.part_box_with_margins@1", "sequence.fixed_order@1", "process.holes@1", "setup.hole.first_reachable@1", "tool.hole.drill_or_bore@2", "process.hole.peck_by_depth@3"] {
         assert!(rules.contains(&rule), "{rule} not in {rules:?}");
     }
 }
@@ -208,12 +208,18 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         let id = d["rule"].as_str().unwrap().split('@').next().unwrap();
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())), "{d}");
     }
-    // The deep-hole and corner-radius warnings belong to one operation each.
-    let warnings: Vec<_> = active.into_iter()
-        .filter(|d| d["rule"] == "process.hole.peck_by_depth@2" || d["rule"] == "process.notch.corner_radius@1").collect();
-    assert_eq!(warnings.len(), 4);
+    // The ⌀3.3 holes go from Z-7, where roughing leaves their mouth, through Z-19 plus 1 mm of
+    // breakthrough: 13 mm, 3.9×D, under the 5×D deep-hole threshold. From the stock top it would
+    // be 20 mm, 6.1×D, but roughing has already cut that stock away.
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
-    for (d, n) in warnings.iter().zip([4, 8, 9, 10]) {
+    assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-7.)));
+    assert!(!active.iter().any(|d| d["rule"] == "process.hole.peck_by_depth@3"), "no hole here is deeper than 5×D below where it is entered");
+    assert_eq!(ops[4]["technology"]["peck_mode"], "full_retract", "13 mm is still over 3×D: pecked");
+    // The corner-radius warnings belong to one operation each.
+    let warnings: Vec<_> = active.into_iter()
+        .filter(|d| d["rule"] == "process.hole.peck_by_depth@3" || d["rule"] == "process.notch.corner_radius@1").collect();
+    assert_eq!(warnings.len(), 3);
+    for (d, n) in warnings.iter().zip([8, 9, 10]) {
         assert_eq!(d["features"], ops[n]["features"]);
         assert!(!d["features"].as_array().unwrap().is_empty());
         assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
@@ -222,13 +228,8 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
         let says = d["says"].as_str().unwrap();
         assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
-        if n == 4 {
-            assert!(says.contains("depth/D 6.1"), "{says}");
-            assert!((d["depth_diameter_ratio"].as_f64().unwrap() - 20. / 3.3).abs() < 1e-10);
-        } else {
-            let radius = if n == 8 { "1.5" } else { "3" };
-            assert!(says.contains(&format!("left r{radius} by")), "{says}");
-            assert!(!says.contains("r3.0"), "{says}");
-        }
+        let radius = if n == 8 { "1.5" } else { "3" };
+        assert!(says.contains(&format!("left r{radius} by")), "{says}");
+        assert!(!says.contains("r3.0"), "{says}");
     }
 }

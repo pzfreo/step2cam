@@ -509,8 +509,9 @@ allowance is deliberately conservative for tip-referenced bottoms and obstructed
 Missing-tool queries restate this same reach requirement, rounded upwards.
 
 `reference/drilling.json` records the public sources and parameters for conventional drills:
-one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from stock top,
-including requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
+one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from where the drill enters: the hole's mouth once
+roughing has cleared down to it, otherwise the stock top as faced, or the top of a slot, notch
+or V-channel (cut after holes) whose floor it is in; it includes requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
 the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
 Tool’s published ranges. Applying it as a constant across materials is a conservative starting
 policy, not a universal manufacturer value. Full retract is used at intermediate and greater depths because the
@@ -521,7 +522,7 @@ camlib options and its trace cites `process.hole.peck_by_depth`. Above the refer
 threshold, the plan also warns with the hole feature IDs and depth/D ratio that deep-hole
 drilling (pilot plus deep-hole drill) is not planned, so full-retract pecks are used. The warning
 is linked to the operation in its trace. At or below 5×D this warning is absent; the threshold
-uses the same stock-top depth (including requested breakthrough) and selected drill diameter
+uses the same depth below the entry surface (including requested breakthrough) and selected drill diameter
 as the peck decision. It is a planning warning threshold, not a universal drill capability limit.
 
 Gun drills remain outside the library: the adapter's conical, two-flute shape and generic
