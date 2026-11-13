@@ -509,8 +509,10 @@ allowance is deliberately conservative for tip-referenced bottoms and obstructed
 Missing-tool queries restate this same reach requirement, rounded upwards.
 
 `reference/drilling.json` records the public sources and parameters for conventional drills:
-one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from where the drill enters: the hole's mouth once
-roughing has cleared down to it, otherwise the stock top as faced, or the top of a slot, notch
+one plunge through 3×D, then full-retract pecks of 0.5×D. Depth is measured from where the drill enters: after roughing, the lowest
+roughing layer that keeps the bottom allowance above the hole's mouth (a roughing cutter too big
+for the hole leaves the disc over it, which flats do not cut), or the mouth when the roughing
+cutter fits the hole; otherwise the stock top as faced; or the top of a slot, notch
 or V-channel (cut after holes) whose floor it is in; it includes requested breakthrough, excluding point allowance. Both Haas and Hannibal agree on
 the 3×D onset. The half-diameter increment lies in both Nachi and Harvey
 Tool’s published ranges. Applying it as a constant across materials is a conservative starting
