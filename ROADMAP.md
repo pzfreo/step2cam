@@ -8,7 +8,7 @@ order favours what makes the plans correct and honest before what makes them fas
 ## Done
 
 - #31 no G-code; #27 machines (the Carvera); #44 GD&T on every fixture; #53 the MachinePlan-10K
-  benchmark (`tools/benchmark`); #46 camlib at its main (78d3074).
+  benchmark (`tools/benchmark`); #46 camlib at its main (6810078).
 - Phase 1: #67 stale roughing coverage; #36 roughing capped at the tool's reach (cap retained;
   camlib #122 fixed); #35 the tool a left-out feature needs; #34 drills that reach, pecks
   by depth over diameter (deep-hole drilling warned, not planned); #51 ISO 13399 field names.
