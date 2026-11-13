@@ -20,9 +20,10 @@ const STAGES: [&str; 8] = ["requirement", "setup", "process", "sequence", "feasi
 #[test]
 fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
     let mut used = BTreeSet::new();
-    // Source files, including those in module directories such as `plan/`.
+    // Source files, including those in module directories such as `plan/`, and the camlib
+    // adapter, whose notes cite the rules behind the process choices it makes.
     let mut sources = vec![];
-    let mut dirs = vec![repo("rust/capp/src")];
+    let mut dirs = vec![repo("rust/capp/src"), repo("rust/src")];
     while let Some(dir) = dirs.pop() {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();

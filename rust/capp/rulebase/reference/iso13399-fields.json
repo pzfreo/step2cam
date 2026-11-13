@@ -612,6 +612,42 @@
     "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
     "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
    ]
+  },
+  {
+   "field": "flutes",
+   "types": [
+    "end_mill",
+    "drill",
+    "spot_drill",
+    "tap",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "Number of flutes. Not mapped: no exact alias has been checked against two of the cited lists.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
+  },
+  {
+   "field": "material",
+   "types": [
+    "end_mill",
+    "drill",
+    "spot_drill",
+    "tap",
+    "thread_mill",
+    "chamfer_mill"
+   ],
+   "symbol": null,
+   "unit": null,
+   "reason": "The tool's cutting material (carbide or high-speed steel) as a plain word; not mapped to an ISO 13399 material or grade code.",
+   "sources": [
+    "https://www.maford.com/page/ISO_13399_Conversion_Key.aspx",
+    "https://www.dormerpramet.com/uk-ie/en/ISO-13399/"
+   ]
   }
  ]
 }

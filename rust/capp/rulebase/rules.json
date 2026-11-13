@@ -1153,6 +1153,71 @@
      "note": "machine capability and selected tool shank dimensions from resources"
     }
    ]
+  },
+  {
+   "id": "process.roughing.clearing",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing clears each layer in parallel raster passes at the end mill's stepover (at most half its diameter), joined by the shortest routing camlib offers. The job's roughing note cites this rule.",
+   "code": "rust/src/job.rs roughing",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: one simple clearing pattern for every part; no adaptive or offset clearing is chosen"
+    }
+   ]
+  },
+  {
+   "id": "process.roughing.allowance",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing leaves the library's radial_allowance_mm on the walls and bottom_allowance_mm on the floors (0.3 and 0.2 mm when the library gives none), each at least twice the mesh's surface error, so roughing to a mesh that strays from the part never cuts into the part. Flats, walls, bores, slots and notches cut to size with no allowance. The job's roughing note cites this rule.",
+   "code": "rust/src/job.rs roughing; resources.rs Settings",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: the default allowances are step2cam's, not a maker's recommendation; libraries state their own"
+    }
+   ]
+  },
+  {
+   "id": "process.entry.helix",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing enters each layer from outside the stock where it can, otherwise by a helix; slots and notches enter by a helix. Every helix ramps at 3°. The job's notes cite this rule where a roughing, slot or notch uses it.",
+   "code": "rust/src/job.rs ENTRY_ANGLE_DEG",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: one shallow ramp for every tool and material; not taken from any tool's cutting data"
+    }
+   ]
+  },
+  {
+   "id": "tool.flutes.default",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A tool whose library entry gives no flutes is sent to camlib with two for a drill or spot drill and three for any other tool, the values step2cam sent before libraries could say. camlib checks the count and does not use it to cut. The job's notes name each tool given the default.",
+   "code": "resources.rs DEFAULT_FLUTES; rust/src/job.rs assembly",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: kept so that a library without flute counts plans as before; no flute count is guessed for a library tool"
+    }
+   ]
+  },
+  {
+   "id": "tool.material.default",
+   "version": 1,
+   "stage": "tools",
+   "rationale": "A tool whose library entry gives no material is sent to camlib as carbide, the value step2cam sent before libraries could say. camlib does not use it to cut. The job's notes name each tool given the default.",
+   "code": "resources.rs DEFAULT_TOOL_MATERIAL; rust/src/job.rs assembly",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: kept so that a library without tool materials plans as before; no material is guessed for a library tool"
+    }
+   ]
   }
  ]
 }

@@ -24,8 +24,11 @@ will be good: finish, accuracy, burrs, whether it survives being cut. Commercial
 decades of rules still produce a first draft that a machinist edits.
 
 **Use it** to see how recognition and planning could fit together, to read a plan's reasoning,
-and to argue with specific rules: every decision names the rule it was made by, so "rule X is
-wrong here, because…" is the most useful feedback. **Do not cut anything from its output without
+and to argue with specific rules: every planning decision names the rule it was made by, and the
+camlib job's own process choices (raster clearing, roughing allowances, the 3° helix entry, and
+any flute count or tool material the library leaves out) are named in its notes by rule, so "rule
+X is wrong here, because…" is the most useful feedback. The rest of the job's settings (the
+stock grid, simulation limits, facing and drilling cycle details) are not traced. **Do not cut anything from its output without
 someone who knows machining checking it first.**
 
 `step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
@@ -227,7 +230,10 @@ The plan says **what** to cut, independent of tools and machine.
   so (`data`): tool selection (`rulebase/rules/tools.json`: which tools qualify, why the others
   are turned down, which one is preferred), the order of operations (`rules/sequence.json`) and
   what becomes of each feature family (`rules/process.json`). The geometry the rules ask about
-  (reachability, room beside a wall and the like) stays code. Each operation's `because` names the
+  (reachability, room beside a wall and the like) stays code. The camlib adapter's process
+  choices are not decisions in the plan: its notes in the log cite their rules the same way
+  (`process.roughing.clearing`, `process.roughing.allowance`, `process.entry.helix`,
+  `tool.flutes.default`, `tool.material.default`). Each operation's `because` names the
   decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
   its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
   warning is a decision too. A decision a later one replaced says `superseded_by`.
@@ -376,7 +382,9 @@ on purpose.
 
   There are no defaults for these: camlib checks the holder against the stock, so a guessed
   holder would make that check meaningless. Optional: `shank_diameter`, `length_register`
-  (default: `number`), `retract_feed_mm_min` (default: the feed), `peck_mm` (drills: a positive
+  (default: `number`), `retract_feed_mm_min` (default: the feed), `flutes` (a whole number from
+  1 to 1000; default 2 for drills and spot drills, 3 otherwise), `material` (`carbide` or `hss`;
+  default `carbide`), `peck_mm` (drills: a positive
   cap on the depth rule’s peck increment; zero or absent means no cap), and for
   thread mills `min_pitch_mm`/`max_pitch_mm` (the pitches the tooth suits), `radial_passes`
   (default 2) and `spring_passes` (default 1).

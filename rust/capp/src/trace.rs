@@ -29,6 +29,13 @@ pub(crate) fn rules() -> &'static HashMap<String, (u64, String, bool)> {
     })
 }
 
+/// A rule as a note outside the plan cites it, `id@version`: how the camlib adapter names the
+/// rule behind a process choice it makes.
+pub fn cite(rule: &str) -> String {
+    let (version, _, _) = rules().get(rule).unwrap_or_else(|| panic!("rule {rule} is not in rulebase/rules.json"));
+    format!("{rule}@{version}")
+}
+
 /// Decisions as they are made, with the warnings and skipped features they give.
 #[derive(Clone, Default)]
 pub struct Trace {

@@ -163,12 +163,12 @@
    "feed_mm_min": 153.9,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 1,
    "_comment": "Guhring 6793, D3; _sources.end_mills read 2026-11-09. Actual 1 flute(s); Vc=300 m/min, fz=0.019 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 12,
    "plunge_mm_min": 38.48,
    "stepdown_mm": 1.5,
-   "stepover_mm": 1.2,
-   "_flutes": 1
+   "stepover_mm": 1.2
   },
   {
    "id": "em6",
@@ -183,12 +183,12 @@
    "feed_mm_min": 299.7,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 1,
    "_comment": "Guhring 6793, D6; _sources.end_mills read 2026-11-09. Actual 1 flute(s); Vc=300 m/min, fz=0.037 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 20,
    "plunge_mm_min": 74.92,
    "stepdown_mm": 3.0,
-   "stepover_mm": 2.4,
-   "_flutes": 1
+   "stepover_mm": 2.4
   },
   {
    "id": "em10",
@@ -203,12 +203,12 @@
    "feed_mm_min": 526.5,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 1,
    "_comment": "Guhring 6793, D10; _sources.end_mills read 2026-11-09. Actual 1 flute(s); Vc=300 m/min, fz=0.065 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 25,
    "plunge_mm_min": 131.62,
    "stepdown_mm": 5.0,
-   "stepover_mm": 4.0,
-   "_flutes": 1
+   "stepover_mm": 4.0
   },
   {
    "id": "em12",
@@ -223,12 +223,12 @@
    "feed_mm_min": 636.56,
    "spindle_rpm": 7957,
    "coolant": "flood",
+   "flutes": 1,
    "_comment": "Guhring 6793, D12; _sources.end_mills read 2026-11-09. Actual 1 flute(s); Vc=300 m/min, fz=0.08 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 30,
    "plunge_mm_min": 159.14,
    "stepdown_mm": 6.0,
-   "stepover_mm": 4.8,
-   "_flutes": 1
+   "stepover_mm": 4.8
   },
   {
    "id": "em16",
@@ -243,12 +243,12 @@
    "feed_mm_min": 596.8,
    "spindle_rpm": 5968,
    "coolant": "flood",
+   "flutes": 1,
    "_comment": "Guhring 6793, D16; _sources.end_mills read 2026-11-09. Actual 1 flute(s); Vc=300 m/min, fz=0.1 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 35,
    "plunge_mm_min": 149.2,
    "stepdown_mm": 8.0,
-   "stepover_mm": 6.4,
-   "_flutes": 1
+   "stepover_mm": 6.4
   },
   {
    "id": "em20",
@@ -263,12 +263,12 @@
    "feed_mm_min": 4804.87,
    "spindle_rpm": 7882,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Guhring 3202, D20; _sources.end_mills read 2026-11-09. Actual 4 flute(s); Vc=495.3 m/min, fz=0.1524 mm/tooth; capped rpm and chip-load-preserving feed. Holder/stickout/engagement: _policy (step2cam judgement).",
    "flute_length": 38,
    "plunge_mm_min": 1201.22,
    "stepdown_mm": 10.0,
-   "stepover_mm": 8.0,
-   "_flutes": 4
+   "stepover_mm": 8.0
   },
   {
    "id": "drill2.5",
@@ -283,6 +283,7 @@
    "feed_mm_min": 411.48,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060025000; _sources.drills and holder; starting IPR0.002, _policy.",
    "flute_length": 30.0,
    "point_angle": 118
@@ -300,6 +301,7 @@
    "feed_mm_min": 1262.02,
    "spindle_rpm": 7644,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060033000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 36.0,
    "point_angle": 118
@@ -317,6 +319,7 @@
    "feed_mm_min": 991.59,
    "spindle_rpm": 6006,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060042000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 43.0,
    "point_angle": 118
@@ -334,6 +337,7 @@
    "feed_mm_min": 832.93,
    "spindle_rpm": 5045,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060050000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 52.0,
    "point_angle": 118
@@ -351,6 +355,7 @@
    "feed_mm_min": 942.09,
    "spindle_rpm": 3709,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060068000; _sources.drills and holder; starting IPR0.01, _policy.",
    "flute_length": 69.0,
    "point_angle": 118
@@ -368,6 +373,7 @@
    "feed_mm_min": 753.62,
    "spindle_rpm": 2967,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060085000; _sources.drills and holder; starting IPR0.01, _policy.",
    "flute_length": 75.0,
    "point_angle": 118
@@ -385,6 +391,7 @@
    "feed_mm_min": 785.18,
    "spindle_rpm": 2473,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060102000; _sources.drills and holder; starting IPR0.0125, _policy.",
    "flute_length": 87.0,
    "point_angle": 118
@@ -402,6 +409,7 @@
    "feed_mm_min": 1224.88,
    "spindle_rpm": 7419,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060034000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 39.0,
    "point_angle": 118
@@ -419,6 +427,7 @@
    "feed_mm_min": 925.39,
    "spindle_rpm": 5605,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060045000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 47.0,
    "point_angle": 118
@@ -436,6 +445,7 @@
    "feed_mm_min": 757.15,
    "spindle_rpm": 4586,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060055000; _sources.drills and holder; starting IPR0.0065, _policy.",
    "flute_length": 57.0,
    "point_angle": 118
@@ -453,6 +463,7 @@
    "feed_mm_min": 970.79,
    "spindle_rpm": 3822,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060066000; _sources.drills and holder; starting IPR0.01, _policy.",
    "flute_length": 63.0,
    "point_angle": 118
@@ -470,6 +481,7 @@
    "feed_mm_min": 711.71,
    "spindle_rpm": 2802,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060090000; _sources.drills and holder; starting IPR0.01, _policy.",
    "flute_length": 81.0,
    "point_angle": 118
@@ -487,6 +499,7 @@
    "feed_mm_min": 728.03,
    "spindle_rpm": 2293,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060110000; _sources.drills and holder; starting IPR0.0125, _policy.",
    "flute_length": 94.0,
    "point_angle": 118
@@ -504,6 +517,7 @@
    "feed_mm_min": 1771.02,
    "spindle_rpm": 5578,
    "coolant": "flood",
+   "material": "carbide",
    "_comment": "Guhring723 EDP9007230100000; _sources.spot and holder; starting values, _policy.",
    "flute_length": 25,
    "point_angle": 90
@@ -521,6 +535,7 @@
    "feed_mm_min": 236.67,
    "spindle_rpm": 2254,
    "coolant": "flood",
+   "flutes": 7,
    "_comment": "TOYO TCM90-12; _sources.chamfer and holder; starting values, _policy. Catalogue axial K=4.75 mm.",
    "flute_length": 4.75,
    "angle": 90,
@@ -540,6 +555,7 @@
    "feed_mm_min": 48.01,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882124; geometry https://www.harveytool.com/products/tool-details-882124-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.00025, _policy. Programmed centerline feed corrected by (3-2.3)/3 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 0.531,
    "neck_diameter": 1.38,
@@ -563,6 +579,7 @@
    "feed_mm_min": 61.72,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882126; geometry https://www.harveytool.com/products/tool-details-882126-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.0003, _policy. Programmed centerline feed corrected by (4-3)/4 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 0.693,
    "neck_diameter": 1.8,
@@ -586,6 +603,7 @@
    "feed_mm_min": 65.84,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882128; geometry https://www.harveytool.com/products/tool-details-882128-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.0004, _policy. Programmed centerline feed corrected by (5-4)/5 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 0.924,
    "neck_diameter": 2.4,
@@ -609,6 +627,7 @@
    "feed_mm_min": 138.26,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882130; geometry https://www.harveytool.com/products/tool-details-882130-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.00084, _policy. Programmed centerline feed corrected by (6-4.8)/6 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 1.109,
    "neck_diameter": 2.88,
@@ -632,6 +651,7 @@
    "feed_mm_min": 172.82,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882132; geometry https://www.harveytool.com/products/tool-details-882132-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.00084, _policy. Programmed centerline feed corrected by (8-6)/8 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 1.386,
    "neck_diameter": 3.6,
@@ -655,6 +675,7 @@
    "feed_mm_min": 283.1,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882134; geometry https://www.harveytool.com/products/tool-details-882134-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.00172, _policy. Programmed centerline feed corrected by (10-8)/10 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 1.848,
    "neck_diameter": 4.8,
@@ -678,6 +699,7 @@
    "feed_mm_min": 282.55,
    "spindle_rpm": 8100,
    "coolant": "flood",
+   "flutes": 4,
    "_comment": "Harvey uncoated882136; geometry https://www.harveytool.com/products/tool-details-882136-c3 (same dimensions as uncoated maker catalogue p552); _sources.threads and holder; starting IPT0.00206, _policy. Programmed centerline feed corrected by (12-10)/12 per chart step3; camlib accepts tool-center feed.",
    "tooth_height": 2.309,
    "neck_diameter": 6,
@@ -701,6 +723,7 @@
    "feed_mm_min": 946.52,
    "spindle_rpm": 5733,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060044000; _sources.drills geometry and 206-only wrought-aluminium row read 2026-11-09: 260 SFM, 0.0065 IPR, next smaller chart diameter. Assembly is step2cam judgement in _policy.",
    "flute_length": 47,
    "point_angle": 118
@@ -718,6 +741,7 @@
    "feed_mm_min": 800.74,
    "spindle_rpm": 2522,
    "coolant": "flood",
+   "material": "hss",
    "_comment": "Guhring206 EDP9002060100000; _sources.drills geometry and 206-only wrought-aluminium row read 2026-11-09: 260 SFM, 0.0125 IPR, next smaller chart diameter. Assembly is step2cam judgement in _policy.",
    "flute_length": 87,
    "point_angle": 118
@@ -740,7 +764,7 @@
    "plunge_mm_min": 181.05,
    "stepdown_mm": 0.2,
    "coolant": "flood",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Harvey30302; _sources.engraver, read 2026-11-09. Flood and assembly: step2cam judgement; holder from _sources.holder."
   },
   {
@@ -763,6 +787,7 @@
    "coolant": "flood",
    "flute_style": "straight",
    "_flutes": 3,
+   "material": "hss",
    "_comment": "Dormer E559M3NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
   },
   {
@@ -785,6 +810,7 @@
    "coolant": "flood",
    "flute_style": "straight",
    "_flutes": 3,
+   "material": "hss",
    "_comment": "Dormer E559M4NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
   },
   {
@@ -807,6 +833,7 @@
    "coolant": "flood",
    "flute_style": "straight",
    "_flutes": 3,
+   "material": "hss",
    "_comment": "Dormer E559M5NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
   },
   {
@@ -829,6 +856,7 @@
    "coolant": "flood",
    "flute_style": "straight",
    "_flutes": 3,
+   "material": "hss",
    "_comment": "Dormer E559M6NO3, read 2026-11-09; vendor catalogue p36 and form-C lead p32, see _sources.taps. Geometry and aluminium Vc6 m/min sourced; use full 3-pitch lead, not lower end of range. Stickout and holder assembly are step2cam judgement. A tight blind hole may refuse this lead even when its nominal thread size matches."
   },
   {
@@ -844,6 +872,7 @@
    "feed_mm_min": 1771.02,
    "spindle_rpm": 5578,
    "coolant": "flood",
+   "material": "carbide",
    "_comment": "Guhring724 EDP9007240100000; _sources.spot120 and holder; starting values, _policy.",
    "flute_length": 25,
    "point_angle": 120
