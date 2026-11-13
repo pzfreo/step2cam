@@ -157,14 +157,23 @@ fn haas_flip_finishes_despite_missing_spot_tools() {
     assert_eq!(flip["finished"], true);
     assert_eq!(flip["reason"], "finished");
     assert_eq!(flip["tools_needed"], out["plan"]["tools_needed"]);
-    assert!(
-        list(&out["plan"]["setups"])
+    // The spot drilling no tool cuts is not an operation; its holes are still drilled, so they are
+    // neither skipped nor counted as left out, and the setup warns that they are not spotted.
+    assert!(list(&out["plan"]["setups"]).iter().all(|s| list(&s["operations"]).iter().all(|o| o["kind"] != "spot_drill")));
+    let unspotted: Vec<_> = list(&out["plan"]["decisions"])
+        .iter()
+        .filter(|d| d["rule"] == "tool.none.unspotted@1" && d["outcome"] == "warning")
+        .flat_map(|d| list(&d["features"]))
+        .collect();
+    assert!(!unspotted.is_empty(), "spot drilling must exercise an operation without a tool");
+    for f in &unspotted {
+        assert!(list(&out["plan"]["setups"]).iter().any(|setup| list(&setup["operations"])
             .iter()
-            .any(|s| list(&s["operations"])
-                .iter()
-                .any(|o| o["kind"] == "spot_drill" && o["tool"].is_null())),
-        "spot drilling must exercise an operation without a tool"
-    );
+            .any(|o| o["kind"] == "holes" && o["tool"].is_string() && list(&o["features"]).contains(*f))), "{f}");
+        assert!(list(&out["plan"]["skipped"]).iter().all(|s| &s["feature"] != *f), "{f}");
+        assert!(list(&flip["features_left_out"]).iter().all(|l| &l["feature"] != *f));
+    }
+    assert!(list(&out["plan"]["warnings"]).iter().any(|w| w.as_str().unwrap().contains(" drilled without spotting: no usable spot drill")));
     assert!(list(&flip["tools_needed"]).iter().any(|n| {
         list(&n["operations"])
             .iter()

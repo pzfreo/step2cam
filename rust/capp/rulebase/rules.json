@@ -1050,6 +1050,32 @@
    ]
   },
   {
+   "id": "tool.none.left_out",
+   "version": 1,
+   "stage": "tools",
+   "warning_label": "operations left out for want of a tool",
+   "rationale": "After tool resolution, an operation no tool in the library cuts is taken out of its setup rather than listed with no tool: each feature it would cut is skipped with why and the tool it needs, and an operation with no feature of its own warns that it is left out. The operations after it are numbered again, as after an exclusion; tools_needed still names it as it was numbered before. Roughing that does not run covers nothing. Supplied choices and execution-engine exclusions name operations as the finished plan numbers them.",
+   "code": "settle.rs leave_out_untooled",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
+   "id": "tool.none.unspotted",
+   "version": 1,
+   "stage": "tools",
+   "warning_label": "holes drilled without spotting",
+   "rationale": "Spot drilling no tool cuts is taken out; its holes are still drilled, so they are not skipped: one warning per setup names them, says how many holes are drilled without spotting and which spot drill is needed.",
+   "code": "settle.rs leave_out_untooled",
+   "sources": [
+    {
+     "kind": "step2cam"
+    }
+   ]
+  },
+  {
    "id": "requirement.supplied_refused",
    "version": 1,
    "stage": "requirements",

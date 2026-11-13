@@ -10,7 +10,18 @@ fn complex_front_threads_run_with_real_entry_clearance() {
         let out = step2cam::process(&analysis, &mesh, &read(path)).unwrap();
         assert!(out["error"].is_null(), "{path}: {}", out["error"]);
         let front = out["plan"]["setups"].as_array().unwrap().iter().find(|s| s["id"] == "front").unwrap();
-        let thread = front["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "thread").unwrap_or_else(|| panic!("{path}: {}", out["log"]));
+        let thread = front["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "thread");
+        if path.contains("linuxcnc") {
+            // This inventory cannot finish this blind M3. Preserve the
+            // concrete resource limit rather than inventing a longer tool: the
+            // thread is not an operation, and its features say why.
+            assert!(thread.is_none(), "{path}: {thread:?}");
+            let skipped: Vec<_> = out["plan"]["skipped"].as_array().unwrap().iter().filter(|s| s["reason"].as_str().unwrap().starts_with("thread left out: ")).collect();
+            assert_eq!(skipped.iter().map(|s| s["feature"].clone()).collect::<Vec<_>>(), [json!("holes:48.57"), json!("holes:49.58")]);
+            assert!(skipped.iter().all(|s| s["reason"].as_str().unwrap().contains("⌀3 does not fit the ⌀2.5 hole")), "{path}: {skipped:?}");
+            continue;
+        }
+        let thread = thread.unwrap_or_else(|| panic!("{path}: {}", out["log"]));
         assert_eq!(thread["features"], json!(["holes:48.57", "holes:49.58"]));
         if path == "../demo/tools.json" {
             let program = out["programs"].as_array().unwrap().iter().find(|p| p["setup"]=="front").unwrap();
@@ -18,7 +29,7 @@ fn complex_front_threads_run_with_real_entry_clearance() {
             let milled = operations.iter().find(|o| o["kind"]=="thread_mill").expect("Carvera front thread must execute, not just remain untooled in the plan");
             assert_eq!(milled["centers_mm"].as_array().unwrap().len(),2);
             assert!(program["job"]["stock"]["cell_size_mm"].as_f64().unwrap()<0.03);
-        } else if path.contains("haas") {
+        } else {
             // Review M7: the default 8.5 mm full thread left no room for the form C tap's lead;
             // tapM3 now cuts 10 - (3 + 1) × 0.5 = 8 mm of it, and the job taps both holes.
             assert_eq!(thread["tool"], "tapM3", "{path}: {}", thread["tool_note"]);
@@ -26,11 +37,6 @@ fn complex_front_threads_run_with_real_entry_clearance() {
             let program = out["programs"].as_array().unwrap().iter().find(|p| p["setup"]=="front").unwrap();
             let tapped = program["job"]["operations"].as_array().unwrap().iter().find(|o| o["kind"]=="tapping").expect("the front M3 is tapped");
             assert_eq!(tapped["centers_mm"].as_array().unwrap().len(),2);
-        } else {
-            // This inventory cannot finish this blind M3. Preserve the
-            // concrete resource limit rather than inventing a longer tool.
-            let reason = thread["tool_note"].as_str().unwrap();
-            assert!(reason.contains("⌀3 does not fit the ⌀2.5 hole"), "{path}: {reason}");
         }
         for setup in out["plan"]["setups"].as_array().unwrap().iter().skip(1) {
             assert!(setup["clamping"]["contact_area_mm2"].as_array().unwrap().iter().all(|a| a.as_f64().unwrap()>0.), "{path}: {setup}");

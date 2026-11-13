@@ -30,7 +30,7 @@ pub(crate) fn rules() -> &'static HashMap<String, (u64, String, bool)> {
 }
 
 /// Decisions as they are made, with the warnings and skipped features they give.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Trace {
     pub decisions: Vec<Value>,
     pub warnings: Vec<String>,

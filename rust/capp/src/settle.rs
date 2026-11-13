@@ -3,7 +3,8 @@
 //!
 //! [`finish`] takes a plan from [`crate::plan::plan`], the resources and the exclusions an
 //! execution engine has reported, and leaves the plan ready to execute: every operation names its
-//! tool (`tool`), or says why it has none (`tool_note`, null when nothing needs saying).
+//! tool (`tool`); one no tool cuts is taken out and its features say why. [`resolve`] alone leaves
+//! it in place and says why it has none (`tool_note`, null when nothing needs saying).
 use crate::kind::{OpId, OpKind, OpRef};
 use crate::model::{Considered, Cut, Exclusion, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
 use crate::plan::{r, show};
@@ -52,8 +53,8 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Exclusion], trace
     settle_with(plan, library, trace)?;
     crate::spots::create_with(plan, &Library::new(library)?, trace)?;
     for exclusion in exclusions {
-        let id = &exclusion.operation;
-        let operation = &id.to_string();
+        let operation = &exclusion.operation.to_string();
+        let id = &unfinished_id(plan, library, trace, &exclusion.operation)?;
         let (message, need) = crate::needed::refusal(plan, id, &exclusion.message, exclusion.tool.as_deref(), exclusion.reach.as_ref(), &Library::new(library)?)?;
         let removed = take_out(plan, id)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
@@ -77,10 +78,93 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Exclusion], trace
     }
     crate::spots::prune_with(plan, &Library::new(library)?, true, trace)?;
     resolve_with(plan, library, trace)?;
+    leave_out_untooled(plan, trace);
     crate::clamping_history::check(plan, &Library::new(library)?, trace);
     crate::machines::check_changer_with(plan, library, trace);
     trace.refuse_unused();
     Ok(())
+}
+
+/// The operation `id` names in the finished plan an execution engine saw, which has no operation
+/// that no tool cuts, as it is numbered in `plan` before tools are resolved: the plan that finish
+/// would give is worked out on a copy, and `id` counts only its tooled operations.
+fn unfinished_id(plan: &Plan, library: &Value, trace: &Trace, id: &OpId) -> Result<OpId, String> {
+    let (mut finished, mut copy) = (plan.clone(), trace.clone());
+    crate::spots::prune_with(&mut finished, &Library::new(library)?, true, &mut copy)?;
+    resolve_with(&mut finished, library, &mut copy)?;
+    let number = finished.setups.iter().find(|s| s.id == id.setup).and_then(|s| s.operations.iter().enumerate()
+        .filter(|(_, o)| !matches!(o.tool, Some(None))).nth(id.number.checked_sub(1)?).map(|(n, _)| n + 1));
+    // One it does not have is in neither: past the end.
+    Ok(OpId { number: number.unwrap_or(usize::MAX), ..id.clone() })
+}
+
+/// Takes each operation that no tool cuts out of its setup. Its features are skipped with why;
+/// a spot drilling's holes are still drilled, so instead of being skipped they are named by one
+/// warning per setup, which says they are drilled without spotting.
+/// The operations after it are numbered again, as after an exclusion.
+fn leave_out_untooled(plan: &mut Plan, trace: &mut Trace) {
+    for setup in 0..plan.setups.len() {
+        let setup_id = plan.setups[setup].id.clone();
+        let untooled: Vec<OpId> = plan.setups[setup].operations.iter().enumerate().filter(|(_, o)| matches!(o.tool, Some(None)))
+            .map(|(n, o)| OpId { setup: setup_id.clone(), number: n + 1, kind: o.cut.kind(), part: None }).collect();
+        let mut unspotted: Vec<String> = vec![];
+        let mut why = String::new();
+        // Each one taken out moves those after it up by one.
+        for (taken, id) in untooled.iter().enumerate() {
+            let Some(removed) = take_out(plan, &OpId { number: id.number - taken, ..id.clone() }) else { continue; };
+            let operation = id.to_string();
+            let note = removed.tool_note.clone().flatten().unwrap_or_else(|| "no tool".into());
+            let need = crate::needed::op_need(&trace.decisions, &removed).map(String::from);
+            let noun = crate::plan::operation_noun(id.kind.name());
+            let reason = match note.strip_prefix("left out: ") { Some(rest) => format!("{noun} left out: {rest}"), None => format!("{noun} left out: {note}") };
+            let features = removed.cut.features().unwrap_or_default();
+            let left = trace.decide(UNTOOLED, &operation, "removed", &reason, json!({"operation": OpRef::from(id), "features": features}));
+            trace.needs(&left, need.as_deref());
+            // Spot drilling's holes are still drilled, so they are not skipped: the warning below names them.
+            if id.kind != OpKind::SpotDrill {
+                for feature in features {
+                    let skipped = trace.skip(UNTOOLED, feature, reason.clone());
+                    trace.needs(&skipped, need.as_deref());
+                }
+            }
+            // Nothing is covered by roughing that does not run.
+            if id.kind == OpKind::Roughing {
+                for feature in std::mem::take(&mut plan.covered_by_roughing) {
+                    let skipped = trace.skip(UNTOOLED, &feature, format!("no operation of its own, and {reason}"));
+                    trace.needs(&skipped, need.as_deref());
+                    trace.supersede(&feature, "covered", &skipped);
+                }
+            }
+            if id.kind == OpKind::SpotDrill {
+                unspotted.extend(features.iter().cloned());
+                why = note;
+            } else if features.is_empty() {
+                // With no feature to skip, a warning says it is left out.
+                trace.warn(UNTOOLED, &operation, format!("{operation} left out: {note}"), json!({}));
+            }
+            supersede_own(trace, &removed, &left);
+        }
+        if !unspotted.is_empty() {
+            let holes = if unspotted.len() == 1 { "hole" } else { "holes" };
+            trace.warn(UNSPOTTED, &format!("{setup_id}:spot_drill"), format!("setup {setup_id}: {} {holes} drilled without spotting: {why}", unspotted.len()), json!({"features": unspotted}));
+        }
+    }
+}
+
+const UNTOOLED: &str = "tool.none.left_out";
+const UNSPOTTED: &str = "tool.none.unspotted";
+
+/// Marks the decisions that are the removed operation's own (what made it, its tool and cutting
+/// data) as replaced by `by`; those it shares with the rest of the setup (the setup, the order,
+/// where its holes are cut) stand. Feature-subject warnings are borrowed by every operation
+/// cutting that feature, so they stand too.
+fn supersede_own(trace: &mut Trace, removed: &Operation, by: &str) {
+    let own: Vec<&str> = removed.because.iter().flatten().map(String::as_str).collect();
+    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id))
+        && (d["stage"] == "process" || d["stage"] == "tools")
+        && !(d["outcome"] == "warning" && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"])))) {
+        d["superseded_by"] = json!(by);
+    }
 }
 
 /// Takes an operation named as the execution engine names them (`top-2-roughing`) out of the
@@ -145,15 +229,8 @@ fn exclude_with(plan: &mut Plan, operation: &str, message: &str, need: Option<&s
     }
     let warned = trace.warn("execution.refused", operation, format!("{operation} left out: {brief}"), json!({"features": removed.cut.features()}));
     trace.needs(&warned, need);
-    // Its own decisions (what made it, its tool and cutting data) no longer stand; those it shares
-    // with the rest of the setup (the setup, the order, where its holes are cut) do.
-    // Feature-subject warnings are borrowed by every operation cutting that feature.
-    let own: Vec<&str> = removed.because.iter().flatten().map(String::as_str).collect();
-    for d in trace.decisions.iter_mut().filter(|d| d["id"].as_str().is_some_and(|id| own.contains(&id))
-        && (d["stage"] == "process" || d["stage"] == "tools")
-        && !(d["outcome"] == "warning" && d["features"].as_array().is_some_and(|features| features.contains(&d["subject"])))) {
-        d["superseded_by"] = json!(refused);
-    }
+    // Its own decisions no longer stand.
+    supersede_own(trace, removed, &refused);
 }
 
 const REACH_RULE: &str = "process.roughing.reach";
@@ -487,6 +564,9 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
         let setup_id = view.id.clone();
         let top = view.stock.max[2];
         let has_rough = view.operations.iter().any(|o| o.cut.kind() == OpKind::Roughing);
+        // Operations before this one that no tool cuts: finish takes them out, so a supplied
+        // choice names this one by its number without them.
+        let mut untooled = 0;
         for (index, op) in setup.operations.iter_mut().enumerate() {
             let op_kind = op.cut.kind();
             let kind = op_kind.name();
@@ -593,7 +673,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                 }
             };
             let subject = format!("{setup_id}:{kind}");
-            let operation = format!("{setup_id}-{}-{kind}", index + 1);
+            let operation = format!("{setup_id}-{}-{kind}", index + 1 - untooled);
             let mut supplied = None;
             let supplied_rule = if rule == "tool.thread.tap_or_mill" && trace.supplied_for(rule, &subject, Some(&operation)).is_none() && trace.supplied_for("tool.thread_mill", &subject, Some(&operation)).is_some() { "tool.thread_mill" } else { rule };
             if view.operations.iter().filter(|o| o.cut.kind() == op_kind).count() > 1
@@ -716,6 +796,7 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                 }
                 op.technology = Some(technology);
             }
+            untooled += usize::from(tool.is_none());
             op.tool = Some(tool);
             op.tool_note = Some(note);
             because_op(op, why);

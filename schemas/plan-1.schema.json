@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "urn:step2cam:schema:plan:1",
  "title": "step2cam plan, version 1",
- "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool), or says why it has none (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
+ "description": "What plan::plan writes: per setup, what to cut, independent of tools and machine. Lengths in mm, in the setup's frame unless named _model. After capp::finish every operation also names its tool (tool); an operation no tool cuts is taken out, its features skipped with why. capp::resolve alone leaves it with tool null and says why (tool_note, null when nothing needs saying). The decision trace: decisions lists every choice and the rule (rulebase/rules.json, id@version) it was made by; an operation's because and a skipped feature's decision name them. step2cam::process returns the plan without the roughing mesh (positions, indices) or part_surface, as the page has the mesh already.",
  "type": "object",
  "required": [
   "format",
@@ -140,7 +140,7 @@
    "description": "Which rules and reference data the plan was made with: a hash over capp's rulebase files."
   },
   "tools_needed": {
-   "description": "After capp::finish: deduplicated missing-tool queries from tool_note and exclusion reasons. Identical descriptions merge features and operation/decision subjects. Absent before settlement and in older plans.",
+   "description": "After capp::finish: deduplicated missing-tool queries from skipped, removed-operation and exclusion reasons. Identical descriptions merge features and operation/decision subjects. Absent before settlement and in older plans.",
    "type": "array",
    "items": {
     "type": "object",

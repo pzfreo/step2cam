@@ -33,10 +33,13 @@ fn missing_hole_tools_use_library_tolerance_and_merge_identical_queries() {
     assert_eq!(plan["tools_needed"].as_array().unwrap().len(), 1);
     assert_eq!(plan["tools_needed"][0]["description"], need);
     assert_eq!(plan["tools_needed"][0]["features"], json!(["holes:0", "holes:1"]));
-    for op in plan["setups"][0]["operations"].as_array().unwrap() {
-        let note = op["tool_note"].as_str().unwrap();
-        assert!(note.starts_with("no drill of ⌀18.5 and no end mill small enough to bore it"));
-        assert!(note.ends_with(&format!(": needs {need}")));
+    // No tool cuts either: they are not operations, and each feature says why.
+    assert_eq!(plan["setups"][0]["operations"], json!([]));
+    assert_eq!(plan["tools_needed"][0]["operations"], json!(["top-1-holes", "top-2-holes"]));
+    for skipped in plan["skipped"].as_array().unwrap() {
+        let reason = skipped["reason"].as_str().unwrap();
+        assert!(reason.starts_with("holes left out: no drill of ⌀18.5 and no end mill small enough to bore it"), "{reason}");
+        assert!(reason.ends_with(&format!(": needs {need}")));
     }
 }
 
@@ -46,7 +49,9 @@ fn notch_query_rounds_diameter_down_and_reach_up() {
     capp::finish(&mut plan, &library(), &[]).unwrap();
     assert_eq!(plan["tools_needed"][0]["description"], "an end mill under ⌀1.18 with flutes of at least 13 mm");
     assert_eq!(plan["tools_needed"][0]["features"], json!(["notches:0"]));
-    assert!(plan["setups"][0]["operations"][0]["tool_note"].as_str().unwrap().ends_with(": needs an end mill under ⌀1.18 with flutes of at least 13 mm"));
+    assert_eq!(plan["setups"][0]["operations"], json!([]));
+    assert_eq!(plan["skipped"][0]["feature"], "notches:0");
+    assert!(plan["skipped"][0]["reason"].as_str().unwrap().ends_with(": needs an end mill under ⌀1.18 with flutes of at least 13 mm"));
 }
 
 #[test]

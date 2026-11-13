@@ -111,9 +111,13 @@ fn part_material_beyond_the_exit_limits_the_drill() {
 
 #[test]
 fn a_hole_no_tool_fits_is_a_note_not_a_guess() {
-    let (ops, _, notes) = synthetic_post(&[down(0., 0., 2.5, 6., "through")]);
+    let (ops, _, _) = synthetic_post(&[down(0., 0., 2.5, 6., "through")]);
     assert!(ops.is_empty(), "{ops:?}");
-    assert!(any_note(&notes, "no drill of ⌀2.5"), "{notes:?}");
+    // No tool cuts it, so it is not an operation: the hole's skip says why.
+    let plan = finished(&plan(&holes_only(&[down(0., 0., 2.5, 6., "through")]), None, &top_stock(0.)).unwrap(), &example_tools());
+    assert!(list(&plan["setups"][0]["operations"]).is_empty());
+    let reasons: Vec<&str> = list(&plan["skipped"]).iter().map(|s| s["reason"].as_str().unwrap()).collect();
+    assert!(reasons.iter().any(|r| r.starts_with("holes left out: no drill of ⌀2.5")), "{reasons:?}");
 }
 
 #[test]

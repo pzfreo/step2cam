@@ -215,15 +215,11 @@ pub(crate) fn collect(plan: &mut Plan) {
     for skipped in &plan.skipped {
         add(skipped.decision.as_deref().and_then(|id| need_of(decisions, id)), std::slice::from_ref(&skipped.feature), None);
     }
-    for setup in &plan.setups {
-        for (n, op) in setup.operations.iter().enumerate() {
-            add(op.tool_note.as_ref().and_then(Option::as_ref).and_then(|_| op_need(decisions, op)), op.cut.features().unwrap_or_default(),
-                Some(format!("{}-{}-{}", setup.id, n + 1, op.cut.kind().name())));
-        }
-    }
-    // Settling can remove a V-channel or a wall before tool resolution.
-    for decision in decisions.iter().filter(|d| d["outcome"] == "warning" && d.get("superseded_by").is_none()) {
-        add(decision["needs"].as_str(), &[], decision["subject"].as_str().map(String::from));
+    // Settling can remove a V-channel or a wall before tool resolution; an operation no tool cuts
+    // is removed after it, and named as it was numbered then, with the features it would cut.
+    for decision in decisions.iter().filter(|d| (d["outcome"] == "warning" || d["outcome"] == "removed") && d.get("superseded_by").is_none()) {
+        let features: Vec<String> = if decision["outcome"] == "removed" { serde_json::from_value(decision["features"].clone()).unwrap_or_default() } else { vec![] };
+        add(decision["needs"].as_str(), &features, decision["subject"].as_str().map(String::from));
     }
     plan.tools_needed = Some(needs);
 }

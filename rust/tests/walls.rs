@@ -182,7 +182,9 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "setup top: 3.3 mm holes, depth/D 6.1: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
         "setup top: 6 mm notch: its 4 inside corners are left r1.5 by em3 (the model has r1.2)",
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
-        "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)"
+        "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
+        // This library has no spot drill for the ⌀10 hole: its spot drilling is left out.
+        "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth"
     ]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
