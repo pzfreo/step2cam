@@ -172,8 +172,9 @@ The plan says **what** to cut, independent of tools and machine.
     and the mesh must show it empty above the floor, or it is not cut. Its inside corners stay as
     round as the cutter;
   - `v_channel`: a V-channel that runs out of the part at both ends, with a sharp V-bit no wider
-    than the channel, its tip along the root. A narrower bit leaves a little on the walls, and the
-    log says how much. A channel in a flat goes with that flat;
+    than the channel, its tip along the root. A narrower bit leaves a little on the walls: the
+    plan warns that the channel is partly cut and says how much is left. A channel in a flat
+    goes with that flat;
   - `flats`, straight after roughing, where the part has upward flat faces between its top and
     the roughing floor. Those are off the roughing layers, so they can have up to a stepdown (plus
     the bottom allowance) left on them; camlib's `Flat` cuts each at its exact height, in one pass

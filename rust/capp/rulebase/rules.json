@@ -771,6 +771,15 @@
    "sources": [{ "kind": "step2cam" }]
   },
   {
+   "id": "process.v_channel.wall_stock",
+   "warning_label": "V-channel walls left with stock",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A sharp V-bit narrower than the channel, run with its tip on the root, leaves a wedge of stock on each wall. Its width across the top is the channel's half-width less the bit's half-width at the channel's depth, (width - tip diameter) / 2 - depth × tan(bit angle / 2); above 0.005 mm the channel is reported as partly cut with that stock left, as wider notch corners are.",
+   "code": "settle.rs resolve_with",
+   "sources": [{ "kind": "step2cam" }]
+  },
+  {
    "id": "tool.notch.pocket_mill",
    "version": 1,
    "stage": "tools",

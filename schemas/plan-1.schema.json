@@ -2581,6 +2581,10 @@
      "type": "number",
      "description": "Corner radius in the model, in mm."
     },
+    "wall_stock_mm": {
+     "type": "number",
+     "description": "process.v_channel.wall_stock: the stock left on each V-channel wall, across its top, in mm."
+    },
     "shank_sizes_mm": {
       "type": "array",
       "items": {"type": "number"},

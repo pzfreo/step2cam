@@ -562,6 +562,14 @@ Matching upright concave corner fillets can recover straight-wall records' missi
 radius. A corner pair implies an open opposite end only when the mesh clears the full run-out;
 otherwise the previously validated interior cut is retained for that partial record.
 
+### V-channels
+
+A V-channel is cut by running the widest sharp V-bit no wider than the channel's angle along
+it, its tip on the root. A narrower bit leaves a wedge of stock on each wall, widest at the
+top: (width - tip diameter) / 2 - depth × tan(bit angle / 2). Above 0.005 mm,
+`process.v_channel.wall_stock` warns in the plan that the channel is partly cut and records
+that stock as `wall_stock_mm`, as `process.notch.corner_radius` does for corners.
+
 ### Spot drilling
 
 `finish` inserts `spot_drill` groups after first settlement, before replaying any

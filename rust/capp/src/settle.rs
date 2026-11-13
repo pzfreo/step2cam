@@ -390,6 +390,14 @@ fn wall_refusal(setup: &Setup, op: &Operation, wall: &WallFinish, library: &Libr
     Ok(Some(("feasibility.wall.room", why, needs)))
 }
 
+/// The stock a V-bit run with its tip on the channel's root leaves on each wall, measured across
+/// the channel's top: its half-width less the bit's half-width at the channel's depth.
+fn v_channel_wall_stock(channel: &VChannel, bit: &Value) -> Result<f64, String> {
+    let tip = bit.get("tip_diameter").and_then(Value::as_f64).unwrap_or(0.);
+    let half = (num(bit, "angle")? / 2.).to_radians().tan();
+    Ok((channel.width - tip) / 2. - channel.depth * half)
+}
+
 /// Why this V-channel cannot be cut, if it cannot.
 fn v_channel_refusal(setup: &Setup, op: &Operation, channel: &VChannel, library: &Library) -> Result<Option<Refusal>, String> {
     if channel.on_flat
@@ -756,6 +764,15 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                         why.push(trace.warn("process.notch.corner_radius", &subject, format!("{}: its {corners} {shape} are left r{} by {name} ({model_note})", feature_names, warning_number(radius)), json!({"features": op.cut.features(), "radius": radius, "model_radius": model, "corners": corners})));
                     }
                 }
+                if let Cut::VChannel(channel) = &op.cut {
+                    let left = v_channel_wall_stock(channel, spec)?;
+                    if left > 0.005 {
+                        let bit = num(spec, "angle")?;
+                        why.push(trace.warn("process.v_channel.wall_stock", &subject, format!("setup {setup_id}: {} mm V-channel: its walls are left up to {left:.3} mm thick at the top by {name}, a {}° bit in the {}° channel",
+                            warning_number(channel.width), warning_number(bit), warning_number(channel.angle)),
+                            json!({"features": op.cut.features(), "wall_stock_mm": r(left)})));
+                    }
+                }
                 let (mut technology, source) = technology(spec, group.as_deref());
                 if spec["type"] == "tap" { technology.remove("feed_mm_min"); }
                 let says = match &group {
@@ -902,4 +919,25 @@ fn material(plan: &mut Plan, library: &Value, trace: &mut Trace) -> Option<Strin
 /// Millimetres in warning prose, rounded without trailing zeroes.
 fn warning_number(value: f64) -> String {
     crate::plan::r(value).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn v_channel_wall_stock_is_the_half_width_the_bit_does_not_reach() {
+        // The stepped plate's channel: 1.8 mm wide, 1.5 deep, so 61.9275° included.
+        let channel = VChannel { angle: 61.9275, width: 1.8, depth: 1.5, length: 10., a: [0., 0.], b: [10., 0.],
+            top_z: 0., root_z: -1.5, on_flat: false, room: None, features: vec![] };
+        let stock = |angle: f64, tip: f64| v_channel_wall_stock(&channel, &json!({"angle": angle, "tip_diameter": tip})).unwrap();
+        // 0.9 - 1.5 × tan 15° = 0.9 - 0.40192 = 0.49808.
+        assert!((stock(30., 0.) - 0.49808).abs() < 1e-5, "{}", stock(30., 0.));
+        // 0.9 - 1.5 × tan 30° = 0.9 - 0.86603 = 0.03397.
+        assert!((stock(60., 0.) - 0.03397).abs() < 1e-5, "{}", stock(60., 0.));
+        // A bit of the channel's own angle leaves nothing.
+        assert!(stock(61.9275, 0.).abs() < 1e-4, "{}", stock(61.9275, 0.));
+        // A 0.2 mm flat tip carries the flank 0.1 mm further out.
+        assert!((stock(30., 0.2) - 0.39808).abs() < 1e-5, "{}", stock(30., 0.2));
+    }
 }
