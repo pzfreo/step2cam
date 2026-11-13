@@ -97,6 +97,18 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
                 }
                 other => other,
             };
+            let attempt = match attempt {
+                // camlib intersects each roughing layer with the stock band, and that construction
+                // can fail where the layer alone builds: rough that operation in camlib's own region.
+                Err(f) if let Some(id) = f.operation.as_ref().filter(|o| o.kind == capp::kind::OpKind::Roughing).map(|o| o.to_string())
+                    && let Some(op) = job.manifest["operations"].as_array_mut().and_then(|ops| ops.iter_mut().find(|o| o["id"] == id.as_str()))
+                    && op.get("limits").is_some() => {
+                    op.as_object_mut().unwrap().remove("limits");
+                    log.push(format!("note: {id}: camlib could not build its layers within the stock band ({}), so it is roughed over camlib's own region, the stock grown by four times the tool's reach ({})", f.message, capp::trace::cite("process.roughing.region")));
+                    simulate::simulate_prepared_job(&mut job)
+                }
+                other => other,
+            };
             let run = attempt.map_err(|f| simulate::Failure {
                 message: format!("setup {}: {}", job.setup, f.message),
                 ..f
