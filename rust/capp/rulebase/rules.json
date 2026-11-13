@@ -1076,6 +1076,20 @@
    ]
   },
   {
+   "id": "requirement.not_acted_on",
+   "version": 1,
+   "stage": "requirements",
+   "warning_label": "drawing requirements not acted on",
+   "rationale": "Each requirement in Specify's answers that the plan does not act on is named, with where it applies: fits, the general tolerance, surface finish, edge, coating and heat-treatment notes, datum flatness and controls, and position, location and runout tolerances (grouped, one warning each). Nothing is machined differently because of them. The material, tapped threads and their full-thread depth, and clearance holes cut to their drawn size are acted on and not warned of; datums and how holes are located are choices, not requirements.",
+   "code": "plan/requirements.rs not_acted_on",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "ref": "Project review M1: drawing requirements were silently ignored (an H7 bore drilled with no finishing pass, flatness, position tolerances and Ra 3.2 unmentioned); the smallest fix is one warning per requirement not acted on."
+    }
+   ]
+  },
+  {
    "id": "requirement.supplied_refused",
    "version": 1,
    "stage": "requirements",

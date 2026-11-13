@@ -27,7 +27,9 @@ fn fed_points(out: &Value, keep: &dyn Fn(&Value) -> bool) -> Vec<[f64; 3]> {
 fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     let out = process();
     assert!(out["error"].is_null(), "{}", out["error"]);
-    assert!(out["plan"]["warnings"].as_array().unwrap().is_empty(), "{}", out["plan"]["warnings"]);
+    // Only the drawing's requirements not acted on are warned of.
+    let unacted: Vec<&Value> = out["plan"]["decisions"].as_array().unwrap().iter().filter(|d| d["rule"] == "requirement.not_acted_on@1").map(|d| &d["says"]).collect();
+    assert!(out["plan"]["warnings"].as_array().unwrap().iter().all(|w| unacted.contains(&w)), "{}", out["plan"]["warnings"]);
     let ops = out["plan"]["setups"][0]["operations"].as_array().unwrap();
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["facing", "roughing", "spot_drill", "holes", "holes", "slot", "wall_finish", "edge_chamfer"]);

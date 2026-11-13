@@ -179,6 +179,15 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     // The deep holes retain their warning. Corner deviations now belong to the plan:
     // r1.5 versus the recovered r1.2 slot, and r3 at each notch's two sharp corners.
     assert_eq!(out["plan"]["warnings"], json!([
+        // The drawing's requirements the plan does not act on come first.
+        "general tolerance ISO 2768-m: not checked",
+        "surface finish Ra 3.2: not checked",
+        "edge note \"Break sharp edges 0.2 max\": not planned (break edges by hand)",
+        "flatness 0.02 on datum A (face 4): not checked",
+        "perpendicularity 0.05 on datum B (face 0): not checked",
+        "perpendicularity 0.05 on datum C (face 5): not checked",
+        "fit H7 on the ⌀10 hole: not held: cut to the drawn size with no finishing pass, ream or bore",
+        "position not checked: ⌀0.4 on the 4 ⌀4.4 holes (clearance M4); ⌀0.2 on the 2 ⌀2.5 holes (tapped M3); ⌀2 on the ⌀10 hole (fit H7)",
         "setup top: 3.3 mm holes, depth/D 6.1: deep-hole drilling (pilot plus deep-hole drill) is not planned, so it is drilled with full-retract pecks",
         "setup top: 6 mm notch: its 4 inside corners are left r1.5 by em3 (the model has r1.2)",
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",

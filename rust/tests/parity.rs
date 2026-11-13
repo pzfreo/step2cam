@@ -15,6 +15,9 @@ fn finished(plan: &Value, library: &Value) -> Value {
 fn untraced(plan: &Value) -> Value {
     let mut plan = plan.clone();
     if let Some(o) = plan.as_object_mut() {
+        // Also newer than the baseline: warnings of drawing requirements not acted on.
+        let unacted: Vec<Value> = o["decisions"].as_array().unwrap().iter().filter(|d| d["rule"] == "requirement.not_acted_on@1").map(|d| d["says"].clone()).collect();
+        o["warnings"].as_array_mut().unwrap().retain(|w| !unacted.contains(w));
         o.remove("decisions");
         // Also newer than the baseline: the material Specify was told.
         o.remove("material");

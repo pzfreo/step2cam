@@ -102,6 +102,12 @@ pub fn warnings(plan: &Value) -> Vec<&str> {
     list(&plan["warnings"]).iter().map(|w| w.as_str().unwrap()).collect()
 }
 
+/// The texts of a plan's warnings, but for those of drawing requirements not acted on.
+pub fn warnings_but_requirements(plan: &Value) -> Vec<&str> {
+    let unacted: Vec<&Value> = list(&plan["decisions"]).iter().filter(|d| d["rule"] == "requirement.not_acted_on@1").map(|d| &d["says"]).collect();
+    list(&plan["warnings"]).iter().filter(|w| !unacted.contains(w)).map(|w| w.as_str().unwrap()).collect()
+}
+
 /// What a plan's first setup posts to: its camlib operations and tools, and every note.
 pub fn posted(plan: &Value, library: &Value) -> (Vec<Value>, Vec<Value>, Vec<String>) {
     let (jobs, log) = step2cam::job::jobs(&finished(plan, library), library).unwrap();
