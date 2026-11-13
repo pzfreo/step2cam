@@ -540,3 +540,11 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
+
+
+Vise setups now screen estimated mean tangential cutting force against cited clamping
+force (`workholding.grip_vs_cut`). The Haas DX6 uses the published 500 lbf at 10 ft·lbf
+row, a conservative step2cam torque choice. Over-capacity facing is split into passes;
+other operations warn. The demo vise has no published force and warns “grip not checked
+against the cut” once per setup, keeping its cutting data. Contact pressure, lift and
+turning moments remain unchecked. See [formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).

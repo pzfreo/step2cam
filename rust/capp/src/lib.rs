@@ -10,6 +10,7 @@ pub mod kind;
 pub mod model;
 mod workholding;
 mod clamping_history;
+mod grip_force;
 mod needed;
 mod spots;
 pub mod plan;

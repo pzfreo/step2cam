@@ -334,3 +334,22 @@ omitted; successful validation does not prove a collision-safe physical machine.
 
 camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
 `GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.
+
+
+### Vise force provenance
+
+Optional vise `clamp_force_n` is a published normal force at each jaw; `clamp_torque_nm`
+states the torque associated with that force. Positive finite values and a citation in
+`_sources.clamp_force` (`url`, `read`, `note`) are required when a force is present.
+Never infer force from dimensions or put a guessed value on a placeholder vise.
+
+The Haas Kurt DX6 uses [Kurt’s maker table](https://www.kurtworkholding.com/product/kurt-dx6-crossover-vise/),
+read **2026-11-13**: **500 lbf at 10 ft·lbf**, converted to **2224.11080763025 N at
+13.558179483314 Nm**. Choosing the lowest published torque row is conservative step2cam
+judgement for the thin grip, not a maximum-force claim. This torque must be applied and
+actual grip verified. The demo’s unvalidated vise has no force and gets a not-checked
+warning, with no cutting-data changes.
+
+[The grip rule](../docs/capp-plan.md#vise-grip-against-the-cut-m3) documents μ = 0.0665,
+safety factor 2, ISCAR aluminium cutting constants, engagement assumptions and limits.
+Holding capacity does not scale with contact area; pressure and overturning remain unchecked.

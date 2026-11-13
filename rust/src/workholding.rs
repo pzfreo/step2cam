@@ -102,7 +102,7 @@ fn consequences(
         Some(json!({"setup":s.id,"height_mm":grip,"stock_fraction":grip/height,"finished_wall":wall}))
     }).collect();
     risks.extend(p.warnings.iter().cloned());
-    risks.push("Holding force and support flatness are not simulated. Without modeled parallels, through cuts are not checked against supports or the bed.".into());
+    risks.push("Cited vise force is screened against estimated mean tangential cutting force with a safety factor; facing is stepped down when needed. Missing clamping force warns not checked. Contact pressure, lift, overturning, peak loads and support flatness are not simulated. Without modeled parallels, through cuts are not checked against supports or the bed.".into());
     let reason = if finished {
         "finished".into()
     } else if remaining > 1e-6 {

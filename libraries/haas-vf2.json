@@ -13,7 +13,12 @@
   },
   "vise": {
    "url": "https://www.kurtworkholding.com/wp-content/uploads/2022/06/Kurt_US_Catalog_2022_web.pdf",
-   "note": "Kurt 2022 US catalogue p18, DX6 manual: B jaw width 6.000 in, H jaw height 1.735 in, AA maximum opening 9.080 in. Maker PDF indexed text read 2026-11-08; direct download returned 403. Inches converted exactly by 25.4."
+   "note": "Kurt 2022 US catalogue p18, DX6 manual: B jaw width 6.000 in, H jaw height 1.735 in, AA maximum opening 9.080 in. Maker PDF indexed text read 2026-11-08; direct download returned 403. Inches converted exactly by 25.4.",
+   "clamp_force": {
+    "url": "https://www.kurtworkholding.com/product/kurt-dx6-crossover-vise/",
+    "read": "2026-11-13",
+    "note": "Maker table: 500 lbf at 10 ft-lbf. Exact SI conversion: lbf=4.4482216152605 N, ft-lbf=1.3558179483314 Nm. Lowest published torque row selected as conservative step2cam judgement, not maximum vise capacity. Apply this torque and verify actual grip; no scaling by contact area."
+   }
   },
   "holder": {
    "url": "https://imte.ca/shop/cnc-milling-tool-holder/cnc-collet-chuck-milling/er-cat/cat40-collet-chuck-er32-l3-inch/",
@@ -104,7 +109,17 @@
      "kind": "vise",
      "max_jaw_opening_mm": 230.632,
      "jaw_width_mm": 152.4,
-     "jaw_height_mm": 44.069
+     "jaw_height_mm": 44.069,
+     "name": "Kurt DX6",
+     "clamp_force_n": 2224.11080763025,
+     "clamp_torque_nm": 13.558179483314,
+     "_sources": {
+      "clamp_force": {
+       "url": "https://www.kurtworkholding.com/product/kurt-dx6-crossover-vise/",
+       "read": "2026-11-13",
+       "note": "Maker table: 500 lbf at 10 ft-lbf. Exact SI conversion: lbf=4.4482216152605 N, ft-lbf=1.3558179483314 Nm. Lowest published torque row selected as conservative step2cam judgement, not maximum vise capacity. Apply this torque and verify actual grip; no scaling by contact area."
+      }
+     }
     }
    ],
    "controller_settings": {

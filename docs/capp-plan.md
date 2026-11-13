@@ -704,3 +704,49 @@ builder rebuilds the closed mesh on that source grid. The receiving stock note d
 "the part is free, so stock outside its footprint is dropped". This is an explicit
 separation premise, not a simulated manual toolpath or an added machining plan.
 Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.
+
+
+### Vise grip against the cut (M3)
+
+`workholding.grip_vs_cut` screens each gripped setup after tool resolution. A vise may
+supply positive `clamp_force_n` and optional `clamp_torque_nm`, with maker URL, date read
+and explanation in `_sources.clamp_force`. Missing force gives one “grip not checked
+against the cut: the library gives no clamping force for <vise>” warning per setup;
+cutting data remain unchanged. The demo placeholder has no force.
+
+The Haas DX6 uses Kurt’s lowest published row, **500 lbf = 2224.11080763025 N at
+10 ft·lbf = 13.558179483314 Nm**. Choosing that row is conservative step2cam judgement,
+not the vise’s maximum capacity or a measurement of an installed vise. The setup trace
+states this torque premise. [Kurt’s DX6 force table](https://www.kurtworkholding.com/product/kurt-dx6-crossover-vise/)
+was read 2026-11-13.
+
+Holding force is `μ × clamp_force_n × contacted jaw faces`. We use **μ = 0.0665**:
+SMW-AUTOBLOK KNCS-N manual p32, smooth finished stock / smooth jaws 0.07 with aluminium
+correction 0.95. This is lower than the 0.1 oily steel/aluminium fixturing model in
+[Zeng et al.](https://www.jstage.jst.go.jp/article/ijat/15/6/15_860/_pdf/-char/en).
+The [SMW manual](https://hod-industrial.hu/wp-content/uploads/2023/06/HOD-SMW_kncs-n_en.pdf)
+also gives safety factor 1.5–2; choose **2**. Both read 2026-11-13. Applying these
+smooth-jaw values to a vise is step2cam judgement. Grip height does not multiply
+Coulomb friction capacity: small contact area still needs pressure and moment checks.
+
+The [ISCAR aluminium guide](https://www.iscar.ru/Catalogs/Publication/english_1/ALUMINUM_MACHINING/ALUMINUM_MACHINING.pdf),
+USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought ISO N group 22
+**kc₁ = 800 N/mm², m꜀ = 0.25**. That row is our conservative aluminium proxy
+(step2cam judgement); other materials warn that no applicable reference is implemented.
+For milling, `fz = feed/(rpm × flutes)`, `φ = acos(1 − 2ae/D)`,
+`h = fz(1 − cos φ)/φ`, `kc = kc₁h^(−m꜀)` and
+`F = kc × ap × ae × feed/(π × D × rpm)` N, equivalent to removal power / cutting speed.
+Each operation uses its resolved feed, rpm and engagement. Clearing uses at most D/2
+stepover; pockets use full-slot engagement, walls the radial allowance, flats the
+roughing step envelope. Drilling/spotting/tapping use a full-cylinder removal proxy
+`F = kc × (πae²/4) × feed/(πD × rpm)` and `h = feed/(rpm × flutes)`;
+tapping feed is rpm × pitch. These envelopes and default flute counts (2 for drills,
+3 otherwise, matching the adapter) are step2cam judgement, recorded in the rule.
+
+Compare **2F** with holding force. Facing above capacity gets the largest fitting depth,
+rounded down to **0.05 mm** (step2cam judgement), with the final pass taking the remainder.
+The trace gives original and per-pass force, depth and pass count; the adapter consumes
+the capped stepdown. A force too low for even 0.05 mm returns an error. Other operations
+warn with both forces and keep their cutting data. This checks estimated mean tangential
+sliding load; peak forces, thrust, contact pressure, deformation, lift, overturning,
+chatter and support flatness remain unchecked.

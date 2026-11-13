@@ -91,6 +91,24 @@ impl Settings {
 pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
     workholding_option(data)?;
     Settings::new(data)?;
+    for machine in data["machines"].as_array().into_iter().flatten() {
+        for vise in machine["workholding"].as_array().into_iter().flatten().filter(|v| v["kind"] == "vise") {
+            for key in ["clamp_force_n", "clamp_torque_nm"] {
+                if let Some(value) = vise.get(key) && !value.as_f64().is_some_and(|n| n.is_finite() && n > 0.) {
+                    return Err(format!("vise {key} must be positive and finite"));
+                }
+            }
+            if vise.get("clamp_force_n").is_some() {
+                let source = &vise["_sources"]["clamp_force"];
+                if !["url", "read", "note"].iter().all(|k| source[*k].as_str().is_some_and(|s| !s.trim().is_empty())) {
+                    return Err("vise clamp_force_n needs _sources.clamp_force url, read and note".into());
+                }
+            }
+            if vise.get("clamp_torque_nm").is_some() && vise.get("clamp_force_n").is_none() {
+                return Err("vise clamp_torque_nm requires clamp_force_n".into());
+            }
+        }
+    }
     let mut out = Cow::Borrowed(data);
     for (n, tool) in data["tools"].as_array().into_iter().flatten().enumerate() {
         for row in crate::reference::iso13399_fields()["fields"].as_array().expect("tool fields") {

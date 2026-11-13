@@ -79,6 +79,7 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Exclusion], trace
     crate::spots::prune_with(plan, &Library::new(library)?, true, trace)?;
     resolve_with(plan, library, trace)?;
     leave_out_untooled(plan, trace);
+    crate::grip_force::check(plan, library, trace)?;
     crate::clamping_history::check(plan, &Library::new(library)?, trace);
     crate::machines::check_changer_with(plan, library, trace);
     trace.refuse_unused();
