@@ -2461,6 +2461,13 @@
       "type": "string"
      }
     },
+    "requirements": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "requirement.not_acted_on: the Specify answers (their keys) the warning names."
+    },
     "zero": {
      "enum": [
       "stock",

@@ -12,6 +12,7 @@ mod frame;
 mod holes;
 mod mesh;
 mod recesses;
+mod requirements;
 mod section;
 mod values;
 mod walls;
@@ -21,6 +22,7 @@ use frame::*;
 use holes::*;
 use mesh::*;
 use recesses::*;
+use requirements::*;
 use section::*;
 use values::*;
 use walls::*;
@@ -229,6 +231,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
     // The decision that put each hole in its setup.
     let mut placed: HashMap<String, String> = HashMap::new();
     let asked = threads(analysis, &mut trace);
+    not_acted_on(analysis, &mut trace);
     if mesh.is_none() {
         trace.warn("process.no_mesh_checks", "part", "no mesh: hole approaches and what lies beyond through holes were not checked against the part".to_string(), json!({}));
     }

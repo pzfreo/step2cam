@@ -246,7 +246,7 @@ fn an_exit_on_the_parts_face_has_nothing_beyond_it() {
     for op in of_kind(&plan, 0, "holes") {
         assert!(op["exit_clear_mm"].is_null(), "{}", op["exit_clear_mm"]);
     }
-    assert_eq!(plan["warnings"], json!([]));
+    assert!(warnings_but_requirements(&plan).is_empty(), "{}", plan["warnings"]);
 }
 
 #[test]
