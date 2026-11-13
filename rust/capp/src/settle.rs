@@ -4,8 +4,8 @@
 //! [`finish`] takes a plan from [`crate::plan::plan`], the resources and the exclusions an
 //! execution engine has reported, and leaves the plan ready to execute: every operation names its
 //! tool (`tool`), or says why it has none (`tool_note`, null when nothing needs saying).
-use crate::kind::{OpId, OpKind};
-use crate::model::{Cut, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
+use crate::kind::{OpId, OpKind, OpRef};
+use crate::model::{Cut, Exclusion, Notch, Operation, Plan, Roughing, Setup, Slot, VChannel, WallFinish};
 use crate::plan::{r, show};
 use crate::resources::{Library, id, num};
 use crate::trace::{Trace, because_op};
@@ -21,13 +21,15 @@ pub fn finish(plan: &mut Value, library: &Value, exclusions: &[Value]) -> Result
     // changes nothing and cannot fail once it has passed.
     let normalized = crate::resources::normalize(library)?;
     let mut typed = Plan::deserialize(&*plan).map_err(|e| format!("the plan does not decode: {e}"))?;
-    let result = finish_plan(&mut typed, normalized.as_ref(), exclusions);
+    let exclusions = exclusions.iter().map(|exclusion| Exclusion::deserialize(exclusion)
+        .map_err(|e| format!("the exclusion {exclusion} does not decode: {e}"))).collect::<Result<Vec<_>, _>>()?;
+    let result = finish_plan(&mut typed, normalized.as_ref(), &exclusions);
     *plan = serde_json::to_value(&typed).map_err(|e| e.to_string())?;
     result
 }
 
 /// [`finish`] on the typed plan.
-pub fn finish_plan(plan: &mut Plan, library: &Value, exclusions: &[Value]) -> Result<(), String> {
+pub fn finish_plan(plan: &mut Plan, library: &Value, exclusions: &[Exclusion]) -> Result<(), String> {
     let normalized = crate::resources::normalize(library)?;
     let library = normalized.as_ref();
     crate::supplied::load_with(plan, library)?;
@@ -45,25 +47,28 @@ pub fn finish_plan(plan: &mut Plan, library: &Value, exclusions: &[Value]) -> Re
 /// The body of [`finish`], on the typed plan with one trace: put the setups on the machine,
 /// settle, make spots, take out each exclusion and settle again, resolve the tools, then check
 /// the clamping against earlier cuts, the tool changer and the supplied decisions left unused.
-fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Value], trace: &mut Trace) -> Result<(), String> {
+fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Exclusion], trace: &mut Trace) -> Result<(), String> {
     crate::machines::place_with(plan, library, trace);
     settle_with(plan, library, trace)?;
     crate::spots::create_with(plan, &Library::new(library)?, trace)?;
     for exclusion in exclusions {
-        let operation = exclusion["operation"].as_str().ok_or("an exclusion names no operation")?;
-        let message = crate::needed::refusal(plan, operation, exclusion["message"].as_str().unwrap_or(""), exclusion["tool"].as_str(), &exclusion["reach"], &Library::new(library)?)?;
-        let (id, removed) = take_out(plan, operation)
+        let id = &exclusion.operation;
+        let operation = &id.to_string();
+        let message = crate::needed::refusal(plan, id, &exclusion.message, exclusion.tool.as_deref(), exclusion.reach.as_ref(), &Library::new(library)?)?;
+        let removed = take_out(plan, id)
             .ok_or_else(|| format!("excluded operation {operation} is not in the plan"))?;
-        exclude_with(plan, operation, &message, &id, &removed, trace);
+        exclude_with(plan, operation, &message, id, &removed, trace);
         // Preserve the engine's unedited evidence independently of the reader-facing wording.
-        if let Some(decision) = trace.decisions.iter_mut().rev().find(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed") {
-            decision["message"] = exclusion["message"].clone();
+        if let Some(decision) = trace.decisions.iter_mut().rev().find(|d| d["rule"].as_str().is_some_and(|r| r.split('@').next() == Some("execution.refused")) && d["outcome"] == "removed") {
+            decision["message"] = json!(exclusion.message);
+            if let Some(reach) = &exclusion.reach {
+                decision["reach"] = json!(reach);
+            }
             let refused = decision["id"].clone();
-            if let Some(selection) = exclusion["selection"].as_object() {
+            if let Some(selection) = exclusion.selection.as_ref().and_then(Value::as_object) {
                 let mut detail = selection.clone();
                 detail.remove("id");
                 detail.insert("superseded_by".into(), refused);
-                let selection = &exclusion["selection"];
                 trace.decide(selection["rule"].as_str().unwrap().split('@').next().unwrap(), selection["subject"].as_str().unwrap(), "chosen", selection["says"].as_str().unwrap(), json!(detail));
             }
         }
@@ -82,7 +87,8 @@ fn finish_with(plan: &mut Plan, library: &Value, exclusions: &[Value], trace: &m
 /// plan, and says what that leaves uncut. None if there is no such operation.
 pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value> {
     let mut typed = Plan::deserialize(&*plan).ok()?;
-    let (id, removed) = take_out(&mut typed, operation)?;
+    let id: OpId = operation.parse().ok()?;
+    let removed = take_out(&mut typed, &id)?;
     let mut trace = Trace::take(plan);
     exclude_with(&mut typed, operation, message, &id, &removed, &mut trace);
     store(plan, &typed, trace).ok()?;
@@ -90,7 +96,7 @@ pub fn exclude(plan: &mut Value, operation: &str, message: &str) -> Option<Value
 }
 
 /// Whether [`exclude`] can take `operation` out of the plan.
-pub fn excludable(plan: &Plan, operation: &str) -> bool {
+pub fn excludable(plan: &Plan, operation: &OpId) -> bool {
     take_out(&mut plan.clone(), operation).is_some()
 }
 
@@ -101,9 +107,8 @@ fn store(plan: &mut Value, typed: &Plan, trace: Trace) -> Result<(), String> {
     result
 }
 
-/// The operation `operation` names, taken out of its setup. None if there is no such operation.
-fn take_out(plan: &mut Plan, operation: &str) -> Option<(OpId, Operation)> {
-    let id: OpId = operation.parse().ok()?;
+/// The operation `id` names, taken out of its setup. None if there is no such operation.
+fn take_out(plan: &mut Plan, id: &OpId) -> Option<Operation> {
     let setup = plan.setups.iter_mut().find(|s| s.id == id.setup)?;
     let ops = &mut setup.operations;
     let removed = (id.number >= 1 && id.number <= ops.len()).then(|| ops.remove(id.number - 1))?;
@@ -111,14 +116,14 @@ fn take_out(plan: &mut Plan, operation: &str) -> Option<(OpId, Operation)> {
     if removed.cut.kind() == OpKind::Roughing {
         setup.part_surface = Some(Box::new(removed.clone()));
     }
-    Some((id, removed))
+    Some(removed)
 }
 
 fn exclude_with(plan: &mut Plan, operation: &str, message: &str, id: &OpId, removed: &Operation, trace: &mut Trace) {
     let (original, need) = message.rsplit_once(": needs ").map_or((message, None), |(text, need)| (text, Some(need)));
     let brief: String = original.chars().take(160).collect();
     let brief = match need { Some(need) => format!("{brief}: needs {need}"), None => brief };
-    let refused = trace.decide("execution.refused", operation, "removed", &format!("refused by the execution engine: {brief}"), json!({"message": message}));
+    let refused = trace.decide("execution.refused", operation, "removed", &format!("refused by the execution engine: {brief}"), json!({"message": message, "operation": OpRef::from(id)}));
     // Nothing is covered by roughing that does not run.
     if id.kind == OpKind::Roughing && id.part.is_none() {
         let covered = std::mem::take(&mut plan.covered_by_roughing);

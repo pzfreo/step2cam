@@ -191,7 +191,7 @@ refusedThread.analysis.resume = { answers: { 'hole.function:hole_patterns.set:48
 refusedThread.plan.setups[0].operations[0] = { kind: 'holes', tool: 'a', diameter: 4, bottom: 'through', features: ['hole'] };
 refusedThread.programs[0].moves[0].op = 'top-1-holes';
 refusedThread.plan.decisions.push(
-  { id: 'removed', stage: 'execution', rule: 'execution.refused@1', outcome: 'removed', source: 'rule', subject: 'top-2-thread', says: 'Thread cutter cannot enter' },
+  { id: 'removed', stage: 'execution', rule: 'execution.refused@1', outcome: 'removed', source: 'rule', subject: 'top-2-thread', operation: { setup: 'top', number: 2, kind: 'thread' }, says: 'Thread cutter cannot enter' },
   { id: 'thread-process', stage: 'process', rule: 'process.thread@1', source: 'rule', subject: 'top:thread', features: ['hole'], superseded_by: 'removed', says: 'Thread planned' },
   { id: 'thread-skip', stage: 'execution', rule: 'execution.refused@1', source: 'rule', subject: 'hole', says: 'Thread cutter cannot enter' },
   { id: 'thread-warning', stage: 'execution', rule: 'execution.refused@1', source: 'rule', subject: 'top-2-thread', outcome: 'warning', features: ['hole'], says: 'Thread cutter cannot enter' },
@@ -204,6 +204,23 @@ assert.ok(!refusedRow[0].includes('⌀4 hole'), 'drilled hole is not labelled un
 const refusedSheet = reportText({ blocks: refusedDoc.blocks.slice(0, refusedDoc.appendixStart) });
 assert.equal((refusedSheet.match(/Refused by camlib/g) || []).length, 1);
 assert.ok(!refusedSheet.includes('operations refused'));
+// The refused operation's kind is read from its parts, not from its id: a split spot keeps its part.
+const refusedSpot = structuredClone(refusedThread);
+Object.assign(refusedSpot.plan.decisions.find(d => d.id === 'removed'), { subject: 'top-3-spot_drill-2', operation: { setup: 'top', number: 3, kind: 'spot_drill', part: 2 } });
+refusedSpot.plan.decisions.find(d => d.id === 'thread-warning').subject = 'top-3-spot_drill-2';
+assert.equal(reportDocument(refusedSpot, options).blocks.find(b => b.id === 'not-cut').rows[0][0], 'spot drill-2 (top-3-spot drill-2) — not cut');
+// Uncertain motions come from the program's count; a run that stopped has only its log.
+const uncertain = structuredClone(data);
+uncertain.programs[0].uncertain_motions = 3;
+uncertain.log = ['note: setup top: per-motion gouge proof: 1 proven, 0 unproven; 0 possible gouge cells decided at 0.01 mm tolerance'];
+const checkRow = (d) => reportDocument(d, options).blocks.find(b => b.id === 'checks').rows[0][2];
+assert.equal(checkRow(uncertain), "note: setup top: camlib's stock-contact check could not clear 3 motions\n" + uncertain.log[0]);
+uncertain.programs[0].uncertain_motions = 0;
+assert.equal(checkRow(uncertain), uncertain.log[0]);
+const stopped = structuredClone(uncertain);
+stopped.error = 'setup bottom: camlib refused it';
+stopped.log.unshift("note: setup top: camlib's stock-contact check could not clear 2 motions");
+assert.equal(checkRow(stopped), stopped.log.join('\n'));
 const repeated = structuredClone(data);
 repeated.analysis.features = Array.from({ length: 6 }, (_, n) => ({ id: `edge-${n}`, family: 'fillets', record: { radius: 0.8, side: 'convex' } }));
 repeated.plan.skipped = repeated.analysis.features.map(f => ({ feature: f.id, reason: 'not reached from this setup' }));

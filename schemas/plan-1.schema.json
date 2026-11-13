@@ -2461,6 +2461,91 @@
     "message": {
      "type": "string"
     },
+    "operation": {
+     "type": "object",
+     "description": "execution.refused: the refused operation's id in parts; part is the depth group of a split operation.",
+     "required": [
+      "setup",
+      "number",
+      "kind"
+     ],
+     "properties": {
+      "setup": {
+       "type": "string"
+      },
+      "number": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "kind": {
+       "type": "string"
+      },
+      "part": {
+       "type": "integer",
+       "minimum": 0
+      }
+     },
+     "additionalProperties": false
+    },
+    "reach": {
+     "type": "object",
+     "description": "execution.refused: the execution engine's reach evidence, when it refused the operation for reach. Depths are measured down from top_z_mm to the lowest tip Z, z_mm.",
+     "required": [
+      "limit",
+      "depth_needed_mm"
+     ],
+     "properties": {
+      "operation": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "tool": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "limit": {
+       "enum": [
+        "cutting_length",
+        "neck",
+        "shank",
+        "holder"
+       ]
+      },
+      "holder_section": {
+       "type": [
+        "integer",
+        "null"
+       ],
+       "minimum": 0
+      },
+      "depth_needed_mm": {
+       "type": "number"
+      },
+      "depth_available_mm": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "top_z_mm": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "z_mm": {
+       "type": [
+        "number",
+        "null"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
     "jaw_cap_z": {
      "type": "number",
      "description": "Side-cutting jaw clearance cap in setup coordinates, in mm."

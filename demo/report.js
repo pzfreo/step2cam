@@ -351,7 +351,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
       const removal = refused.find((r) => (plan.decisions || []).some((d) => d.features?.includes(skip.feature)
         && (d.superseded_by === r.id || d.rule.startsWith("execution.refused@") && d.subject === r.subject)));
       if (removal?.message) reason = `left out: ${removal.message}`;
-      const id = removal?.subject, kind = id?.match(/-\d+-(.+)$/)?.[1];
+      const id = removal?.subject, op = removal?.operation, kind = op && (op.part == null ? op.kind : `${op.kind}-${op.part}`);
       if (kind === "thread") {
         const spec = threadSpecification(data.analysis, f);
         const drilled = [...ops.values()].some((o) => o.kind === "holes" && o.time > 0 && o.features?.includes(skip.feature));
@@ -414,7 +414,9 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
   blocks.push(heading("Camlib checks and limits"), paragraph(headline || text(data.error || "—")), list(check.items));
   blocks.push(table(["Setup", "Material check", "Stock-contact / uncertain motions"], plan.setups.map((s) => {
     const p = programs.find((p) => p.setup === s.id);
-    const log = (Array.isArray(data.log) ? data.log : []).filter((line) => line.includes(`setup ${s.id}:`) && (line.includes("stock-contact") || line.includes("per-motion gouge proof")));
+    // The count is the program's; a run that stopped gives out no programs, only its log.
+    const uncertain = p?.uncertain_motions > 0 ? [`note: setup ${s.id}: camlib's stock-contact check could not clear ${p.uncertain_motions} motions`] : [];
+    const log = uncertain.concat((Array.isArray(data.log) ? data.log : []).filter((line) => line.includes(`setup ${s.id}:`) && (!p && line.includes("stock-contact") || line.includes("per-motion gouge proof"))));
     return row([s.id, p ? p.material ? `Compared with the part; no gouge found. Complete: ${text(p.material.complete)}` : "Not compared with the part." : "not run", log.join("\n") || "—"]);
   }), "checks"));
   blocks.push(paragraph("Uncertain-motion counts are only available where recorded in the camlib log; an absent count is —. Holding force and support flatness are not simulated."));

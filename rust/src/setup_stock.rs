@@ -419,7 +419,7 @@ mod tests {
             .err()
             .unwrap();
         assert!(
-            !failure.message.starts_with("initial stock:"),
+            failure.cause != crate::simulate::Cause::InitialStock,
             "{}",
             failure.message
         );
@@ -441,6 +441,28 @@ mod tests {
                 .skip(1)
                 .all(|s| s["stock_note"].is_null())
         );
+    }
+    #[test]
+    fn a_mesh_stock_camlib_cannot_convert_is_an_initial_stock_failure() {
+        let a = fixture("tests/fixtures/plate.analysis.json");
+        let m = fixture("tests/fixtures/plate.mesh.json");
+        let library = fixture("tests/fixtures/placeholder-tools.json");
+        let mut plan = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
+        capp::finish(&mut plan, &library, &[]).unwrap();
+        let (jobs, _) = crate::job::jobs(&plan, &library).unwrap();
+        let mut manifest = jobs[0].manifest.clone();
+        let spec: StockSpec = serde_json::from_value(manifest["stock"].clone()).unwrap();
+        let cells = Stock::new(spec.clone()).unwrap().cells().len() as u64;
+        // The box as a mesh of a few triangles, from a grid of one cell.
+        let coarse = StockSpec { cell_size_mm: (0..3).map(|k| spec.max_mm[k] - spec.min_mm[k]).fold(0., f64::max), ..spec };
+        manifest["stock"]["mesh"] = serde_json::to_value(Stock::new(coarse).unwrap().finished_mesh(&|| false).unwrap().mesh).unwrap();
+        // Too little memory for camlib to turn the mesh into the job's cells (40 bytes each).
+        let failure = camlib::resources::with_memory_budget(cells * 40 - 1, || crate::simulate::simulate(&manifest.to_string()))
+            .err()
+            .unwrap();
+        assert_eq!(failure.cause, crate::simulate::Cause::InitialStock, "{}", failure.message);
+        assert!(failure.message.starts_with("initial stock:"), "{}", failure.message);
+        assert!(failure.operation.is_none());
     }
     #[test]
     fn successor_names_the_box_run_when_a_previous_handoff_failed() {

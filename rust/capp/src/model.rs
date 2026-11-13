@@ -11,7 +11,7 @@
 //!
 //! What stays JSON (the analysis's records, decisions, clamping, materials, meshes and the like) is
 //! a `serde_json::Value` here.
-use crate::kind::OpKind;
+use crate::kind::{OpId, OpKind};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
@@ -539,4 +539,73 @@ pub struct Depth {
     pub floor_z: f64,
     /// The feature's family in the analysis.
     pub family: String,
+}
+
+/// An operation an execution engine refused, as [`crate::finish_plan`] takes it out.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Exclusion {
+    /// The operation, as the engine named it.
+    pub operation: OpId,
+    /// The engine's own words. Empty when not given.
+    #[serde(default)]
+    pub message: String,
+    /// The tool it was refused with, if known.
+    #[serde(default)]
+    pub tool: Option<String>,
+    /// The decision that chose that tool, if any, which the refusal supersedes.
+    #[serde(default)]
+    pub selection: Option<Value>,
+    /// What the engine found out of reach, when the refusal was about reach.
+    #[serde(default)]
+    pub reach: Option<ReachEvidence>,
+}
+
+/// A reach refusal, as the execution engine reported it. Depths are measured down from
+/// `top_z_mm`, the top of the material the limiting part must clear, to `z_mm`, the lowest tip Z
+/// the operation needs. Its JSON form is the engine's, field for field. The adapter always
+/// writes every field; a field left out reads as `null` (rule 2).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ReachEvidence {
+    /// The operation, as the engine named it.
+    #[serde(default)]
+    pub operation: Option<String>,
+    /// The tool's id.
+    #[serde(default)]
+    pub tool: Option<String>,
+    /// The part of the tool assembly that could not reach.
+    pub limit: ReachLimit,
+    /// Which holder section, for a holder limit.
+    #[serde(default)]
+    pub holder_section: Option<usize>,
+    pub depth_needed_mm: f64,
+    /// How far below that top the tip can go before the limiting part meets it.
+    #[serde(default)]
+    pub depth_available_mm: Option<f64>,
+    #[serde(default)]
+    pub top_z_mm: Option<f64>,
+    #[serde(default)]
+    pub z_mm: Option<f64>,
+}
+
+/// The part of a tool assembly whose reach was exceeded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReachLimit {
+    /// The flutes.
+    CuttingLength,
+    Neck,
+    Shank,
+    Holder,
+}
+
+impl ReachLimit {
+    /// Its JSON name: `cutting_length`, `neck`, `shank` or `holder`.
+    pub fn name(self) -> &'static str {
+        match self {
+            ReachLimit::CuttingLength => "cutting_length",
+            ReachLimit::Neck => "neck",
+            ReachLimit::Shank => "shank",
+            ReachLimit::Holder => "holder",
+        }
+    }
 }
