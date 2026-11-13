@@ -61,9 +61,11 @@ fn stepped_m3_chamfer_and_form_predrill_are_checked_with_numbers() {
     let mut drill = example_tools()["tools"].as_array().unwrap().iter().find(|t| t["type"] == "drill").unwrap().clone();
     drill["id"] = json!("drill2.5"); drill["diameter"] = json!(2.5); drill["flute_length"] = json!(30);
     tools["tools"].as_array_mut().unwrap().push(drill);
+    // The drawing asks for 8.5 mm of full thread (hole.full_thread).
     let p = plan("synthetic/stepped-plate.analysis.json");
     let settled = finished(&p, &tools);
     let op = thread(&settled);
+    assert!(op.get("default_depth").is_none(), "{op}");
     assert_eq!(op["major"], 3.);
     assert_eq!(op["tool"], "tap", "{}", decisions(&settled));
     assert_close(number(&op["top_z"]) - number(&op["bottom_z"]), 8.5);
@@ -75,15 +77,19 @@ fn stepped_m3_chamfer_and_form_predrill_are_checked_with_numbers() {
     // The fixture represents two bores (face pairs 48/57 and 49/58), two tap moves each.
     assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 4);
 
-    // A plug lead of 4 pitches needs 8.5 + 2 + 0.5 = 11 mm; only 10 exists. The 8.5 mm is the
-    // default full thread, so the tap cuts what fits: 10 - 2 - 0.5 = 7.5 mm.
+    // A plug lead of 4 pitches needs 8.5 + 2 + 0.5 = 11 mm; only 10 exists. Without the
+    // full-thread answer the 8.5 mm is the default full thread, so the tap cuts what fits:
+    // 10 - 2 - 0.5 = 7.5 mm.
     tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["type"] == "tap").unwrap()["chamfer_pitches"] = json!(4);
-    let shortened = finished(&p, &tools);
+    let mut analysis = fixture("synthetic/stepped-plate.analysis.json");
+    analysis["resume"]["answers"].as_object_mut().unwrap().remove("hole.full_thread:hole_patterns.set:48.49.57.58");
+    let default = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
+    let shortened = finished(&default, &tools);
     assert_eq!(thread(&shortened)["tool"], "tap", "{}", decisions(&shortened));
     assert_close(number(&thread(&shortened)["top_z"]) - number(&thread(&shortened)["bottom_z"]), 7.5);
     assert!(decisions(&shortened).contains("the default 8.5 mm full thread is cut 7.5 mm deep"), "{}", decisions(&shortened));
     // The same 8.5 mm asked for is refused.
-    let mut asked = p.clone();
+    let mut asked = default.clone();
     for setup in asked["setups"].as_array_mut().unwrap() {
         for op in setup["operations"].as_array_mut().unwrap().iter_mut().filter(|o| o["kind"] == "thread") {
             assert_eq!(op["default_depth"], true);
@@ -95,6 +101,9 @@ fn stepped_m3_chamfer_and_form_predrill_are_checked_with_numbers() {
     assert!(text.contains("requires 11.00 mm; drilled full diameter is 10.00 mm"), "{text}");
     // No thread operation is tapped (here no tool cuts it, so it is left out of the plan).
     assert!(rejected["setups"].as_array().unwrap().iter().flat_map(|s| list(&s["operations"])).all(|o| o["kind"] != "thread" || o["tool"] != "tap"));
+    // As is the drawing's own full-thread answer.
+    let text = decisions(&finished(&p, &tools));
+    assert!(text.contains("requires 11.00 mm; drilled full diameter is 10.00 mm"), "{text}");
     let t = tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["type"] == "tap").unwrap();
     t["tap_type"] = json!("form"); t["chamfer_pitches"] = json!(1);
     let text = decisions(&finished(&p, &tools));

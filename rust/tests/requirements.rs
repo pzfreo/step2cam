@@ -40,18 +40,16 @@ fn stepped_plate_names_each_requirement_not_acted_on() {
     keys.sort_unstable();
     assert_eq!(keys, ["hole.position:hole_patterns.rectangle:16.29.35.45", "hole.position:hole_patterns.set:48.49.57.58", "hole.position:holes:36"]);
     assert_eq!(position["says"], "position not checked: ⌀0.4 on the 4 ⌀4.4 holes (clearance M4); ⌀0.2 on the 2 ⌀2.5 holes (tapped M3); ⌀2 on the ⌀10 hole (fit H7)");
-    // The full-thread depth asked of the M3 holes is not read.
-    let full = by_key(&found, "hole.full_thread:hole_patterns.set:48.49.57.58");
-    assert_eq!(full["says"], "full thread 8.5 on the 2 ⌀2.5 holes (tapped M3): not applied: the plan sets the thread depth itself");
-    // Acted on: the M3 thread, the M4 clearance size, the material; datums and locating are
-    // choices; Specify asks no position of the general pattern and writes none.
+    // Acted on: the M3 thread and its full-thread depth, the M4 clearance size, the material;
+    // datums and locating are choices; Specify asks no position of the general pattern and
+    // writes none.
     let keys: Vec<&str> = found.iter().flat_map(|d| d["requirements"].as_array().unwrap().iter().map(|k| k.as_str().unwrap())).collect();
-    for key in ["hole.function:hole_patterns.set:48.49.57.58",
+    for key in ["hole.function:hole_patterns.set:48.49.57.58", "hole.full_thread:hole_patterns.set:48.49.57.58",
         "hole.function:hole_patterns.rectangle:16.29.35.45", "hole.position:hole_patterns.rectangle:17.22.30.31",
         "part.material", "part.coating", "part.heat_treatment", "part.locating", "datum.A"] {
         assert!(!keys.contains(&key), "{key}: {keys:?}");
     }
-    assert_eq!(found.len(), 9, "{found:#?}");
+    assert_eq!(found.len(), 8, "{found:#?}");
 }
 
 #[test]

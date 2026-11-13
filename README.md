@@ -265,7 +265,8 @@ The answer can be on one hole or on a hole pattern, which threads every hole in 
   public sources that agree, not checked against ISO 261 itself.
   Right-hand only.
 - **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
-  answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread), or by default as deep as
+  answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread; a `hole.full_thread:<hole>`
+  answer such as `"5.5"` takes precedence over the `@` depth, as in Specify), or by default as deep as
   Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
   (`rulebase/reference/full-thread.json`). A tap needs its lead plus one pitch of clearance below
   the thread, which for a three-pitch lead is more than those three pitches, so a tap cuts a

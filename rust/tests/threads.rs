@@ -123,6 +123,39 @@ fn a_thread_deeper_than_its_hole_is_a_warning() {
 }
 
 #[test]
+fn a_full_thread_answer_is_the_asked_depth_over_the_tapped_one() {
+    // specify-core: hole.full_thread "takes precedence over the depth in a tapped answer".
+    let plan = |answers: Value| {
+        let mut a = holes_only(&[down(0., 0., 4.2, 10., "flat")]);
+        a["features"][0]["faces"] = json!([1]);
+        capp::plan::plan(&tapped(answers, a), None, &top_stock(0.)).unwrap()
+    };
+    // The default for a 10 mm M5 hole is 7.5 mm, marked as the default.
+    let ops = threads(&plan(json!({"hole.function:holes:0": "tapped:M5"})));
+    assert_same(json!([ops[0]["bottom_z"], ops[0]["default_depth"]]), json!([-7.5, true]));
+    for answers in [
+        json!({"hole.function:holes:0": "tapped:M5", "hole.full_thread:holes:0": "6.5"}),
+        json!({"hole.function:holes:0": "tapped:M5@5", "hole.full_thread:holes:0": "6.5"}),
+        json!({"hole.function:holes:0": "tapped:M5@5", "hole.full_thread:holes:0": "6.5 mm"}),
+    ] {
+        let ops = threads(&plan(answers.clone()));
+        assert_eq!(ops.len(), 1, "{answers}");
+        assert_same(ops[0]["bottom_z"].clone(), json!(-6.5));
+        assert!(ops[0].get("default_depth").is_none(), "{answers}: {}", ops[0]);
+    }
+    // An empty answer asks for nothing: the tapped answer's depth stands.
+    let ops = threads(&plan(json!({"hole.function:holes:0": "tapped:M5@5", "hole.full_thread:holes:0": ""})));
+    assert_same(ops[0]["bottom_z"].clone(), json!(-5));
+    // Deeper than the hole: not threaded.
+    let p = plan(json!({"hole.function:holes:0": "tapped:M5@5", "hole.full_thread:holes:0": "12"}));
+    assert!(threads(&p).is_empty());
+    assert!(p["warnings"].to_string().contains("M5 thread 12.0 mm deep is deeper than the hole (10.0 mm); not threaded"), "{}", p["warnings"]);
+    let p = plan(json!({"hole.function:holes:0": "tapped:M5", "hole.full_thread:holes:0": "deep"}));
+    assert!(threads(&p).is_empty());
+    assert!(p["warnings"].to_string().contains("full thread 'deep' has an unreadable depth"), "{}", p["warnings"]);
+}
+
+#[test]
 fn answers_that_cannot_be_threaded_are_warnings() {
     for (answers, expected) in [
         (json!({"hole.function:holes:12": "tapped:UNC1/4"}), "not a metric size"),
