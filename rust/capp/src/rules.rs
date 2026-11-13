@@ -14,20 +14,20 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-pub const WORKHOLDING: &str = include_str!("../rulebase/rules/workholding.json");
+pub(crate) const WORKHOLDING: &str = include_str!("../rulebase/rules/workholding.json");
 pub fn workholding() -> &'static Value {
     static CELL: OnceLock<Value> = OnceLock::new();
     parsed(WORKHOLDING, "workholding.json", &CELL)
 }
 
 pub const TOOLS: &str = include_str!("../rulebase/rules/tools.json");
-pub const SEQUENCE: &str = include_str!("../rulebase/rules/sequence.json");
+pub(crate) const SEQUENCE: &str = include_str!("../rulebase/rules/sequence.json");
 pub const PROCESS: &str = include_str!("../rulebase/rules/process.json");
 
 fn parsed(text: &'static str, name: &str, cell: &'static OnceLock<Value>) -> &'static Value {
     cell.get_or_init(|| serde_json::from_str(text).unwrap_or_else(|e| panic!("rulebase/rules/{name}: {e}")))
 }
-pub fn tools() -> &'static Value {
+pub(crate) fn tools() -> &'static Value {
     static CELL: OnceLock<Value> = OnceLock::new();
     parsed(TOOLS, "tools.json", &CELL)
 }
@@ -35,7 +35,7 @@ pub fn sequence() -> &'static Value {
     static CELL: OnceLock<Value> = OnceLock::new();
     parsed(SEQUENCE, "sequence.json", &CELL)
 }
-pub fn process() -> &'static Value {
+pub(crate) fn process() -> &'static Value {
     static CELL: OnceLock<Value> = OnceLock::new();
     parsed(PROCESS, "process.json", &CELL)
 }
@@ -247,7 +247,7 @@ pub type Rejection = (String, String);
 
 /// The tool a selector prefers among those that qualify, and why each other one was turned down
 /// (where the selector has words for that), in library order.
-pub fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
+pub(crate) fn select<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<(Option<&'a Value>, Vec<Rejection>), String> {
     select_with_reach(selector, tools, inputs, params, false)
 }
 
@@ -329,7 +329,7 @@ fn select_with_reach<'a>(selector: &str, tools: &[&'a Value], inputs: &HashMap<&
 
 /// Every tool of the selector's type with what became of it: chosen, turned down (and why), or
 /// qualified but passed over for the one preferred. For the decision trace.
-pub fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<Vec<Value>, String> {
+pub(crate) fn considered(selector: &str, tools: &[&Value], inputs: &HashMap<&str, f64>, params: &HashMap<&str, f64>) -> Result<Vec<Value>, String> {
     let rule = tools_rule(selector)?;
     let (chosen, why) = select(selector, tools, inputs, params)?;
     let chosen_id = chosen.and_then(|t| t["id"].as_str()).unwrap_or("");
@@ -365,7 +365,7 @@ pub fn rank(kind: &str) -> Result<usize, String> {
 
 /// The first case in `process.json` whose family and conditions hold for this feature: what
 /// becomes of it. `holds` answers a named condition.
-pub fn case_for(family: &str, holds: &mut dyn FnMut(&str) -> Result<bool, String>) -> Result<&'static Value, String> {
+pub(crate) fn case_for(family: &str, holds: &mut dyn FnMut(&str) -> Result<bool, String>) -> Result<&'static Value, String> {
     for case in process()["cases"].as_array().into_iter().flatten() {
         if let Some(families) = case["families"].as_array() {
             if !families.iter().any(|f| f == family) {
@@ -387,7 +387,7 @@ pub fn case_for(family: &str, holds: &mut dyn FnMut(&str) -> Result<bool, String
 }
 
 /// A library query for a missing tool, using the selector's own inputs and derived values.
-pub fn needed(selector: &str, inputs: &[(&str, f64)], params: &[(&str, f64)]) -> Result<String, String> {
+pub(crate) fn needed(selector: &str, inputs: &[(&str, f64)], params: &[(&str, f64)]) -> Result<String, String> {
     let rule = tools_rule(selector)?;
     let mut values: HashMap<String, f64> = inputs.iter().chain(params).map(|(k, v)| (k.to_string(), *v)).collect();
     for pair in rule["let"].as_array().into_iter().flatten() {

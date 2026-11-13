@@ -388,7 +388,7 @@ pub fn jobs(plan: &Value, library_data: &Value) -> Result<(Vec<Job>, Vec<String>
 }
 
 /// [`jobs`] for a plan as types (its format is not checked).
-pub fn jobs_from(plan: &Plan, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
+pub(crate) fn jobs_from(plan: &Plan, library_data: &Value) -> Result<(Vec<Job>, Vec<String>), String> {
     let tools: Vec<&Value> = library_data.get("tools").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
     let (mut jobs, mut log) = (vec![], vec![]);
     for setup in &plan.setups {

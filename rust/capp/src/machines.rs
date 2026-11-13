@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 /// The mill the plan is cut on: the first machine of kind `mill`.
-pub fn mill(resources: &Value) -> Option<&Value> {
+pub(crate) fn mill(resources: &Value) -> Option<&Value> {
     resources["machines"].as_array()?.iter().find(|m| m["kind"] == "mill")
 }
 
@@ -103,7 +103,7 @@ pub(crate) fn place_with(plan: &mut Plan, resources: &Value, trace: &mut Trace) 
 
 /// Caps cutting data at the spindle's top speed, scaling the feeds so each tooth takes the same
 /// chip. Returns what it did, for the trace.
-pub fn cap_speed(technology: &mut Map<String, Value>, resources: &Value) -> Option<String> {
+pub(crate) fn cap_speed(technology: &mut Map<String, Value>, resources: &Value) -> Option<String> {
     let max = mill(resources)?["spindle"]["max_rpm"].as_f64()?;
     let rpm = technology.get("spindle_rpm")?.as_f64()?;
     if rpm <= max {

@@ -34,16 +34,18 @@ pub(crate) fn rules() -> &'static HashMap<String, (u64, String, bool)> {
 pub struct Trace {
     pub decisions: Vec<Value>,
     pub warnings: Vec<String>,
-    pub skipped: Vec<Value>,
+    pub skipped: Vec<crate::model::Skipped>,
     pub supplied: Vec<Value>,
 }
 
 impl Trace {
     /// The trace a plan carries so far, to go on with: its decisions, and its warnings and
-    /// skipped features, taken out of it until [`Trace::store`].
+    /// skipped features, taken out of it until [`Trace::store`]. A skipped entry that does not
+    /// decode is dropped.
     pub fn take(plan: &mut Value) -> Self {
         let mut list = |key: &str| plan.get_mut(key).and_then(Value::as_array_mut).map(std::mem::take).unwrap_or_default();
-        let (decisions, skipped) = (list("decisions"), list("skipped"));
+        let decisions = list("decisions");
+        let skipped = list("skipped").into_iter().filter_map(|s| serde_json::from_value(s).ok()).collect();
         let warnings = list("warnings").into_iter().filter_map(|w| w.as_str().map(String::from)).collect();
         Self { decisions, warnings, skipped, supplied: plan["supplied_decisions"].as_array().cloned().unwrap_or_default() }
     }
@@ -51,19 +53,17 @@ impl Trace {
     /// [`Trace::take`] from the typed plan.
     pub(crate) fn take_plan(plan: &mut crate::model::Plan) -> Self {
         let decisions = plan.decisions.as_mut().map(std::mem::take).unwrap_or_default();
-        let skipped = std::mem::take(&mut plan.skipped).into_iter().map(|s| json!(s)).collect();
-        Self { decisions, warnings: std::mem::take(&mut plan.warnings), skipped, supplied: plan.supplied_decisions.clone().unwrap_or_default() }
+        Self { decisions, warnings: std::mem::take(&mut plan.warnings), skipped: std::mem::take(&mut plan.skipped), supplied: plan.supplied_decisions.clone().unwrap_or_default() }
     }
 
-    /// [`Trace::store`] into the typed plan. Fails if a skipped entry does not decode.
-    pub(crate) fn store_plan(self, plan: &mut crate::model::Plan) -> Result<(), String> {
+    /// [`Trace::store`] into the typed plan.
+    pub(crate) fn store_plan(self, plan: &mut crate::model::Plan) {
         if !self.supplied.is_empty() || plan.supplied_decisions.is_some() {
             plan.supplied_decisions = Some(self.supplied);
         }
         plan.decisions = Some(self.decisions);
         plan.warnings = self.warnings;
-        plan.skipped = self.skipped.into_iter().map(serde_json::from_value).collect::<Result<_, _>>().map_err(|e| e.to_string())?;
-        Ok(())
+        plan.skipped = self.skipped;
     }
 
     /// Puts the trace back into the plan.
@@ -109,12 +109,12 @@ impl Trace {
     /// A feature not cut, by `rule`, and why.
     pub fn skip(&mut self, rule: &str, feature: &str, reason: String) -> String {
         let id = self.decide(rule, feature, "skipped", &reason, Value::Null);
-        self.skipped.push(json!({"feature": feature, "reason": reason, "decision": id}));
+        self.skipped.push(crate::model::Skipped { feature: feature.into(), reason, decision: Some(id.clone()) });
         id
     }
 
     /// Marks earlier decisions about `subject` with this outcome as replaced by a later one.
-    pub fn supersede(&mut self, subject: &str, outcome: &str, by: &str) {
+    pub(crate) fn supersede(&mut self, subject: &str, outcome: &str, by: &str) {
         for d in self.decisions.iter_mut().filter(|d| d["subject"] == subject && d["outcome"] == outcome && d.get("superseded_by").is_none()) {
             if d["id"] != by {
                 d["superseded_by"] = json!(by);
@@ -124,7 +124,7 @@ impl Trace {
 }
 
 /// Adds decisions to an operation's `because`.
-pub fn because(op: &mut Value, ids: impl IntoIterator<Item = String>) {
+pub(crate) fn because(op: &mut Value, ids: impl IntoIterator<Item = String>) {
     let list = op.as_object_mut().map(|o| o.entry("because").or_insert_with(|| json!([])));
     if let Some(Value::Array(list)) = list {
         list.extend(ids.into_iter().map(Value::String));
@@ -139,7 +139,7 @@ pub(crate) fn because_op(op: &mut crate::model::Operation, ids: impl IntoIterato
 /// Which rulebase a plan was made with: a hash (64-bit FNV-1a) over every rule and reference file
 /// shipped in the crate, in a fixed order. Two plans with the same hash were made by the same rules
 /// and data.
-pub fn rulebase() -> Value {
+pub(crate) fn rulebase() -> Value {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS, crate::rules::WORKHOLDING]
         .into_iter()

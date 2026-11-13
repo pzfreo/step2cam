@@ -213,7 +213,7 @@ impl<'a> Library<'a> {
     /// Conservative full-breakthrough depth from the stock top. The selector adds each
     /// candidate's point even for tip-referenced holes and ignores exit obstructions that
     /// would shorten the job. If none reaches, camlib judges the preferred fitting drill.
-    pub fn drill_depth(&self, hole: &Holes, stock_top: f64) -> f64 {
+    pub(crate) fn drill_depth(&self, hole: &Holes, stock_top: f64) -> f64 {
         stock_top - hole.bottom_z
             + if hole.bottom == "through" { self.breakthrough.max(0.) } else { 0. }
     }
@@ -296,11 +296,11 @@ impl<'a> Library<'a> {
         }
         Ok((kept, considered))
     }
-    pub fn has_taps(&self) -> bool { self.tools.iter().any(|t| t["type"] == "tap") }
+    pub(crate) fn has_taps(&self) -> bool { self.tools.iter().any(|t| t["type"] == "tap") }
 
     /// Full-diameter floor expected from the hole operations. The job repeats this against
     /// the actual executed drill/bore, including exit restrictions and supplied choices.
-    pub fn thread_open_z(&self, thread: &Thread, setup: Option<&Setup>, top: f64) -> Result<f64, String> {
+    pub(crate) fn thread_open_z(&self, thread: &Thread, setup: Option<&Setup>, top: f64) -> Result<f64, String> {
         let mut floor = f64::NEG_INFINITY;
         let ops = setup.map_or(&[][..], |s| &s.operations);
         for feature in &thread.features {
@@ -329,7 +329,7 @@ impl<'a> Library<'a> {
     }
 
     /// Process rule tool.thread.tap_or_mill; first qualifying tap in library order.
-    pub fn tap(&self, thread: &Thread, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Value>), String> {
+    pub(crate) fn tap(&self, thread: &Thread, top: f64, open_z: f64, group: Option<&str>) -> Result<(Option<&'a Value>, Vec<Value>), String> {
         let mut chosen = None;
         let mut considered = vec![];
         for tool in self.tools.iter().copied().filter(|t| t["type"] == "tap") {

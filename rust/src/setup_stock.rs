@@ -3,11 +3,6 @@ use camlib::stock_mesh::FinishedStock;
 use capp::model::{Box3, Cut, Plan, Setup};
 use serde_json::{Value, json};
 
-/// A setup's recorded frame, as `capp::plan::between_setups` reads it.
-fn frame_of(setup: &Setup) -> Value {
-    json!({"rotation": setup.rotation, "origin_model": setup.origin_model})
-}
-
 /// Move the previous job's finished stock using the plan's recorded frames.
 pub(crate) fn carry(
     stock: &FinishedStock,
@@ -15,7 +10,7 @@ pub(crate) fn carry(
     to: &Setup,
     manifest: &Value,
 ) -> Result<(Value, f64), String> {
-    let (rotation, translation) = capp::plan::between_setups(&frame_of(from), &frame_of(to))?;
+    let (rotation, translation) = capp::plan::between_setups((from.rotation, from.origin_model), (to.rotation, to.origin_model))?;
     let vertices = stock
         .mesh
         .vertices()
@@ -102,8 +97,8 @@ pub(crate) fn assumption(reason: &str) -> String {
 
 /// A manual instruction before the next setup, attached to the existing setup list.
 pub(crate) fn part_bounds(part: Option<&Box3>, frame: &Setup) -> Result<[[f64; 3]; 2], String> {
-    let model = json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]], "origin_model":[0,0,0]});
-    let (rotation, translation) = capp::plan::between_setups(&model, &frame_of(frame))?;
+    let model = (Some([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), Some([0.; 3]));
+    let (rotation, translation) = capp::plan::between_setups(model, (frame.rotation, frame.origin_model))?;
     let part = part.ok_or("missing part min coordinate 0")?;
     let (lo, hi) = (part.min, part.max);
     let mut bounds = [[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]];
@@ -343,9 +338,9 @@ mod tests {
         })
         .unwrap();
         let finished = stock.finished_mesh(&|| false).unwrap();
-        let from = json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]], "origin_model":[-2,-2,5]});
-        let to = json!({"rotation":[[1,0,0],[0,0,1],[0,-1,0]], "origin_model":[0,0,0]});
-        let (r, t) = capp::plan::between_setups(&from, &to).unwrap();
+        let from = (Some([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), Some([-2., -2., 5.]));
+        let to = (Some([[1, 0, 0], [0, 0, 1], [0, -1, 0]]), Some([0., 0., 0.]));
+        let (r, t) = capp::plan::between_setups(from, to).unwrap();
         assert_eq!(r, [[1., 0., 0.], [0., 0., 1.], [0., -1., 0.]]);
         assert_eq!(t, [-2., 5., 2.]);
         assert!(!finished.mesh.vertices().is_empty());
