@@ -11,7 +11,7 @@ mod workholding;
 mod setup_stock;
 
 use capp::kind::OpKind;
-use capp::model::{Cut, Plan, Setup};
+use capp::model::{Cut, Exclusion, Plan, Setup};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
@@ -89,7 +89,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             cache.truncate(index);
             let attempt = simulate::simulate_prepared_job(&mut job);
             let attempt = match attempt {
-                Err(f) if f.operation.is_none() && f.message.starts_with("initial stock:") && job.manifest["stock"]["mesh"].is_object() => {
+                Err(f) if f.operation.is_none() && f.cause == simulate::Cause::InitialStock && job.manifest["stock"]["mesh"].is_object() => {
                     plan.setups[setup_index].stock_note = Some(setup_stock::assumption(&f.message));
                     job.manifest = box_manifest;
                     job.stock_bottom_mm = box_bottom;
@@ -127,7 +127,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             "before_threads": !check["after_operation"].is_null(),
         });
         let material = run.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits, "sweep_proof": run.sweep_proof}));
-        programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material}));
+        programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material, "uncertain_motions": run.uncertain}));
     }
     Ok(())
 }
@@ -180,7 +180,7 @@ impl Outcome {
     }
 }
 
-fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Value>) -> Result<Outcome, String> {
+fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Exclusion>) -> Result<Outcome, String> {
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
@@ -207,20 +207,19 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         };
         // An operation capp can take out is excluded and the plan finished again; anything else
         // stops: nothing is given out, not even a setup that ran before this one stopped.
-        let excludable = failure.operation.as_deref().is_some_and(|id| capp::excludable(&plan, id));
+        let excludable = failure.operation.as_ref().is_some_and(|id| capp::excludable(&plan, id));
         let (true, Some(operation)) = (excludable, failure.operation) else {
             error = Some(failure.message);
             programs.clear();
             break;
         };
-        let id = operation.parse::<capp::kind::OpId>().ok();
-        let refused_op = id.and_then(|id| plan.setups.iter().find(|s| s.id == id.setup)
-            .and_then(|s| id.number.checked_sub(1).and_then(|i| s.operations.get(i))));
-        let tool = refused_op.map(|op| json!(op.tool.as_ref().and_then(Option::as_ref))).unwrap_or(Value::Null);
-        let selection = plan.decisions.as_ref().and_then(|ds| ds.iter().find(|d| d["chosen"] == tool
+        let refused_op = plan.setups.iter().find(|s| s.id == operation.setup)
+            .and_then(|s| operation.number.checked_sub(1).and_then(|i| s.operations.get(i)));
+        let tool = refused_op.and_then(|op| op.tool.clone().flatten());
+        let selection = plan.decisions.as_ref().and_then(|ds| ds.iter().find(|d| d["chosen"] == json!(tool)
             && refused_op.is_some_and(|op| op.because.as_ref().is_some_and(|ids| ids.iter().any(|id| d["id"] == *id))))).cloned();
-        let reach = camlib::reach::ReachRefusal::parse(&failure.message);
-        exclusions.push(json!({"operation": operation, "message": failure.message, "tool": tool, "selection": selection, "reach": reach}));
+        let reach = match failure.cause { simulate::Cause::Reach(reach) => Some(*reach), _ => None };
+        exclusions.push(Exclusion { operation, message: failure.message, tool, selection, reach });
     }
     let needs: Vec<&str> = plan.tools_needed.iter().flatten().map(|n| n.description.as_str()).collect();
     if !needs.is_empty() {
@@ -269,6 +268,22 @@ mod flip_tests {
     }
 
     #[test]
+    fn each_program_counts_its_uncertain_motions_as_the_log_does() {
+        let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
+        let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+        let t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
+        let out=process(&a,&m,&t).unwrap();
+        assert!(out["error"].is_null(),"{}",out["error"]);
+        let programs=out["programs"].as_array().unwrap();
+        assert!(!programs.is_empty());
+        for p in programs {
+            let count=p["uncertain_motions"].as_u64().unwrap();
+            let line=format!("note: setup {}: camlib's stock-contact check could not clear {count} motions",p["setup"].as_str().unwrap());
+            let logged=out["log"].as_array().unwrap().iter().filter_map(Value::as_str).filter(|l|l.contains(&format!("setup {}: camlib's stock-contact check",p["setup"].as_str().unwrap()))).collect::<Vec<_>>();
+            assert_eq!(logged,if count>0 {vec![line.as_str()]} else {vec![]});
+        }
+    }
+    #[test]
     fn excluded_roughing_cannot_leave_a_finished_grip_and_process_replans() {
         let a: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
@@ -287,7 +302,7 @@ mod flip_tests {
         assert_eq!(decision["outcome"],"none");
         assert!(!decision["says"].as_str().unwrap().contains("outline already finished"));
         assert!(decision["says"].as_str().unwrap().contains("preparation not established"));
-        let out=process_planned(&a,&m,&t,typed(&planned),vec![exclusion]).unwrap().json();
+        let out=process_planned(&a,&m,&t,typed(&planned),vec![typed(&exclusion)]).unwrap().json();
         assert!(out["error"].is_null(),"{}",out["error"]);
         assert!(out["plan"]["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
         assert_eq!(out["plan"]["setups"][0]["stock"]["min"][2],-19.);

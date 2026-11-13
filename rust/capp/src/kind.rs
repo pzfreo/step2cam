@@ -126,6 +126,21 @@ impl From<OpId> for String {
     fn from(id: OpId) -> String { id.to_string() }
 }
 
+/// An operation id's parts, written as an object rather than as the id's text, for a reader that
+/// would otherwise split the text.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct OpRef {
+    pub setup: String,
+    pub number: usize,
+    pub kind: OpKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part: Option<usize>,
+}
+
+impl From<&OpId> for OpRef {
+    fn from(id: &OpId) -> OpRef { OpRef { setup: id.setup.clone(), number: id.number, kind: id.kind, part: id.part } }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,6 +155,13 @@ mod tests {
         }
         assert_eq!("top-3-spot_drill-2".parse::<OpId>().unwrap(), OpId { setup: "top".into(), number: 3, kind: OpKind::SpotDrill, part: Some(2) });
         assert_eq!("top-2-roughing".parse::<OpId>().unwrap().part, None);
+    }
+
+    #[test]
+    fn an_op_ref_writes_the_parts_and_a_part_only_when_there_is_one() {
+        let parts = |text: &str| serde_json::to_value(OpRef::from(&text.parse::<OpId>().unwrap())).unwrap();
+        assert_eq!(parts("top-3-spot_drill-2"), serde_json::json!({"setup": "top", "number": 3, "kind": "spot_drill", "part": 2}));
+        assert_eq!(parts("bottom-10-v_channel"), serde_json::json!({"setup": "bottom", "number": 10, "kind": "v_channel"}));
     }
 
     #[test]

@@ -54,6 +54,24 @@ fn plans_match_the_plan_schema() {
 }
 
 #[test]
+fn a_refused_operation_s_decision_carries_its_parts_and_reach() {
+    let analysis = read("tests/fixtures/plate.analysis.json");
+    let mesh = read("tests/fixtures/plate.mesh.json");
+    let mut planned = plan(&analysis, Some(&mesh), &Options::default()).unwrap();
+    assert_eq!(planned["setups"][0]["operations"][1]["kind"], "roughing");
+    let reach = serde_json::json!({"operation": "top-2-roughing", "tool": "em6", "limit": "holder", "holder_section": 1,
+        "depth_needed_mm": 10.5, "depth_available_mm": 8.25, "top_z_mm": 0., "z_mm": -10.5});
+    let exclusion = serde_json::json!({"operation": "top-2-roughing", "message": "test reach refusal", "reach": reach});
+    capp::finish(&mut planned, &read("tests/fixtures/placeholder-tools.json"), &[exclusion]).unwrap();
+    check("schemas/plan-1.schema.json", "plate, a reach refusal", &planned);
+    let refused: Vec<&Value> = planned["decisions"].as_array().unwrap().iter().filter(|d| d["rule"] == "execution.refused@1" && d["outcome"] == "removed").collect();
+    assert_eq!(refused.len(), 1);
+    assert_eq!(refused[0]["subject"], "top-2-roughing");
+    assert_eq!(refused[0]["operation"], serde_json::json!({"setup": "top", "number": 2, "kind": "roughing"}));
+    assert_eq!(refused[0]["reach"], reach);
+}
+
+#[test]
 fn a_mistyped_tool_field_is_caught() {
     let mut library = read("demo/tools.json");
     library["tools"][0]["stepdwon_mm"] = serde_json::json!(4);

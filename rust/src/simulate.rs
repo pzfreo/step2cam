@@ -22,13 +22,39 @@ const ARC_STEP_RAD: f64 = std::f64::consts::PI / 18.;
 /// Why a job did not simulate, and the operation it stopped at if it had started one.
 #[derive(Debug)]
 pub struct Failure {
-    pub operation: Option<String>,
+    pub operation: Option<capp::kind::OpId>,
     pub message: String,
+    pub cause: Cause,
+}
+
+/// What kind of failure it is, where the adapter can tell.
+#[derive(Debug, PartialEq)]
+pub enum Cause {
+    /// camlib could not make the job's initial stock from its mesh.
+    InitialStock,
+    /// camlib refused an operation for its reach, with the evidence it gave (boxed, to keep
+    /// `Failure` small).
+    Reach(Box<capp::model::ReachEvidence>),
+    Other,
 }
 
 impl From<String> for Failure {
+    /// A failure with this message; camlib's reach refusal is read from it once, here.
     fn from(message: String) -> Self {
-        Self { operation: None, message }
+        let cause = camlib::reach::ReachRefusal::parse(&message).map_or(Cause::Other, |r| Cause::Reach(Box::new(evidence(r))));
+        Self { operation: None, message, cause }
+    }
+}
+
+/// camlib's reach refusal, field for field.
+fn evidence(r: camlib::reach::ReachRefusal) -> capp::model::ReachEvidence {
+    use camlib::reach::ReachLimit as L;
+    use capp::model::ReachLimit;
+    capp::model::ReachEvidence {
+        operation: Some(r.operation), tool: Some(r.tool),
+        limit: match r.limit { L::CuttingLength => ReachLimit::CuttingLength, L::Neck => ReachLimit::Neck, L::Shank => ReachLimit::Shank, L::Holder => ReachLimit::Holder },
+        holder_section: r.holder_section, depth_needed_mm: r.depth_needed_mm,
+        depth_available_mm: Some(r.depth_available_mm), top_z_mm: Some(r.top_z_mm), z_mm: Some(r.z_mm),
     }
 }
 
@@ -234,9 +260,9 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Fa
     loop {
         let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to);
         let Err(failure) = result else { return result; };
-        let reach = camlib::reach::ReachRefusal::parse(&failure.message);
-        let operation = failure.operation.as_deref().unwrap_or("");
-        if reach.as_ref().is_some_and(|r| r.limit == camlib::reach::ReachLimit::CuttingLength)
+        let operation = failure.operation.as_ref().map(ToString::to_string).unwrap_or_default();
+        let operation = operation.as_str();
+        if matches!(&failure.cause, Cause::Reach(r) if r.limit == capp::model::ReachLimit::CuttingLength)
             && let Some(top) = job.local_pocket_tops.remove(operation)
             && let Some(op) = job.manifest["operations"].as_array_mut().and_then(|ops|
                 ops.iter_mut().find(|op| op["id"] == operation))
@@ -249,7 +275,7 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Fa
         }
         // A lower top that camlib cannot prove exposed does not replace the original
         // reach verdict with a stock-preparation complaint.
-        if reach.is_none() && let Some(original) = original_refusals.remove(operation) {
+        if !matches!(failure.cause, Cause::Reach(_)) && let Some(original) = original_refusals.remove(operation) {
             return Err(original);
         }
         return Err(failure);
@@ -267,7 +293,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
         if matches!(manifest.stock, camlib::stream::RunStockSpec::Mesh(_))
             && let Err(reason) = manifest.stock.initial_stock(&|| false)
             && reason == message {
-            Failure::from(format!("initial stock: {reason}"))
+            Failure { cause: Cause::InitialStock, ..Failure::from(format!("initial stock: {reason}")) }
         } else { Failure::from(message) }
     })?;
     let cancel = AtomicBool::new(false);
@@ -344,7 +370,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             operations.push(OperationRange { id: operation.id().to_string(), start, end: producer.completed() });
             Ok(())
         };
-        one().map_err(|message| Failure { operation: Some(operation.id().to_string()), message })?;
+        one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
         if material.is_none() {
             material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
@@ -485,5 +511,24 @@ mod real_stock_tests {
         let report = compare_real_stock(&check(-5.), &stock(-6.), -10., &cancel).unwrap();
         assert!(report.complete);
         assert!(report.gouge.definite_cells > 0);
+    }
+}
+
+#[cfg(test)]
+mod reach_tests {
+    use super::*;
+    use camlib::reach::{ReachLimit, ReachRefusal};
+
+    #[test]
+    fn a_reach_refusal_is_read_once_into_evidence_written_as_camlib_writes_it() {
+        let holder = ReachRefusal { operation: "top-2-notch".into(), tool: "em6".into(), limit: ReachLimit::Holder, holder_section: Some(1),
+            depth_needed_mm: 64.00001, depth_available_mm: 14., top_z_mm: -0.99999, z_mm: -65. };
+        for refusal in [ReachRefusal::cutting_length("top-1-roughing", "em3", 0., -12.5, 9.), holder] {
+            let failure = Failure::from(refusal.error("camlib refused it"));
+            let Cause::Reach(evidence) = &failure.cause else { panic!("{:?}", failure.cause) };
+            assert_eq!(serde_json::to_string(evidence).unwrap(), serde_json::to_string(&refusal).unwrap());
+            assert_eq!(serde_json::json!(evidence), serde_json::json!(refusal));
+        }
+        assert_eq!(Failure::from("camlib refused it").cause, Cause::Other);
     }
 }

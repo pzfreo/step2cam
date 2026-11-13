@@ -118,7 +118,7 @@ fn a_flat_where_roughing_did_not_reach_is_refused() {
     }
     let Err(failure) = simulate(&manifest.to_string()) else { panic!("a flat through uncut stock passed") };
     assert!(failure.message.contains("a flat would cut"), "{}", failure.message);
-    assert!(failure.operation.as_deref().is_some_and(|id| id.ends_with("flats")), "{:?}", failure.operation);
+    assert!(failure.operation.as_ref().is_some_and(|id| id.to_string().ends_with("flats")), "{:?}", failure.operation);
 }
 
 #[test]
