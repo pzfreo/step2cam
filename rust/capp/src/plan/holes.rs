@@ -73,7 +73,8 @@ fn thread_size(spec: &str) -> Option<(f64, f64)> {
 }
 
 /// The internal threads asked for, by hole feature id: from Specify's answers
-/// (`hole.function:<hole or pattern>` = `tapped:M5` or `tapped:M5@5.5`). Threads another tool wrote,
+/// (`hole.function:<hole or pattern>` = `tapped:M5` or `tapped:M5@5.5`, the depth overridden by
+/// `hole.full_thread:<same target>` when answered). Threads another tool wrote,
 /// which state no size, and answers that cannot be used become warnings.
 pub(super) fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Thread> {
     let features: Vec<&Value> = analysis["features"].as_array().into_iter().flatten().collect();
@@ -84,7 +85,11 @@ pub(super) fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Th
         let (Some(target), Some(answer)) = (key.strip_prefix("hole.function:"), value.as_str().and_then(|v| v.strip_prefix("tapped:"))) else {
             continue;
         };
-        let (spec, full) = answer.split_once('@').map_or((answer, None), |(a, b)| (a, Some(b)));
+        let (spec, inline) = answer.split_once('@').map_or((answer, None), |(a, b)| (a, Some(b)));
+        // A full-thread depth answer takes precedence over the tapped answer's own depth, as in
+        // specify-core; it is text in mm ("8.5" or "8.5 mm").
+        let asked = analysis["resume"]["answers"][format!("hole.full_thread:{target}")].as_str().map(|t| t.trim().trim_end_matches("mm").trim()).filter(|t| !t.is_empty());
+        let full = asked.or(inline);
         let Some((major, pitch)) = thread_size(spec) else {
             trace.warn("requirement.thread.unknown_size", target, format!("{target}: tapped {spec} is not a metric size this bridge knows; not threaded"), json!({"features": [target]}));
             continue;
@@ -93,7 +98,11 @@ pub(super) fn threads(analysis: &Value, trace: &mut Trace) -> HashMap<String, Th
             None => None,
             Some(Ok(depth)) => Some(depth),
             Some(Err(_)) => {
-                trace.warn("requirement.thread.unreadable_depth", target, format!("{target}: tapped '{}' has an unreadable depth; not threaded", value.as_str().unwrap_or("")), json!({"features": [target]}));
+                let what = match asked {
+                    Some(text) => format!("full thread '{text}'"),
+                    None => format!("tapped '{}'", value.as_str().unwrap_or("")),
+                };
+                trace.warn("requirement.thread.unreadable_depth", target, format!("{target}: {what} has an unreadable depth; not threaded"), json!({"features": [target]}));
                 continue;
             }
         };

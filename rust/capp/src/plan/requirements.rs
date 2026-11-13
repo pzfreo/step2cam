@@ -94,15 +94,6 @@ pub(super) fn not_acted_on(analysis: &Value, trace: &mut Trace) {
         // it, its spot drill included.
         trace.warn(RULE, "part", says, json!({"features": ids, "requirements": [key]}));
     }
-    // A full-thread depth (asked only of a tapped hole) is not read: the thread depth comes from
-    // the hole and the tapped answer.
-    for (key, value) in all {
-        let (Some(target), Some(value)) = (key.strip_prefix("hole.full_thread:"), value.as_str().filter(|v| !nothing(v))) else { continue };
-        let Some(spec) = answers[format!("hole.function:{target}")].as_str().and_then(|f| f.strip_prefix("tapped:")) else { continue };
-        let (on, ids) = named(features, target);
-        let spec = spec.split('@').next().unwrap_or(spec);
-        trace.warn(RULE, "part", format!("full thread {value} on {on} (tapped {spec}): not applied: the plan sets the thread depth itself"), json!({"features": ids, "requirements": [key]}));
-    }
     // Position, ± location and runout tolerances: one warning each, listing where. The page
     // would put every operation on those features before it, so it names none.
     for (prefix, what, sign) in [("hole.position:", "position", "⌀"), ("hole.location:", "location", ""), ("diameter.runout:", "runout", "")] {

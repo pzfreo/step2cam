@@ -479,7 +479,7 @@ A blind tap must cover full thread plus its chamfer and leave one pitch of drill
 bottom clearance. Specify's default full thread (drill depth less three pitches) leaves less
 than that for a three-pitch lead, so for a default depth (`default_depth` on the thread) the tap cuts the drilled
 full-diameter depth less its chamfer and one pitch, rounded down to 0.5 mm, and is refused only
-below one pitch; the trace records the depth cut. An asked depth is never shortened. Thread length and stickout reach from stock top to tip plus camlib’s
+below one pitch; the trace records the depth cut. An asked depth (Specify's `hole.full_thread` answer, else the tapped answer's `@` depth) is never shortened. Thread length and stickout reach from stock top to tip plus camlib’s
 guard. Rejections include the numeric depths. With no suitable tap the existing
 thread-mill selector runs. Missing-tool text offers a cut tap only when the same material,
 size and pre-drill conditions pass. Blind queries give maximum chamfer (mm and pitches)

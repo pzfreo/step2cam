@@ -170,8 +170,11 @@ fn haas_flip_finishes_despite_missing_spot_tools() {
         assert!(list(&out["plan"]["setups"]).iter().any(|setup| list(&setup["operations"])
             .iter()
             .any(|o| o["kind"] == "holes" && o["tool"].is_string() && list(&o["features"]).contains(*f))), "{f}");
-        assert!(list(&out["plan"]["skipped"]).iter().all(|s| &s["feature"] != *f), "{f}");
-        assert!(list(&flip["features_left_out"]).iter().all(|l| &l["feature"] != *f));
+        // The front M3 holes are skipped only for their thread, which no Haas tool cuts to the
+        // drawing's 8.5 mm full thread.
+        let unthreaded = |r: &Value| r.as_str().is_some_and(|r| r.starts_with("thread left out: "));
+        assert!(list(&out["plan"]["skipped"]).iter().all(|s| &s["feature"] != *f || unthreaded(&s["reason"])), "{f}");
+        assert!(list(&flip["features_left_out"]).iter().all(|l| &l["feature"] != *f || list(&l["reasons"]).iter().all(unthreaded)), "{f}");
     }
     assert!(list(&out["plan"]["warnings"]).iter().any(|w| w.as_str().unwrap().contains(" drilled without spotting: no usable spot drill")));
     assert!(list(&flip["tools_needed"]).iter().any(|n| {
