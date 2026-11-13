@@ -26,8 +26,11 @@ fn consequences(
 ) -> Value {
     let p = &out.plan;
     let operations: Vec<_> = p.setups.iter().flat_map(|s| &s.operations).collect();
-    let omitted: BTreeSet<_> = p.skipped.iter().map(|s| s.feature.as_str()).collect();
-    let left: Vec<_>=omitted.iter().map(|id|json!({"feature":id,"reasons":p.skipped.iter().filter(|s|s.feature==**id).map(|s|s.reason.clone()).collect::<Vec<_>>()})).collect();
+    // A hole drilled without its spot drilling is not left out.
+    let skipped: Vec<_> = p.skipped.iter().filter(|s| !p.decisions.iter().flatten().any(|d|
+        s.decision.as_ref().is_some_and(|id| d["id"] == *id) && rule_name(&d["rule"]) == Some("tool.none.unspotted"))).collect();
+    let omitted: BTreeSet<_> = skipped.iter().map(|s| s.feature.as_str()).collect();
+    let left: Vec<_>=omitted.iter().map(|id|json!({"feature":id,"reasons":skipped.iter().filter(|s|s.feature==**id).map(|s|s.reason.clone()).collect::<Vec<_>>()})).collect();
     let cut: BTreeSet<_> = operations
         .iter()
         .filter(|o| matches!(o.tool, Some(Some(_))))

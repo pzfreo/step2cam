@@ -87,6 +87,12 @@ fn hole_drill<'a>(ops: &[Operation], setup: &str, number: usize, op: &Operation,
     })
 }
 
+/// The spot drilling operations a tool cuts: finish takes out the others, so only these number the
+/// holes after them.
+fn tooled(ops: &[Operation]) -> usize {
+    ops.iter().filter_map(spot_drill).filter(|s| s.spot_tool.is_some()).count()
+}
+
 /// The hole operations, each with its number counted without spots.
 fn numbered_holes(ops: &[Operation]) -> impl Iterator<Item = (usize, &Operation, &Holes)> {
     ops.iter().filter(|o| o.cut.kind() != OpKind::SpotDrill).enumerate().filter_map(|(index, o)| holes(o).map(|hole| (index, o, hole)))
@@ -138,21 +144,21 @@ fn groups(ops: &[Operation], setup_id: &str, top: f64, library: &Library, trace:
 /// names against the resulting layout, rather than accidentally matching pre-spot indices.
 /// Prefer layouts that actually use the supplied choices. Ambiguous/inconsistent names
 /// are refused; no preview decisions leak into the trace.
-fn layout<T>(ops: &[Operation], setup: &str, top: f64, library: &Library, trace: &mut Trace, pruning: bool, build: impl Fn(usize, &Trace) -> Result<Vec<T>, String>) -> Result<Vec<T>, String> {
+fn layout(ops: &[Operation], setup: &str, top: f64, library: &Library, trace: &mut Trace, pruning: bool, build: impl Fn(usize, &Trace) -> Result<Vec<Operation>, String>) -> Result<Vec<Operation>, String> {
     let subject = format!("{setup}:holes");
     if ops.iter().filter(|o| o.cut.kind() == OpKind::Holes).count() > 1
         && let Some(n) = trace.supplied_for("tool.hole.drill_or_bore", &subject, None) {
         trace.refuse(n, "subject matches more than one operation; name operation explicitly");
     }
     let indexed: Vec<usize> = trace.supplied.iter().enumerate().filter(|(_, s)| s["rule"] == "tool.hole.drill_or_bore" && s["subject"] == subject && s.get("operation").is_some() && s.get("accepted").is_none()).map(|(n, _)| n).collect();
-    let current = ops.iter().filter(|o| o.cut.kind() == OpKind::SpotDrill).count();
+    let current = tooled(ops);
     if indexed.is_empty() { return build(current, trace); }
     // Keep an already consistent layout during pruning. Choices that omitted spots in
     // creation must not appear to permit a different mapping just because those spots
     // are absent now. Only exclusions or a removed group can require another layout.
     if pruning {
         let candidate = build(current, trace)?;
-        if candidate.len() == current { return Ok(candidate); }
+        if tooled(&candidate) == current { return Ok(candidate); }
     }
     let maximum: usize = ops.iter().filter_map(holes).map(|hole| hole.features.len()).sum();
     let mut best = None;
@@ -160,7 +166,7 @@ fn layout<T>(ops: &[Operation], setup: &str, top: f64, library: &Library, trace:
     let mut ties = 0;
     for count in 0..=maximum {
         let candidate = build(count, trace)?;
-        if candidate.len() != count { continue; }
+        if tooled(&candidate) != count { continue; }
         let mut score = 0;
         for (index, op, _) in numbered_holes(ops) {
             let operation = format!("{setup}-{}-holes", index + count + 1);
@@ -173,7 +179,7 @@ fn layout<T>(ops: &[Operation], setup: &str, top: f64, library: &Library, trace:
     if ties == 1 { return Ok(best.unwrap()); }
     for n in indexed { trace.refuse(n, "operation numbering is ambiguous or inconsistent after spot drilling; use the finished plan's operation number"); }
     // With indexed choices refused, spot count no longer affects the choice.
-    build(ops.iter().filter(|o| o.cut.kind() == OpKind::SpotDrill).count(), trace)
+    build(tooled(ops), trace)
 }
 
 fn pruned(ops: &[Operation], setup_id: &str, top: f64, library: &Library, trace: &Trace, spot_count: usize) -> Result<Vec<Operation>, String> {

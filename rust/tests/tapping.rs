@@ -16,6 +16,11 @@ fn thread(plan: &Value) -> &Value {
     plan["setups"].as_array().unwrap().iter().flat_map(|s| list(&s["operations"])).find(|o| o["kind"] == "thread").unwrap()
 }
 fn decisions(plan: &Value) -> String { plan["decisions"].to_string() }
+/// Why the thread no tool cuts is left out, as its first feature's skip says.
+fn untooled_thread(plan: &Value) -> &str {
+    assert!(plan["setups"].as_array().unwrap().iter().flat_map(|s| list(&s["operations"])).all(|o| o["kind"] != "thread"), "an untooled thread is not an operation");
+    list(&plan["skipped"]).iter().filter_map(|s| s["reason"].as_str()).find(|r| r.starts_with("thread left out: ")).unwrap()
+}
 
 #[test]
 fn plate_m5_tap_is_selected_and_camlib_completes_it() {
@@ -88,7 +93,8 @@ fn stepped_m3_chamfer_and_form_predrill_are_checked_with_numbers() {
     let rejected = finished(&asked, &tools);
     let text = decisions(&rejected);
     assert!(text.contains("requires 11.00 mm; drilled full diameter is 10.00 mm"), "{text}");
-    assert_ne!(thread(&rejected)["tool"], "tap");
+    // No thread operation is tapped (here no tool cuts it, so it is left out of the plan).
+    assert!(rejected["setups"].as_array().unwrap().iter().flat_map(|s| list(&s["operations"])).all(|o| o["kind"] != "thread" || o["tool"] != "tap"));
     let t = tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["type"] == "tap").unwrap();
     t["tap_type"] = json!("form"); t["chamfer_pitches"] = json!(1);
     let text = decisions(&finished(&p, &tools));
@@ -119,7 +125,7 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
     let mut tools = example_tools();
     tools["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "thread_mill");
     let p = finished(&plan("plate-m5.analysis.json"), &tools);
-    let text = thread(&p)["tool_note"].as_str().unwrap();
+    let text = untooled_thread(&p);
     assert!(text.contains("an M5×0.8 cut tap (⌀4.2 tap drill) with thread length at least 11.01 mm plus its chamfer, or a thread mill"), "{text}");
     assert!(text.contains("cutter diameter − 0.82"), "{text}");
     assert!(!text.contains("+ -"));
@@ -128,7 +134,7 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
 
     let stepped = plan("synthetic/stepped-plate.analysis.json");
     let p = finished(&stepped, &tools);
-    let text = thread(&p)["tool_note"].as_str().unwrap();
+    let text = untooled_thread(&p);
     // 8.5 full + 1 maximum lead + camlib guard, rounded upwards to 0.01 mm.
     assert!(text.contains("an M3×0.5 cut tap (⌀2.5 tap drill) with a chamfer of at most 1 mm (2 pitches) and thread length at least 9.51 mm, or a thread mill"), "{text}");
     assert!(text.contains("cutter diameter − 0.52"), "{text}");
@@ -143,7 +149,7 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
     for material in ["hardened steel", "unknown stock"] {
         tools["overrides"]["material"] = json!(material);
         let p = finished(&stepped, &tools);
-        let text = thread(&p)["tool_note"].as_str().unwrap();
+        let text = untooled_thread(&p);
         assert!(!text.contains("cut tap"), "{material}: {text}");
         assert!(text.contains("needs a thread mill"), "{text}");
     }
@@ -153,7 +159,7 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
         for op in setup["operations"].as_array_mut().unwrap().iter_mut().filter(|o| o["kind"] == "thread") { op["start_diameter"] = json!(2.8); }
     }
     let p = finished(&wrong_drill, &tools);
-    assert!(!thread(&p)["tool_note"].as_str().unwrap().contains("cut tap"));
+    assert!(!untooled_thread(&p).contains("cut tap"));
 
 }
 
@@ -359,8 +365,7 @@ fn review_limited_exit_selects_milling_before_the_job_is_built() {
             let mut no_mill = library.clone();
             no_mill["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "thread_mill");
             let missing = finished(&p, &no_mill);
-            let limited = list(&missing["setups"][0]["operations"]).iter().find(|o| o["kind"] == "thread" && o["features"] == json!(["holes:0"])).unwrap();
-            let note = limited["tool_note"].as_str().unwrap();
+            let note = list(&missing["skipped"]).iter().find(|s| s["feature"] == "holes:0" && s["reason"].as_str().unwrap().starts_with("thread left out: ")).unwrap()["reason"].as_str().unwrap();
             if clearance == 2. { assert!(!note.contains("cut tap"), "no lead fits: {note}"); }
             else { assert!(note.contains("chamfer of at most 0.73 mm (0.91 pitches) for the exit clearance"), "{note}"); }
         }

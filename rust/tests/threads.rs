@@ -162,10 +162,16 @@ fn a_thread_another_tool_wrote_is_a_warning() {
     assert!(list(&plan["warnings"]).iter().any(|w| w.as_str().unwrap().starts_with("holes:12: the file marks an internal thread")), "{}", plan["warnings"]);
 }
 
+/// The jobs, and what the reader is told: the jobs' notes and log, then why each skipped feature
+/// is not cut (an operation no tool cuts is left out of the plan, with its features skipped).
 fn jobs_note(plan: &Value, library: &Value) -> (Vec<step2cam::job::Job>, String) {
-    let (jobs, log) = step2cam::job::jobs(&finished(plan, library), library).unwrap();
-    let notes = jobs.iter().flat_map(|j| j.notes.clone()).chain(log).collect::<Vec<_>>().join("\n");
+    let plan = finished(plan, library);
+    let (jobs, log) = step2cam::job::jobs(&plan, library).unwrap();
+    let notes = jobs.iter().flat_map(|j| j.notes.clone()).chain(log).chain(skips(&plan)).collect::<Vec<_>>().join("\n");
     (jobs, notes)
+}
+fn skips(plan: &Value) -> Vec<String> {
+    list(&plan["skipped"]).iter().map(|s| s["reason"].as_str().unwrap().to_string()).collect()
 }
 
 #[test]
@@ -211,7 +217,8 @@ fn a_thread_in_a_small_hole(library: &Value) -> (Vec<Value>, Vec<String>) {
     let mut a = holes_only(&[down(0., 0., 2.5, 10., "through")]);
     a["features"][0]["faces"] = json!([1]);
     let plan = capp::plan::plan(&tapped(json!({"hole.function:holes:0": "tapped:M3"}), a), None, &top_stock(0.)).unwrap();
-    let (ops, _, notes) = posted(&plan, library);
+    let (ops, _, mut notes) = posted(&plan, library);
+    notes.extend(skips(&finished(&plan, library)));
     (ops, notes)
 }
 fn with_a_small_drill() -> Value {
@@ -230,7 +237,9 @@ fn with_a_small_drill() -> Value {
 fn a_thread_in_a_hole_that_is_not_cut_is_not_threaded() {
     let (ops, notes) = a_thread_in_a_small_hole(&example_tools());
     assert!(ops.is_empty(), "{ops:?}");
-    assert!(any_note(&notes, "is not cut, so it is not threaded"), "{notes:?}");
+    // Neither the hole nor its thread has a tool: both are left out of the plan.
+    assert!(any_note(&notes, "holes left out: no drill of ⌀2.5"), "{notes:?}");
+    assert!(any_note(&notes, "thread left out: M3 (holes:0)"), "{notes:?}");
     let (ops, notes) = a_thread_in_a_small_hole(&with_a_small_drill());
     let kinds: Vec<&str> = ops.iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["drilling", "drilling"]); // spot, then the tap drill

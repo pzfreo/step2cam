@@ -571,6 +571,14 @@ splits a group into drilling cycles by absolute tip Z, without changing tool. Pr
 runs after each replayed exclusion, so later indices match the plan the engine saw;
 no refused spot is recreated.
 
+After tool resolution, `finish` takes out every operation no tool cuts (`tool.none.left_out`)
+and numbers the rest again, as after an exclusion. Its features are skipped with its reason and
+need. Spot drilling left out this way (`tool.none.unspotted`) skips its holes without counting
+them as left out, since they are still drilled, and warns once per setup, for example
+`setup top: 9 holes drilled without spotting: no usable spot drill: needs …`. Execution names
+in exclusions and supplied choices count only the operations the finished plan has: an
+exclusion is mapped back by resolving a copy of the plan as the engine saw it.
+
 The public [Harvey guide](https://www.harveyperformance.com/in-the-loupe/choosing-spot-drill/)
 and [MSC application guide](https://www.mscdirect.com/resources/buying-guides/drills-countersinks)
 were read on 2026-11-08. Both advise a spot point angle equal to or greater than the
@@ -607,7 +615,8 @@ order, and all other decisions are not suppliable this round; clearing still use
 `roughing_tool` and `facing_tool`.
 
 When several operations share a subject such as `top:holes`, include `operation` with the
-execution name from the finished plan, for example `top-5-holes`. Ambiguous subjects are
+execution name from the finished plan, for example `top-5-holes` (operations no tool cuts are
+not in it, so they do not count). Ambiguous subjects are
 refused. A tool example (use the actual operation number in your plan):
 
 ```json

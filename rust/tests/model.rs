@@ -125,6 +125,12 @@ fn plans_round_trip_through_the_types_exactly() {
     let mut seen = Seen::default();
     let libraries = libraries();
     let finish = |seen: &mut Seen, plan: &Value, library: &Value, label: &str| {
+        // Resolving alone leaves an operation no tool cuts in the plan, with `tool: null`;
+        // finishing takes it out.
+        let mut resolved = plan.clone();
+        if capp::resolve(&mut resolved, library).is_ok() {
+            seen.round_trip(&resolved, &format!("{label} (resolved only)"));
+        }
         let mut plan = plan.clone();
         if capp::finish(&mut plan, library, &[]).is_ok() {
             seen.round_trip(&plan, label);

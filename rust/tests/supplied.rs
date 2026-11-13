@@ -180,6 +180,27 @@ fn supplied_drill_point_angle_selects_a_covering_spot_and_final_operation_number
     }
 }
 
+/// Spot drilling no tool cuts is not in the finished plan, so it does not number the holes after it.
+#[test]
+fn supplied_hole_numbers_skip_spot_drilling_no_tool_cuts() {
+    let mut tools = example_tools();
+    tools["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "spot_drill");
+    add_tool(&mut tools, "drill4.2", "reserved", &[]);
+    let mut oracle = tools.clone();
+    oracle["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "drill4.2");
+    let plan = with_hole_tool(4.2, &tools, "reserved", &oracle);
+    assert!(list(&plan["setups"][0]["operations"]).iter().all(|o| o["kind"] != "spot_drill"));
+    assert!(list(&plan["skipped"]).iter().any(|s| s["reason"].as_str().unwrap().starts_with("spot drilling left out: ")));
+    // A supplied 140° drill no spot drill covers: its spots are left out, the other holes' stay.
+    let mut tools = example_tools();
+    add_tool(&mut tools, "drill4.2", "drill140", &[("point_angle", 140.)]);
+    let mut oracle = tools.clone();
+    oracle["tools"].as_array_mut().unwrap().retain(|t| t["id"] != "drill4.2");
+    let plan = with_hole_tool(4.2, &tools, "drill140", &oracle);
+    for feature in list(&at_diameter(&plan, 4.2)["features"]) { assert!(spot_for(&plan, feature).is_none()); }
+    for feature in list(&at_diameter(&plan, 6.6)["features"]) { assert_eq!(spot_for(&plan, feature).unwrap()["tool"], "spot8"); }
+}
+
 #[test]
 fn removing_the_last_spot_uses_the_finished_hole_number_and_refuses_inconsistent_names() {
     let mut tools = example_tools();

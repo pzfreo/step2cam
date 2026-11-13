@@ -50,11 +50,20 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
             .collect::<Vec<_>>(),
         ["top", "bottom", "front"]
     );
-    assert_eq!(list(&p["skipped"]).len(), 6, "{}", p["skipped"]);
+    // Six edge rounds, and the two M3 threads no thread mill in this library cuts.
+    assert_eq!(list(&p["skipped"]).len(), 8, "{}", p["skipped"]);
+    assert_eq!(
+        list(&p["skipped"])
+            .iter()
+            .filter(|s| s["reason"].as_str().unwrap().contains("r0.8 edge round"))
+            .count(),
+        6
+    );
     assert!(
         list(&p["skipped"])
             .iter()
-            .all(|s| s["reason"].as_str().unwrap().contains("r0.8 edge round"))
+            .filter(|s| !s["reason"].as_str().unwrap().contains("r0.8 edge round"))
+            .all(|s| s["reason"].as_str().unwrap().starts_with("thread left out: M3 "))
     );
     let top = setup(p, "top");
     assert_eq!(top["stock"]["min"][2], -26.25);

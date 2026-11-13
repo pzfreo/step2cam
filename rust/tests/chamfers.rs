@@ -17,6 +17,10 @@ fn run(library: &Value) -> Value {
 fn chamfers(out: &Value) -> Vec<&Value> {
     out["plan"]["setups"].as_array().unwrap().iter().flat_map(|s| s["operations"].as_array().unwrap()).filter(|o| o["kind"] == "edge_chamfer").collect()
 }
+/// The chamfer features skipped because no tool cuts their chamfer operation.
+fn untooled_chamfers(plan: &Value) -> Vec<&Value> {
+    plan["skipped"].as_array().unwrap().iter().filter(|s| s["reason"].as_str().unwrap().starts_with("chamfer left out: ")).collect()
+}
 
 #[test]
 fn width_passes_split_load_but_do_not_extend_the_cone() {
@@ -54,10 +58,13 @@ fn width_passes_split_load_but_do_not_extend_the_cone() {
 fn a_large_chamfer_names_the_missing_tool() {
     let out = run(&read("tests/fixtures/placeholder-tools.json"));
     assert!(out["error"].is_null(), "{}", out["error"]);
-    let ops = chamfers(&out);
-    assert_eq!(ops.len(), 1, "{}", out["plan"]);
-    assert!(ops[0]["tool"].is_null());
-    assert!(ops[0]["tool_note"].as_str().unwrap().contains(": needs a 90° chamfer mill with (diameter - tip diameter) / 2 at least 5.50 mm"), "{}", ops[0]);
+    // No tool cuts it, so it is not an operation: each of its features is skipped with the need.
+    assert!(chamfers(&out).is_empty(), "{}", out["plan"]);
+    let skipped = untooled_chamfers(&out["plan"]);
+    assert!(!skipped.is_empty(), "{}", out["plan"]["skipped"]);
+    for s in skipped {
+        assert!(s["reason"].as_str().unwrap().contains(": needs a 90° chamfer mill with (diameter - tip diameter) / 2 at least 5.50 mm"), "{s}");
+    }
     assert!(out["plan"]["tools_needed"].to_string().contains("5.50 mm"));
 }
 
@@ -211,19 +218,22 @@ fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() 
     library["tools"].as_array_mut().unwrap().retain(|t| t["id"] == "cm6");
     library["tools"][0]["tip_diameter"] = json!(0.);
     assert!(capp::resources::Library::new(&library).unwrap().chamfer_mill(1.).is_some());
-    let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let planned = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
+    let mut plan = planned.clone();
     capp::finish(&mut plan, &library, &[]).unwrap();
     let out = json!({"plan": plan});
-    let ops = chamfers(&out);
-    assert_eq!(ops.len(), 2);
-    for op in ops {
-        assert!(op["tool"].is_null(), "{op}");
-        let reason = op["tool_note"].as_str().unwrap();
+    // Both chamfers are left out of the operations, and their features (the hole's mouth and the
+    // slot's two edges) say why.
+    assert!(chamfers(&out).is_empty());
+    let skipped = untooled_chamfers(&out["plan"]);
+    assert_eq!(skipped.iter().map(|s| s["feature"].as_str().unwrap()).collect::<Vec<_>>(), ["chamfers:hole-mouth", "chamfers:9", "chamfers:6"], "{}", out["plan"]["skipped"]);
+    for s in skipped {
+        let reason = s["reason"].as_str().unwrap();
         assert!(reason.contains("required opening") && reason.contains("is not cut") && reason.contains(": needs "), "{reason}");
-        assert_eq!(op["needs_openings"].as_array().unwrap().len(), 1);
     }
     assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
-    let mut restored = out["plan"].clone();
+    // The same plan finished with the opening tools has them.
+    let mut restored = planned;
     let full = read("tests/fixtures/placeholder-tools.json");
     capp::finish(&mut restored, &full, &[]).unwrap();
     assert_eq!(emitted_chamfers(&restored, &full), 2);
@@ -238,14 +248,17 @@ fn a_refused_opening_blocks_only_its_modelled_mouth_chamfer() {
     let top = &plan["setups"][0];
     let number = top["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "holes").unwrap() + 1;
     let hole = top["operations"][number - 1]["features"][0].clone();
+    let mouth = top["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "edge_chamfer" && o["needs_openings"].as_array().unwrap().contains(&hole)).unwrap()["features"].clone();
     let operation = format!("top-{number}-holes");
     capp::finish(&mut plan, &library, &[json!({"operation":operation,"message":"opening refused by execution"})]).unwrap();
     let out = json!({"plan":plan});
+    // The blocked chamfer is left out of the operations; its features say why.
     let ops = chamfers(&out);
-    assert_eq!(ops.len(), 2);
-    let blocked = ops.iter().find(|o| o["needs_openings"].as_array().unwrap().contains(&hole)).unwrap();
-    assert!(blocked["tool"].is_null());
-    assert!(blocked["tool_note"].as_str().unwrap().contains("opening refused by execution"));
+    assert_eq!(ops.len(), 1);
+    assert!(!ops[0]["needs_openings"].as_array().unwrap().contains(&hole));
+    let blocked = untooled_chamfers(&out["plan"]);
+    assert_eq!(blocked.iter().map(|s| s["feature"].clone()).collect::<Vec<_>>(), mouth.as_array().unwrap().clone());
+    assert!(blocked.iter().all(|s| s["reason"].as_str().unwrap().contains("opening refused by execution")));
     assert_eq!(ops.iter().filter(|o| o["tool"] == "cm6").count(), 1);
     assert_eq!(emitted_chamfers(&out["plan"], &library), 1);
 }
@@ -260,10 +273,9 @@ fn round_as_chamfer_mouths_also_require_opening_tools() {
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     capp::finish(&mut plan, &library, &[]).unwrap();
     let out = json!({"plan":plan});
-    let ops = chamfers(&out);
-    assert_eq!(ops.len(), 1);
-    assert!(!ops[0]["needs_openings"].as_array().unwrap().is_empty());
-    assert!(ops[0]["tool"].is_null());
-    assert!(ops[0]["tool_note"].as_str().unwrap().contains("required opening"));
+    assert!(chamfers(&out).is_empty());
+    let skipped = untooled_chamfers(&out["plan"]);
+    assert!(!skipped.is_empty());
+    assert!(skipped.iter().all(|s| s["reason"].as_str().unwrap().contains("required opening")));
     assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
 }

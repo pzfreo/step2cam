@@ -200,15 +200,21 @@ The plan says **what** to cut, independent of tools and machine.
   holes, countersinks, chamfers, edge rounds not chamfered, turned features (lathe work), and
   features roughing cannot reach (a flat face of the feature points away from the roughing setup),
   or every feature when there is no mesh or roughing does not run. Features of an operation camlib
-  refuses say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
+  refuses, or that no tool in the library cuts, say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
   their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
   allowance.
 - **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
-  that cuts it, or why none can (`tool_note`).
+  that cuts it. An operation no tool cuts is taken out of `operations` (those after it are
+  numbered again) and each of its features is in `skipped` with why and the tool it needs; one
+  with no features of its own gets a warning instead. Spot drilling left out this way skips its
+  holes by rule `tool.none.unspotted`: they are still drilled, and a warning per setup says how
+  many holes are drilled without spotting. `capp::resolve` alone still leaves such an operation
+  in place with `tool: null` and why (`tool_note`).
 - **`tools_needed`**, after `capp::finish`: missing-tool queries, each with a `description`,
-  `features` and `operations` (operation ids or decision subjects). Identical descriptions merge;
+  `features` and `operations` (operation ids or decision subjects; an operation no tool cuts is
+  named as it was numbered before it was taken out). Identical descriptions merge;
   alternatives stay together, without attempting a minimal shopping list. Tool-related reasons
-  and `tool_note` end with `: needs <description>`. Bounds come from the selectors in
+  end with `: needs <description>`. Bounds come from the selectors in
   `rust/capp/rulebase/rules/tools.json` and the library's drill tolerance. Diameter limits round
   conservatively to 0.01 mm; flute reach rounds up to whole mm with 0.001 mm clearance for the
   execution engine's numerical guard. A drill may additionally need its point length to reach
