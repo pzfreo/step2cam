@@ -84,6 +84,13 @@ Omissions: the 6 mm ball mill has no supported resource type. The optional
 16 mm chamfer cutter is absent because the sourced TOYO family stops at 12 mm;
 no matching maker geometry/cutting-data pair was verified. Its 12 mm cutter's
 published axial cutting length is retained even when a feature needs more reach.
+Flute counts (`flutes`) are given where the cited source states them: the end mills,
+the engraver, the thread mills (four) and the chamfer mill (seven). Tool `material`
+is given where the cited source states it: the 206 drills and E559 taps are HSS, the
+723 and 724 spot drills carbide. The others take the library defaults (2 flutes for a
+drill or spot drill, 3 otherwise; carbide), which each job's notes name. The taps'
+`_flutes` stays informational: their cited source does not state it.
+
 Some MachinePlan stock exceeds the 406 mm Y travel or the DX6 opening and cannot
 be cut with this configuration.
 
@@ -169,8 +176,10 @@ manufacturer documentation of rigid tapping/spindle-feed synchronization was
 found. This is an inventory decision, not a claim about all possible firmware.
 
 Makera publishes no enabled end-mill stepover; 0.4D is step2cam judgement.
-Flute counts are `_flutes` metadata because the resource format has no native
-flute-count field; feed calculations use actual counts. Assembly envelopes,
+Flute counts are `flutes`, from Makera's NOF or the Harvey and Guhring pages;
+feed calculations use these counts. Only the supplementary Guhring 3.3 mm drill
+has a sourced `material` (carbide); the others are sent to camlib as carbide by
+default and each job's notes say so. Assembly envelopes,
 manual-collet requirements and other policies are recorded in `_comment` and
 `_policy`. Tool coolant is off (the enum cannot express air); use external air
 assist for chip clearing. The placeholder vise is unchanged. Vendor files are

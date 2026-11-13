@@ -3,7 +3,8 @@
 //! JSON, one per setup.
 use capp::model::{self, Cut, Plan, Point2, Setup, Vertex};
 use capp::plan::{PLAN_FORMAT, r, show};
-use capp::resources::{Settings, TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, drill_tip_length, id, num, tap_through_travel};
+use capp::resources::{Settings, TIP_CLEARANCE, DRILLING_TOLERANCE, EXIT_MARGIN, DEFAULT_DRILL_FLUTES, DEFAULT_FLUTES, DEFAULT_TOOL_MATERIAL, drill_tip_length, id, num, tap_through_travel};
+use capp::trace::cite;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
@@ -28,12 +29,24 @@ const COMPARISON_FINDINGS: usize = 4096;
 const THREAD_CELL_SAFETY: f64 = 1.25;
 /// ...but no finer than a stock grid of this many cells.
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
+/// The ramp of a helix entry, in degrees (`process.entry.helix`).
+const ENTRY_ANGLE_DEG: f64 = 3.;
+
+/// The tool's flute count and material from the library, or the stated defaults where it gives
+/// none (`capp::resources::DEFAULT_FLUTES`).
+fn flutes_and_material(spec: &Value) -> (u64, &str) {
+    let drill = spec["type"] == "drill" || spec["type"] == "spot_drill";
+    let flutes = spec["flutes"].as_u64().unwrap_or(if drill { DEFAULT_DRILL_FLUTES } else { DEFAULT_FLUTES });
+    (flutes, spec["material"].as_str().unwrap_or(DEFAULT_TOOL_MATERIAL))
+}
+
 fn assembly(spec: &Value) -> Result<Value, String> {
     let name = id(spec);
     let (diameter, stickout) = (num(spec, "diameter")?, num(spec, "stickout")?);
     let gauge = stickout + num(spec, "holder_length")?;
     let radius = num(spec, "holder_diameter")? / 2.;
     let drill = spec["type"] == "drill" || spec["type"] == "spot_drill";
+    let (flutes, material) = flutes_and_material(spec);
     if spec["type"] == "thread_mill" {
         return Ok(json!({
             "id": name,
@@ -41,7 +54,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
                 "id": name, "name": name, "shape": {"kind": "flat"}, "diameter_mm": diameter,
                 "cutting_length_mm": num(spec, "tooth_height")?, "overall_length_mm": num(spec, "overall_length")?,
                 "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
-                "flutes": 3, "center_cutting": false, "material": "carbide",
+                "flutes": flutes, "center_cutting": false, "material": material,
                 "neck": {"diameter_mm": num(spec, "neck_diameter")?, "length_mm": num(spec, "neck_length")?},
             },
             "stickout_mm": stickout,
@@ -69,7 +82,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
                 "shape": {"kind": "chamfer", "included_angle_rad": angle, "tip_diameter_mm": tip},
                 "diameter_mm": diameter, "cutting_length_mm": cutting_length, "overall_length_mm": num(spec, "overall_length")?,
                 "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
-                "flutes": 3, "center_cutting": true, "material": "carbide", "neck": null,
+                "flutes": flutes, "center_cutting": true, "material": material, "neck": null,
             },
             "stickout_mm": stickout,
             "gauge_length_mm": gauge,
@@ -89,7 +102,7 @@ fn assembly(spec: &Value) -> Result<Value, String> {
             "id": name, "name": name, "shape": shape, "diameter_mm": cutter_diameter,
             "cutting_length_mm": num(spec, if tap { "thread_length" } else { "flute_length" })?, "overall_length_mm": num(spec, "overall_length")?,
             "shank_diameter_mm": spec.get("shank_diameter").and_then(Value::as_f64).unwrap_or(diameter),
-            "flutes": if drill { 2 } else { 3 }, "center_cutting": true, "material": "carbide", "neck": null,
+            "flutes": flutes, "center_cutting": true, "material": material, "neck": null,
         },
         "stickout_mm": stickout,
         "gauge_length_mm": gauge,
@@ -473,9 +486,11 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         "top_z_mm": op.top_z, "floor_z_mm": op.floor_z,
         "stepdown_mm": num(s, "stepdown_mm")?, "clearance_z_mm": cx.clearance,
         "radial_allowance_mm": radial, "bottom_allowance_mm": bottom, "clockwise": true,
-        "entry": {"kind": "stock_edge_or_helix", "angle_rad": 3f64.to_radians()},
+        "entry": {"kind": "stock_edge_or_helix", "angle_rad": ENTRY_ANGLE_DEG.to_radians()},
     });
     cutting(&mut out, s, true)?;
+    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({})",
+        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix")));
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
     } else {
@@ -706,7 +721,7 @@ fn slot<'a>(cx: &mut SetupCut<'a>, op: &model::Slot, technology: Technology, op_
         "top_z_mm": op.top_z, "floor_z_mm": floor,
         "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
         "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+        "entry": {"kind": "helix", "angle_rad": ENTRY_ANGLE_DEG.to_radians()},
         "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
     });
     cutting(&mut out, mill, true)?;
@@ -731,7 +746,7 @@ fn notch<'a>(cx: &mut SetupCut<'a>, op: &model::Notch, technology: Technology, o
         "top_z_mm": op.top_z, "floor_z_mm": floor,
         "stepdown_mm": num(mill, "stepdown_mm")?, "stepover_mm": num(mill, "stepover_mm")?.min(num(mill, "diameter")? / 2.),
         "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-        "entry": {"kind": "helix", "angle_rad": 3f64.to_radians()},
+        "entry": {"kind": "helix", "angle_rad": ENTRY_ANGLE_DEG.to_radians()},
         "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
     });
     cutting(&mut out, mill, true)?;
@@ -796,6 +811,19 @@ fn job(mut cx: SetupCut<'_>) -> Result<Job, String> {
     let (gauge_z, change_xy, first_gauge) = tool_change(&mut cx, [x0, y0])?;
     let material = material(&mut cx)?;
     let scene = scene(cx.setup.clamping.as_ref(), setup_id);
+    let helix: Vec<&str> = cx.operations.iter().filter(|o| o["entry"]["kind"] == "helix").filter_map(|o| o["id"].as_str()).collect();
+    if !helix.is_empty() {
+        cx.notes.push(format!("setup {setup_id}: {} enter by a {ENTRY_ANGLE_DEG}° helix ({})", helix.join(", "), cite("process.entry.helix")));
+    }
+    // What the library leaves unsaid of the tools the setup uses, and camlib is told instead.
+    let unsaid = |key: &str| cx.used.iter().filter(|t| t.get(key).is_none()).map(|t| id(t)).collect::<Vec<_>>().join(", ");
+    let (no_flutes, no_material) = (unsaid("flutes"), unsaid("material"));
+    if !no_flutes.is_empty() {
+        cx.notes.push(format!("setup {setup_id}: the library gives no flute count for {no_flutes}: camlib is told {DEFAULT_DRILL_FLUTES} for a drill or spot drill, {DEFAULT_FLUTES} for any other tool ({})", cite("tool.flutes.default")));
+    }
+    if !no_material.is_empty() {
+        cx.notes.push(format!("setup {setup_id}: the library gives no material for {no_material}: camlib is told {DEFAULT_TOOL_MATERIAL} ({})", cite("tool.material.default")));
+    }
     let manifest = json!({
         "version": 1,
         "run": {"id": format!("step2cam-{setup_id}"), "revision": "1"},

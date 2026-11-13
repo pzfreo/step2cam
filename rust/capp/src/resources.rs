@@ -118,6 +118,17 @@ const TOOL_KEYS: [&str; 11] = [
     "id", "type", "number", "diameter", "overall_length", "stickout", "holder_length",
     "holder_diameter", "feed_mm_min", "spindle_rpm", "coolant",
 ];
+/// What a tool's cutting part may be made of (`material`): cemented carbide or high-speed steel.
+pub const TOOL_MATERIALS: [&str; 2] = ["carbide", "hss"];
+/// The flute count and material camlib is told of a tool whose library entry gives none: the values
+/// step2cam always sent before the library could say (two flutes for a drill or spot drill, three
+/// for any other tool, carbide), kept so such a library plans as it did. camlib checks only that
+/// the count is 1 to 1000 and uses neither for toolpaths, feeds or checks (vendor/camlib
+/// src/tool.rs, src/stream.rs). Using one is said in the job's notes (`tool.flutes.default`,
+/// `tool.material.default`).
+pub const DEFAULT_DRILL_FLUTES: u64 = 2;
+pub const DEFAULT_FLUTES: u64 = 3;
+pub const DEFAULT_TOOL_MATERIAL: &str = "carbide";
 /// How far out along a chamfer mill's cone the chamfer's lower edge is cut (mm), so the flank cuts.
 pub const TIP_CLEARANCE: f64 = 0.5;
 /// camlib drilling's tolerance; shared with the job adapter.
@@ -198,6 +209,13 @@ impl<'a> Library<'a> {
                 if tool.get("feed_mm_min").is_some() || tool["cutting_data"].as_object().is_some_and(|g| g.values().any(|v| v.get("feed_mm_min").is_some())) {
                     return Err(format!("tool {name}: tap feed is derived from pitch × rpm"));
                 }
+            }
+            // camlib takes 1 to 1000 flutes (vendor/camlib src/tool.rs).
+            if tool.get("flutes").is_some_and(|v| v.as_u64().is_none_or(|n| !(1..=1000).contains(&n))) {
+                return Err(format!("tool {name}: flutes must be a whole number from 1 to 1000"));
+            }
+            if tool.get("material").is_some_and(|v| !TOOL_MATERIALS.contains(&v.as_str().unwrap_or(""))) {
+                return Err(format!("tool {name}: material must be one of {}", TOOL_MATERIALS.join(", ")));
             }
             let shank = tool.get("shank_diameter").and_then(Value::as_f64).unwrap_or(num(tool, "diameter")?);
             if num(tool, "holder_diameter")? < shank {

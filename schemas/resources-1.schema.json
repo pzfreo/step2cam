@@ -200,6 +200,19 @@
         "mist"
        ]
       },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
+       ]
+      },
       "shank_diameter": {
        "type": "number",
        "exclusiveMinimum": 0
@@ -397,6 +410,19 @@
         "off",
         "flood",
         "mist"
+       ]
+      },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
        ]
       },
       "shank_diameter": {
@@ -619,6 +645,19 @@
         "mist"
        ]
       },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
+       ]
+      },
       "shank_diameter": {
        "type": "number",
        "exclusiveMinimum": 0
@@ -838,6 +877,19 @@
         "mist"
        ]
       },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
+       ]
+      },
       "shank_diameter": {
        "type": "number",
        "exclusiveMinimum": 0
@@ -1021,6 +1073,19 @@
         "off",
         "flood",
         "mist"
+       ]
+      },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
        ]
       },
       "shank_diameter": {
@@ -1234,6 +1299,19 @@
         "off",
         "flood",
         "mist"
+       ]
+      },
+      "flutes": {
+       "description": "Number of flutes, from the tool's source. Absent: camlib is told 2 for a drill or spot drill, 3 otherwise, and the job's notes say so.",
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 1000
+      },
+      "material": {
+       "description": "What the tool's cutting part is made of, from its source: carbide or hss (high-speed steel). Absent: camlib is told carbide, and the job's notes say so.",
+       "enum": [
+        "carbide",
+        "hss"
        ]
       },
       "shank_diameter": {

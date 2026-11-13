@@ -76,7 +76,7 @@
    "feed_mm_min": 500,
    "spindle_rpm": 12000,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Spiral O Metal 3.175*12mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20O%20Flute%20Bits.tools ; assembly assumptions in _policy.",
    "plunge_mm_min": 200,
    "stepdown_mm": 0.2,
@@ -96,7 +96,7 @@
    "feed_mm_min": 500,
    "spindle_rpm": 12000,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Spiral O Metal 2*8mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20O%20Flute%20Bits.tools ; assembly assumptions in _policy.",
    "plunge_mm_min": 200,
    "stepdown_mm": 0.15,
@@ -116,7 +116,7 @@
    "feed_mm_min": 500,
    "spindle_rpm": 12000,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Spiral O Metal 1*3mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20O%20Flute%20Bits.tools ; assembly assumptions in _policy.",
    "plunge_mm_min": 200,
    "stepdown_mm": 0.1,
@@ -136,7 +136,7 @@
    "feed_mm_min": 100,
    "spindle_rpm": 10000,
    "coolant": "off",
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "1*10mm Drill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Drill%20Bits.tools ; assembly assumptions in _policy. Drilling feed is preset plunge=100 mm/min; no lateral feed or DOC published, no invented peck cap.",
    "point_angle": 118,
    "retract_feed_mm_min": 200
@@ -155,7 +155,7 @@
    "feed_mm_min": 100,
    "spindle_rpm": 10000,
    "coolant": "off",
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "2*12mm Drill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Drill%20Bits.tools ; assembly assumptions in _policy. Drilling feed is preset plunge=100 mm/min; no lateral feed or DOC published, no invented peck cap.",
    "point_angle": 118,
    "retract_feed_mm_min": 200
@@ -174,7 +174,7 @@
    "feed_mm_min": 100,
    "spindle_rpm": 10000,
    "coolant": "off",
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "2.5*12mm Drill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Drill%20Bits.tools ; assembly assumptions in _policy. Drilling feed is preset plunge=100 mm/min; no lateral feed or DOC published, no invented peck cap.",
    "point_angle": 118,
    "retract_feed_mm_min": 200
@@ -193,7 +193,7 @@
    "feed_mm_min": 100,
    "spindle_rpm": 10000,
    "coolant": "off",
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "3*12mm Drill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Drill%20Bits.tools ; assembly assumptions in _policy. Drilling feed is preset plunge=100 mm/min; no lateral feed or DOC published, no invented peck cap.",
    "point_angle": 118,
    "retract_feed_mm_min": 200
@@ -212,7 +212,7 @@
    "feed_mm_min": 600,
    "spindle_rpm": 12000,
    "coolant": "off",
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "Chamfering Bit - 1/8\u2033 Shank; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Other%20Tools.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
    "angle": 90,
    "tip_diameter": 0.1,
@@ -233,7 +233,7 @@
    "feed_mm_min": 498,
    "spindle_rpm": 11962,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Single Flute Engraving Metal 60 deg*.1mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
    "angle": 60,
    "tip_diameter": 0.1,
@@ -254,7 +254,7 @@
    "feed_mm_min": 498,
    "spindle_rpm": 11962,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Single Flute Engraving Metal 30 deg*.2mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
    "angle": 30,
    "tip_diameter": 0.2,
@@ -275,7 +275,7 @@
    "feed_mm_min": 498,
    "spindle_rpm": 11962,
    "coolant": "off",
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Single Flute Engraving Metal 30 deg*.3mm; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Engraving%20Bits.tools ; assembly assumptions in _policy. Fusion TA is half the included angle.",
    "angle": 30,
    "tip_diameter": 0.3,
@@ -295,7 +295,7 @@
    "feed_mm_min": 200,
    "spindle_rpm": 15000,
    "coolant": "off",
-   "_flutes": 3,
+   "flutes": 3,
    "_comment": "Carvera M3 Threadmill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Thread%20Mills.tools ; assembly assumptions in _policy. Published shoulder geometry used for neck; axial LCF envelope and pass policy: step2cam judgement, see _policy.",
    "tooth_height": 2,
    "neck_diameter": 1.553974596215561,
@@ -319,7 +319,7 @@
    "feed_mm_min": 200,
    "spindle_rpm": 15000,
    "coolant": "off",
-   "_flutes": 3,
+   "flutes": 3,
    "_comment": "Carvera M5 Threadmill; geometry DC/LCF/OAL/SFDM/NOF and Aluminum preset n/v_f/v_f_plunge/stepdown, read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20Thread%20Mills.tools ; assembly assumptions in _policy. Published shoulder geometry used for neck; axial LCF envelope and pass policy: step2cam judgement, see _policy.",
    "tooth_height": 2,
    "neck_diameter": 2.6143593539448977,
@@ -347,7 +347,7 @@
    "coolant": "off",
    "stepdown_mm": 0.2,
    "stepover_mm": 1.6,
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Spiral O Metal 4*22m; geometry DC/LCF/OAL/SFDM/NOF and Aluminum n/v_f/v_f_plunge/stepdown read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20O%20Flute%20Bits.tools . F500, plunge200, 12000 rpm, DOC0.2; stepover0.4D and assembly treatment are step2cam judgement (_policy). Requires matching 4 mm collet, not direct gripping by a 1/4 inch collet."
   },
   {
@@ -367,7 +367,7 @@
    "coolant": "off",
    "stepdown_mm": 0.2,
    "stepover_mm": 2.4,
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Spiral O Metal 6*25mm DLC; geometry DC/LCF/OAL/SFDM/NOF and Aluminum n/v_f/v_f_plunge/stepdown read 2026-11-09 https://github.com/MakeraInc/CarveraProfiles/blob/main/CAM_Post_Processors/Fusion360-profiles/Tool%20Files/Makera%20O%20Flute%20Bits.tools . F500, plunge200, 12000 rpm, DOC0.2; stepover0.4D and assembly treatment are step2cam judgement (_policy). Requires matching 6 mm collet, not direct gripping by a 1/4 inch collet."
   },
   {
@@ -387,7 +387,7 @@
    "coolant": "off",
    "stepdown_mm": 0.1,
    "stepover_mm": 0.25,
-   "_flutes": 3,
+   "flutes": 3,
    "_comment": "Harvey uncoated 35862 square long-flute, read 2026-11-09 https://www.harveytool.com/products/tool-details-35862 : actual diameter .0620 in (1.5748 mm, do not round nominal 1/16 to .0625), LOC .950 in=24.13 mm, OAL2.5 in=63.5 mm, shank .125 in=3.175 mm, 3 flutes. Aluminium wrought 6xxx row https://harveyperformance.widen.net/content/ruxzfthy5z/pdf/SF_35800.pdf?u=d9orjt : 1000 SFM, .00010 inch/tooth at .062 diameter, finishing ae=.02D, ap=15D. step2cam judgement: use12000 rpm below15000 machine max (chart surface speed exceeds spindle), preserve chart fz=.00254 mm/tooth at actual speed: F12000*3*.00254=91.44. Plunge25% feed=22.86; DOC0.1 and stepover0.25 mm are shallow-layer pocketing judgements, NOT the chart full-height finishing engagement. Air clearing, stickout27 and holder envelope are assembly judgements. Requires 1/8 inch collet."
   },
   {
@@ -406,7 +406,8 @@
    "coolant": "off",
    "point_angle": 140,
    "peck_mm": 1.5,
-   "_flutes": 2,
+   "flutes": 2,
+   "material": "carbide",
    "_comment": "Supplementary Guhring RT100 U 5515 EDP9055150033000, NOT a Makera kit drill. Read 2026-11-09 https://guhring.com/ProductsServices/SizeDetails?EDP=9055150033000 and https://guhring.com/media/tools/5515.pdf : D3.3, shank6, OAL66, LCF28, maximum cutting depth23.05, 140 degrees, 2 flutes, non-through-coolant carbide. https://guhring.com/media/speedfeed/5515.pdf series5515 Al wrought <200 BHN:855 SFM, .0080 IPR at next smaller D3.170. step2cam judgement for the200W air-assisted machine:6000 rpm (below chart speed),25% chart feed/rev (.008*25.4*.25=.0508),F304.8, peck1.5, coolant off with air clearing; stickout30 and holder are assembly choices. Requires6mm collet."
   },
   {
@@ -424,7 +425,7 @@
    "spindle_rpm": 6000,
    "coolant": "off",
    "point_angle": 150,
-   "_flutes": 2,
+   "flutes": 2,
    "_comment": "Supplementary Harvey949516 uncoated150 degree spot drill, read2026-11-09 https://www.harveytool.com/products/tool-details-949516 : D/shank .250=6.35mm, flute .750=19.05mm, OAL2.5=63.5mm,2 flutes. https://harveyperformance.widen.net/content/fwuiv5itqc/pdf/SF_11400.pdf?u=d9orjt : wrought6xxx600SFM, .00675 IPR at .250 diameter. step2cam judgement:6000rpm below chart speed,25% chart feed/rev for200W/air, F6000*.00675*25.4*.25=257.175 rounded257.18; stickout24/coolant off/holder envelope assembly choices. The150degree point can spot the140degree3.3 drill and118degree kit drills. Requires1/4inch collet."
   },
   {
@@ -445,7 +446,7 @@
    "angle": 30,
    "tip_diameter": 0,
    "stepdown_mm": 0.2,
-   "_flutes": 1,
+   "flutes": 1,
    "_comment": "Supplementary Harvey25030 uncoated pointed engraver, read2026-11-09 https://www.harveytool.com/products/tool-details-25030 :30deg included, D/shank.250=6.35mm, LOC.466=11.8364mm, split.500, OAL2.5=63.5mm,1flute, pointed (zero nominal flat). https://harveyperformance.widen.net/content/tfcdc7pipl/pdf/SF_25000.pdf?u=d9orjt series250xx non-ferrous .00084 IPT,6000+rpm,DOC<.010inch; choose12000rpm and DOC.2mm as step2cam judgement; F12000*.00084*25.4=256.032, plunge50% per chart=128.016. Coolant off/air, stickout24/holder envelope are assembly judgements. Requires1/4inch collet. step2cam judgement geometric envelope: usable major cutting diameter is rounded down from2*catalogueLOC*tan(15deg)=6.343107mm, keeping the catalogue LOC exactly; .466inch LOC is rounded and is slightly shorter than the ideal full6.35mm cone. Shank stays6.35mm. The30degree bit leaves the wider61.9275degree channel walls partly unfinished, as the existing planner warns."
   },
   {
@@ -461,6 +462,7 @@
    "feed_mm_min": 62.59,
    "spindle_rpm": 12000,
    "coolant": "off",
+   "flutes": 4,
    "_comment": "Supplementary Harvey737624 uncoated single-form metric M3x0.5, read2026-11-09 https://www.harveytool.com/products/tool-details-737624 : D2.30, axial LOC.531, neck1.380, max thread depth9.50, shank3, OAL38 mm,4flutes. Use max thread depth as conservative neck length, following library thread-envelope policy; stickout16/holder/coolant off are step2cam judgements. https://harveyperformance.widen.net/content/1gbhvuxxrr/pdf/SF_737600.pdf?u=d9orjt 7x-neck wrought6xxx1000SFM, next smaller diameter .078inch IPT.00022. step2cam judgement:12000rpm below chart speed; preserve chart chip load and apply internal-circle correction per chart step3, F12000*.00022*25.4*4*(3-2.3)/3=62.5856 rounded62.59; plunge25%feed15.65,2radial passes per aluminium chart,1spring pass judgement. Requires optional3mm collet.",
    "tooth_height": 0.531,
    "neck_diameter": 1.38,
@@ -469,8 +471,7 @@
    "max_pitch_mm": 0.5,
    "plunge_mm_min": 15.65,
    "radial_passes": 2,
-   "spring_passes": 1,
-   "_flutes": 4
+   "spring_passes": 1
   }
  ],
  "format": "step2cam-resources",
