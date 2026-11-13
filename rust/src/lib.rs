@@ -97,6 +97,20 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
                 }
                 other => other,
             };
+            let attempt = match attempt {
+                // camlib intersects each roughing layer with the stock band, and that construction
+                // can fail where the layer alone builds: rough that operation in camlib's own region.
+                // Any other refusal (reach, gouge, entry) is not the band's and stands.
+                Err(f) if region_construction_failed(&f.message)
+                    && let Some(id) = f.operation.as_ref().filter(|o| o.kind == capp::kind::OpKind::Roughing).map(|o| o.to_string())
+                    && let Some(op) = job.manifest["operations"].as_array_mut().and_then(|ops| ops.iter_mut().find(|o| o["id"] == id.as_str()))
+                    && op.get("limits").is_some() => {
+                    op.as_object_mut().unwrap().remove("limits");
+                    log.push(format!("note: {id}: camlib could not build a roughing layer within the stock band ({}), so it is roughed over camlib's own region, the stock grown by four times the tool's reach, instead of within one cutter radius of the stock ({})", f.message, capp::trace::cite("process.roughing.region")));
+                    simulate::simulate_prepared_job(&mut job)
+                }
+                other => other,
+            };
             let run = attempt.map_err(|f| simulate::Failure {
                 message: format!("setup {}: {}", job.setup, f.message),
                 ..f
@@ -297,6 +311,12 @@ pub fn last_panic() -> Option<String> {
     PANIC.with(|p| p.borrow_mut().take())
 }
 
+/// Whether camlib's message is one of its region-construction errors, the ones its intersection
+/// of a roughing layer with the stock band gives where the layer alone builds.
+fn region_construction_failed(message: &str) -> bool {
+    ["constructed region failed topology validation", "construction produced a hole without an enclosing component"].iter().any(|m| message.contains(m))
+}
+
 /// For the browser: JSON strings in, a JSON string out.
 #[wasm_bindgen(js_name = process)]
 pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String, JsError> {
@@ -475,6 +495,16 @@ mod robust_tests {
         m["faces"][3]=json!([1_000_000,758]);
         let message=match process(&a,&m,&t) { Err(e)=>e, Ok(out)=>out["error"].as_str().unwrap_or_default().to_string() };
         assert_eq!(message,format!("mesh: face 3's triangles 1000000..1000758 run past the {triangles} in the mesh"));
+    }
+
+    #[test]
+    fn only_camlib_region_construction_errors_drop_the_stock_band() {
+        // The two messages featured_part_00165 (doi:10.5281/zenodo.21653081) gave, as camlib words them.
+        assert!(region_construction_failed("top-2-roughing: constructed region failed topology validation: component 0, boundary 1: boundary has a zero/short edge"));
+        assert!(region_construction_failed("top-2-roughing: construction produced a hole without an enclosing component"));
+        // A refusal for any other reason keeps the band and its error.
+        assert!(!region_construction_failed("top-2-roughing: the tool's reach is 20 mm, the cut needs 30 mm"));
+        assert!(!region_construction_failed("top-2-roughing: the holder would gouge the part"));
     }
 
     #[test]

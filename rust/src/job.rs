@@ -31,6 +31,11 @@ const THREAD_CELL_SAFETY: f64 = 1.25;
 const MAX_STOCK_CELLS: f64 = 16_000_000.;
 /// The ramp of a helix entry, in degrees (`process.entry.helix`).
 const ENTRY_ANGLE_DEG: f64 = 3.;
+/// How far past one cutter radius from the stock a roughing tool centre may go
+/// (`process.roughing.region`): enough for camlib to prove a link beside the stock clear of it
+/// from its stock grid, so it runs at the cutting feed, not the entry feed. Measured on
+/// tall-wall-pocket with the Carvera library, 0.1 mm left 30,317 s of links at the entry feed.
+const REGION_AIR_MM: f64 = 1.0;
 
 /// The tool's flute count and material from the library, or the stated defaults where it gives
 /// none (`capp::resources::DEFAULT_FLUTES`).
@@ -487,10 +492,11 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         "stepdown_mm": num(s, "stepdown_mm")?, "clearance_z_mm": cx.clearance,
         "radial_allowance_mm": radial, "bottom_allowance_mm": bottom, "clockwise": true,
         "entry": {"kind": "stock_edge_or_helix", "angle_rad": ENTRY_ANGLE_DEG.to_radians()},
+        "limits": {"contain": stock_band(cx, op_id, num(s, "diameter")? / 2.)},
     });
     cutting(&mut out, s, true)?;
-    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({})",
-        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix")));
+    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius and {} mm of the stock ({})",
+        cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix"), show(REGION_AIR_MM), cite("process.roughing.region")));
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));
     } else {
@@ -503,6 +509,16 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         cx.notes.push(format!("{op_id}: clears {} mm from the walls and {left}; side cutting respects the setup clamping cap when vise jaw dimensions are supplied; stock below the cap is left for a later setup", show(radial)));
     }
     Ok(Some((out, spec)))
+}
+
+/// Where a roughing cutter may be: the setup's stock grown by its diameter and `REGION_AIR_MM`, so
+/// its centre comes at most one radius and that air off the stock. camlib's own roughing
+/// region is the stock grown by four times the tool's reach, which it rasters through in air.
+fn stock_band(cx: &SetupCut<'_>, op_id: &str, radius: f64) -> Value {
+    let grow = 2. * radius + REGION_AIR_MM;
+    let ([x0, y0, _], [x1, y1, _]) = (cx.lo, *cx.hi);
+    let (x0, y0, x1, y1) = (x0 - grow, y0 - grow, x1 + grow, y1 + grow);
+    region(&format!("{op_id}-stock"), &[[x0, y0, 0.], [x1, y0, 0.], [x1, y1, 0.], [x0, y1, 0.]], &[])
 }
 
 fn flats<'a>(cx: &mut SetupCut<'a>, floor_z: f64, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
@@ -775,15 +791,56 @@ fn v_channel<'a>(cx: &mut SetupCut<'a>, op: &model::VChannel, technology: Techno
 fn wall_finish<'a>(cx: &mut SetupCut<'a>, op: &model::WallFinish, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
     let (spec, mill_cut) = tool_or_skip!(tool, technology, cx.notes);
     let mill = &mill_cut;
+    // A straight tangent lead one cutter radius long (camlib's contour offers no arc lead), where
+    // the outline is convex: camlib starts the loop where it chooses, and only on a convex outline
+    // is every tangent of the tool path clear of the part. The lead extends the loop's first
+    // stroke backwards, so where the loop starts on a straight wall, or where an arc meets one,
+    // it runs along that wall and the cutter still comes down against it.
+    let lead = if convex(&op.outer) { num(mill, "diameter")? / 2. } else { 0. };
     let mut out = json!({
         "kind": "contour", "id": op_id, "tool": id(mill), "region": region(op_id, &op.outer, &[]),
         "boundaries": "outer", "floor_z_mm": op.floor_z, "stepdown_mm": num(mill, "stepdown_mm")?,
         "clearance_z_mm": cx.clearance, "radial_allowance_mm": 0.0, "bottom_allowance_mm": 0.0,
-        "boundary_tolerance_mm": 0.01, "reverse": true, "lead_in_mm": 0.0, "lead_out_mm": 0.0,
+        "boundary_tolerance_mm": 0.01, "reverse": true, "lead_in_mm": lead, "lead_out_mm": lead,
         "retract_z_mm": cx.retract, "feed_z_mm": cx.retract,
     });
     cutting(&mut out, mill, true)?;
+    cx.notes.push(if lead > 0. {
+        format!("{op_id}: comes down {} mm back along the tangent of its loop start and leads onto the loop, and off it the same way; camlib chooses the start, and where that is on a straight wall or where an arc meets one, the cutter still comes down against that wall ({})", show(lead), cite("process.wall_finish.lead"))
+    } else {
+        format!("{op_id}: plunges at the wall with no lead, as its outline is not convex and a tangent lead could cut into the part ({})", cite("process.wall_finish.lead"))
+    });
     Ok(Some((out, spec)))
+}
+
+/// Whether an outline (vertices with bulges, as camlib takes them) is convex: every turn, arcs
+/// included, goes the same way. Arcs are walked in eight steps.
+fn convex(outer: &[Vertex]) -> bool {
+    let mut points = vec![];
+    for (i, a) in outer.iter().enumerate() {
+        let b = outer[(i + 1) % outer.len()];
+        points.push([a[0], a[1]]);
+        if a[2] != 0. {
+            // The arc's centre and sweep from the chord and bulge = tan(sweep / 4).
+            let sweep = 4. * a[2].atan();
+            let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+            let chord = dx.hypot(dy);
+            let radius = chord / (2. * (sweep / 2.).sin());
+            let off = radius * (sweep / 2.).cos();
+            let centre = [(a[0] + b[0]) / 2. - dy / chord * off, (a[1] + b[1]) / 2. + dx / chord * off];
+            let start = (a[1] - centre[1]).atan2(a[0] - centre[0]);
+            for k in 1..8 {
+                let t = start + sweep * k as f64 / 8.;
+                points.push([centre[0] + radius.abs() * t.cos(), centre[1] + radius.abs() * t.sin()]);
+            }
+        }
+    }
+    let n = points.len();
+    let turns: Vec<f64> = (0..n).map(|i| {
+        let (a, b, c) = (points[i], points[(i + 1) % n], points[(i + 2) % n]);
+        (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+    }).collect();
+    turns.iter().all(|t| *t >= -1e-9) || turns.iter().all(|t| *t <= 1e-9)
 }
 
 fn edge_chamfer<'a>(cx: &mut SetupCut<'a>, op: &model::EdgeChamfer, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
@@ -947,6 +1004,25 @@ fn scene(clamping: Option<&Value>, setup_id: &str) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_an_outline_turning_one_way_is_convex() {
+        // A rounded rectangle, anticlockwise, with its corners as 90° arcs (bulge tan 22.5°).
+        let b = (std::f64::consts::PI / 8.).tan();
+        let rounded = [[2., 5., b], [5., 2., 0.], [99., 2., b], [102., 5., 0.], [102., 55., b], [99., 58., 0.], [5., 58., b], [2., 55., 0.]];
+        assert!(convex(&rounded));
+        // Clockwise: each vertex in reverse order takes the edge that ended at it, its bulge negated.
+        let n = rounded.len();
+        let clockwise: Vec<Vertex> = (0..n).rev().map(|k| [rounded[k][0], rounded[k][1], -rounded[(k + n - 1) % n][2]]).collect();
+        assert!(convex(&clockwise));
+        // The same rectangle with a notch in one side, or with a corner rounded inwards, is not.
+        let notched = [[2., 5., b], [5., 2., 0.], [48., 2., 0.], [48., 6., 0.], [56., 6., 0.], [56., 2., 0.], [99., 2., b], [102., 5., 0.], [102., 55., b], [99., 58., 0.], [5., 58., b], [2., 55., 0.]];
+        assert!(!convex(&notched));
+        let mut hollow = rounded;
+        hollow[0][2] = -b;
+        assert!(!convex(&hollow));
+        assert!(convex(&[[60., 43.86, 0.], [44., 43.86, 0.], [36., 30., 0.], [44., 16.14, 0.], [60., 16.14, 0.], [68., 30., 0.]]));
+    }
 
     #[test]
     fn chamfer_cone_height_accepts_nominal_equality_without_extending_short_flutes() {

@@ -319,6 +319,19 @@
    ]
   },
   {
+   "id": "process.wall_finish.lead",
+   "version": 1,
+   "stage": "process",
+   "rationale": "A wall finishing contour around a convex outline comes down one cutter radius back along the tangent of its loop's first stroke and leads onto the loop, and leaves along the last stroke's tangent the same way. camlib's contour takes straight tangent leads only (lead_in_mm, lead_out_mm), not arcs, starts the loop where it chooses, and refuses a lead that cuts into the part. Only on a convex outline is every tangent of the tool path clear of the part, so any other outline is plunged at the wall with no lead, as before. The lead takes the cutter off the wall only where the loop starts partway round an arc of the tool path. Where it starts on a straight wall, or where an arc meets one tangentially (the usual case on a rectangular outline), the lead runs along that wall's own tool path: the cutter still comes down touching the finished wall, one radius along from the loop start, and the lead-out ends touching it. Taking the plunge off the wall there needs an arc lead or a choice of loop start, which camlib's contour does not offer. The job's wall finishing note cites this rule.",
+   "code": "rust/src/job.rs wall_finish",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: a straight tangent lead is the only lead camlib's contour offers, and it takes the plunge off the wall only where the loop starts on an arc; an arc lead would be the usual choice where camlib offers one"
+    }
+   ]
+  },
+  {
    "id": "process.wall_finish.not_upright",
    "warning_label": "outside walls keep allowance",
    "version": 1,
@@ -1164,6 +1177,19 @@
     {
      "kind": "step2cam",
      "note": "judgement: one simple clearing pattern for every part; no adaptive or offset clearing is chosen"
+    }
+   ]
+  },
+  {
+   "id": "process.roughing.region",
+   "version": 1,
+   "stage": "process",
+   "rationale": "Roughing keeps its tool centre within one cutter radius and 1 mm of the setup's stock, so no pass runs far out in the air beside it; the stock edge is still cut, and a pass can still start beside the stock. The 1 mm lets camlib prove a link along the stock's edge clear of the stock, so it is fed at the cutting feed rather than the entry feed. camlib's own roughing region is the stock grown by four times the tool's reach, which raster passes and links sweep through at feed. Where camlib cannot build a layer within the band (its intersection of the layer with the band can fail where the layer alone builds), that roughing is simulated again over camlib's own region and the log says so; only camlib's region-construction errors do this, and any other refusal of the roughing stands. The job's roughing note cites this rule.",
+   "code": "rust/src/job.rs stock_band; rust/src/lib.rs simulate_all",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "judgement: material is only ever within one radius of the stock box, so a tool centre farther out cuts nothing"
     }
    ]
   },

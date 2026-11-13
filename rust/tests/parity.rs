@@ -95,6 +95,26 @@ fn the_spindle_plans_without_a_mesh_as_in_python() {
     same(&untraced(&plan), &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
 }
 
+/// Deliberate changes since Python in the plate jobs: roughing keeps the em6's centre within
+/// a radius and 1 mm of the stock (`process.roughing.region`), and the convex plate's wall
+/// finish leads on and off a radius along the tangent (`process.wall_finish.lead`).
+fn adapter_changes(python: &mut Value) {
+    let (lo, hi) = (python["stock"]["min_mm"].clone(), python["stock"]["max_mm"].clone());
+    let x = |v: &Value, k: usize, grow: f64| v[k].as_f64().unwrap() + grow;
+    let grow = 6. + 1.;
+    let rough = &mut python["operations"][1];
+    assert_eq!((&rough["kind"], &rough["tool"]), (&serde_json::json!("roughing"), &serde_json::json!("em6")));
+    rough["limits"] = serde_json::json!({"contain": {
+        "version": 1, "units": "mm", "name": format!("{}-stock", rough["id"].as_str().unwrap()), "boundary_error_mm": 0.0,
+        "components": [{"outer": {"vertices": [[x(&lo, 0, -grow), x(&lo, 1, -grow), 0.], [x(&hi, 0, grow), x(&lo, 1, -grow), 0.], [x(&hi, 0, grow), x(&hi, 1, grow), 0.], [x(&lo, 0, -grow), x(&hi, 1, grow), 0.]]}, "holes": []}],
+        "source": {"plan": capp::plan::PLAN_FORMAT},
+    }});
+    let wall = &mut python["operations"][7];
+    assert_eq!((&wall["kind"], &wall["tool"]), (&serde_json::json!("contour"), &serde_json::json!("em6")));
+    wall["lead_in_mm"] = serde_json::json!(3.0);
+    wall["lead_out_mm"] = serde_json::json!(3.0);
+}
+
 #[test]
 fn the_plates_job_is_python_s_job() {
     let plan = json("tests/fixtures/rust-golden/plate.plan.json");
@@ -116,6 +136,7 @@ fn the_plates_job_is_python_s_job() {
     // flute-supported pass, independently of the 1.5 mm roughing stepdown.
     assert_eq!(python["operations"][7]["kind"], "contour");
     python["operations"][7]["stepdown_mm"] = serde_json::json!(10.5);
+    adapter_changes(&mut python);
     same(&mine, &python, "manifest").unwrap();
 }
 
@@ -129,8 +150,9 @@ fn the_plates_job_runs_in_camlib() {
     // camlib #104 simplifies the roughing layer shadows: 1,565 moves instead of 1,922.
     // The shallow drills now make one plunge: 5 and 24 moves instead of 17 and 78.
     // Two spot cycles add 5 and 24 moves, sharing one tool.
-    // Facing, roughing, twist drills and the bore retain their move counts.
-    assert_eq!(&ends[..7], [53, 1618, 1623, 1647, 1652, 1676, 1714]);
+    // Roughing kept within a radius and 1 mm of the stock (process.roughing.region) makes 1,334
+    // moves instead of 1,565. Facing, twist drills and the bore retain their move counts.
+    assert_eq!(&ends[..7], [53, 1387, 1392, 1416, 1421, 1445, 1483]);
     assert_eq!(ends.len(), 8); // two spots plus the wall finish
     assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[7]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
@@ -167,6 +189,7 @@ fn a_tapped_holes_job_is_python_s_job() {
     // The same deliberate full-depth wall-finishing change as the plain plate.
     assert_eq!(python["operations"][7]["kind"], "contour");
     python["operations"][7]["stepdown_mm"] = serde_json::json!(10.5);
+    adapter_changes(&mut python);
     same(&mine, &python, "manifest").unwrap();
 }
 
