@@ -1,6 +1,7 @@
 //! Certain finished-part contact, with a conservative prior-cut audit for uncovered evidence.
 use crate::kind::OpKind;
 use crate::model::{Cut, Operation, Plan, Point2, Setup, SpotDrill};
+use crate::resources::Library;
 use crate::trace::{Trace, because};
 use serde_json::{Value, json};
 
@@ -51,11 +52,11 @@ fn xy_points(points: impl IntoIterator<Item = Point2>, pad: f64, low: f64, high:
 
 /// Bounding envelopes of potentially removed stock, not cutter or holder collisions.
 /// No assumed mesh/curve topology: outlines use the whole stock XY bounds.
-fn envelope(setup: &Setup, op: &Operation, resources: &Value) -> Option<Bounds> {
+fn envelope(setup: &Setup, op: &Operation, library: &Library) -> Option<Bounds> {
     let mut b = stock(setup);
     let id = op.tool.as_ref()?.as_deref()?;
-    let tool = resources["tools"].as_array()?.iter().find(|t| t["id"] == id)?;
-    let breakthrough = resources["breakthrough_mm"].as_f64().unwrap_or(1.);
+    let tool = library.data["tools"].as_array()?.iter().find(|t| t["id"] == id)?;
+    let breakthrough = library.settings.breakthrough_mm;
     let tip = || if tool["type"] == "drill" { crate::resources::drill_tip_length(tool).ok() } else { Some(0.) };
     let drilled = move |bottom: f64, tip: f64, centers: &[Point2], diameter: f64| {
         let low = (bottom - breakthrough - tip).max(b[0][2]);
@@ -168,7 +169,7 @@ fn spot_envelope(op: &SpotDrill) -> Option<Bounds> {
 /// The final part is a lower bound on retained material. Carried height fields
 /// are upper bounds and deliberately contribute no contact. Only planar faces
 /// coincident with the jaw plane count; clip triangles, never their envelopes.
-fn certain_contacts(plan: &Plan, setup: &Setup, earlier: &[Setup], resources: &Value) -> Option<Vec<f64>> {
+fn certain_contacts(plan: &Plan, setup: &Setup, earlier: &[Setup], library: &Library) -> Option<Vec<f64>> {
     let frame = Frame::read(setup)?;
     let bands = bands(setup)?;
     let tris: Vec<[Point; 3]> = serde_json::from_value(plan.contact_surface_model.clone()?).ok()?;
@@ -179,7 +180,7 @@ fn certain_contacts(plan: &Plan, setup: &Setup, earlier: &[Setup], resources: &V
             // These operations preserve the target surface. Other operations
             // may cut beyond its mesh (threads, drill tips, edge breaks).
             if preserves(op) {continue;}
-            let cut = if let Cut::SpotDrill(spot) = &op.cut {spot_envelope(spot)} else {envelope(previous, op, resources)}?;
+            let cut = if let Cut::SpotDrill(spot) = &op.cut {spot_envelope(spot)} else {envelope(previous, op, library)}?;
             cuts.push(transformed(cut, &from, &frame));
         }
     }
@@ -214,12 +215,12 @@ fn preserves(op: &Operation) -> bool {
 
 /// Called after settlement, exclusions and tool resolution, so absent/untooled operations
 /// do not invent earlier cuts. The final process retry recomputes this audit after refusals.
-pub fn check(plan: &mut Plan, resources: &Value, trace: &mut Trace) {
+pub fn check(plan: &mut Plan, library: &Library, trace: &mut Trace) {
     // Read the setups as they stand before this pass changes any of them.
     let setups = plan.setups.clone();
     for (index, setup) in setups.iter().enumerate().skip(1).filter(|(_, s)| s.clamping.as_ref().is_some_and(Value::is_object)) {
         let id = setup.id.as_str();
-        let contacts = certain_contacts(plan, setup, &setups[..index], resources);
+        let contacts = certain_contacts(plan, setup, &setups[..index], library);
         let certain = contacts.as_ref().is_some_and(|a| a.len() == 2 && a.iter().all(|a| *a > 1e-8));
         let no_contact = contacts.as_ref().is_some_and(|a| a.iter().any(|a| *a <= 1e-8));
         let contact_says = match &contacts {
@@ -263,7 +264,7 @@ pub fn check(plan: &mut Plan, resources: &Value, trace: &mut Trace) {
                 let operation = format!("{}-{}-{}", earlier.id, n + 1, op.cut.kind().name());
                 let cut = if flip && let Cut::SpotDrill(spot) = &op.cut {
                     spot_envelope(spot)
-                } else { envelope(earlier, op, resources) };
+                } else { envelope(earlier, op, library) };
                 let Some(cut) = cut else {
                     unchecked.push(json!({"operation": operation, "reason": "missing or unsupported cutting geometry"}));
                     continue;

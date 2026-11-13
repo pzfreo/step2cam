@@ -1,4 +1,6 @@
 {
+ "format": "step2cam-resources",
+ "version": 1,
  "_comment": "Benchmark library: tools, cutting data, clearances and every other non-machine setting copied from demo/tools.json. All values are placeholders, not machining recommendations. This independent copy is intentional: changing this library changes the benchmark baseline.",
  "machines": [
   {

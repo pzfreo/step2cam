@@ -1,4 +1,6 @@
 {
+ "format": "step2cam-resources",
+ "version": 1,
  "_comment": "The tool library of the step2cam demo. Every number is a placeholder chosen so that many parts can be shown: not for a real machine.",
  "machines": [
   {
