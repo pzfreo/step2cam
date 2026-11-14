@@ -223,7 +223,10 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 error = Some("replanning stopped: the plan without the flip still asks for one".into());
                 break;
             }
-            let reason=plan.warnings.iter().map(String::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
+            let grip_rule=capp::trace::cite("machine.grip_vs_cut");
+            let reason=plan.warnings.iter().map(String::as_str)
+                .filter(|w| !plan.decisions.iter().flatten().any(|d| d["rule"]==grip_rule && d["outcome"]=="warning" && d["says"]==*w))
+                .filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
             planned=capp::flip::build_fallback(analysis,mesh,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
@@ -467,7 +470,6 @@ mod flip_tests {
         wall["outer"][0][2]=json!(2.);
         let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
         assert_eq!(fallback_reason(&out),"top-13-wall_finish left out: setup top: boundary vertices require finite coordinates within ±1e6 mm and bulge within [-1,1]; \
-            setup bottom: grip not checked against the cut: the library gives no clamping force for vise; \
             setup bottom: earlier cuts may have removed material in the later grip band: [{\"faces\":[\"stock.x.min\",\"stock.x.max\"],\"operation\":\"top-2-roughing\"}]; \
             checks stock-face contact bands from stock bottom to jaw top against earlier tooled operations' conservative cutting envelopes, transformed through setup rotation and origin_model; \
             roughing/contour envelopes include preserved material and grouped holes include the space between them; not a stock simulation or proof of face retention, contact area or holding strength; \
@@ -476,7 +478,7 @@ mod flip_tests {
         let p=capp::flip::plan(&a,&m,&t).unwrap();
         let exclusion=json!({"operation":"bottom-1-facing","message":"test facing refusal"});
         let out=process_planned(&a,&m,&t,typed(&p),vec![typed(&exclusion)]).unwrap().json();
-        assert_eq!(fallback_reason(&out),"bottom-1-facing left out: test facing refusal; setup bottom: grip not checked against the cut: the library gives no clamping force for vise");
+        assert_eq!(fallback_reason(&out),"bottom-1-facing left out: test facing refusal");
     }
 }
 
