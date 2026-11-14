@@ -174,12 +174,17 @@ pub fn clamp(setup: &mut Setup, vise: Option<&Value>, proposal: Option<&Value>, 
             trace.warnings.push(text);
         } else { trace.warn("setup.standard_sizes", &id, text, json!({"chosen":detail})); }
     }
+    let fixed = vise.and_then(|v| v["fixed_jaw"].as_str()).map(String::from)
+        .unwrap_or_else(|| format!("{}.min", ["x", "y"][axis]));
+    if !fixed.starts_with(["x", "y"][axis]) {
+        return Some(format!("fixed jaw {fixed} is not on the selected grip axis"));
+    }
     let choice = if setup.grip_surface_model.as_ref().is_some_and(Value::is_array) { "finished-part extent within the jaw height band; remote bosses do not set jaw opening" } else if seating.is_some() { "proposed mesh-checked opposed side contact and edge seating; retained top finishing must establish the grip" } else if given.is_some() { "given clamping override, validated" } else { "stock long sides, closing across the narrower XY dimension (X on a tie)" };
     let remainder = if seating.is_some() { "grip preparation must be verified against retained top operations" }
         else if setup.flip_role.as_deref() == Some("sacrificial_grip") { "sacrificial stock below the cap is removed by bottom facing" }
         else { "material below the cap needs a later setup" };
-    let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
-    let clamping = setup.clamping.insert(json!({"faces": faces, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "parallels_size": {"kind": size_kind, "height_mm":parallel, "required_height_mm":r(height-grip), "source":if standard { crate::rules::standard_sizes()["parallels"]["source"].clone() } else { json!({"ref":"shop library or supplied setup override"}) }}, "because": [decision]}));
+    let decision = trace.decide(RULE, &id, if given.is_some() { "given" } else { "chosen" }, &format!("grip {faces}: {choice}; {} mm grip, jaw top Z{}, {} mm side-cut clearance; {remainder}; {}", show(grip), show(top), show(clearance), support), json!({"chosen": {"faces": faces, "fixed_jaw": fixed, "grip_height_mm": grip, "parallels_height_mm": parallel}}));
+    let clamping = setup.clamping.insert(json!({"faces": faces, "fixed_jaw": fixed, "grip_height_mm": grip, "jaw_top_z": top, "clearance_mm": clearance, "jaws": jaws, "parallels": parallels, "parallels_size": {"kind": size_kind, "height_mm":parallel, "required_height_mm":r(height-grip), "source":if standard { crate::rules::standard_sizes()["parallels"]["source"].clone() } else { json!({"ref":"shop library or supplied setup override"}) }}, "because": [decision]}));
     if let Some(seat)=&seating {
         let z=seat["contact_patches_model"].as_array().into_iter().flatten().flat_map(|side|side.as_array().into_iter().flatten()).flat_map(|patch|patch.as_array().into_iter().flatten()).filter_map(|p|p[2].as_f64()).fold(f64::NEG_INFINITY,f64::max);
         clamping["contact_min_z"] = json!(r(setup.origin_model?[2] - z));

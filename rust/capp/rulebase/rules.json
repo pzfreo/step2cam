@@ -116,9 +116,9 @@
   },
   {
    "id": "setup.stock.part_box_with_margins",
-   "version": 1,
+   "version": 2,
    "stage": "setup",
-   "rationale": "The stock is the part's box grown by the margins: top and bottom stock along the roughing direction, the margin across it. The roughing setup is zeroed on the stock, the others on the part's box.",
+   "rationale": "Construct stock from the part bounds and stated margins, including the cited purchased blank selection. Stock and remaining-material envelopes use temporary construction frames; final work zero is selected by setup.datum_pickup from reachable finished references or verified fixture contacts after refusals. A later setup is not located by an assumed part box.",
    "code": "plan/mod.rs plan",
    "sources": [
     {
@@ -1007,9 +1007,9 @@
   {
    "id": "machine.clamping",
    "warning_label": "vise clamping limits",
-   "version": 2,
+   "version": 3,
    "stage": "machine",
-   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without a fixed height or override, select from the library inventory or the cited standard heights (setup.standard_sizes); model the chosen supports and check through cuts against them. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",
+   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without a fixed height or override, select from the library inventory or the cited standard heights (setup.standard_sizes); model the chosen supports and check through cuts against them. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength. Record the fixed jaw in setup axes; an explicit library side must match the selected grip axis. Without a sourced installed orientation, choose the minimum side of that axis: this keeps the established minimum stock corner and is step2cam judgement, not a manufacturer claim.",
    "code": "workholding.rs clamp, validate_overrides; settle.rs cap_roughing; clamping_history.rs check",
    "sources": [
     {
@@ -1293,6 +1293,20 @@
      "kind": "supplier",
      "url": "https://metalstockist.co.uk/collections/aluminium-flat-bar",
      "note": "Read 2026-11-14: rectangular aluminium flat-bar list, metric products in mm and inch products converted exactly at 25.4 mm/inch with supplier labels retained; transcribed as thickness x width, excluding feather-edge profiles."
+    }
+   ]
+  },
+  {
+   "id": "setup.datum_pickup",
+   "version": 4,
+   "stage": "setup",
+   "warning_label": "no finished datum pickup",
+   "rationale": "First zero is the stock corner at the fixed jaw, minimum on the other axis, with stock-top Z. Later select datum features first (datum bores or finished datum face/contact pairs), then the largest reachable finished bore at least 6 mm diameter, then other finished face pairs. A reversed blind bore is forbidden. Check bore mouths and side-face touch bands AND their approaches against carried stock, part geometry, jaws and parallels; an exterior part face is not necessarily exposed. Side approach judgement uses a 1 mm outside point, 0.5 mm clearance and a band at least 1 mm above jaws; verify the real instrument. The 6 mm bore minimum is judgement for small probe clearance, not a sourced instrument specification. Coordinator decision for M10 revision 2026-11-14, step2cam judgement: hidden finished faces may locate by contact before loading. Match the fixed-jaw contact to the measured prepared contact patches, and require a previously finished external face against a required vise/part stop for the other axis, preferring drawing datums. Pick up the fixed jaw before loading or use its known coordinate; pick up the stop face as its recorded axis zero before loading. Bound the stop nose top solely to 0.5 mm below the lowest stock overhang sampled along the 1–4 mm outside approach and 1 mm nose width; round the maximum height down to 0.1 mm and put it on the sheet with the approximate contact height. The first band sample is not a physical upper bound on the nose. With no overhang, record no height limit; keep the band clear and reject a limit at or below contact. These clearances and sampling are step2cam judgement, not a modeled stop hardware guarantee. A stop is a required shop fixture, not an invented inventory item; its hardware envelope is not simulated. A stop's horizontal contact band must clear carried stock and modeled fixtures; it does not require a probe's blocked vertical approach. Record each axis's face, finishing setup, method and fixture coordinate. For a non-flip, directly touchable finished upward faces take precedence over parallel transfer. Ignore up to 0.5 mm of stock-envelope slack in this direct Z check and in non-flip side probing (the side-setup envelope margin is up to 0.182 mm in the planset). For side probing, clip stock triangles to the region more than 0.5 mm outside the finished face plane; keep all remaining stock obstructions in place. Part and fixture checks, bore checks and every flip check remain strict. For a flip, retain the thickness-face Z plane and establish it from equal-height modeled parallel tops supporting a face finished earlier: touch off an accessible parallel before loading, then use the drawing-derived seat-to-zero offset. Never derive final thickness from as-bought bar thickness when a finished seat is available. No modeled parallels or no finished seat means explicit stock touch-off, a measure-after-facing warning stating bar thickness varies for flips or stock size varies for side setups, and no invented finish. No usable X/Y pair retains the whole frame and warns. Full face vertices must be covered by retained facing/flats or wall finishing; roughing alone is insufficient. Emit one capped-bore warning per setup with all affected features. Apply only a rigid coordinate translation after candidate selection; historical evidence retains its construction frame. No automatic probing or stop hardware geometry is generated.",
+   "code": "zero.rs; rust/src/zero.rs",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "Maintainer decision approved 2026-11-14, project review M10: record zero and how to find it; finished earlier, reachable now; warn rather than invent a datum. Coordinator revision: hidden finished faces locate against the fixed jaw and a required stop set before loading; Z transfers from a finished seat on modeled parallel tops rather than raw bar thickness. These fixture-location policies are step2cam judgement."
     }
    ]
   }

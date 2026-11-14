@@ -69,27 +69,28 @@ export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
     else if (block.type === "list") for (const item of block.items) write(`• ${item}`, { indent: 2, gap: 1 });
     else if (block.type === "table") {
       // Give prose most of the width; narrow columns hold only cutting data.
+      const zero = block.id === "setup-zero";
       const widths = {
         operations: [9, 47, 26, 17, 20, 20, 22, 19],
         decisions: [39.6, 95.4, 45], rules: [36, 108, 36], features: [36, 63, 81],
         "not-cut": [54, 81, 45], "operation-detail": [35, 45, 100], checks: [18, 55, 107],
-        tools: [30, 34, 25, 37, 25, 29], header: [39, 23, 27, 39, 52],
+        tools: [30, 34, 25, 37, 25, 29], header: [39, 23, 27, 39, 52], "setup-zero": [15, 165],
       }[block.id] || block.headers.map(() => width / block.headers.length);
       autoTable(doc, {
-        startY: y, head: [block.headers], body: block.rows,
+        startY: y, head: zero ? [] : [block.headers], body: block.rows,
         margin: { left, right: left, top, bottom: 20 }, tableWidth: width,
-        styles: { font: "DejaVuSans", fontStyle: "normal", fontSize: 9, cellPadding: index >= report.appendixStart ? 1 : 1.5, overflow: "linebreak", textColor: 20, lineColor: 210, lineWidth: 0.1 },
+        styles: { font: "DejaVuSans", fontStyle: "normal", fontSize: zero ? 10 : 9, cellPadding: zero ? 0 : index >= report.appendixStart ? 1 : 1.5, overflow: "linebreak", textColor: 20, lineColor: 210, lineWidth: zero ? 0 : 0.1 },
         headStyles: { font: "DejaVuSans", fontStyle: "bold", fillColor: [235, 238, 240], textColor: 20 },
-        alternateRowStyles: { fillColor: [248, 249, 250] },
+        alternateRowStyles: zero ? {} : { fillColor: [248, 249, 250] },
         columnStyles: widths ? Object.fromEntries(widths.map((w, i) => [i, { cellWidth: w }])) : {},
         didParseCell: ({ cell, column }) => {
           doc.setFont("DejaVuSans", cell.styles.fontStyle); doc.setFontSize(cell.styles.fontSize);
           const padding = cell.padding("left") + cell.padding("right");
           cell.text = cell.text.map((line) => readableBreaks(line, widths[column.index] - padding, (word) => doc.getTextWidth(word)));
         },
-        rowPageBreak: "avoid", showHead: "everyPage", theme: "grid",
+        rowPageBreak: "avoid", pageBreak: zero ? "avoid" : "auto", showHead: zero ? "never" : "everyPage", theme: zero ? "plain" : "grid",
       });
-      y = doc.lastAutoTable.finalY + 4;
+      y = doc.lastAutoTable.finalY + (zero ? 2 : 4);
     } else throw new Error(`Unknown report block: ${block.type}`);
   }
   const pages = doc.getNumberOfPages();

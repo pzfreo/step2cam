@@ -300,3 +300,36 @@ for (const modelled of [true, false]) {
 const computedStock = structuredClone(data);
 computedStock.plan.setups[0].stock_size = { kind: 'computed' };
 assert.ok(reportDocument(computedStock, options).blocks.find(b => b.id === 'header').rows[0][3].includes('not a standard size'));
+
+// M10: the sheet reads the pickup record verbatim in the approved two-line form.
+const pickup = { ...clamped, zero: { xy: { description: 'centre of ⌀10 bore (cut in setup top)' }, z: { description: 'datum A face (finished in setup top)' } } };
+assert.equal(setupDetails(pickup, {}).at(-1), 'Zero   X0 Y0: centre of ⌀10 bore (cut in setup top)\n       Z0: datum A face (finished in setup top)');
+assert.ok(!setupDetails(pickup, {}).join(' ').includes('Work zero'));
+
+// The panel retains its established orientation and stock-size wording.
+assert.ok(setupZero(pickup).startsWith('Tool comes down −Z;'));
+assert.ok(setupZero(pickup).endsWith('stock 20 × 30 × 10 mm.'));
+const withPickup = structuredClone(data);
+withPickup.plan.setups[0].zero = pickup.zero;
+const zeroTable = reportDocument(withPickup, options).blocks.find(b => b.id === 'setup-zero');
+assert.deepEqual(zeroTable.headers, []);
+assert.deepEqual(zeroTable.rows, [['Zero', 'X0 Y0: centre of ⌀10 bore (cut in setup top)'], ['', 'Z0: datum A face (finished in setup top)']]);
+// Both zero rows occupy the same real PDF column; spaces are not alignment.
+const { renderReportPdf } = await import('../demo/report-pdf.js');
+let pdfTable;
+class PdfStub {
+  addFileToVFS() {} addFont() {} setFont() {} setProperties() {} setFontSize() {}
+  getNumberOfPages() { return 1; } setPage() {} setTextColor() {} setDrawColor() {} line() {} text() {}
+  splitTextToSize(s) { return [s]; }
+}
+renderReportPdf({ title: 'Zero test', blocks: [zeroTable], appendixStart: 1 }, {
+  jsPDF: PdfStub, fonts: { regular: '', bold: '' },
+  autoTable(doc, opts) { pdfTable = opts; doc.lastAutoTable = { finalY: 40 }; }
+});
+assert.deepEqual(pdfTable.body, zeroTable.rows);
+assert.equal(pdfTable.columnStyles[0].cellWidth, 15);
+assert.equal(pdfTable.columnStyles[1].cellWidth, 165);
+assert.equal(pdfTable.styles.cellPadding, 0);
+assert.equal(pdfTable.theme, 'plain');
+assert.equal(pdfTable.showHead, 'never');
+assert.equal(pdfTable.pageBreak, 'avoid');

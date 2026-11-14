@@ -793,3 +793,70 @@ while keeping their cutting data. Materials without a force/friction reference g
 one not-checked warning per gripped setup. This checks
 estimated mean tangential sliding load; peak forces, thrust, contact pressure, deformation,
 lift, overturning, chatter and support flatness remain unchecked.
+
+## Setup zero and pickup (M10)
+
+`setup.datum_pickup@4` records each final setup's `zero.xy`, `zero.z`, status,
+trace and old-frame origin offset. X/Y face references include per-axis `axes.x`
+and `axes.y` records: feature id, earlier finishing setup, method, fixture coordinate
+and contact point in the construction frame. `clamping.part_stop` identifies the
+required stop axis, coordinate, finished face and contact height. A stop is a required
+shop fixture to set before loading, not an assertion that the library supplies one.
+Its hardware envelope is not modeled. The sheet uses two real table rows with an
+indented second column; the app panel retains its tool-direction and stock-size text.
+
+Vise `fixed_jaw` is optional (`x.min`, `x.max`, `y.min`, `y.max`, in setup axes), and
+must match the grip axis. Without sourced installed orientation, choose the minimum
+side as step2cam judgement, preserving the stock-corner convention. The first zero
+uses that stock corner, the other axis's minimum edge, and stock-top Z.
+
+After refusals, select datum features first (datum bores or finished datum face/contact
+pairs), then the largest reachable finished bore at least 6 mm across, then other
+finished face pairs. The 6 mm minimum allows small-probe clearance by judgement;
+verify the real instrument. Reversed blind bores are forbidden. Check bore mouths,
+side-face touch bands and approaches against carried stock, part geometry, jaws and
+parallels. An exterior part face alone does not prove access. The side-probe check
+uses a point 1 mm outside the wall, 0.5 mm clearance, and a band at least 1 mm above
+jaws. A cap blocks its vertical approach even when its touch band is below the cap.
+One warning per setup lists all bores with capped mouths.
+
+Coordinator decision, step2cam judgement: when finished references are hidden,
+locate the part by contact before loading. A face finished earlier and matched to
+prepared jaw-contact patches may locate the fixed-jaw axis. Pick up that fixed jaw
+before loading, or use its known coordinate. A finished external face against a stop
+locates the other axis: pick up the stop face as the recorded axis zero before loading. Prefer drawing
+datums. The stop's horizontal contact band must clear stock and modeled fixtures;
+a probe's vertical path through a cap is not required for a stop set before loading.
+Missing usable references retain the entire frame and warn. Roughing is never finishing
+evidence; retained facing, flats or wall finishing must cover the selected face.
+
+For a flip, establish the thickness-face Z plane from the finished face seated on
+modeled equal-height parallels. Record the seat face, finishing setup, parallel-top Z,
+seat-to-zero offset and target face separately. Touch off an accessible parallel before
+loading. Example: stepped plate datum A is 12 mm above parallel tops at Z−12; the seat
+is face 1, finished in top. This removes raw-bar thickness from final-thickness setting.
+No modeled parallels or no finished seat falls back to stock touch-off with an explicit
+“measure the part after facing; bar thickness varies” instruction and warning.
+Other setups prefer touching a reachable finished upward plane directly, even when parallels are modeled.
+
+`setup.stock.part_box_with_margins@2` describes temporary construction frames and
+stock envelopes, not an assumed later pickup on the part box. Final coordinate
+relocation follows workholding selection and retained execution: all plan geometry,
+saved jobs and motions translate together. Historical trace evidence keeps its
+construction frame. No automatic probing cycle or stop hardware geometry is generated.
+
+Non-flip setups touch a reachable finished upward face directly before considering a
+parallel transfer. Direct Z and side-face stock checks allow 0.5 mm of envelope slack (the
+side-setup envelopes in the planset extend at most 0.182 mm past these faces).
+Part and fixture checks remain strict. Side probing clips only stock within 0.5 mm
+outside the finished face plane; genuine overhangs remain. Flip checks stay strict,
+and flips keep the finished parallel seat.
+The stop face is picked up as the recorded axis zero before loading. Its recorded
+`maximum_z_mm` limits the nose top solely from the sampled stock overhang
+(`overhang_z_mm`): 0.5 mm below it, rounded down to 0.1 mm. Both fields are absent
+when there is no overhang. The limit must remain above the clear contact band.
+The sheet says what is limited and the approximate contact height;
+`contact_z_mm` is a band sample, not a physical cap on the nose. Stop hardware
+is not simulated. Side-setup stock touch-off warns that stock size varies; flip
+touch-off keeps the bar-thickness warning.
+Undatumed face names refer to the model's top/bottom, front/back and left/right.

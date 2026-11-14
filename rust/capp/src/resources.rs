@@ -93,6 +93,9 @@ pub fn normalize(data: &Value) -> Result<Cow<'_, Value>, String> {
     Settings::new(data)?;
     for machine in data["machines"].as_array().into_iter().flatten() {
         for vise in machine["workholding"].as_array().into_iter().flatten().filter(|v| v["kind"] == "vise") {
+            if let Some(side) = vise.get("fixed_jaw") && !matches!(side.as_str(), Some("x.min" | "x.max" | "y.min" | "y.max")) {
+                return Err("vise fixed_jaw must be x.min, x.max, y.min or y.max in setup axes".into());
+            }
             for key in ["clamp_force_n", "clamp_torque_nm"] {
                 if let Some(value) = vise.get(key) && !value.as_f64().is_some_and(|n| n.is_finite() && n > 0.) {
                     return Err(format!("vise {key} must be positive and finite"));
