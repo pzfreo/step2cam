@@ -222,9 +222,9 @@ breaks reduce contact instead of rejecting the entire band. The retained contact
 polygons, area, fraction and effective length per side are recorded in seating,
 clamping and the trace. A top round/chamfer leaves the actual contact below the
 break; the nominal jaw top and seating height remain physically consistent. When
-minimum grip gives too little contact, search grip upward in the same 0.25 mm
-steps, within the existing 50% and jaw-height limits; use the least acceptable
-grip. The 16 mm support search covers large edge chamfers on benchmark-sized
+minimum available grip gives too little contact, try the next available height in
+ascending grip order, within the existing 50% and jaw-height limits; use the least
+acceptable real-height grip. The 16 mm support search covers large edge chamfers on benchmark-sized
 blocks; bars cannot overlap each other.
 
 Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
@@ -238,9 +238,9 @@ measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
 matching covers compounded four-decimal serialization; neither is a manufacturing
 tolerance. The mesh seating defines flip parallels with height equal to jaw height minus
 the seating grip, along with the measured support width and footprints. A vise may list
-available `parallels_heights_mm` with `_sources`; the seating height must be achievable
-from that inventory. Without seating, choose the tallest height compatible with grip limits;
-without either seating or inventoried parallels, support stays explicitly unmodeled.
+available `parallels_heights_mm` with `_sources`; seating must use that inventory, or the
+cited standard set when none is listed. Without seating, choose the tallest available
+height compatible with grip limits. A miss refuses the setup with its reason.
 A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
 are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
 

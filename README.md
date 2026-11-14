@@ -466,9 +466,9 @@ need their separate checks.
 Vise libraries may inventory `parallels_heights_mm`, with provenance in `_sources`.
 The tallest height satisfying grip limits and mesh seating is chosen and the support bars
 are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
-Flip seating defines its modeled support parallels from the mesh, independently of inventory;
-if an inventory is supplied, it must include the required seating height. Without seating or
-inventoried parallels, support remains explicitly unchecked.
+Flip seating searches those real heights against the mesh. Without a library inventory or
+fixed/override height, the cited rulebase standard set supplies heights, labelled
+“standard size, not checked against your shop”; no fitting height refuses the setup.
 
 Later side jaws use the full part mesh's extent within their grip-height band. A remote
 boss outside that band does not set the opening; only analytic planar faces at the chosen
