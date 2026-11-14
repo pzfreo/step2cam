@@ -141,8 +141,9 @@ Siemens, Centroid; camlib's `docs/posts.md`).
 
 The plan says **what** to cut, independent of tools and machine.
 
-- **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`capp::plan::Options`).
+- **Stock**: the part's box plus minimum `margin` (2 mm) around the sides, `top_stock` (1 mm) above
+  and `bottom_stock` (0) below (`capp::plan::Options`), rounded up to a cited standard flat bar
+  and whole-mm sawn length. A catalog miss keeps the computed size and warns.
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
@@ -552,3 +553,17 @@ synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build12
 
 [Apache-2.0](LICENSE). specify-core is Apache-2.0; camlib is MIT. This project imports both
 and includes neither; the demo site's WebAssembly contains both.
+
+Standard blank and parallel sizes come from the cited rulebase data in
+[`standard-sizes.json`](rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
+LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
+and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
+fixed height or setup override wins; otherwise select the tallest standard height
+meeting grip limits and mesh seating, refusing a miss. No shop inventory is inferred.
+First-setup stock uses the smallest containing bar area, trying both orientations,
+with thickness along the tool axis, width across the narrower side, and sawn length
+rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
+equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
+computed size and warn. Later setups record remaining material, not purchased bars.
+Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
+adds “standard size, not checked against your shop” only to standard sizes.

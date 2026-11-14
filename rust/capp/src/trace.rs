@@ -156,7 +156,7 @@ pub(crate) fn because_op(op: &mut crate::model::Operation, ids: impl IntoIterato
 /// and data.
 pub(crate) fn rulebase() -> Value {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS, crate::rules::WORKHOLDING]
+    let files = [RULES, crate::rules::TOOLS, crate::rules::SEQUENCE, crate::rules::PROCESS, crate::rules::WORKHOLDING, crate::rules::STANDARD_SIZES]
         .into_iter()
         .chain(crate::reference::TABLES.iter().map(|(_, text)| *text));
     for text in files {

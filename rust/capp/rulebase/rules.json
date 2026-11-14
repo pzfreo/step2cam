@@ -1009,7 +1009,7 @@
    "warning_label": "vise clamping limits",
    "version": 1,
    "stage": "machine",
-   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without parallels_height_mm, raise stock on parallels or similar so the jaws grip only the chosen height; that support is not modeled or checked, so through cuts are not checked against it. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",
+   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without a fixed height or override, select from the library inventory or the cited standard heights (setup.standard_sizes); model the chosen supports and check through cuts against them. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",
    "code": "workholding.rs clamp, validate_overrides; settle.rs cap_roughing; clamping_history.rs check",
    "sources": [
     {
@@ -1270,6 +1270,29 @@
      "kind": "research",
      "url": "https://www.jstage.jst.go.jp/article/ijat/15/6/15_860/_pdf/-char/en",
      "note": "Read 2026-11-13, Zeng et al., On-Machine Estimation of Workholding State for Thin-Walled Parts, doi:10.20965/ijat.2021.p0860: steel/aluminium fixturing model uses mu=0.1 with oil. Use the slightly lower applicable SMW machined-side value 0.095."
+    }
+   ]
+  },
+  {
+   "id": "setup.standard_sizes",
+   "version": 1,
+   "stage": "setup",
+   "warning_label": "standard size unavailable",
+   "rationale": "Use the cited parallel heights only without a library inventory or fixed/per-setup height: tallest satisfying existing grip limits, and mesh seating for a flip. Grip is jaw height minus the real parallel height. Refuse on a miss as for inventory. Round first-setup stock up to the least-area listed aluminium flat bar containing tool-axis thickness and narrower transverse width, trying both bar orientations; ties prefer the thinner tool-axis section. Saw length up to whole mm. Put extra thickness on top and transverse/length extra equally on either side, preserving minimum margins and sacrificial bottom grip. These selection and allocation policies are step2cam judgement. Later setups describe remaining part/carry envelopes, not fresh purchased bars. Standard sizes are not checked against the shop; no stock inventory schema exists.",
+   "code": "plan/mod.rs; workholding.rs; flip.rs",
+   "data": [
+    "rules/standard-sizes.json"
+   ],
+   "sources": [
+    {
+     "kind": "supplier",
+     "url": "https://littlemachineshop.com/products/thin-parallels-3-long-10-pairs",
+     "note": "Read 2026-11-14: 1/2, 5/8, 3/4, 7/8, 1, 1-1/8, 1-1/4, 1-3/8, 1-1/2, 1-5/8 inch heights. Exact conversion 25.4 mm/inch."
+    },
+    {
+     "kind": "supplier",
+     "url": "https://metalstockist.co.uk/collections/aluminium-flat-bar",
+     "note": "Read 2026-11-14: rectangular aluminium flat-bar list, dimensions in mm; transcribed as thickness x width, excluding feather-edge profiles."
     }
    ]
   }

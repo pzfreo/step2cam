@@ -160,19 +160,13 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
         }
         for z in levels {
             let minimum = bar.max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
-            let maximum = ((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
-                .min(vise["jaw_height_mm"].as_f64().unwrap());
             let grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
                 vec![r(vise["jaw_height_mm"].as_f64().unwrap() - p)]
-            } else if let Some(heights) = vise["parallels_heights_mm"].as_array() {
-                heights.iter().filter_map(Value::as_f64).map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect()
-            } else if maximum >= minimum {
-                (0..=((maximum - minimum) / step).floor() as usize)
-                    .map(|n| r(minimum + n as f64 * step))
-                    .chain([r(maximum)])
-                    .collect()
             } else {
-                vec![]
+                let mut grips: Vec<_> = crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64)
+                    .map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect();
+                grips.sort_by(f64::total_cmp);
+                grips
             };
             for grip in grips {
                 if grip < r(minimum)
@@ -407,12 +401,22 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
             return Err("no valid top roughing surface to prepare the finished grip".into());
         }
 
-        let b = bottom_stock(
-            hi[2] - lo[2],
-            defaults.top_stock,
-            vise["parallels_height_mm"].as_f64(),
-            vise["jaw_height_mm"].as_f64().unwrap(),
-        )?;
+        let jaw = vise["jaw_height_mm"].as_f64().unwrap();
+        let heights = vise["parallels_height_mm"].as_f64().map(|p| vec![p])
+            .unwrap_or_else(|| crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64).collect());
+        let mut candidates = heights;
+        candidates.sort_by(|a,b| b.total_cmp(a));
+        let b = candidates.into_iter().find_map(|p| {
+            let b = bottom_stock(hi[2]-lo[2], defaults.top_stock, Some(p), jaw).ok()?;
+            // Standard stock can add top material: validate the actual rounded blank.
+            let trial = crate::plan::build(analysis, Some(mesh), &Options { bottom_stock:b, ..defaults.clone() }).ok()?;
+            let stock = &trial.setups.iter().find(|s| s.id == "top")?.stock;
+            let h = stock.max[2]-stock.min[2];
+            let rule = crate::rules::workholding();
+            let grip = jaw-p;
+            (grip >= rule["min_grip_mm"].as_f64().unwrap().max(h*rule["min_grip_fraction"].as_f64().unwrap())
+                && grip <= h*rule["max_grip_fraction"].as_f64().unwrap()).then_some(b)
+        }).ok_or("no available parallels height satisfies Op 1 grip limits with standard stock")?;
         let seat = seating(mesh, lo, hi, vise)?;
         let axis = seat["axis"].as_u64().unwrap() as usize;
         if hi[axis] - lo[axis] > vise["max_jaw_opening_mm"].as_f64().unwrap() {
@@ -490,6 +494,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         stock: Box3 { min: [0., 0., r(lo[2] - hi[2])], max: [r(hi[0] - lo[0]), r(hi[1] - lo[1]), 0.] },
         operations: vec![],
         machine: None,
+        stock_size: None,
         stock_note: None,
         flip_role: None,
         part_surface: None,
@@ -498,6 +503,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         before_setup: None,
         grip_surface_model: None,
     });
+    bottom.stock_size = Some(json!({"kind":"remaining", "from_setup":"top"}));
     bottom.stock.max[2] = b;
     // Both jobs carry the complete target surface for camlib's material check.
     if let Some(rough) = setups[0].operations.iter().find(|o| matches!(o.cut, Cut::Roughing(_))) {

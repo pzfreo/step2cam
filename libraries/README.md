@@ -37,11 +37,24 @@ LinuxCNC configuration references are in the entry. No new stored value claims t
 be a LinuxCNC default. Fixed language semantics stay in the upstream controller.
 
 Optional vise `parallels_heights_mm` lists available matched-pair heights in mm; cite
-its inventory under the vise's `_sources`. Without mesh seating, selection takes the tallest height compatible
-with grip limits. Mesh seating defines the flip support geometry and required height;
-an explicit inventory must include that height. Both kinds enter the fixture scene.
-Without seating or inventoried support, support remains explicitly unchecked.
+its inventory under the vise's `_sources`. Fixed `parallels_height_mm` and per-setup
+clamping overrides also win. Otherwise the rulebase's cited LittleMachineShop 1893
+heights (½–1⅝ inch, in ⅛ inch steps) supply standard heights: choose the tallest
+that meets grip limits and, for flips, actual mesh seating. A miss refuses the setup.
+Supports enter the fixture scene. Standard sizes are labelled “standard size, not
+checked against your shop”.
 The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.
+
+The first blank uses the least-area containing cross-section in the rulebase's
+[Metal Stockist UK flat-bar list](https://metalstockist.co.uk/collections/aluminium-flat-bar)
+(read 2026-11-14), trying both orientations with thickness along the tool axis and
+width across the narrower side. Length is sawn up to a whole mm. Extra thickness
+is on top; width and length extra are split equally on both sides, preserving
+minimum margins and sacrificial grip below. A miss keeps the computed stock and
+warns. Later setups carry remaining-material envelopes. These allocation choices
+are step2cam judgement. The library schema has no stock-size inventory; none is added.
+All sizes, original parallel inch heights, exact mm conversions, URLs and read dates
+are in `rust/capp/rulebase/rules/standard-sizes.json`, cited by `setup.standard_sizes`.
 
 
 ## Haas VF-2
@@ -77,8 +90,7 @@ the named coarse pitch, rather than claiming an unverified range.
 The RF100 A 20 mm cutter's 0.45 mm corner chamfer is not represented by the flat-end-mill
 resource type. Vise jaw thickness is conservatively modeled by the planner as
 jaw height; the vise body, mounting, actual support/parallels and a complete
-machine collision envelope are not represented by this library. Missing
-parallels dimensions leave support unmodeled outside mesh-seated flip setups, as reported.
+machine collision envelope are not represented by this library. The cited standard heights supply support dimensions when shop heights are absent.
 
 Omissions: the 6 mm ball mill has no supported resource type. The optional
 16 mm chamfer cutter is absent because the sourced TOYO family stops at 12 mm;
