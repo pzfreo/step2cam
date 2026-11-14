@@ -199,7 +199,24 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
     ]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
-    assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap()-common::extra_frame_web(&out) < 500., "{material}");
+    // The original slot stops at the requested blank bottom. Extra purchased
+    // thickness below that plane is deliberate backing, not an unfinished wall.
+    let top = &out["plan"]["setups"][0];
+    let slot = top["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "slot").unwrap();
+    assert_eq!(slot["bottom"], "through");
+    let num = |v: &Value| v.as_f64().unwrap();
+    let width = num(&slot["width"]);
+    let length = (num(&slot["a"][0])-num(&slot["b"][0])).hypot(num(&slot["a"][1])-num(&slot["b"][1]));
+    for center in [&slot["a"], &slot["b"]] {
+        for i in 0..2 {
+            let local_min = num(&out["plan"]["part"]["min"][i])-num(&top["origin_model"][i]);
+            let local_max = num(&out["plan"]["part"]["max"][i])-num(&top["origin_model"][i]);
+            assert!(num(&center[i])-width/2. >= local_min && num(&center[i])+width/2. <= local_max);
+        }
+    }
+    let extra = -num(&top["stock"]["min"][2])-num(&top["stock_size"]["requested_mm"][2]);
+    let backing = extra*(width*length+std::f64::consts::PI*width*width/4.);
+    assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap()-common::extra_frame_web(&out)-backing < 500., "{material}");
     assert_eq!(process("stepped-plate-chamfered")["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }
 
