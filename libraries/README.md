@@ -386,8 +386,18 @@ machine-axis vise mounting. Final process zeros and pickup methods are documente
 [the M10 policy](../docs/capp-plan.md#setup-zero-and-pickup-m10).
 
 Flip pickup contacts use a previously finished face against the fixed jaw and another
-against a required vise/part stop, set to the recorded coordinate before loading.
+against a required vise/part stop, picked up as its axis zero before loading.
 `clamping.part_stop` is a plan requirement, not sourced library inventory or modeled
 stop hardware. Flip Z is established from the finished seat on modeled parallel tops;
 without a verified finished seat or modeled parallels, stock touch-off explicitly warns
 that bar thickness varies and the part must be measured after facing.
+
+Non-flip setups touch a reachable finished upward face directly before considering a
+parallel transfer. The direct Z stock check allows 0.5 mm of envelope slack (the
+side-setup envelopes in the planset extend at most 0.182 mm above these faces);
+part and fixture checks remain at 0.02 mm. Flips keep the finished parallel seat.
+The stop face is picked up as the recorded axis zero before loading. Its recorded
+`maximum_z_mm` limits the nose top: at most 0.5 mm above `contact_z_mm`, and at
+least 0.5 mm below any sampled stock overhang (`overhang_z_mm`), rounded down
+to 0.1 mm. The sheet states this limit; the stop hardware is not simulated.
+Undatumed face names refer to the model's top/bottom, front/back and left/right.

@@ -56,9 +56,17 @@ fn side_name(axis: usize, sign: f64) -> String {
 }
 fn plane_name(a: &Value, s: &Value, f: &Value, finished: bool) -> String {
     datum(a,&f["id"]).map_or_else(|| {
-        let n=rows(s).map(|r|dot(r,point(&f["direction"]).unwrap()));
-        let axis=(0..3).max_by(|i,j|n[*i].abs().total_cmp(&n[*j].abs())).unwrap();
-        format!("the {}{} face",if finished {"finished "} else {""},side_name(axis,n[axis]))
+        if let Some(name)=f["name"].as_str().filter(|n|!n.is_empty()) {return name.into();}
+        let model=point(&f["direction"]).unwrap();
+        let axis=(0..3).max_by(|i,j|model[*i].abs().total_cmp(&model[*j].abs())).unwrap();
+        let name=if model[axis].abs()>0.999 {
+            [if model[0]<0. {"left"} else {"right"},if model[1]<0. {"front"} else {"back"},if model[2]<0. {"bottom"} else {"top"}][axis].into()
+        } else {
+            let n=rows(s).map(|r|dot(r,model));
+            let axis=(0..3).max_by(|i,j|n[*i].abs().total_cmp(&n[*j].abs())).unwrap();
+            side_name(axis,n[axis])
+        };
+        format!("the {}{name} face",if finished {"finished "} else {""})
     }, |d|format!("datum {d} face"))
 }
 fn pickup(description: String, features: Value, setup: Value, method: &str) -> Value {
@@ -78,7 +86,10 @@ fn fixtures(s: &Value) -> Vec<(P,P)> {
         .filter_map(|b|Some((point(&b["min"])?,point(&b["max"])?))).collect()
 }
 fn above(ts: &[[P;3]], q: P, radius: f64) -> bool {
-    ts.iter().any(|t|t.iter().any(|v|v[2]>q[2]+0.02) && crate::plan::disk_meets_for_test((q[0],q[1]),radius,t))
+    above_with_slack(ts,q,radius,0.02)
+}
+fn above_with_slack(ts: &[[P;3]], q: P, radius: f64, slack: f64) -> bool {
+    ts.iter().any(|t|t.iter().any(|v|v[2]>q[2]+slack) && crate::plan::disk_meets_for_test((q[0],q[1]),radius,t))
 }
 fn box_above(bs: &[(P,P)], q: P, radius: f64) -> bool {
     bs.iter().any(|(lo,hi)|hi[2]>q[2]+0.02 && (0..2).all(|i|q[i]+radius>lo[i] && q[i]-radius<hi[i]))
@@ -180,12 +191,33 @@ fn stop_contact(s: &Value, part: &Value, face: &Face<'_>, axis: usize, stock: &[
         !box_hits(a,b,bs) && !stock.iter().any(|t|segment_hits(a,b,t))
     })
 }
+// Bound the nose both near the verified contact band and below the lowest
+// carried-stock overhang along its horizontal approach (including nose width).
+fn stop_height(stock: &[[P;3]], q: P, axis: usize, sign: f64) -> (f64,Option<f64>) {
+    let mut overhang:Option<f64>=None;
+    for outside in [1.,2.5,4.] {for lateral in [-0.5,0.,0.5] {
+        let mut p=q;p[axis]+=outside*sign;p[1-axis]+=lateral;
+        for t in stock {
+            let [a,b,c]=*t;
+            let den=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);
+            if den.abs()<1e-10 {continue;}
+            let u=((b[1]-c[1])*(p[0]-c[0])+(c[0]-b[0])*(p[1]-c[1]))/den;
+            let v=((c[1]-a[1])*(p[0]-c[0])+(a[0]-c[0])*(p[1]-c[1]))/den;
+            let z=u*a[2]+v*b[2]+(1.-u-v)*c[2];
+            if u>=-1e-8 && v>=-1e-8 && u+v<=1.+1e-8 && z>q[2]+0.02 {
+                overhang=Some(overhang.map_or(z,|old|old.min(z)));
+            }
+        }
+    }}
+    let limit=overhang.map_or(q[2]+0.5,|z|(q[2]+0.5).min(z-0.5));
+    ((limit*10.).floor()/10.,overhang)
+}
 fn axis_pickup(a: &Value, s: &Value, face: &Face<'_>, axis: usize, kind: &str, q: P) -> Value {
     let prior=face.prior["id"].as_str().unwrap();
     let name=plane_name(a,s,face.f,true);
     let description=match kind {
         "fixed_jaw_contact"=>format!("{name} against the fixed jaw (finished in setup {prior}); pick up the fixed jaw before loading the part"),
-        "part_stop_contact"=>format!("{name} against a stop at {}0 (finished in setup {prior}); set the stop before loading the part",["X","Y"][axis]),
+        "part_stop_contact"=>format!("{name} against a stop at {0}0 (finished in setup {prior}); pick up the stop face as {0}0 before loading the part",["X","Y"][axis]),
         _=>format!("{name} (finished in setup {prior}); edge find above the jaws"),
     };
     let mut p=pickup(description,json!([format!("faces:{}",face.f["id"])]),face.prior["id"].clone(),kind);
@@ -242,7 +274,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
         let id=s["id"].as_str().unwrap();let jaw=s["clamping"]["fixed_jaw"].as_str().unwrap_or("x.min");
         let fixed_axis=usize::from(jaw.starts_with('y'));let sign=if jaw.ends_with("max") {1.} else {-1.};
         let mut shift=[0.;3];let mut stop=None;let mut rejected=vec![];
-        let (xy,z,status)=if index==0 {
+        let (mut xy,z,status)=if index==0 {
             shift=point(&s["stock"]["min"]).unwrap();shift[2]=s["stock"]["max"][2].as_f64().unwrap();
             if sign>0. {shift[fixed_axis]=s["stock"]["max"][fixed_axis].as_f64().unwrap();}
             (pickup(format!("the stock corner at the fixed jaw ({}), −{} end",side_name(fixed_axis,sign),["Y","X"][fixed_axis]),json!([]),Value::Null,"stock_edges"),pickup("stock top".into(),json!([]),Value::Null,"touch off stock top"),"located")
@@ -297,16 +329,21 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
                 shift[0]=x.0.p[0];shift[1]=y.0.p[1];
                 let xp=axis_pickup(analysis,s,x.0,0,x.1,x.2);let yp=axis_pickup(analysis,s,y.0,1,y.1,y.2);
                 for (axis,choice) in [(0,x),(1,y)] {if choice.1=="part_stop_contact" {
-                    stop=Some(json!({"axis":(["x","y"][axis]),"coordinate_mm":0.,"feature":format!("faces:{}",choice.0.f["id"]),"finished_in":choice.0.prior["id"],"contact_z_mm":choice.2[2],"required":true}));
+                    let (limit,overhang)=stop_height(&stock,choice.2,axis,choice.0.n[axis]);
+                    let mut record=json!({"axis":(["x","y"][axis]),"coordinate_mm":0.,"feature":format!("faces:{}",choice.0.f["id"]),"finished_in":choice.0.prior["id"],"contact_z_mm":choice.2[2],"maximum_z_mm":limit,"required":true});
+                    if let Some(z)=overhang {record["overhang_z_mm"]=json!(z);}
+                    stop=Some(record);
                 }}
                 let mut p=pickup(format!("{} · {}",xp["description"].as_str().unwrap(),yp["description"].as_str().unwrap()),json!([format!("faces:{}",x.0.f["id"]),format!("faces:{}",y.0.f["id"])]),json!([x.0.prior["id"],y.0.prior["id"]]),if x.1=="probe_face" && y.1=="probe_face" {"probe_faces"} else if x.1=="probe_face" || y.1=="probe_face" {"mixed_references"} else {"fixture_contacts"});
                 p["axes"]=json!({"x":xp,"y":yp});Some(p)
             } else {None};
-            let mut z=parallel_zero(s,analysis,&faces);
-            if z.is_none() && !s["flip_seating"].is_object()
-                && let Some(f)=faces.iter().find(|f|f.n[2]>0.999 && f.p[2]>jaw_top+1. && !above(&stock,f.p,0.5) && !above(&part,f.p,0.5) && !box_above(&bs,f.p,0.5)) {
-                shift[2]=f.p[2];z=Some(pickup(format!("{} (finished in setup {})",plane_name(analysis,s,f.f,true),f.prior["id"].as_str().unwrap()),json!([format!("faces:{}",f.f["id"])]),f.prior["id"].clone(),"probe_face"));
-            }
+            // Side-setup envelopes include sub-mm slack (up to 0.182 mm in
+            // the fixtures). Allow 0.5 mm only for stock above a finished Z
+            // face; actual part and fixture obstructions retain 0.02 mm checks.
+            let direct=(!s["flip_seating"].is_object()).then(||faces.iter().find(|f|f.n[2]>0.999 && f.p[2]>jaw_top+1. && !above_with_slack(&stock,f.p,0.5,0.5) && !above(&part,f.p,0.5) && !box_above(&bs,f.p,0.5))).flatten();
+            let mut z=if let Some(f)=direct {
+                shift[2]=f.p[2];Some(pickup(format!("{} (finished in setup {})",plane_name(analysis,s,f.f,true),f.prior["id"].as_str().unwrap()),json!([format!("faces:{}",f.f["id"])]),f.prior["id"].clone(),"probe_face"))
+            } else {parallel_zero(s,analysis,&faces)};
             if xy.is_none() {
                 shift=[0.;3];stop=None;
                 if z.as_ref().is_some_and(|z|z["method"]=="probe_face") {z=None;}
@@ -319,6 +356,14 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
             let status=if xy.is_some() {"located"} else {"warning"};
             (xy.unwrap_or_else(||pickup("recorded X/Y; re-zero on the stock edge".into(),json!([]),Value::Null,"manual_rezero")),z,status)
         };
+        if let Some(record)=&stop {
+            let axis=record["axis"].as_str().unwrap();
+            let height=record["maximum_z_mm"].as_f64().unwrap()-shift[2];
+            let label=crate::plan::display_position(height).replace('-',"−");
+            let description=xy["axes"][axis]["description"].as_str().unwrap();
+            xy["axes"][axis]["description"]=json!(format!("{description}; stop below Z{}{label}",if height>=0. {"+"} else {""}));
+            xy["description"]=json!(format!("{} · {}",xy["axes"]["x"]["description"].as_str().unwrap(),xy["axes"]["y"]["description"].as_str().unwrap()));
+        }
         let mut zero=json!({"status":status,"xy":xy,"z":z,"offset_in_previous_frame_mm":shift});
         let decision=trace.decide("setup.datum_pickup",id,"chosen","locate from reachable finished references or prepared fixed-jaw, stop and parallel contacts before loading; translate the frame only",json!({"chosen":zero,"rejected_pickups":rejected}));
         zero["because"]=json!([decision]);plan["setups"][index]["zero"]=zero;
@@ -331,6 +376,24 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn direct_z_allows_only_small_stock_envelope_slack() {
+        let slack=triangles(&json!({"min_mm":[-2.,-2.,-2.],"max_mm":[2.,2.,0.182]}));
+        assert!(above(&slack,[0.;3],0.5));
+        assert!(!above_with_slack(&slack,[0.;3],0.5,0.5));
+        let cap=triangles(&json!({"min_mm":[-2.,-2.,0.],"max_mm":[2.,2.,0.6]}));
+        assert!(above_with_slack(&cap,[0.;3],0.5,0.5));
+        assert!(box_above(&[([-2.,-2.,-2.],[2.,2.,0.182])],[0.;3],0.5));
+    }
+    #[test]
+    fn stop_nose_stays_below_overhang_and_near_contact_band() {
+        let cap=triangles(&json!({"min_mm":[-5.,-5.,-1.8],"max_mm":[5.,5.,2.]}));
+        let (limit,overhang)=stop_height(&cap,[0.,0.,-2.],0,-1.);
+        assert!((overhang.unwrap()+1.8).abs()<1e-9);
+        assert!(limit<=-2.3);
+        let (limit,overhang)=stop_height(&[],[0.,0.,-2.04],0,-1.);
+        assert_eq!(overhang,None);assert_eq!(limit,-1.6);
+    }
     #[test]
     fn capped_faces_and_fixture_obstructions_are_not_probe_pickups() {
         let f=json!({"id":0});let prior=json!({"id":"top"});

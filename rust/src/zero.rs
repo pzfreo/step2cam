@@ -32,7 +32,7 @@ fn geometry(v: &mut Value, d: [f64;3]) {
                     "levels" => {if let Some(zs)=v.as_array_mut() {for z in zs {number(z,d[2]);}}},
                     "floor_z" | "top_z" | "bottom_z" | "bore_top_z" | "root_z" | "wall_top" | "jaw_top_z" | "contact_min_z" |
                     "floor_z_mm" | "top_z_mm" | "bottom_z_mm" | "depth_z_mm" | "clearance_z_mm" | "retract_z_mm" | "feed_z_mm" |
-                    "contact_z_mm" | "base_z_mm" | "gauge_z_mm" | "z_min_mm" | "z_max_mm" => number(v,d[2]),
+                    "maximum_z_mm" | "overhang_z_mm" | "contact_z_mm" | "base_z_mm" | "gauge_z_mm" | "z_min_mm" | "z_max_mm" => number(v,d[2]),
                     _ => geometry(v,d),
                 }
             }
@@ -72,11 +72,12 @@ mod tests {
     use super::*;
     #[test]
     fn nested_boundaries_translate_xy_without_changing_bulges() {
-        let mut g=json!({"outer":{"vertices":[[1.,2.,0.5],[4.,5.,0.]]},"surface":{"indices":[[0,1,2]],"vertices":[[1.,2.,3.]]},"tools":[{"holders":[{"z_min_mm":8.}]}]});
+        let mut g=json!({"outer":{"vertices":[[1.,2.,0.5],[4.,5.,0.]]},"surface":{"indices":[[0,1,2]],"vertices":[[1.,2.,3.]]},"tools":[{"holders":[{"z_min_mm":8.}]}],"clamping":{"part_stop":{"contact_z_mm":-2.,"maximum_z_mm":-1.5,"overhang_z_mm":0.}}});
         geometry(&mut g,[1.,2.,3.]);
         assert_eq!(g["outer"]["vertices"],json!([[0.,0.,0.5],[3.,3.,0.]]));
         assert_eq!(g["surface"]["vertices"],json!([[0.,0.,0.]]));
         assert_eq!(g["tools"][0]["holders"][0]["z_min_mm"],8.);
+        assert_eq!(g["clamping"]["part_stop"],json!({"contact_z_mm":-5.,"maximum_z_mm":-4.5,"overhang_z_mm":-3.}));
     }
     #[test]
     fn relocation_translates_every_motion_and_preserves_its_metadata() {

@@ -4,10 +4,10 @@ fn read(p: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(p)).unwrap()).unwrap()
 }
 #[test]
-fn stepped_plate_pickups_are_recorded_for_both_machines() {
+fn stepped_plate_pickups_are_recorded_for_every_library() {
     let a=read("tests/fixtures/synthetic/stepped-plate.analysis.json");
     let m=read("tests/fixtures/synthetic/stepped-plate.mesh.json");
-    for lib in ["demo/tools.json","libraries/haas-vf2.json"] {
+    for lib in ["demo/tools.json","libraries/haas-vf2.json","libraries/linuxcnc-vmc.json","tests/fixtures/placeholder-tools.json"] {
         let out=step2cam::process(&a,&m,&read(lib)).unwrap();
         assert!(out["error"].is_null(),"{lib}: {}",out["error"]);
         let setups=out["plan"]["setups"].as_array().unwrap();
@@ -34,6 +34,14 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(bottom["clamping"]["part_stop"]["axis"],"y");
         assert_eq!(bottom["clamping"]["part_stop"]["coordinate_mm"],0.);
         assert_eq!(bottom["clamping"]["part_stop"]["feature"],"faces:5");
+        let stop=&bottom["clamping"]["part_stop"];
+        let height=stop["maximum_z_mm"].as_f64().unwrap();
+        assert!(height>stop["contact_z_mm"].as_f64().unwrap());
+        assert!(height<=stop["contact_z_mm"].as_f64().unwrap()+0.5);
+        assert!(height<=stop["overhang_z_mm"].as_f64().unwrap()-0.5);
+        let text=y["description"].as_str().unwrap();
+        assert!(text.contains("pick up the stop face as Y0 before loading"));
+        assert!(text.contains("stop below Z−"));
         let decision=out["plan"]["decisions"].as_array().unwrap().iter().find(|d|d["id"]==bottom["zero"]["because"][0]).unwrap();
         for id in ["faces:0","faces:5"] {assert!(decision["rejected_pickups"].as_array().unwrap().iter().any(|r|r["feature"]==id));}
         let z=&bottom["zero"]["z"];
@@ -76,22 +84,16 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(front["zero"]["xy"]["finished_in"],json!(["top","bottom"]));
         assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"part_stop_contact");
         assert_eq!(front["zero"]["xy"]["axes"]["y"]["method"],"probe_face");
-        if lib=="libraries/haas-vf2.json" {
-            assert_eq!(front["zero"]["z"]["method"],"parallel_seat");
-            assert_eq!(front["zero"]["z"]["target_features"],json!(["faces:11"]));
-            assert_eq!(front["zero"]["z"]["offset_mm"],56.);
-            assert_eq!(front["zero"]["z"]["finished_in"],"top");
-            assert!(front["zero"]["z"]["features"].as_array().unwrap().contains(&json!("faces:9")));
-        } else {
-            // This library's front support is explicitly unmodeled. The approved
-            // fallback must warn, rather than claim a parallel or a finished Z pickup.
-            assert_eq!(front["clamping"]["parallels"],json!([]));
-            assert_eq!(front["zero"]["z"]["method"],"stock_touch_off");
-            assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]));
-            assert!(front["zero"]["z"]["finished_in"].is_null());
-            assert!(front["zero"]["z"]["description"].as_str().unwrap().contains("measure the part after facing; bar thickness varies"));
-            assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().starts_with("setup front: no finished seat on modelled parallels")));
-        }
+        assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");
+        assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]),"{lib}");
+        assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
+        assert!(!out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().starts_with("setup front: no finished seat")));
+        let chamfered=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate-chamfered.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate-chamfered.mesh.json"),&read(lib)).unwrap();
+        assert!(chamfered["error"].is_null(),"{lib}: {}",chamfered["error"]);
+        let front=chamfered["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
+        assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");
+        assert_eq!(front["zero"]["z"]["features"],json!(["faces:6"]),"{lib}");
+        assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
         assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
         for s in setups {assert!(s["zero"].is_object());}
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();

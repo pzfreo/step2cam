@@ -796,7 +796,7 @@ lift, overturning, chatter and support flatness remain unchecked.
 
 ## Setup zero and pickup (M10)
 
-`setup.datum_pickup@2` records each final setup's `zero.xy`, `zero.z`, status,
+`setup.datum_pickup@3` records each final setup's `zero.xy`, `zero.z`, status,
 trace and old-frame origin offset. X/Y face references include per-axis `axes.x`
 and `axes.y` records: feature id, earlier finishing setup, method, fixture coordinate
 and contact point in the construction frame. `clamping.part_stop` identifies the
@@ -824,7 +824,7 @@ Coordinator decision, step2cam judgement: when finished references are hidden,
 locate the part by contact before loading. A face finished earlier and matched to
 prepared jaw-contact patches may locate the fixed-jaw axis. Pick up that fixed jaw
 before loading, or use its known coordinate. A finished external face against a stop
-locates the other axis: set the recorded stop coordinate before loading. Prefer drawing
+locates the other axis: pick up the stop face as the recorded axis zero before loading. Prefer drawing
 datums. The stop's horizontal contact band must clear stock and modeled fixtures;
 a probe's vertical path through a cap is not required for a stop set before loading.
 Missing usable references retain the entire frame and warn. Roughing is never finishing
@@ -837,10 +837,20 @@ loading. Example: stepped plate datum A is 12 mm above parallel tops at Z−12; 
 is face 1, finished in top. This removes raw-bar thickness from final-thickness setting.
 No modeled parallels or no finished seat falls back to stock touch-off with an explicit
 “measure the part after facing; bar thickness varies” instruction and warning.
-Other setups may touch a reachable finished upward plane.
+Other setups prefer touching a reachable finished upward plane directly, even when parallels are modeled.
 
 `setup.stock.part_box_with_margins@2` describes temporary construction frames and
 stock envelopes, not an assumed later pickup on the part box. Final coordinate
 relocation follows workholding selection and retained execution: all plan geometry,
 saved jobs and motions translate together. Historical trace evidence keeps its
 construction frame. No automatic probing cycle or stop hardware geometry is generated.
+
+Non-flip setups touch a reachable finished upward face directly before considering a
+parallel transfer. The direct Z stock check allows 0.5 mm of envelope slack (the
+side-setup envelopes in the planset extend at most 0.182 mm above these faces);
+part and fixture checks remain at 0.02 mm. Flips keep the finished parallel seat.
+The stop face is picked up as the recorded axis zero before loading. Its recorded
+`maximum_z_mm` limits the nose top: at most 0.5 mm above `contact_z_mm`, and at
+least 0.5 mm below any sampled stock overhang (`overhang_z_mm`), rounded down
+to 0.1 mm. The sheet states this limit; the stop hardware is not simulated.
+Undatumed face names refer to the model's top/bottom, front/back and left/right.
