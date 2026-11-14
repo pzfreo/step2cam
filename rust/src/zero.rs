@@ -90,6 +90,10 @@ mod tests {
         original["plan"]["setups"][0]["clamping"]["fixed_jaw"]=json!("y.max");
         let mut moved=original.clone();
         apply(&mut moved,&a,&m);
+        let width=original["plan"]["setups"][0]["stock"]["max"][1].as_f64().unwrap();
+        assert!(width>0.);
+        assert_eq!(moved["plan"]["setups"][0]["zero"]["offset_in_previous_frame_mm"],json!([0.,width,0.]));
+        assert_eq!(moved["plan"]["setups"][0]["stock"]["max"][1],0.);
         assert_eq!(original["plan"]["skipped"],moved["plan"]["skipped"]);
         assert_eq!(original["error"],moved["error"]);
         assert_eq!(original["programs"].as_array().unwrap().len(),moved["programs"].as_array().unwrap().len());
