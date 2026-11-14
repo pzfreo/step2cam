@@ -59,7 +59,7 @@ fn stock_touch(s: &Value, analysis: &Value) -> Value {
         f["kind"]=="plane" && point(&f["direction"]).is_some_and(|n|dot(rows(s)[2],n)>0.999)
             && point(&f["centroid"]).is_some_and(|p|local(s,p)[2].abs()<0.02)
     }).collect();
-    faces.sort_by_key(|f|datum(analysis,&f["id"]).map_or_else(||"~".into(),|d|d));
+    faces.sort_by_key(|f|datum(analysis,&f["id"]).unwrap_or_else(||"~".into()));
     let (name,ids)=faces.first().map_or_else(||("recorded Z plane".into(),json!([])),|f|
         (format!("{} (not yet finished)",face_name(analysis,f)),json!([format!("faces:{}",f["id"])])));
     let top=s["stock"]["max"][2].as_f64().unwrap();
