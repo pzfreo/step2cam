@@ -102,9 +102,9 @@ pub struct Plan {
 pub struct Setup {
     /// The face that is up: `top`, `bottom`, `front`, `back`, `left` or `right`.
     pub id: String,
-    /// What the setup's zero is on: `stock` or `part`. Rule 1.
+    /// Pickup record after execution; legacy `stock`/`part` during planning. Rule 1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub zero: Option<String>,
+    pub zero: Option<Value>,
     /// The rotation from the model's axes to the setup's, by rows; each entry -1, 0 or 1. Rule 1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<[[i8; 3]; 3]>,

@@ -9,6 +9,7 @@ pub mod post_machine;
 pub mod simulate;
 mod workholding;
 mod setup_stock;
+mod zero;
 
 use capp::kind::OpKind;
 use capp::model::{Cut, Exclusion, Plan, Setup};
@@ -152,7 +153,9 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
-    workholding::process(analysis, mesh, library)
+    let mut out = workholding::process(analysis, mesh, library)?;
+    zero::apply(&mut out, analysis, mesh);
+    Ok(out)
 }
 
 /// Both positive preparation evidence and an executable facing are required.

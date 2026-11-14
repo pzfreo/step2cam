@@ -122,7 +122,7 @@ fn a_hole_says_which_setup_and_which_tool() {
     let decisions: HashMap<&str, &Value> = plan["decisions"].as_array().unwrap().iter().map(|d| (d["id"].as_str().unwrap(), d)).collect();
     let holes = plan["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "holes" && o["tool"] == "drill4.2").unwrap();
     let rules: Vec<&str> = holes["because"].as_array().unwrap().iter().map(|id| decisions[id.as_str().unwrap()]["rule"].as_str().unwrap()).collect();
-    for rule in ["setup.stock.part_box_with_margins@1", "sequence.fixed_order@1", "process.holes@1", "setup.hole.first_reachable@1", "tool.hole.drill_or_bore@2", "process.hole.peck_by_depth@3"] {
+    for rule in ["setup.stock.part_box_with_margins@2", "sequence.fixed_order@1", "process.holes@1", "setup.hole.first_reachable@1", "tool.hole.drill_or_bore@2", "process.hole.peck_by_depth@3"] {
         assert!(rules.contains(&rule), "{rule} not in {rules:?}");
     }
 }
