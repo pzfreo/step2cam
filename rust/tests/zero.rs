@@ -76,11 +76,22 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(front["zero"]["xy"]["finished_in"],json!(["top","bottom"]));
         assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"part_stop_contact");
         assert_eq!(front["zero"]["xy"]["axes"]["y"]["method"],"probe_face");
-        assert_eq!(front["zero"]["z"]["method"],"parallel_seat");
-        assert_eq!(front["zero"]["z"]["target_features"],json!(["faces:11"]));
-        assert_eq!(front["zero"]["z"]["offset_mm"],56.);
-        assert_eq!(front["zero"]["z"]["finished_in"],"top");
-        assert!(front["zero"]["z"]["features"].as_array().unwrap().contains(&json!("faces:9")));
+        if lib=="libraries/haas-vf2.json" {
+            assert_eq!(front["zero"]["z"]["method"],"parallel_seat");
+            assert_eq!(front["zero"]["z"]["target_features"],json!(["faces:11"]));
+            assert_eq!(front["zero"]["z"]["offset_mm"],56.);
+            assert_eq!(front["zero"]["z"]["finished_in"],"top");
+            assert!(front["zero"]["z"]["features"].as_array().unwrap().contains(&json!("faces:9")));
+        } else {
+            // This library's front support is explicitly unmodeled. The approved
+            // fallback must warn, rather than claim a parallel or a finished Z pickup.
+            assert_eq!(front["clamping"]["parallels"],json!([]));
+            assert_eq!(front["zero"]["z"]["method"],"stock_touch_off");
+            assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]));
+            assert!(front["zero"]["z"]["finished_in"].is_null());
+            assert!(front["zero"]["z"]["description"].as_str().unwrap().contains("measure the part after facing; bar thickness varies"));
+            assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().starts_with("setup front: no finished seat on modelled parallels")));
+        }
         assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
         for s in setups {assert!(s["zero"].is_object());}
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
