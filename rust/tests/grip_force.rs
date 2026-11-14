@@ -97,7 +97,9 @@ fn no_force_warns_once_per_setup_and_keeps_facing_data() {
         for setup in out["plan"]["setups"].as_array().unwrap().iter().filter(|s| s["clamping"].is_object()) {
             let warnings: Vec<_> = ds.iter().filter(|d| d["subject"]==setup["id"]).collect();
             assert_eq!(warnings.len(), 1);
-            assert!(warnings[0]["says"].as_str().unwrap().starts_with("grip not checked against the cut: the library gives no clamping force for "));
+            let vise = &lib["machines"][0]["workholding"][0];
+            let name = vise["name"].as_str().or(vise["id"].as_str()).unwrap_or("vise");
+            assert_eq!(warnings[0]["says"], format!("setup {}: grip not checked against the cut: the library gives no clamping force for {name}", setup["id"].as_str().unwrap()));
             for face in setup["operations"].as_array().unwrap().iter().filter(|o| o["kind"]=="facing") {
                 let tool = lib["tools"].as_array().unwrap().iter().find(|t| t["id"]==face["tool"]).unwrap();
                 near(num(&face["technology"]["stepdown_mm"]), num(&tool["stepdown_mm"]));
@@ -264,7 +266,9 @@ fn missing_material_reference_warns_once_per_setup_not_per_operation() {
     let setups:Vec<_>=out["plan"]["setups"].as_array().unwrap().iter().filter(|s| s["clamping"].is_object()).collect();
     assert_eq!(warnings.len(),setups.len());
     for setup in setups {
-        assert_eq!(warnings.iter().filter(|d| d["subject"]==setup["id"]).count(),1);
+        let own:Vec<_>=warnings.iter().filter(|d| d["subject"]==setup["id"]).collect();
+        assert_eq!(own.len(),1);
+        assert_eq!(own[0]["says"],format!("setup {}: grip not checked against the cut: no steel-jaw friction and cutting-force reference for Steel",setup["id"].as_str().unwrap()));
     }
 }
 #[test]
@@ -278,7 +282,9 @@ fn unspecified_material_is_named_in_the_grouped_warning() {
     let warnings:Vec<_>=ds.iter().filter(|d| d["outcome"]=="warning").collect();
     let setups=out["plan"]["setups"].as_array().unwrap().iter().filter(|s| s["clamping"].is_object()).count();
     assert_eq!(warnings.len(),setups);
-    assert!(warnings.iter().all(|d| d["says"].as_str().unwrap().ends_with("for unspecified material")));
+    for d in warnings {
+        assert_eq!(d["says"],format!("setup {}: grip not checked against the cut: no steel-jaw friction and cutting-force reference for unspecified material",d["subject"].as_str().unwrap()));
+    }
 }
 #[test]
 fn runtime_engagement_is_evidence_without_false_alarms_on_both_parts() {

@@ -31,12 +31,13 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
     let kc1 = rule["kc1_n_mm2"].as_f64().unwrap();
     let mc = rule["mc"].as_f64().unwrap();
     let quantum = rule["facing_depth_quantum_mm"].as_f64().unwrap();
-    let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("").to_lowercase();
-    let aluminium = material.contains("aluminium") || material.contains("aluminum");
+    let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("");
+    let material_lower = material.to_lowercase();
+    let aluminium = material_lower.contains("aluminium") || material_lower.contains("aluminum");
     for setup in &mut plan.setups {
         if !setup.clamping.as_ref().is_some_and(Value::is_object) { continue; }
         let Some(clamp) = vise["clamp_force_n"].as_f64().filter(|_| vise["_sources"]["clamp_force"]["url"].is_string()) else {
-            trace.warn(RULE, &setup.id, format!("grip not checked against the cut: the library gives no clamping force for {name}"), json!({}));
+            trace.warn(RULE, &setup.id, format!("setup {}: grip not checked against the cut: the library gives no clamping force for {name}", setup.id), json!({}));
             continue;
         };
         let faces = setup.clamping.as_ref().unwrap()["faces"].as_array().map_or(0, Vec::len);
@@ -49,8 +50,8 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
         setup.clamping.as_mut().unwrap()["force_check"] = detail.clone();
         let mut top = setup.stock.max[2];
         if !aluminium {
-            let material_name = if material.is_empty() { "unspecified material" } else { material.as_str() };
-            trace.warn(RULE, &setup.id, format!("grip not checked against the cut: no steel-jaw friction and cutting-force reference for {material_name}"), detail.clone());
+            let material_name = if material.is_empty() { "unspecified material" } else { material };
+            trace.warn(RULE, &setup.id, format!("setup {}: grip not checked against the cut: no steel-jaw friction and cutting-force reference for {material_name}", setup.id), detail.clone());
         }
         for (index, op) in setup.operations.iter_mut().enumerate() {
             let subject = format!("{}-{}-{}", setup.id, index+1, op.cut.kind().name());
