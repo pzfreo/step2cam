@@ -17,6 +17,7 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(top["stock"]["min"][1],0.);
         assert_eq!(top["stock"]["max"][2],0.);
         assert_eq!(top["zero"]["z"]["description"],"stock top");
+        assert_eq!(top["zero"]["xy"]["description"],"the stock corner at the fixed jaw (−Y), −X end");
         let bottom=setups.iter().find(|s|s["id"]=="bottom").unwrap();
         let cap_warnings:Vec<_>=out["plan"]["decisions"].as_array().unwrap().iter().filter(|d|d["subject"]=="bottom" && d["outcome"]=="warning" && d["says"].as_str().unwrap().contains("covers finished bore pickup mouths")).collect();
         assert_eq!(cap_warnings.len(),1);
@@ -70,10 +71,25 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
             assert!(z["description"].as_str().unwrap().contains("measure the part after facing; bar thickness varies"));
             assert!(fallback["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("setup bottom: no finished seat")));
         }
+        let front=setups.iter().find(|s|s["id"]=="front").unwrap();
+        assert_eq!(front["zero"]["xy"]["features"],json!(["faces:0","faces:4"]));
+        assert_eq!(front["zero"]["xy"]["finished_in"],json!(["top","bottom"]));
+        assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"part_stop_contact");
+        assert_eq!(front["zero"]["xy"]["axes"]["y"]["method"],"probe_face");
+        assert_eq!(front["zero"]["z"]["method"],"parallel_seat");
+        assert_eq!(front["zero"]["z"]["target_features"],json!(["faces:11"]));
+        assert_eq!(front["zero"]["z"]["offset_mm"],56.);
+        assert_eq!(front["zero"]["z"]["finished_in"],"top");
+        assert!(front["zero"]["z"]["features"].as_array().unwrap().contains(&json!("faces:9")));
+        assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
         for s in setups {assert!(s["zero"].is_object());}
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
         let errors:Vec<_>=validator.iter_errors(&out["plan"]).map(|e|format!("{e} at {}",e.instance_path())).collect();
         assert!(errors.is_empty(),"{}",errors.join("\n"));
+        let mut bad=out["plan"].clone();
+        let d=bad["decisions"].as_array_mut().unwrap().iter_mut().find(|d|d["subject"]=="bottom" && d["rejected_pickups"].as_array().is_some_and(|r|!r.is_empty())).unwrap();
+        d["rejected_pickups"][0]["unrecognised"]=json!(true);
+        assert!(!validator.is_valid(&bad),"rejection evidence remains strictly validated");
         let typed:capp::model::Plan=serde_json::from_value(out["plan"].clone()).unwrap();
         assert_eq!(serde_json::to_value(typed).unwrap(),out["plan"]);
     }
