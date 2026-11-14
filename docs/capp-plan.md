@@ -704,3 +704,73 @@ builder rebuilds the closed mesh on that source grid. The receiving stock note d
 "the part is free, so stock outside its footprint is dropped". This is an explicit
 separation premise, not a simulated manual toolpath or an added machining plan.
 Capp's frame/box decision remains unchanged; execution premises live in `stock_note`.
+
+
+### Vise grip against the cut (M3)
+
+`machine.grip_vs_cut` screens each gripped setup after tool resolution. A vise may
+supply positive `clamp_force_n` and optional `clamp_torque_nm`, with maker URL, date read
+and explanation in `_sources.clamp_force`. Missing force gives one “grip not checked
+against the cut: the library gives no clamping force for <vise>” warning per setup;
+cutting data remain unchanged. The demo placeholder has no force.
+
+The Haas DX6 uses Kurt’s manual row **3440 lbf = 15301.88235649612 N at
+40 ft·lbf = 54.232717933256 Nm**. Choosing 40 ft·lbf is step2cam judgement:
+a moderate hand tightening, half the rated maximum of 80 ft·lbf. The
+[Kurt DX6 manual](https://docs.travers.com/assets/pdf/61-421-171_manual.pdf), read
+2026-11-13, gives this force table on printed/PDF p4 and supplied-handle guidance
+on p5. The manual's 10 ft·lbf row is 512 lbf; it supersedes the rounded product-page
+table for this plan. Both `setups[].clamping.force_check` and candidate `grips[].force_check`
+carry clamp force, assumed torque, friction, holding/allowable forces and source,
+alongside the trace, for a future setup-sheet line. This does not change the setup sheet.
+
+Holding force is `μ × clamp_force_n × contacted jaw faces`. Use **μ = 0.095**:
+SMW-AUTOBLOK KNCS-N manual p32, rough to medium machined side / smooth steel jaws
+0.10 with aluminium correction 0.95, appropriate for the machined or sawn side.
+The 0.07 cell is for ground/smooth-finished workpieces, not this premise.
+This agrees with the 0.1 steel/aluminium fixturing model in
+[Zeng et al.](https://www.jstage.jst.go.jp/article/ijat/15/6/15_860/_pdf/-char/en).
+The [SMW manual](https://hod-industrial.hu/wp-content/uploads/2023/06/HOD-SMW_kncs-n_en.pdf)
+also gives safety factor 1.5–2; choose **2**. Both read 2026-11-13. Applying these
+workholding values to a vise is step2cam judgement. Grip height does not multiply
+Coulomb friction capacity: small contact area still needs pressure and moment checks.
+
+The [ISCAR aluminium guide](https://www.iscar.ru/Catalogs/Publication/english_1/ALUMINUM_MACHINING/ALUMINUM_MACHINING.pdf),
+p161, USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought ISO N group 22
+**kc₁ = 800 N/mm², m꜀ = 0.25**. That row is our conservative aluminium proxy
+(step2cam judgement); other materials warn that no applicable reference is implemented.
+For milling, `fz = feed/(rpm × flutes)`, `φ = acos(1 − 2ae/D)`,
+`h = fz(1 − cos φ)/φ`, `kc = kc₁h^(−m꜀)` and
+`F = kc × ap × ae × feed/(π × D × rpm)` N, equivalent to removal power / cutting speed.
+Only operations with engagement known from the plan are compared: **facing, flats,
+slots, notches, V-channels, wall finishing and chamfers**. They use their resolved
+feed, rpm and engagement below the faced surface or their own lower opening.
+Facing/flats use `ae = min(stepover, D)`, slots/notches/V-channels their plan width
+capped by D, walls the radial allowance, and chamfers D. Flats retain the roughing
+step envelope. These envelopes and default milling flute count 3 (matching the
+adapter) are step2cam judgement, recorded in the rule.
+
+**Roughing of every kind, helix-milled holes/counterbores and thread milling are not
+compared before execution.** Their engagement depends on the stock and passes camlib
+chooses at run time. Each records “engagement decided by camlib; not checked against
+the grip before camlib runs”, as evidence with no estimated force or over-capacity
+warning. Entry access, a guessed slot width and nominal helix pitch cannot establish
+actual engagement. A follow-up will check the grip against camlib's actual emitted
+moves; this pre-execution rule does not do that check.
+
+**Drilling, spotting and tapping are thrust into the supports**, not a sideways grip
+load. They record “thrust into the supports; not a sliding load on the grip”, without
+a sliding over-capacity warning. Opposing drill lip forces form a torque couple.
+Neither torque capacity nor support thrust capacity is checked.
+
+Compare **2F** with holding force. Facing above capacity gets the largest fitting depth,
+rounded down to **0.05 mm** (step2cam judgement), with the final pass taking the remainder.
+The trace gives original and per-pass force, depth and pass count; the adapter consumes
+the capped stepdown. If even 0.05 mm cannot fit, warn with the cutting and holding forces
+that the facing “cannot be held at any depth” and leave it as planned; do not fail the plan.
+Other milling operations warn with both forces, the assumed diameter/depth/width,
+the tightening premise, and a computed maximum stepdown remedy,
+while keeping their cutting data. Materials without a force/friction reference get
+one not-checked warning per gripped setup. This checks
+estimated mean tangential sliding load; peak forces, thrust, contact pressure, deformation,
+lift, overturning, chatter and support flatness remain unchecked.

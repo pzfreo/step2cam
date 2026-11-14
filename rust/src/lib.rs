@@ -223,7 +223,10 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 error = Some("replanning stopped: the plan without the flip still asks for one".into());
                 break;
             }
-            let reason=plan.warnings.iter().map(String::as_str).filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
+            let grip_rule=capp::trace::cite("machine.grip_vs_cut");
+            let reason=plan.warnings.iter().map(String::as_str)
+                .filter(|w| !plan.decisions.iter().flatten().any(|d| d["rule"]==grip_rule && d["outcome"]=="warning" && d["says"]==*w))
+                .filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
             planned=capp::flip::build_fallback(analysis,mesh,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.

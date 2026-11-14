@@ -330,6 +330,18 @@ choice and alternatives; selecting another available option replans it. Both vis
 routes require a dimensioned vise in the first mill. Fixture plates and margins/tabs
 are listed with their implementation blockers, without simulated results.
 
+Vise setups compare cited clamping force with estimated tangential load for
+plan-known engagement: facing, flats, slots/notches, V-channels, walls and chamfers
+(`machine.grip_vs_cut`). The Haas DX6 plans 3440 lbf at 40 ft·lbf: moderate hand
+tightening, half its rated maximum (step2cam judgement). Facing is stepped down
+when feasible; other checked cuts warn with a remedy. Drilling, spotting and tapping
+record thrust into supports. Roughing of every kind, helix-milled holes/counterbores
+and thread milling are **not checked before camlib runs**: engagement depends on its
+actual moves, which a follow-up will check. The demo vise has no published force and
+warns “grip not checked against the cut” once per setup, keeping its cutting data.
+Contact pressure, lift and turning moments remain unchecked. See
+[formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).
+
 Supply a choice with `decisions`:
 `{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"shop preference"}`.
 The checked choice and its provenance are stored in `plan.supplied_decisions` for replay.

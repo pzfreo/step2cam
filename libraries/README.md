@@ -334,3 +334,29 @@ omitted; successful validation does not prove a collision-safe physical machine.
 
 camlib's Rust side has no ready-made LinuxCNC dialect yet (Python has
 `GCodeDialect.linuxcnc()`), so production dialect selection waits for camlib; see #52.
+
+
+### Vise force provenance
+
+Optional vise `clamp_force_n` is a published normal force at each jaw; `clamp_torque_nm`
+states the torque associated with that force. Positive finite values and a citation in
+`_sources.clamp_force` (`url`, `read`, `note`) are required when a force is present.
+Never infer force from dimensions or put a guessed value on a placeholder vise.
+
+The Haas Kurt DX6 uses the [Kurt DX6 manual](https://docs.travers.com/assets/pdf/61-421-171_manual.pdf),
+read **2026-11-13**, printed/PDF p4 force table: **3440 lbf at 40 ft·lbf**, converted to
+**15301.88235649612 N at 54.232717933256 Nm**. Choosing 40 ft·lbf is step2cam judgement:
+moderate hand tightening, half the rated maximum 80 ft·lbf. The manual's 10 ft·lbf row is
+512 lbf; the manual table supersedes the product-page figures. Its p5 says the supplied
+handle with correct torque provides the needed force; no extensions or impacts. Apply
+the planned torque and verify actual grip. Force and torque are paired in the setup's
+clamping and candidate grip data. The demo’s unvalidated vise has no force and gets a
+not-checked warning, with no cutting-data changes.
+
+[The grip rule](../docs/capp-plan.md#vise-grip-against-the-cut-m3) documents μ = 0.095
+(machined/sawn aluminium side in smooth steel jaws), safety factor 2 and ISCAR
+aluminium cutting constants. Facing and other plan-known engagements are checked;
+axial cycles are thrust into supports. Roughing, helix-milled holes/counterbores and
+thread milling record runtime engagement as not checked before camlib runs. A
+follow-up must use its actual moves. Holding capacity does not scale with contact
+area; pressure and overturning remain unchecked.
