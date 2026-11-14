@@ -129,10 +129,23 @@ fn threaded(plate: &str) -> Value {
     analysis["resume"] = json!({"answers": {"hole.function:holes:12": "tapped:M5"}});
     analysis
 }
-fn threaded_job() -> Value {
+fn threaded_job() -> step2cam::job::Job {
     let plan = capp::plan::plan(&threaded("plate"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
     let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
-    jobs[0].manifest.clone()
+    jobs[0].clone()
+}
+
+#[test]
+fn the_threaded_job_compares_immediately_before_thread_milling() {
+    let job = threaded_job();
+    let top = job.manifest["operations"].as_array().unwrap();
+    let first_thread = top.iter().position(|o| o["kind"] == "thread_mill").expect("thread milling");
+    assert!(first_thread > 0, "an operation before thread milling");
+    let comparisons = job.manifest["verification"]["material"].as_array().unwrap();
+    assert_eq!(comparisons.len(), 1);
+    assert_eq!(comparisons[0]["after_operation"], top[first_thread - 1]["id"]);
+    assert!(job.notes.iter().any(|note| note.contains("compared with the part before thread milling")), "{:?}", job.notes);
+    assert_eq!(top.last().unwrap()["kind"], "thread_mill");
 }
 
 /// A thread goes past the bore the mesh shows: compared after it, every correct thread is a gouge.
@@ -148,17 +161,18 @@ fn a_threaded_part_is_compared_right_through_before_its_threads() {
 }
 
 #[test]
-fn a_misplaced_hole_is_found_on_a_threaded_part_wherever_it_is() {
-    let manifest = threaded_job();
-    // Move the full-depth twist-drilled pattern, rather than its new shallow spot cycle.
+fn one_misplaced_hole_on_a_plain_plate_is_refused() {
+    let plan = capp::plan::plan(&fixture("plate.analysis.json"), Some(&fixture("plate.mesh.json")), &Default::default()).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&finished(&plan, &tools()), &tools()).unwrap();
+    let mut manifest = jobs[0].manifest.clone();
+    // Pick the first full-depth twist-drilled hole in the pattern: one real hole moved into
+    // the plate proves the comparison wiring, without repeating camlib's check at every hole.
+    // correct_parts_finish_without_a_definite_gouge covers the unmodified plate.
     let holes = manifest["operations"].as_array().unwrap().iter().position(|o| o["kind"] == "drilling" && !o["id"].as_str().unwrap().contains("-spot_drill-") && o["centers_mm"].as_array().is_some_and(|c| c.len() > 1)).expect("a pattern of holes");
-    for hole in 0..manifest["operations"][holes]["centers_mm"].as_array().unwrap().len() {
-        let mut wrong = manifest.clone();
-        let x = wrong["operations"][holes]["centers_mm"][hole][0].as_f64().unwrap();
-        wrong["operations"][holes]["centers_mm"][hole][0] = (x + 3.).into();
-        let Err(failure) = simulate(&wrong.to_string()) else { panic!("hole {hole} moved 3 mm passed") };
-        assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
-    }
+    let x = manifest["operations"][holes]["centers_mm"][0][0].as_f64().unwrap();
+    manifest["operations"][holes]["centers_mm"][0][0] = (x + 3.).into();
+    let Err(failure) = simulate(&manifest.to_string()) else { panic!("the first hole moved 3 mm passed") };
+    assert!(failure.message.contains("cuts into the part"), "{}", failure.message);
 }
 
 #[test]
