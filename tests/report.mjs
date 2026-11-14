@@ -333,3 +333,121 @@ assert.equal(pdfTable.styles.cellPadding, 0);
 assert.equal(pdfTable.theme, 'plain');
 assert.equal(pdfTable.showHead, 'never');
 assert.equal(pdfTable.pageBreak, 'avoid');
+
+// Diagram content is shared by both renderers; assertions inspect mm geometry.
+const { buildSetupDiagram } = await import('../demo/setup-diagram.js');
+const { renderReportHtml, diagramSvg } = await import('../demo/report-html.js');
+const { renderDiagramPdf } = await import('../demo/report-pdf.js');
+const cube = {
+  positions: [0,0,0, 10,0,0, 10,10,0, 0,10,0, 0,0,10, 10,0,10, 10,10,10, 0,10,10],
+  indices: [0,2,1,0,3,2, 4,5,6,4,6,7, 0,1,5,0,5,4, 1,2,6,1,6,5, 2,3,7,2,7,6, 3,0,4,3,4,7],
+  faces: [[0,2],[2,2],[4,2],[6,2],[8,2],[10,2]],
+  edges: [[2,2,0,8,2,0], [2,2,10,8,2,10]],
+};
+const fixtureSetup = {
+  id: 'bottom', rotation: [[1,0,0],[0,1,0],[0,0,1]], origin_model: [0,0,10],
+  stock: { min: [-2,-2,-10], max: [12,12,2] }, operations: [],
+  zero: { status: 'located', xy: { description: 'datum B face', features: ['faces:5'], axes: { y: { description: 'datum C face', features: ['faces:4'] } } }, z: { description: 'datum A face', features: ['faces:1'] } },
+  clamping: { fixed_jaw: 'x.min', grip_height_mm: 3, jaw_top_z: -7,
+    jaws: [{ min: [-5,-2,-20], max: [0,12,-7] }, { min: [10,-2,-20], max: [15,12,-7] }],
+    parallels: [{ min: [0,0,-20], max: [2,10,-10] }],
+    part_stop: { axis: 'y', coordinate_mm: 10, contact_z_mm: -8, maximum_z_mm: -6, feature: 'faces:4' } },
+};
+const diagram = buildSetupDiagram({ mesh: cube }, fixtureSetup, reportLength);
+assert.equal(diagram.views.length, 2);
+assert.deepEqual(diagram.views.map(v => v.caption), ['Seen from above (machine Z down)', 'Seen from the front (looking +Y)']);
+const frontShapes = diagram.views[1].shapes;
+for (const label of ['Fixed jaw', 'Moving jaw', 'Parallels 10', 'Grip 3', 'Facing 2', 'Z0 here', 'Stop · nose ≤ Z-6']) assert.ok(frontShapes.some(s => s.text === label), label);
+assert.ok(diagram.views[0].shapes.some(s => s.class === 'hidden' && s.points.some(p => p[0] === 2 && p[1] === 2)), 'bottom B-rep edge is hidden from above');
+assert.ok(diagram.views[0].shapes.some(s => s.class === 'edge' && s.points.some(p => p[0] === 2 && p[1] === 2)), 'top edge remains solid');
+assert.ok(frontShapes.some(s => s.feature === 'faces:5' && s.class === 'pickup'), 'fixed-jaw contact face highlighted');
+assert.ok(frontShapes.some(s => s.class === 'stop' && s.y + s.height === -6 && s.contact[1] === 10), 'stop contacts recorded axis coordinate and obeys nose height');
+const reversed = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, clamping: { ...fixtureSetup.clamping, fixed_jaw: 'x.max' } });
+assert.ok(reversed.views[0].shapes.find(s => s.text === 'Fixed jaw').x > 10, 'recorded fixed jaw chooses the other side');
+for (const zero of [undefined, 'stock', { status: 'warning', xy: { description: 'No finished X/Y references' }, z: { description: 'Touch off stock' } }]) {
+  const warning = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, zero });
+  assert.ok(warning.warnings[0].startsWith('Pickup warning:'));
+  assert.ok(warning.views.every(v => !v.shapes.some(s => ['pickup', 'zero', 'axis', 'stop'].includes(s.class))), 'no invented pickup for missing/warning zero');
+}
+const moved = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, origin_model: [100,200,300], zero: undefined });
+assert.ok(moved.views[0].shapes.filter(s => s.class === 'part').every(s => s.points.every(p => p[0] <= -90 && p[1] <= -190)), 'mesh uses setup origin');
+assert.ok(diagramSvg(diagram.views[0]).includes('stroke-dasharray') === false, 'styles come from CSS tokens');
+const escapedReport = renderReportHtml({ ...document, blocks: [...document.blocks, diagram] });
+assert.ok(escapedReport.includes('&lt;part &amp; &quot;test&quot;&gt;') && escapedReport.includes('<svg'));
+assert.ok(!escapedReport.includes('<part & "test">'));
+class DiagramPdfStub extends PdfStub {
+  constructor() { super(); this.calls = []; }
+  setFillColor(...a) { this.calls.push(['fill', ...a]); }
+  setDrawColor(...a) { this.calls.push(['stroke', ...a]); }
+  setLineWidth() {} setLineDashPattern(...a) { this.calls.push(['dash', ...a]); }
+  rect(...a) { this.calls.push(['rect', ...a]); }
+  circle(...a) { this.calls.push(['circle', ...a]); }
+  lines(...a) { this.calls.push(['polygon', ...a]); }
+  line(...a) { this.calls.push(['line', ...a]); }
+  text(...a) { this.calls.push(['text', ...a]); }
+  addImage() { assert.fail('PDF must stay vector'); }
+  html() { assert.fail('PDF must stay vector'); }
+  addPage() {} getTextWidth(s) { return s.length; }
+}
+for (const view of diagram.views) {
+  const pdf = new DiagramPdfStub();
+  renderDiagramPdf(pdf, view, 15, 30, 180, 65);
+  for (const [shapeType, call] of [['rect','rect'],['circle','circle'],['polygon','polygon'],['text','text']]) {
+    assert.equal(pdf.calls.filter(c => c[0] === call).length, view.shapes.filter(s => s.type === shapeType).length, `${shapeType} reaches PDF once per shape`);
+  }
+  assert.equal(pdf.calls.filter(c => c[0] === 'line').length, view.shapes.filter(s => s.type === 'polyline').reduce((n, s) => n + s.points.length - 1, 0));
+  assert.deepEqual(pdf.calls.filter(c => c[0] === 'text').map(c => c[1]), view.shapes.filter(s => s.type === 'text').map(s => s.text));
+  assert.ok(pdf.calls.some(c => c[0] === 'dash' && c[1].length === 2));
+}
+renderReportPdf({ title: 'Diagram test', blocks: [diagram], appendixStart: 1 }, { jsPDF: DiagramPdfStub, fonts: { regular: '', bold: '' }, autoTable() {} });
+
+// Exercise every fixture mesh in six setup frames, including meshes without edges.
+// Cached demo benchmark output is optional: no network and no absolute output hashes.
+const { readdirSync, existsSync } = await import('node:fs');
+const { homedir } = await import('node:os');
+const { join } = await import('node:path');
+const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]);
+const meshPaths = walk(new URL('./fixtures/', import.meta.url).pathname).filter(p => p.endsWith('.mesh.json'));
+const rotations = [
+  [[1,0,0],[0,1,0],[0,0,1]], [[1,0,0],[0,-1,0],[0,0,-1]],
+  [[1,0,0],[0,0,1],[0,-1,0]], [[1,0,0],[0,0,-1],[0,1,0]],
+  [[0,1,0],[0,0,1],[1,0,0]], [[0,-1,0],[0,0,1],[-1,0,0]],
+];
+let diagramCount = 0, largest = { triangles: 0 };
+function exercise(mesh, setups, name, analysis) {
+  const start = performance.now();
+  for (const setup of setups) {
+    const d = buildSetupDiagram({ mesh, analysis }, setup, reportLength);
+    assert.equal(d.views.length, 2, name);
+    for (const view of d.views) {
+      assert.ok(view.bounds.every(Number.isFinite), name);
+      assert.ok(view.shapes.length > 0, name);
+      assert.ok(!JSON.stringify(view).match(/NaN|Infinity|undefined/), name);
+    }
+    diagramCount++;
+  }
+  const elapsed = performance.now() - start;
+  if (mesh.indices.length / 3 > largest.triangles) largest = { name, triangles: mesh.indices.length / 3, setups: setups.length, ms: elapsed };
+}
+for (const path of meshPaths) {
+  const mesh = JSON.parse(readFileSync(path));
+  exercise(mesh, rotations.map((rotation, i) => ({ ...fixtureSetup, id: String(i), rotation, zero: undefined })), path);
+}
+// Frozen plans supplement the full six-frame mesh exercise with recorded setups.
+for (const path of walk(new URL('./fixtures/rust-golden/', import.meta.url).pathname).filter(p => p.endsWith('.plan.json'))) {
+  const name = path.split('/').at(-1).replace(/(?:-thread)?\.plan\.json$/, '');
+  const meshPath = new URL(`./fixtures/${name}.mesh.json`, import.meta.url);
+  if (existsSync(meshPath)) exercise(JSON.parse(readFileSync(meshPath)), JSON.parse(readFileSync(path)).setups, path);
+}
+const benchRoot = process.env.STEP2CAM_BENCHMARK_CACHE || join(homedir(), '.cache/step2cam-benchmark/runs');
+if (existsSync(benchRoot)) for (const entry of readdirSync(benchRoot, { withFileTypes: true }).filter(e => e.isDirectory())) {
+  const dir = join(benchRoot, entry.name);
+  if (!existsSync(join(dir, 'mesh.json'))) continue;
+  const output = existsSync(join(dir, 'process.json')) ? JSON.parse(readFileSync(join(dir, 'process.json'))) : {};
+  exercise(JSON.parse(readFileSync(join(dir, 'mesh.json'))), output.plan?.setups || rotations.map((rotation, i) => ({ ...fixtureSetup, id: String(i), rotation, zero: undefined })), entry.name, JSON.parse(readFileSync(join(dir, 'analysis.json'))));
+}
+if (process.env.STEP2CAM_DIAGRAM_PLANS) for (const path of walk(process.env.STEP2CAM_DIAGRAM_PLANS).filter(p => p.endsWith('.json'))) {
+  const sample = JSON.parse(readFileSync(path));
+  if (sample.mesh && sample.plan?.setups) exercise(sample.mesh, sample.plan.setups, path, sample.analysis);
+}
+console.log(`Diagrams: ${diagramCount} setups passed; largest ${JSON.stringify(largest)}`);
