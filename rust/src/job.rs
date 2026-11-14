@@ -590,7 +590,7 @@ fn holes<'a>(cx: &mut SetupCut<'a>, op: &model::Holes, technology: Technology, o
         Ok(Some((out, chosen)))
     } else {
         let mill = &chosen_cut;
-        let floor = bore_floor(op, breakthrough, cx.stock_bottom, op_id, &mut cx.notes);
+        let floor = bore_floor(op, breakthrough, through_bottom(cx), op_id, &mut cx.notes);
         cx.full_diameter_z.extend(op.features.iter().map(|f| (f.clone(), floor)));
         Ok(Some((bore(op_id, mill, &op.centers, d, floor, cx.clearance, cx.retract)?, chosen)))
     }
@@ -715,6 +715,12 @@ fn thread_mill<'a>(cx: &mut SetupCut<'a>, thread: Thread<'_>, mill: &'a Value, m
     Ok(Some((out, spec)))
 }
 
+// Purchased thickness below the requested blank is sacrificial, not extra breakthrough.
+fn through_bottom(cx: &SetupCut<'_>) -> f64 {
+    cx.setup.stock_size.as_ref().and_then(|size| size["requested_mm"][2].as_f64())
+        .map_or(cx.stock_bottom, |height| cx.hi[2]-height)
+}
+
 fn slot<'a>(cx: &mut SetupCut<'a>, op: &model::Slot, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
     let width = op.width;
     let (spec, mill_cut) = tool_or_skip!(tool, technology, cx.notes);
@@ -722,7 +728,7 @@ fn slot<'a>(cx: &mut SetupCut<'a>, op: &model::Slot, technology: Technology, op_
     let mut floor = op.floor_z;
     if op.bottom == "through" {
         let exit = floor;
-        floor = cx.stock_bottom.max(exit - cx.breakthrough);
+        floor = through_bottom(cx).max(exit - cx.breakthrough);
         if floor > exit - 0.05 {
             cx.notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
         }
@@ -749,7 +755,7 @@ fn notch<'a>(cx: &mut SetupCut<'a>, op: &model::Notch, technology: Technology, o
     let mill = &mill_cut;
     let mut floor = op.floor_z;
     if op.bottom == "through" {
-        floor = cx.stock_bottom.max(floor - cx.breakthrough);
+        floor = through_bottom(cx).max(floor - cx.breakthrough);
     }
     // A prior roughing pass may have exposed the local pocket mouth.
     // Camlib scans the remaining stock and proves assembly clearance before

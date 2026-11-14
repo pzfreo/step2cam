@@ -135,7 +135,7 @@ fn missing_tool_offers_both_processes_and_plain_conservative_subtraction() {
     tools["tools"].as_array_mut().unwrap().retain(|t| t["type"] != "thread_mill");
     let p = finished(&plan("plate-m5.analysis.json"), &tools);
     let text = untooled_thread(&p);
-    assert!(text.contains("an M5×0.8 cut tap (⌀4.2 tap drill) with thread length at least 12.71 mm plus its chamfer, or a thread mill"), "{text}");
+    assert!(text.contains("an M5×0.8 cut tap (⌀4.2 tap drill) with thread length at least 11.01 mm plus its chamfer, or a thread mill"), "{text}");
     assert!(text.contains("cutter diameter − 0.82"), "{text}");
     assert!(!text.contains("+ -"));
     assert!(!text.contains("subject to"));
@@ -215,7 +215,7 @@ fn hand_reach_flutes_and_supplied_choices_use_the_tap_conditions() {
     tap["hand"] = json!("right"); tap["thread_length"] = json!(12);
     let rejected = finished(&p, &library);
     assert_eq!(thread(&rejected)["tool"], "tm3");
-    assert!(decisions(&rejected).contains("must reach 14.300"));
+    assert!(decisions(&rejected).contains("must reach 12.600"));
     library["tools"].as_array_mut().unwrap().last_mut().unwrap()["thread_length"] = json!(20);
     // The pre-existing supplied milling rule still works with a tap in the library.
     library["decisions"] = json!([{"rule":"tool.thread_mill", "subject":"top:thread", "choice":"tm3", "source":"user", "reason":"use milling"}]);
@@ -282,17 +282,17 @@ fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() 
         }
         assert_eq!(a.len(), b.len());
         let base = &before.manifest["verification"]["material"][0]["target"]["base_z_mm"];
-        assert_eq!(base, -12.7);
+        assert_eq!(base, -12.);
         assert_eq!(base, &after.manifest["verification"]["material"][0]["target"]["base_z_mm"]);
         for id in ["top-5-holes", "top-6-holes"] {
-            assert_eq!(b.iter().find(|o| o["id"] == id).unwrap()["floor_z_mm"], -12.7);
+            assert_eq!(b.iter().find(|o| o["id"] == id).unwrap()["floor_z_mm"], -11.);
         }
-        assert_close(number(&tapping["depth_z_mm"]), -15.9);
-        assert_close(number(&own_drill["depth_z_mm"]), -16.7 - capp::resources::DRILLING_GUARD);
+        assert_close(number(&tapping["depth_z_mm"]), -14.2);
+        assert_close(number(&own_drill["depth_z_mm"]), -15. - capp::resources::DRILLING_GUARD);
         let drill = with_tap["tools"].as_array().unwrap().iter().find(|t| t["id"] == own_drill["tool"]).unwrap();
         let tip = number(&own_drill["depth_z_mm"]) - capp::resources::drill_tip_length(drill).unwrap();
-        // Breakthrough allowance is still measured from the real -11 mm stock bottom.
-        assert_close(number(&own_drill["allow_breakthrough_mm"]), -12.7 - tip + 0.01);
+        // Breakthrough allowance is still measured from the real -12 mm stock bottom.
+        assert_close(number(&own_drill["allow_breakthrough_mm"]), -12. - tip + 0.01);
         assert!(any_note(&after.notes, "tap tip goes 3.2 mm and its drill tip 5.27 mm below the part's bottom (drill full diameter 4.01 mm below): keep the hole clear of parallels"), "{:?}", after.notes);
         let run = step2cam::simulate::simulate_job(after).unwrap();
         assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 2);
@@ -394,9 +394,7 @@ fn review_limited_exit_selects_milling_before_the_job_is_built() {
 fn a_default_blind_thread_leaves_room_for_the_library_taps_lead_and_an_asked_one_does_not() {
     // Review M7: the default full thread (depth less three pitches) left no room for a form C
     // tap's three-pitch lead plus one pitch of clearance, so no library tap could cut it.
-    let mut library = read_library("libraries/haas-vf2.json");
-    // Synthetic shop height gives a 3.5 mm grip on the 10 mm plate; the standard set has no fit.
-    library["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([40.569]);
+    let library = read_library("libraries/haas-vf2.json");
     let part = |answer: &str| {
         let mut a = tapped(json!({"hole.function:holes:0": answer, "part.material": "Aluminium"}),
             holes_only(&[down(0., 0., 4.2, 10., "drill_point")]));

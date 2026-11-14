@@ -1,4 +1,5 @@
 //! Finishing walls and flats: shapes an outline alone would cut wrongly, in tests/fixtures/synthetic/walls.
+mod common;
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::simulate::simulate;
@@ -18,8 +19,6 @@ fn fixture(path: &str) -> Value {
 fn tools() -> Value {
     let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
-    // Synthetic longer-flute tool isolates geometry checks from the standard blank's extra stock.
-    tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
     tools
 }
 fn part(name: &str) -> (Value, Value) {
@@ -196,11 +195,11 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
         "setup top: 1.8 mm V-channel: its walls are left up to 0.034 mm thick at the top by vb60, a 60° bit in the 61.9275° channel",
         // This library has no spot drill for the ⌀10 hole: its spot drilling is left out.
-        "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 2.01 mm plus the spot point depth"
+        "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth"
     ]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
-    assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap() < 500., "{material}");
+    assert!(material["residual"]["volume_mm3"][0].as_f64().unwrap()-common::extra_frame_web(&out) < 500., "{material}");
     assert_eq!(process("stepped-plate-chamfered")["programs"][0]["material"]["gouge"]["definite_cells"], 0);
 }
 

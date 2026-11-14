@@ -1,6 +1,6 @@
 //! Threads from Specify's answers, on the plate (its ⌀4.2 hole is holes:12, through, 10 deep).
 mod common;
-use common::{assert_close, any_note, finished, assert_same, down, example_tools, fixture, holes_only, list, number, posted, synthetic, tapped, top_stock};
+use common::{any_note, finished, assert_same, down, example_tools, fixture, holes_only, list, number, posted, synthetic, tapped, top_stock};
 use serde_json::{Value, json};
 
 fn plate(answers: Value) -> Value {
@@ -29,7 +29,7 @@ fn a_tapped_answer_threads_its_hole() {
     assert_eq!(ops[0]["start_diameter"], 4.2);
     assert_eq!(ops[0]["through"], true);
     assert_eq!(ops[0]["features"], json!(["holes:12"]));
-    assert_same(json!([ops[0]["top_z"], ops[0]["bottom_z"], ops[0]["centers"]]), json!([-2.7, -12.7, [[97, 32]]]));
+    assert_same(json!([ops[0]["top_z"], ops[0]["bottom_z"], ops[0]["centers"]]), json!([-1, -11, [[97, 40]]]));
     let plan = plan_of(&plate(json!({"hole.function:holes:12": "tapped:M5"})));
     let kinds: Vec<&str> = list(&plan["setups"][0]["operations"]).iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert!(kinds.iter().position(|k| *k == "thread").unwrap() > kinds.iter().rposition(|k| *k == "holes").unwrap(), "{kinds:?}");
@@ -68,8 +68,8 @@ fn a_blind_thread_is_as_deep_as_asked_or_specify_cores_default() {
         op["top_z"].as_f64().unwrap() - op["bottom_z"].as_f64().unwrap()
     };
     // 10 deep, less three 0.8 pitches, rounded down to 0.5.
-    assert_close(top_and_bottom("tapped:M5"), 7.5);
-    assert_close(top_and_bottom("tapped:M5@5.5"), 5.5);
+    assert_eq!(top_and_bottom("tapped:M5"), 7.5);
+    assert_eq!(top_and_bottom("tapped:M5@5.5"), 5.5);
 
     let mut a = holes_only(&[down(0., 0., 4.2, 10., "flat"), down(9., 0., 4.2, 10., "flat")]);
     a["features"][0]["faces"] = json!([1]);
@@ -216,7 +216,7 @@ fn a_thread_is_milled_after_its_hole() {
     assert_eq!(thread["tool"], "tm3");
     assert_same(
         json!([thread["internal"], thread["diameter_mm"], thread["start_diameter_mm"], thread["pitch_mm"], thread["top_z_mm"], thread["bottom_z_mm"], thread["radial_passes"], thread["spring_passes"]]),
-        json!([true, 5, 4.2, 0.8, -2.7, -12.7, 2, 1]),
+        json!([true, 5, 4.2, 0.8, -1, -11, 2, 1]),
     );
     assert!(any_note(&notes, "thread milled"), "{notes:?}");
 }

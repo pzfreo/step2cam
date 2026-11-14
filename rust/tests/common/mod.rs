@@ -142,3 +142,19 @@ pub fn example_tap(major: f64, pitch: f64, chamfer: f64) -> Value {
         "holder_length":30, "holder_diameter":20, "spindle_rpm":700, "coolant":"flood",
         "flute_style":"spiral_flute"})
 }
+
+/// Only the additional, deliberately retained frame below the roughing floor.
+/// This is outside the part's XY box; material inside that box remains fully counted.
+pub fn extra_frame_web(out: &Value) -> f64 {
+    let p = &out["plan"];
+    let top = &p["setups"][0];
+    let num = |v: &Value| v.as_f64().unwrap();
+    let Some(requested) = top["stock_size"]["requested_mm"].as_array() else { return 0.; };
+    let rough = top["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "roughing").unwrap();
+    let part_area: f64 = (0..2).map(|i| num(&p["part"]["max"][i])-num(&p["part"]["min"][i])).product();
+    let area: f64 = (0..2).map(|i| num(&top["stock"]["max"][i])-num(&top["stock"]["min"][i])).product();
+    let floor = num(&rough["floor_z"]);
+    let old_web = (floor+num(&requested[2])).max(0.);
+    let new_web = (floor-num(&top["stock"]["min"][2])).max(0.);
+    ((area-part_area)*new_web-(num(&requested[0])*num(&requested[1])-part_area)*old_web).max(0.)
+}

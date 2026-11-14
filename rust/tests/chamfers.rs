@@ -6,16 +6,6 @@ use std::{fs, path::PathBuf, sync::atomic::AtomicBool};
 fn read(name: &str) -> Value {
     serde_json::from_str(&fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(name)).unwrap()).unwrap()
 }
-// Synthetic tools/support for geometry regressions; production catalog limits are tested separately.
-fn geometry_tools() -> Value {
-    let mut t = read("tests/fixtures/placeholder-tools.json");
-    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
-    for tool in t["tools"].as_array_mut().unwrap() {
-        if tool["id"] == "em3" { tool["flute_length"] = json!(22.); }
-        if tool["id"] == "cm6" { tool["flute_length"] = json!(12.); }
-    }
-    t
-}
 fn run(library: &Value) -> Value {
     step2cam::process(
         &read("tests/fixtures/synthetic/stepped-plate-large-chamfer.analysis.json"),
@@ -147,9 +137,7 @@ fn slot_and_recognised_hole_mouths_are_cut_at_size() {
 fn the_existing_chamfered_plate_cuts_with_sufficient_flute_reach() {
     let mut library = read("tests/fixtures/placeholder-tools.json");
     let cm6 = library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "cm6").unwrap();
-    cm6["flute_length"] = json!(12.);
-    library["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
-    library["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
+    cm6["flute_length"] = json!(10.);
     let out = step2cam::process(
         &read("tests/fixtures/synthetic/stepped-plate-chamfered.analysis.json"),
         &read("tests/fixtures/synthetic/stepped-plate-chamfered.mesh.json"),
@@ -246,7 +234,7 @@ fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() 
     assert_eq!(emitted_chamfers(&out["plan"], &library), 0);
     // The same plan finished with the opening tools has them.
     let mut restored = planned;
-    let full = geometry_tools();
+    let full = read("tests/fixtures/placeholder-tools.json");
     capp::finish(&mut restored, &full, &[]).unwrap();
     assert_eq!(emitted_chamfers(&restored, &full), 2);
 }
@@ -254,7 +242,7 @@ fn mouth_chamfers_are_not_emitted_without_opening_tools_and_recover_with_them() 
 #[test]
 fn a_refused_opening_blocks_only_its_modelled_mouth_chamfer() {
     let (analysis, mesh) = mouth_part();
-    let library = geometry_tools();
+    let library = read("tests/fixtures/placeholder-tools.json");
     let mut plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     capp::finish(&mut plan, &library, &[]).unwrap();
     let top = &plan["setups"][0];

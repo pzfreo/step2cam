@@ -164,8 +164,57 @@ fn flip_uses_deepest_available_grip_and_first_setup_keeps_least_grip() {
             let h = number(&top["stock"]["max"][2])-number(&top["stock"]["min"][2]);
             let expected_top = heights.iter().map(number).filter(|p| fits(*p,h)).map(|p| jaw-p).min_by(f64::total_cmp).unwrap();
             assert_close(number(&top["clamping"]["grip_height_mm"]), expected_top);
-            assert!(list(&p["decisions"]).iter().any(|d| d["rule"]=="setup.flip_face@4"
+            assert!(list(&p["decisions"]).iter().any(|d| d["rule"]=="setup.flip_face@5"
                 && d["says"].as_str().unwrap().contains("flip: deepest allowed grip, the sides being finished; first setup: least grip, leaving the sides exposed for cutting")));
         }
     }
+}
+
+#[test]
+fn imperial_products_use_exact_conversions_and_keep_supplier_labels() {
+    let sizes = capp::rules::standard_sizes();
+    let products = list(&sizes["flat_bar"]["products"]);
+    assert_eq!(products.len(), 201);
+    let mut imperial = 0;
+    for product in products {
+        assert!(product["supplier_label"].as_str().unwrap().contains("Aluminium Flat Bar"));
+        if let Some(inches) = product["size_inch"].as_array() {
+            imperial += 1;
+            for (i, inch) in inches.iter().enumerate() {
+                assert_close(number(&product["size_mm"][i]), number(inch)*25.4);
+            }
+        }
+    }
+    assert_eq!(imperial, 124);
+    let p = products.iter().find(|p| p["supplier_label"].as_str().unwrap().starts_with("64mm x 12.7mm ")).unwrap();
+    assert_eq!(p["size_mm"], json!([12.7,63.5]));
+}
+
+#[test]
+fn stock_keeps_the_top_margin_and_respects_the_vise_opening() {
+    let a = fixture("synthetic/stepped-plate.analysis.json");
+    let m = fixture("synthetic/stepped-plate.mesh.json");
+    let mut tools = fixture("../../demo/tools.json");
+    tools["overrides"]["workholding_option"] = json!("none");
+    for opening in [60., 70., 150.] {
+        tools["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(opening);
+        let p = capp::flip::plan(&a, &m, &tools).unwrap();
+        let top = &p["setups"][0];
+        assert_close(number(&top["origin_model"][2]), number(&m["bbox"][1][2])+capp::plan::Options::default().top_stock);
+        let width = number(&top["stock"]["max"][1])-number(&top["stock"]["min"][1]);
+        assert!(width <= opening);
+        if top["stock_size"]["kind"] == "standard" {
+            assert!(number(&top["stock_size"]["cross_section_mm"][1]) <= opening);
+        }
+    }
+    // No listed bar can supply a 64 mm opening at the plate's required thickness;
+    // retain the computed 64 mm blank rather than selecting an oversize bar.
+    let a = fixture("plate.analysis.json");
+    let m = fixture("plate.mesh.json");
+    tools["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(64.);
+    let p = capp::flip::plan(&a, &m, &tools).unwrap();
+    let top = &p["setups"][0];
+    assert_eq!(top["stock_size"]["kind"], "computed");
+    assert_eq!(top["stock"]["max"][1], 64.);
+    assert!(p["warnings"].to_string().contains("stock is the computed size"));
 }

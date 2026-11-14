@@ -18,11 +18,7 @@ fn assert_close(a: f64, b: f64) {
 fn tools() -> Value {
     // The planner's behaviour, pinned on the frozen placeholder library (#88); the real Carvera
     // library's default is checked in carvera.rs.
-    let mut t = fixture("placeholder-tools.json");
-    // Synthetic shop set keeps both thin-plate and front routes available for ranking/replay checks.
-    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875,16.5]);
-    t["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
-    t
+    fixture("placeholder-tools.json")
 }
 fn run(name: &str, t: &Value) -> Value {
     let out = step2cam::process(
@@ -81,7 +77,7 @@ fn demo_defaults_and_independent_consequences() {
         );
         assert_eq!(option(&out, "fixture_plate")["available"], false);
         if name.ends_with("stepped-plate") {
-            assert_eq!(ordinary["reason"], "bottom 5.125 mm of outline left attached");
+            assert_eq!(ordinary["reason"], "bottom 4.125 mm of outline left attached");
             for candidate in [ordinary, flip] {
                 let need = list(&candidate["tools_needed"])
                     .iter()
@@ -97,7 +93,7 @@ fn demo_defaults_and_independent_consequences() {
                 assert_eq!(need["features"], json!(["holes:48.57", "holes:49.58"]));
                 assert!(list(&need["operations"]).contains(&json!("front-3-thread")));
             }
-            assert_close(number(&ordinary["outline_left_mm"]), 5.125);
+            assert_close(number(&ordinary["outline_left_mm"]), 4.125);
             assert_close(number(&flip["extra_stock_mm"]), 10.);
             assert_eq!(ordinary["setups"], 2);
             assert_eq!(flip["setups"], 3);
@@ -281,10 +277,12 @@ fn choosing_rule_is_lexicographic_in_the_approved_order() {
 #[test]
 fn tall_part_exposes_attached_outline_and_bare_flip_unavailability() {
     let out = run("synthetic/tall-wall-pocket", &tools());
-    assert!(out["plan"]["workholding"]["chosen"].is_null());
-    assert_eq!(option(&out, "vise_ordinary")["available"], false);
-    assert!(out["plan"]["warnings"].to_string().contains("no available shop parallels height"));
-    assert!(out["plan"]["setups"][0]["operations"].as_array().unwrap().is_empty());
+    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_ordinary");
+    assert_eq!(option(&out, "vise_ordinary")["finished"], false);
+    assert_close(
+        number(&option(&out, "vise_ordinary")["outline_left_mm"]),
+        32.,
+    );
     let flip = option(&out, "vise_flip_face");
     assert_eq!(flip["available"], false);
     let reason = flip["reason"].as_str().unwrap();
@@ -300,4 +298,68 @@ fn tall_part_exposes_attached_outline_and_bare_flip_unavailability() {
             .unwrap()
             .starts_with("no suitable through holes")
     );
+}
+
+#[test]
+fn tall_linuxcnc_flip_uses_the_deepest_prepared_seat() {
+    let mut t = fixture("../../libraries/linuxcnc-vmc.json");
+    t["overrides"]["workholding_option"] = json!("vise_flip_face");
+    let a = fixture("synthetic/tall-wall-pocket.analysis.json");
+    let m = fixture("synthetic/tall-wall-pocket.mesh.json");
+    let mut trial = capp::flip::build(&a, &m, &t).unwrap();
+    let mut rejected = vec![];
+    let expected = loop {
+        let mut finished = trial.clone();
+        capp::finish_plan(&mut finished, &t, &[]).unwrap();
+        let bottom = finished.setups.iter().find(|s| s.flip_seating.is_some()).unwrap();
+        let id = &bottom.clamping.as_ref().unwrap()["because"][0];
+        let evidence = &finished.decisions.as_ref().unwrap().iter().find(|d| d["id"] == *id).unwrap()["chosen"]["prior_setups"];
+        if evidence["prepared_contacts"] == true && evidence["established_seat"] == true && evidence["status"] == "no_overlap" {
+            break bottom.flip_seating.as_ref().unwrap()["grip_height_mm"].clone();
+        }
+        rejected.push(bottom.flip_seating.clone().unwrap());
+        assert!(capp::flip::retry_seating(&mut trial, &m, &t, &rejected).unwrap(), "a prepared seat must exist");
+    };
+    let out = run("synthetic/tall-wall-pocket", &t);
+    assert_eq!(option(&out, "vise_flip_face")["finished"], true);
+    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
+    let bottom = list(&out["plan"]["setups"]).iter().find(|s| s["id"] == "bottom").unwrap();
+    assert_eq!(bottom["clamping"]["grip_height_mm"], expected);
+    assert!(list(&bottom["operations"]).iter().any(|o| o["kind"] == "facing" && o["tool"].is_string()));
+}
+
+#[test]
+fn preparation_failure_retries_shallower_seats_without_restoring_operations() {
+    let mut t = fixture("../../libraries/linuxcnc-vmc.json");
+    t["overrides"]["workholding_option"] = json!("vise_flip_face");
+    let a = fixture("synthetic/tall-wall-pocket.analysis.json");
+    let m = fixture("synthetic/tall-wall-pocket.mesh.json");
+    let mut p = capp::flip::build(&a, &m, &t).unwrap();
+    let top = p.setups.iter_mut().find(|s| s.id == "top").unwrap();
+    // A retained finish ends between the minimum and deepest contact bands.
+    let prepared_from_model_z = 5.6;
+    let floor = prepared_from_model_z-top.origin_model.unwrap()[2];
+    for op in &mut top.operations {
+        if let capp::model::Cut::WallFinish(cut) = &mut op.cut { cut.floor_z = cut.floor_z.max(floor); }
+    }
+    let original = top.operations.clone();
+    let mut rejected = vec![];
+    let grip = loop {
+        let mut finished = p.clone();
+        capp::finish_plan(&mut finished, &t, &[]).unwrap();
+        let bottom = finished.setups.iter().find(|s| s.flip_seating.is_some()).unwrap();
+        let seat = bottom.flip_seating.as_ref().unwrap();
+        if !bottom.operations.is_empty() { break number(&seat["grip_height_mm"]); }
+        rejected.push(seat.clone());
+        assert!(capp::flip::retry_seating(&mut p, &m, &t, &rejected).unwrap());
+        assert_eq!(p.setups.iter().find(|s| s.id == "top").unwrap().operations, original);
+    };
+    assert!(!rejected.is_empty(), "the deepest candidate must fail preparation");
+    let rules = capp::rules::workholding();
+    let minimum = number(&rules["min_grip_mm"]);
+    let step = number(&rules["flip_support_search_step_mm"]);
+    let maximum = 10.*number(&rules["max_grip_fraction"]);
+    let expected = (0..=((maximum-minimum)/step).floor() as usize)
+        .map(|n| minimum+n as f64*step).filter(|g| *g <= 10.-prepared_from_model_z).max_by(f64::total_cmp).unwrap();
+    assert_close(grip, expected);
 }

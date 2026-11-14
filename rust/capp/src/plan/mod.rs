@@ -226,7 +226,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                 stock_hi[i] += extra / 2.;
             }
         }
-        json!({"kind":"standard", "source":bars["source"], "cross_section_mm":bar,
+        json!({"kind":"standard", "source":bars["source"], "requested_mm":size, "cross_section_mm":bar,
             "sawn_length_mm":target[length], "allocation":"extra thickness below the part; width and sawn-length extra split equally between sides, keeping all margins as minimums"})
     } else { json!({"kind":"computed", "source":bars["source"], "requested_mm":size}) };
     let frames: HashMap<&'static str, Frame> = SETUPS

@@ -6,9 +6,6 @@ fn read(path: &str) -> Value {
 fn front_thread(analysis: &Value, library: &str) -> (Value, Option<Value>) {
     let mesh = read("../tests/fixtures/synthetic/stepped-plate.mesh.json");
     let out = step2cam::process(analysis, &mesh, &read(library)).unwrap();
-    if !library.contains("haas") {
-        assert!(out["plan"]["warnings"].to_string().contains("not a standard size"));
-    }
     assert!(out["error"].is_null(), "{library}: {}", out["error"]);
     let front = out["plan"]["setups"].as_array().unwrap().iter().find(|s| s["id"] == "front").unwrap();
     let thread = front["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "thread").cloned();

@@ -366,7 +366,7 @@ fn haas_complex_plate_holder_sentence_and_tool_query_share_camlib_evidence() {
     ).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let need = "an end mill under ⌀5.95 with flutes of at least 13 mm and its holder at least 19 mm above the tip";
-    let sentence = format!("left out: camlib refused the notch: em3's holder section 0 cannot clear the remaining stock beside the notch at Z-2.856 (tip Z-21.356): needs {need}");
+    let sentence = format!("left out: camlib refused the notch: em3's holder section 0 cannot clear the remaining stock beside the notch at Z-1 (tip Z-19.5): needs {need}");
     let skipped: Vec<_> = out["plan"]["skipped"].as_array().unwrap().iter().filter(|s|
         s["reason"].as_str().is_some_and(|r| r.contains("em3's holder"))).collect();
     assert_eq!(skipped.len(), 7);
@@ -376,6 +376,6 @@ fn haas_complex_plate_holder_sentence_and_tool_query_share_camlib_evidence() {
         d["rule"] == "execution.refused@1" && d["outcome"] == "removed"
             && d["message"].as_str().is_some_and(|m| m.contains("\"limit\":\"holder\""))).unwrap();
     let evidence = camlib::reach::ReachRefusal::parse(refusal["message"].as_str().unwrap()).unwrap();
-    assert_eq!(evidence.top_z_mm, -2.85599);
-    assert_eq!(evidence.depth_needed_mm, 18.500010000000003);
+    assert_eq!(evidence.top_z_mm, -0.99999);
+    assert_eq!(evidence.depth_needed_mm, 18.50001);
 }

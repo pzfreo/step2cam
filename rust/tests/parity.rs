@@ -83,34 +83,33 @@ fn same(a: &Value, b: &Value, path: &str) -> Result<(), String> {
 /// Apply only the new nominal blank and its frame translation to the frozen Python plan.
 /// All original operation geometry, coverage and output fields remain compared.
 fn standard_blank(p: &mut Value, spindle: bool) {
-    let (bar, length, dx, dz) = if spindle { ([60.,30.],28.,1.,7.) } else { ([12.7,64.],104.,0.,1.7) };
+    let (bar, length, dx, dy) = if spindle { ([60.,30.],28.,1.,0.) } else { ([12.,80.],104.,0.,8.) };
     let top = &mut p["setups"][0];
     top["stock"]["min"][2] = serde_json::json!(-bar[0]);
     if spindle { top["stock"]["max"][0] = serde_json::json!(30.); }
     top["origin_model"][0] = serde_json::json!(top["origin_model"][0].as_f64().unwrap()-dx);
-    top["origin_model"][2] = serde_json::json!(top["origin_model"][2].as_f64().unwrap()+dz);
+    if !spindle { top["stock"]["max"][1] = serde_json::json!(80.); }
+    top["origin_model"][1] = serde_json::json!(top["origin_model"][1].as_f64().unwrap()-dy);
     for op in top["operations"].as_array_mut().unwrap() {
-        for key in ["floor_z", "top_z", "bore_top_z", "bottom_z"] {
-            if let Some(v) = op.get_mut(key) { *v = serde_json::json!(v.as_f64().unwrap()-dz); }
-        }
-        // Roughing starts at the new stock top, Z0; its target follows the part.
-        if op["kind"] == "roughing" { op["top_z"] = serde_json::json!(0.); }
         if let Some(points) = op.get_mut("positions").and_then(Value::as_array_mut) {
             for point in points.chunks_mut(3) {
                 point[0] = serde_json::json!(point[0].as_f64().unwrap()+dx);
-                point[2] = serde_json::json!(point[2].as_f64().unwrap()-dz);
+                point[1] = serde_json::json!(point[1].as_f64().unwrap()+dy);
             }
         }
         for key in ["centers", "outer"] {
             if let Some(points) = op.get_mut(key).and_then(Value::as_array_mut) {
-                for point in points { point[0] = serde_json::json!(point[0].as_f64().unwrap()+dx); }
+                for point in points {
+                    point[0] = serde_json::json!(point[0].as_f64().unwrap()+dx);
+                    point[1] = serde_json::json!(point[1].as_f64().unwrap()+dy);
+                }
             }
         }
     }
     for (i, setup) in p["setups"].as_array_mut().unwrap().iter_mut().enumerate() {
         setup["stock_size"] = if i == 0 { serde_json::json!({"kind":"standard",
-            "source":capp::rules::standard_sizes()["flat_bar"]["source"], "cross_section_mm":bar,
-            "sawn_length_mm":length, "allocation":"extra thickness on top; width and sawn-length extra split equally between sides, keeping all margins as minimums"})
+            "source":capp::rules::standard_sizes()["flat_bar"]["source"], "requested_mm":if spindle {vec![28.,28.,53.]} else {vec![104.,64.,11.]}, "cross_section_mm":bar,
+            "sawn_length_mm":length, "allocation":"extra thickness below the part; width and sawn-length extra split equally between sides, keeping all margins as minimums"})
         } else { serde_json::json!({"kind":"remaining", "from_setup":"top"}) };
     }
 }
@@ -191,7 +190,7 @@ fn the_plates_job_runs_in_camlib() {
     // Two spot cycles add 5 and 24 moves, sharing one tool.
     // Roughing kept within a radius and 1 mm of the stock (process.roughing.region) makes 1,334
     // moves instead of 1,565. Facing, twist drills and the bore retain their move counts.
-    assert_eq!(&ends[..7], [105, 1438, 1443, 1467, 1472, 1496, 1538]);
+    assert_eq!(&ends[..7], [67, 1569, 1574, 1598, 1603, 1627, 1665]);
     assert_eq!(ends.len(), 8); // two spots plus the wall finish
     assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[7]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);

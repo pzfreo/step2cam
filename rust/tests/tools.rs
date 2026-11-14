@@ -34,7 +34,7 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert_eq!(spot42["tool"], "spot8");
     assert_eq!(spot66["tool"], "spot8");
     assert_eq!(facing["tool"], "em6");
-    assert_eq!(number(&facing["floor_z_mm"]), -2.7);
+    assert_eq!(number(&facing["floor_z_mm"]), -1.);
     let mesh = &rough["target"];
     assert_eq!(list(&mesh["indices"]).len(), 1312); // triangles
     // The allowance covers the mesh's own error twice over.
@@ -43,16 +43,16 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert_eq!(d66["tool"], "drill6.6");
     assert_eq!(list(&d66["centers_mm"]).len(), 6);
     // Through, onto the part's face: full diameter 1 mm past it, the tip below the stock
-    // bottom (-11) allowed and said.
+    // bottom (-12) allowed and said.
     assert_eq!(d66["depth_reference"], "full_diameter");
-    assert_eq!(number(&d66["depth_z_mm"]), -13.7);
-    assert_close(number(&d66["allow_breakthrough_mm"]), 1. + tip(6.6) + 0.01);
+    assert_eq!(number(&d66["depth_z_mm"]), -12.);
+    assert_close(number(&d66["allow_breakthrough_mm"]), tip(6.6) + 0.01);
     assert!(any_note(&notes, "below the stock bottom"), "{notes:?}");
-    assert!(notes.iter().any(|n| n.contains("0.5 mm band of uncut walls below Z-12.2") && n.contains("vise")), "{notes:?}");
+    assert!(notes.iter().any(|n| n.contains("0.5 mm band of uncut walls below Z-10.5") && n.contains("vise")), "{notes:?}");
     assert!(d66["peck_mm"].is_null(), "under 3D: one plunge despite the tool cap");
     // No 8 mm drill: helical bore with the largest end mill that fits, to the stock bottom,
     // which it cannot pass: a skin is expected and said.
-    assert_same(json!([bore["tool"], bore["diameter_mm"], bore["floor_z_mm"]]), json!(["em6", 8.0, -12.7]));
+    assert_same(json!([bore["tool"], bore["diameter_mm"], bore["floor_z_mm"]]), json!(["em6", 8.0, -11]));
     assert!(any_note(&notes, "skin or burr"), "{notes:?}");
     let mut ids: Vec<&str> = tools.iter().map(|t| t["id"].as_str().unwrap()).collect();
     ids.sort_unstable();
@@ -66,7 +66,7 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
 fn stock_below_lets_a_bore_break_through() {
     let plan = plate_no_mesh(&Options { bottom_stock: 2., ..Default::default() });
     let (ops, _, notes) = posted(&plan, &example_tools());
-    assert_eq!(number(&of_kind(&ops, "bore")[0]["floor_z_mm"]), -15.);
+    assert_eq!(number(&of_kind(&ops, "bore")[0]["floor_z_mm"]), -12.);
     assert!(!any_note(&notes, "skin or burr"), "{notes:?}");
 }
 

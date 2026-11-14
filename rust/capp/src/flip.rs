@@ -184,6 +184,7 @@ fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool
             };
             grips.sort_by(|a,b| b.total_cmp(a));
             for grip in grips {
+                if rejected.last().is_some_and(|seat| seat["grip_height_mm"].as_f64().is_some_and(|old| grip > old+1e-6)) { continue; }
                 if grip < r(minimum)
                     || grip >= vise["jaw_height_mm"].as_f64().unwrap()
                     || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())

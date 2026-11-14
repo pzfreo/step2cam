@@ -1,5 +1,6 @@
 //! camlib compares the stock left by the last move with the part. A height field cannot decide cells
 //! beside a wall on its own; camlib also reports a separate per-motion gouge proof.
+mod common;
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::simulate::simulate;
@@ -19,8 +20,6 @@ fn fixture(path: &str) -> Value {
 fn tools() -> Value {
     let mut tools = fixture("../../tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
-    // Synthetic longer-flute tool isolates geometry checks from the standard blank's extra stock.
-    tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
     tools
 }
 fn process(part: &str) -> Value {
@@ -67,7 +66,8 @@ fn the_thickness_around_a_boss_is_cut_away() {
     // now includes the web around the part, about 500 mm³, which no operation removes.
     let out = process("synthetic/stepped-plate");
     assert!(left_on_part(&out) < 2_000., "{}", left_on_part(&out));
-    assert!(left_on_part(&process("mounting-plate")) < 1_000.);
+    let out = process("mounting-plate");
+    assert!(left_on_part(&out)-common::extra_frame_web(&out) < 1_000.);
 }
 
 #[test]

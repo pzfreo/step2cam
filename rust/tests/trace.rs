@@ -214,14 +214,14 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
     // threshold. From the stock top it would
     // be 20 mm, 6.1×D, but roughing has already cut that stock away.
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
-    assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-8.7)));
+    assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-7.)));
     assert!(!active.iter().any(|d| d["rule"] == "process.hole.peck_by_depth@3"), "no hole here is deeper than 5×D below where it is entered");
     assert_eq!(ops[4]["technology"]["peck_mode"], "full_retract", "13 mm is still over 3×D: pecked");
     // The corner-radius warnings belong to one operation each.
     let warnings: Vec<_> = active.into_iter()
         .filter(|d| d["rule"] == "process.hole.peck_by_depth@3" || d["rule"] == "process.notch.corner_radius@1").collect();
     assert_eq!(warnings.len(), 3);
-    for (d, n) in warnings.iter().zip([7, 8, 9]) {
+    for (d, n) in warnings.iter().zip([8, 9, 10]) {
         assert_eq!(d["features"], ops[n]["features"]);
         assert!(!d["features"].as_array().unwrap().is_empty());
         assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
@@ -230,7 +230,7 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
         let says = d["says"].as_str().unwrap();
         assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
-        let radius = if n == 7 { "1.5" } else { "3" };
+        let radius = if n == 8 { "1.5" } else { "3" };
         assert!(says.contains(&format!("left r{radius} by")), "{says}");
         assert!(!says.contains("r3.0"), "{says}");
     }
