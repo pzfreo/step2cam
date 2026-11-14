@@ -138,13 +138,14 @@ fn flip_uses_deepest_available_grip_and_first_setup_keeps_least_grip() {
             tools["overrides"]["workholding_option"] = json!("vise_flip_face");
             let vise = &mut tools["machines"][0]["workholding"][0];
             let jaw = number(&vise["jaw_height_mm"]);
-            // Synthetic shop set with three eligible receiving grips; no stored library changes.
-            if inventory { vise["parallels_heights_mm"] = json!([jaw-minimum, jaw-4.125, jaw-6.]); }
+            // Synthetic shop set: three eligible receiving grips plus one over the limit.
+            if inventory { vise["parallels_heights_mm"] = json!([jaw-minimum, jaw-4.125, jaw-6., jaw-7.3]); }
             let heights = if inventory { list(&vise["parallels_heights_mm"]).clone() }
                 else { list(&capp::rules::standard_sizes()["parallels"]["heights_mm"]).clone() };
             let p = planned(&tools);
             let top = &p["setups"][0];
             let bottom = list(&p["setups"]).iter().find(|s| s["id"]=="bottom").unwrap();
+            assert!(list(&bottom["operations"]).iter().any(|o| o["kind"]=="facing"), "prepared grip must remain usable");
             let seat = &bottom["flip_seating"];
             let base = number(&p["part"]["min"][2]);
             let h = number(&seat["seat_z_model"])-base;
