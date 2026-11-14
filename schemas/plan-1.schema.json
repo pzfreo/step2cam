@@ -229,6 +229,7 @@
  },
  "additionalProperties": false,
  "$defs": {
+  "zero_pickup": {"type": "object", "required": ["description", "features", "finished_in", "method"], "additionalProperties": false, "properties": {"description": {"type": "string"}, "features": {"type": "array", "items": {"type": "string"}}, "finished_in": {"type": ["string", "array", "null"], "items": {"type": "string"}}, "method": {"type": "string"}, "axes": {"type": "object", "required": ["x", "y"], "additionalProperties": false, "properties": {"x": {"$ref": "#/$defs/zero_pickup"}, "y": {"$ref": "#/$defs/zero_pickup"}}}, "coordinate_mm": {"type": "number"}, "contact_in_previous_frame_mm": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}, "reference_z_mm": {"type": "number"}, "offset_mm": {"type": "number"}, "target_features": {"type": "array", "items": {"type": "string"}}, "seats": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["feature", "finished_in"], "additionalProperties": false, "properties": {"feature": {"type": "string"}, "finished_in": {"type": "string"}}}}}},
   "box": {
    "type": "object",
    "required": [
@@ -288,12 +289,7 @@
       "right"
      ]
     },
-    "zero": {
-     "enum": [
-      "stock",
-      "part"
-     ]
-    },
+    "zero": {"oneOf": [{"enum": ["stock", "part"]}, {"type": "object", "required": ["status", "xy", "z", "offset_in_previous_frame_mm", "because"], "additionalProperties": false, "properties": {"status": {"enum": ["located", "warning"]}, "xy": {"$ref": "#/$defs/zero_pickup"}, "z": {"$ref": "#/$defs/zero_pickup"}, "offset_in_previous_frame_mm": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}, "because": {"type": "array", "items": {"type": "string"}}}}]},
     "rotation": {
      "type": "array",
      "items": {
@@ -370,6 +366,8 @@
      "additionalProperties": false,
      "properties": {
       "parallels_size": {"type":"object", "required":["kind"], "properties":{"kind":{"enum":["standard","library","computed"]}}},
+      "fixed_jaw": {"enum": ["x.min", "x.max", "y.min", "y.max"]},
+      "part_stop": {"type": "object", "required": ["axis", "coordinate_mm", "feature", "finished_in", "contact_z_mm", "required"], "additionalProperties": false, "properties": {"axis": {"enum": ["x", "y"]}, "coordinate_mm": {"type": "number"}, "feature": {"type": "string"}, "finished_in": {"type": "string"}, "contact_z_mm": {"type": "number"}, "required": {"const": true}, "maximum_z_mm": {"type": "number"}, "overhang_z_mm": {"type": "number"}}, "dependentRequired": {"maximum_z_mm": ["overhang_z_mm"], "overhang_z_mm": ["maximum_z_mm"]}},
       "force_check": {"$ref": "#/$defs/grip_force"},
       "contacts": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "properties": {"area_mm2": {"type": "number", "minimum": 0}, "fraction": {"type": "number", "minimum": 0, "maximum": 1.0001}, "effective_length_mm": {"type": "number", "minimum": 0}, "face_model": {"type": "string"}, "offset_mm": {"type": "number", "minimum": 0}}, "additionalProperties": false}},
       "contact_area_mm2": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0}},
@@ -2451,6 +2449,7 @@
     "says"
    ],
    "properties": {
+    "rejected_pickups": {"type": "array", "items": {"type": "object", "required": ["feature", "reason"], "additionalProperties": false, "properties": {"feature": {"type": "string", "pattern": "^faces:[0-9]+$"}, "reason": {"type": "string", "minLength": 1}}}},
     "id": {
      "type": "string",
      "pattern": "^d-[0-9]+$"

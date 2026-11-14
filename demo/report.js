@@ -123,6 +123,7 @@ export function workholdingText(c) {
 
 export function setupZero(setup, format = trim) {
   const lo = setup.stock?.min, hi = setup.stock?.max;
+  if (setup.zero?.xy) return `Tool comes down −Z; X0 Y0: ${setup.zero.xy.description} · Z0: ${setup.zero.z.description}; stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
   return `Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
 }
 
@@ -230,7 +231,7 @@ export function setupDetails(setup, plan) {
     else if (zero(box.min[2])) z = `bottom of the ${name} in setup coordinates`;
     else z = `${reportLength(box.max[2])} mm below the top of the ${name}`;
   }
-  lines.push(`Work zero (from the recorded setup frame): XY — ${xy}; Z — ${z}.${setup.stock?.max ? ` Stock top Z${reportLength(setup.stock.max[2])} mm.` : ""} Tool comes down −Z.`);
+  lines.push(`Zero   X0 Y0: ${setup.zero?.xy?.description || xy}\n       Z0: ${setup.zero?.z?.description || z}`);
   return lines;
 }
 const heading = (text, level = 2) => ({ type: "heading", level, text });
@@ -316,9 +317,11 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
   for (const setup of plan.setups) {
     const grip = chosen?.grips?.find((g) => g.setup === setup.id);
     const holding = chosen ? workholdingText(chosen).label : null;
+    const details = setupDetails(setup, plan), zeroLines = details.pop().split("\n");
     blocks.push(pageBreak(), heading(`SETUP — ${setup.id}`, 1),
       paragraph(sheetWords(`Workholding: ${text(holding)}${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}`)),
-      ...setupDetails(setup, plan).map(paragraph));
+      ...details.map(paragraph),
+      table([], [["Zero", zeroLines[0].replace(/^Zero\s+/, "")], ["", zeroLines[1].trimStart()]], "setup-zero"));
     const rows = setup.operations.map((op, i) => {
       const id = `${setup.id}-${i + 1}-${op.kind}`, o = ops.get(id), t = op.technology || {};
       const notes = [];

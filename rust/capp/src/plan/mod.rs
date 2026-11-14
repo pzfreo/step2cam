@@ -516,7 +516,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
         // Why each operation is here: its setup, the order, the rule that made it, and for holes
         // the decision that put them in this setup.
         let stock = json!({"min": rp(frame.stock.0), "max": rp(frame.stock.1)});
-        let in_setup = trace.decide("setup.stock.part_box_with_margins", name, "chosen", &format!("the {name} setup, zeroed on the {}", frame.zeroed_on), json!({"zero": frame.zeroed_on, "stock": stock}));
+        let in_setup = trace.decide("setup.stock.part_box_with_margins", name, "chosen", &format!("the {name} setup uses a temporary {} construction frame; final zero is selected after retained cuts", frame.zeroed_on), json!({"zero": frame.zeroed_on, "stock": stock}));
         let order = trace.decide("sequence.fixed_order", name, "chosen", "facing, roughing, flats, spot drills, holes, counterbores, slots, notches and V-channels, walls, edge chamfers, threads last", Value::Null);
         let mut operations = Vec::with_capacity(ops.len());
         for cut in ops {

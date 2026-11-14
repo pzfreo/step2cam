@@ -373,3 +373,37 @@ axial cycles are thrust into supports. Roughing, helix-milled holes/counterbores
 thread milling record runtime engagement as not checked before camlib runs. A
 follow-up must use its actual moves. Holding capacity does not scale with contact
 area; pressure and overturning remain unchecked.
+
+### Fixed jaw and pickup
+
+Optional vise `fixed_jaw` names its installed side in setup axes (`x.min`, `x.max`,
+`y.min`, `y.max`), validated against the selected grip axis. Add it only with a source
+for the installed orientation. None of the shipped vise sources establishes that
+orientation, so all shipped libraries omit it. The planner explicitly defaults to
+the minimum side of the chosen grip axis as step2cam judgement, preserving the stock
+corner convention, and records it in each setup's clamping. This says nothing about
+machine-axis vise mounting. Final process zeros and pickup methods are documented in
+[the M10 policy](../docs/capp-plan.md#setup-zero-and-pickup-m10).
+
+Flip pickup contacts use a previously finished face against the fixed jaw and another
+against a required vise/part stop, picked up as its axis zero before loading.
+`clamping.part_stop` is a plan requirement, not sourced library inventory or modeled
+stop hardware. Flip Z is established from the finished seat on modeled parallel tops;
+without a verified finished seat or modeled parallels, stock touch-off explicitly warns
+that bar thickness varies and the part must be measured after facing.
+
+Non-flip setups touch a reachable finished upward face directly before considering a
+parallel transfer. Direct Z and side-face stock checks allow 0.5 mm of envelope slack (the
+side-setup envelopes in the planset extend at most 0.182 mm past these faces).
+Part and fixture checks remain strict. Side probing clips only stock within 0.5 mm
+outside the finished face plane; genuine overhangs remain. Flip checks stay strict,
+and flips keep the finished parallel seat.
+The stop face is picked up as the recorded axis zero before loading. Its recorded
+`maximum_z_mm` limits the nose top solely from the sampled stock overhang
+(`overhang_z_mm`): 0.5 mm below it, rounded down to 0.1 mm. Both fields are absent
+when there is no overhang. The limit must remain above the clear contact band.
+The sheet says what is limited and the approximate contact height;
+`contact_z_mm` is a band sample, not a physical cap on the nose. Stop hardware
+is not simulated. Side-setup stock touch-off warns that stock size varies; flip
+touch-off keeps the bar-thickness warning.
+Undatumed face names refer to the model's top/bottom, front/back and left/right.

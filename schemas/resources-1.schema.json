@@ -1581,6 +1581,7 @@
          "collet"
         ]
        },
+       "fixed_jaw": {"enum": ["x.min", "x.max", "y.min", "y.max"], "description": "Installed fixed-jaw side in setup axes. Must match the selected grip axis. Omit when unknown; planner minimum-side default is judgement."},
        "max_jaw_opening_mm": {
         "type": "number",
         "exclusiveMinimum": 0
