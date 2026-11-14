@@ -144,11 +144,32 @@ fn band_points(vs: &[P], jaw: f64) -> Vec<P> {
     }
     out
 }
-fn probe_side(face: &Face<'_>, stock: &[[P;3]], part: &[[P;3]], bs: &[(P,P)], jaw: f64) -> Option<P> {
+// Ignore only the non-flip stock envelope within the allowance outside the
+// finished face. Clip triangles rather than moving actual obstructions away.
+fn side_probe_stock(stock: &[[P;3]], face: &Face<'_>, allowance: f64) -> Vec<[P;3]> {
+    if allowance==0. {return stock.to_vec();}
+    let mut out=vec![];
+    for t in stock {
+        let mut polygon=vec![];
+        for i in 0..3 {
+            let (a,b)=(t[i],t[(i+1)%3]);
+            let da=dot(face.n,sub(a,face.p))-allowance;
+            let db=dot(face.n,sub(b,face.p))-allowance;
+            if da>=0. {polygon.push(a);}
+            if (da<0. && db>0.) || (da>0. && db<0.) {
+                let k=da/(da-db);polygon.push(std::array::from_fn(|j|a[j]+k*(b[j]-a[j])));
+            }
+        }
+        for i in 1..polygon.len().saturating_sub(1) {out.push([polygon[0],polygon[i],polygon[i+1]]);}
+    }
+    out
+}
+fn probe_side(face: &Face<'_>, stock: &[[P;3]], part: &[[P;3]], bs: &[(P,P)], jaw: f64, allowance: f64) -> Option<P> {
     let axis=(0..2).find(|i|face.n[*i].abs()>0.999)?;
+    let stock=side_probe_stock(stock,face,allowance);
     band_points(&face.vs,jaw).into_iter().find(|p| {
         let mut q=*p;q[axis]+=face.n[axis];
-        if above(stock,q,0.5) || above(part,q,0.5) || box_above(bs,q,0.5) {return false;}
+        if above(&stock,q,0.5) || above(part,q,0.5) || box_above(bs,q,0.5) {return false;}
         // The vertical approach must reach the band; the final horizontal
         // approach is swept at +/-0.5 mm in height and along the face.
         for dz in [-0.5,0.,0.5] {for da in [-0.5,0.,0.5] {
@@ -189,12 +210,12 @@ fn stop_contact(s: &Value, part: &Value, face: &Face<'_>, axis: usize, stock: &[
     band_points(&face.vs,jaw).into_iter().find(|p| {
         let mut a=*p;let mut b=*p;a[axis]+=4.*face.n[axis];b[axis]+=face.n[axis];
         !box_hits(a,b,bs) && !stock.iter().any(|t|segment_hits(a,b,t))
-            && stop_height(stock,*p,axis,face.n[axis]).0>p[2]
+            && stop_height(stock,*p,axis,face.n[axis]).is_none_or(|(limit,_)|limit>p[2])
     })
 }
-// Bound the nose both near the verified contact band and below the lowest
-// carried-stock overhang along its horizontal approach (including nose width).
-fn stop_height(stock: &[[P;3]], q: P, axis: usize, sign: f64) -> (f64,Option<f64>) {
+// Bound the nose below the lowest carried-stock overhang along its horizontal
+// approach (including nose width). A band sample does not limit the nose height.
+fn stop_height(stock: &[[P;3]], q: P, axis: usize, sign: f64) -> Option<(f64,f64)> {
     let mut overhang:Option<f64>=None;
     for outside in [1.,2.5,4.] {for lateral in [-0.5,0.,0.5] {
         let mut p=q;p[axis]+=outside*sign;p[1-axis]+=lateral;
@@ -210,8 +231,7 @@ fn stop_height(stock: &[[P;3]], q: P, axis: usize, sign: f64) -> (f64,Option<f64
             }
         }
     }}
-    let limit=overhang.map_or(q[2]+0.5,|z|(q[2]+0.5).min(z-0.5));
-    ((limit*10.).floor()/10.,overhang)
+    overhang.map(|z|(((z-0.5)*10.).floor()/10.,z))
 }
 fn axis_pickup(a: &Value, s: &Value, face: &Face<'_>, axis: usize, kind: &str, q: P) -> Value {
     let prior=face.prior["id"].as_str().unwrap();
@@ -226,6 +246,9 @@ fn axis_pickup(a: &Value, s: &Value, face: &Face<'_>, axis: usize, kind: &str, q
     p["contact_in_previous_frame_mm"]=json!(q);
     p
 }
+fn stock_variation(s: &Value) -> &'static str {
+    if s["flip_seating"].is_object() {"bar thickness varies"} else {"stock size varies"}
+}
 fn stock_touch(s: &Value, analysis: &Value) -> Value {
     let target=analysis["faces"].as_array().into_iter().flatten().find(|f| f["kind"]=="plane"
         && point(&f["direction"]).is_some_and(|n|dot(rows(s)[2],n)>0.999)
@@ -233,7 +256,7 @@ fn stock_touch(s: &Value, analysis: &Value) -> Value {
     let name=target.map_or_else(||"the recorded thickness plane".into(),|f|plane_name(analysis,s,f,false));
     let ids=target.map_or_else(||json!([]),|f|json!([format!("faces:{}",f["id"])]));
     let top=s["stock"]["max"][2].as_f64().unwrap();
-    pickup(format!("{name}; touch off stock top at Z{}{}; measure the part after facing; bar thickness varies",if top>=0. {"+"} else {""},crate::plan::display_position(top)),ids,Value::Null,"stock_touch_off")
+    pickup(format!("{name}; touch off stock top at Z{}{}; measure the part after facing; {}",if top>=0. {"+"} else {""},crate::plan::display_position(top),stock_variation(s)),ids,Value::Null,"stock_touch_off")
 }
 fn parallel_zero(s: &Value, a: &Value, faces: &[Face<'_>]) -> Option<Value> {
     let bars=s["clamping"]["parallels"].as_array().filter(|ps|!ps.is_empty())?;
@@ -307,7 +330,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
                 let Some(prior)=finished(f,&vs,previous) else {continue};
                 let mut face=Face {f,prior,p:local(s,point(&f["centroid"]).unwrap()),n:r.map(|axis|dot(axis,point(&f["direction"]).unwrap())),vs:vs.iter().map(|v|local(s,*v)).collect(),probe:None};
                 if face.n[2].abs()<1e-6 {
-                    face.probe=probe_side(&face,&stock,&part,&bs,jaw_top);
+                    face.probe=probe_side(&face,&stock,&part,&bs,jaw_top,if s["flip_seating"].is_object() {0.} else {0.5});
                     if face.probe.is_none() {rejected.push(json!({"feature":format!("faces:{}",f["id"]),"reason":"probe band or approach obstructed by stock or fixtures"}));}
                 }
                 faces.push(face);
@@ -330,17 +353,18 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
                 shift[0]=x.0.p[0];shift[1]=y.0.p[1];
                 let xp=axis_pickup(analysis,s,x.0,0,x.1,x.2);let yp=axis_pickup(analysis,s,y.0,1,y.1,y.2);
                 for (axis,choice) in [(0,x),(1,y)] {if choice.1=="part_stop_contact" {
-                    let (limit,overhang)=stop_height(&stock,choice.2,axis,choice.0.n[axis]);
-                    let mut record=json!({"axis":(["x","y"][axis]),"coordinate_mm":0.,"feature":format!("faces:{}",choice.0.f["id"]),"finished_in":choice.0.prior["id"],"contact_z_mm":choice.2[2],"maximum_z_mm":limit,"required":true});
-                    if let Some(z)=overhang {record["overhang_z_mm"]=json!(z);}
+                    let mut record=json!({"axis":(["x","y"][axis]),"coordinate_mm":0.,"feature":format!("faces:{}",choice.0.f["id"]),"finished_in":choice.0.prior["id"],"contact_z_mm":choice.2[2],"required":true});
+                    if let Some((limit,z))=stop_height(&stock,choice.2,axis,choice.0.n[axis]) {
+                        record["maximum_z_mm"]=json!(limit);record["overhang_z_mm"]=json!(z);
+                    }
                     stop=Some(record);
                 }}
                 let mut p=pickup(format!("{} · {}",xp["description"].as_str().unwrap(),yp["description"].as_str().unwrap()),json!([format!("faces:{}",x.0.f["id"]),format!("faces:{}",y.0.f["id"])]),json!([x.0.prior["id"],y.0.prior["id"]]),if x.1=="probe_face" && y.1=="probe_face" {"probe_faces"} else if x.1=="probe_face" || y.1=="probe_face" {"mixed_references"} else {"fixture_contacts"});
                 p["axes"]=json!({"x":xp,"y":yp});Some(p)
             } else {None};
             // Side-setup envelopes include sub-mm slack (up to 0.182 mm in
-            // the fixtures). Allow 0.5 mm only for stock above a finished Z
-            // face; actual part and fixture obstructions retain 0.02 mm checks.
+            // the fixtures). Allow 0.5 mm for stock at a finished Z or side
+            // face; actual part and fixture obstructions retain strict checks.
             let direct=(!s["flip_seating"].is_object()).then(||faces.iter().find(|f|f.n[2]>0.999 && f.p[2]>jaw_top+1. && !above_with_slack(&stock,f.p,0.5,0.5) && !above(&part,f.p,0.5) && !box_above(&bs,f.p,0.5))).flatten();
             let mut z=if let Some(f)=direct {
                 shift[2]=f.p[2];Some(pickup(format!("{} (finished in setup {})",plane_name(analysis,s,f.f,true),f.prior["id"].as_str().unwrap()),json!([format!("faces:{}",f.f["id"])]),f.prior["id"].clone(),"probe_face"))
@@ -351,7 +375,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
                 trace.warn("setup.datum_pickup",id,format!("setup {id}: no usable finished feature to locate X/Y; re-zero on the stock edge; frame retained"),json!({}));
             }
             let z=z.unwrap_or_else(|| {
-                trace.warn("setup.datum_pickup",id,format!("setup {id}: no finished seat on modelled parallels or reachable finished Z face; measure the part after facing; bar thickness varies"),json!({}));
+                trace.warn("setup.datum_pickup",id,format!("setup {id}: no finished seat on modelled parallels or reachable finished Z face; measure the part after facing; {}",stock_variation(s)),json!({}));
                 stock_touch(s,analysis)
             });
             let status=if xy.is_some() {"located"} else {"warning"};
@@ -359,10 +383,11 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
         };
         if let Some(record)=&stop {
             let axis=record["axis"].as_str().unwrap();
-            let height=record["maximum_z_mm"].as_f64().unwrap()-shift[2];
-            let label=crate::plan::display_position(height).replace('-',"−");
+            let contact=record["contact_z_mm"].as_f64().unwrap()-shift[2];
+            let z_text=|z:f64|format!("Z{}{}",if z>=0. {"+"} else {""},crate::plan::display_position(z).replace('-',"−"));
             let description=xy["axes"][axis]["description"].as_str().unwrap();
-            xy["axes"][axis]["description"]=json!(format!("{description}; stop below Z{}{label}",if height>=0. {"+"} else {""}));
+            let limit=record["maximum_z_mm"].as_f64().map_or_else(String::new,|z|format!("stop nose top at or below {}; ",z_text(z-shift[2])));
+            xy["axes"][axis]["description"]=json!(format!("{description}; {limit}touches the face at about {}",z_text((contact*10.).round()/10.)));
             xy["description"]=json!(format!("{} · {}",xy["axes"]["x"]["description"].as_str().unwrap(),xy["axes"]["y"]["description"].as_str().unwrap()));
         }
         let mut zero=json!({"status":status,"xy":xy,"z":z,"offset_in_previous_frame_mm":shift});
@@ -387,25 +412,42 @@ mod tests {
         assert!(box_above(&[([-2.,-2.,-2.],[2.,2.,0.182])],[0.;3],0.5));
     }
     #[test]
-    fn stop_nose_stays_below_overhang_and_near_contact_band() {
-        let cap=triangles(&json!({"min_mm":[-5.,-5.,-1.8],"max_mm":[5.,5.,2.]}));
-        let (limit,overhang)=stop_height(&cap,[0.,0.,-2.],0,-1.);
-        assert!((overhang.unwrap()+1.8).abs()<1e-9);
-        assert!(limit<=-2.3);
-        let (limit,overhang)=stop_height(&[],[0.,0.,-2.04],0,-1.);
-        assert_eq!(overhang,None);assert_eq!(limit,-1.6);
+    fn stop_nose_limit_depends_on_overhang_not_band_sample() {
+        let cap=triangles(&json!({"min_mm":[-5.,-5.,0.],"max_mm":[5.,5.,2.]}));
+        assert_eq!(stop_height(&cap,[0.,0.,-6.],0,-1.),Some((-0.5,0.)));
+        assert_eq!(stop_height(&cap,[0.,0.,-2.],0,-1.),Some((-0.5,0.)));
+        assert_eq!(stop_height(&[],[0.,0.,-2.04],0,-1.),None);
+        let cap=triangles(&json!({"min_mm":[-5.,-5.,-1.8],"max_mm":[5.,12.,2.]}));
+        let (limit,overhang)=stop_height(&cap,[0.,0.,-2.],0,-1.).unwrap();
+        assert!((overhang+1.8).abs()<1e-9);assert!(limit<=-2.3);
+        let f=json!({"id":0});let prior=json!({"id":"top"});
+        let vs=vec![[0.,0.,-4.],[0.,10.,-4.],[0.,10.,0.],[0.,0.,-4.],[0.,10.,0.],[0.,0.,0.]];
+        let face=Face {f:&f,prior:&prior,p:[0.,5.,-2.],n:[-1.,0.,0.],vs,probe:None};
+        let setup=json!({"rotation":[[1,0,0],[0,1,0],[0,0,1]],"origin_model":[0,0,0]});
+        let part=json!({"min":[0,0,-4],"max":[10,10,0]});
+        assert!(stop_contact(&setup,&part,&face,0,&cap,&[],-6.).is_none(),"the band is clear, but the safe nose top is below contact");
+        assert!(stop_contact(&setup,&part,&face,0,&[],&[],-6.).is_some(),"no overhang requires no height limit");
     }
     #[test]
     fn capped_faces_and_fixture_obstructions_are_not_probe_pickups() {
         let f=json!({"id":0});let prior=json!({"id":"top"});
         let vs=vec![[0.,0.,-4.],[0.,10.,-4.],[0.,10.,0.],[0.,0.,-4.],[0.,10.,0.],[0.,0.,0.]];
         let face=Face {f:&f,prior:&prior,p:[0.,5.,-2.],n:[-1.,0.,0.],vs,probe:None};
-        assert!(probe_side(&face,&[],&[],&[],-6.).is_some());
+        assert!(probe_side(&face,&[],&[],&[],-6.,0.).is_some());
         let cap=triangles(&json!({"min_mm":[-2.,-2.,0.],"max_mm":[12.,12.,5.]}));
-        assert!(probe_side(&face,&cap,&[],&[],-6.).is_none(),"the touch band is below the cap, but the vertical approach is capped");
+        assert!(probe_side(&face,&cap,&[],&[],-6.,0.).is_none(),"the touch band is below the cap, but the vertical approach is capped");
         let jaw=([ -2.,-1.,-6.],[0.,11.,-1.]);
-        assert!(probe_side(&face,&[],&[],&[jaw],-6.).is_none());
+        assert!(probe_side(&face,&[],&[],&[jaw],-6.,0.).is_none());
         let parallel=([-2.,-1.,-6.],[-0.1,11.,3.]);
-        assert!(probe_side(&face,&[],&[],&[parallel],-6.).is_none());
+        assert!(probe_side(&face,&[],&[],&[parallel],-6.,0.).is_none());
+        let slack=triangles(&json!({"min_mm":[-0.182,-2.,-4.],"max_mm":[12.,12.,0.]}));
+        assert!(probe_side(&face,&slack,&[],&[],-6.,0.).is_none());
+        assert!(probe_side(&face,&slack,&[],&[],-6.,0.5).is_some());
+        assert!(probe_side(&face,&[],&slack,&[],-6.,0.5).is_none(),"part geometry has no envelope allowance");
+        assert!(probe_side(&face,&slack,&[],&[jaw],-6.,0.5).is_none());
+        assert!(probe_side(&face,&slack,&[],&[parallel],-6.,0.5).is_none());
+        assert!(probe_side(&face,&cap,&[],&[],-6.,0.5).is_none(),"a genuine overhanging cap remains blocked");
+        let covered=triangles(&json!({"min_mm":[-0.6,-2.,-4.],"max_mm":[12.,12.,0.]}));
+        assert!(probe_side(&face,&covered,&[],&[],-6.,0.5).is_none());
     }
 }

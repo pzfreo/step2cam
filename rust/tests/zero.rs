@@ -37,11 +37,13 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         let stop=&bottom["clamping"]["part_stop"];
         let height=stop["maximum_z_mm"].as_f64().unwrap();
         assert!(height>stop["contact_z_mm"].as_f64().unwrap());
-        assert!(height<=stop["contact_z_mm"].as_f64().unwrap()+0.5);
-        assert!(height<=stop["overhang_z_mm"].as_f64().unwrap()-0.5);
+        let overhang=stop["overhang_z_mm"].as_f64().unwrap();
+        assert!(height<=overhang-0.5);
+        assert!(height>overhang-0.600001,"only the overhang clearance and downward rounding set the limit");
         let text=y["description"].as_str().unwrap();
         assert!(text.contains("pick up the stop face as Y0 before loading"));
-        assert!(text.contains("stop below Z−"));
+        assert!(text.contains("stop nose top at or below Z−"));
+        assert!(text.contains("touches the face at about Z−"));
         let decision=out["plan"]["decisions"].as_array().unwrap().iter().find(|d|d["id"]==bottom["zero"]["because"][0]).unwrap();
         for id in ["faces:0","faces:5"] {assert!(decision["rejected_pickups"].as_array().unwrap().iter().any(|r|r["feature"]==id));}
         let z=&bottom["zero"]["z"];
@@ -82,7 +84,11 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         let front=setups.iter().find(|s|s["id"]=="front").unwrap();
         assert_eq!(front["zero"]["xy"]["features"],json!(["faces:0","faces:4"]));
         assert_eq!(front["zero"]["xy"]["finished_in"],json!(["top","bottom"]));
-        assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"part_stop_contact");
+        assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"probe_face");
+        assert_eq!(front["zero"]["xy"]["method"],"probe_faces");
+        assert!(front["clamping"]["part_stop"].is_null());
+        let front_decision=out["plan"]["decisions"].as_array().unwrap().iter().find(|d|d["id"]==front["zero"]["because"][0]).unwrap();
+        assert!(!front_decision["rejected_pickups"].as_array().unwrap().iter().any(|r|r["feature"]=="faces:0"));
         assert_eq!(front["zero"]["xy"]["axes"]["y"]["method"],"probe_face");
         assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");
         assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]),"{lib}");
@@ -93,6 +99,13 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         assert!(chamfered["error"].is_null(),"{lib}: {}",chamfered["error"]);
         let front=chamfered["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
         assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");
+        assert_eq!(front["zero"]["xy"]["axes"]["x"]["method"],"probe_face","{lib}");
+        assert_eq!(front["zero"]["xy"]["axes"]["x"]["features"],json!(["faces:0"]));
+        assert_eq!(front["zero"]["xy"]["axes"]["x"]["finished_in"],"top");
+        assert_eq!(front["zero"]["xy"]["method"],"probe_faces");
+        assert!(front["clamping"]["part_stop"].is_null());
+        let front_decision=chamfered["plan"]["decisions"].as_array().unwrap().iter().find(|d|d["id"]==front["zero"]["because"][0]).unwrap();
+        assert!(!front_decision["rejected_pickups"].as_array().unwrap().iter().any(|r|r["feature"]=="faces:0"));
         assert_eq!(front["zero"]["z"]["features"],json!(["faces:6"]),"{lib}");
         assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
         assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 6"));
@@ -100,6 +113,14 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
         let errors:Vec<_>=validator.iter_errors(&out["plan"]).map(|e|format!("{e} at {}",e.instance_path())).collect();
         assert!(errors.is_empty(),"{}",errors.join("\n"));
+        let mut missing_overhang=out["plan"].clone();
+        missing_overhang["setups"][bi]["clamping"]["part_stop"].as_object_mut().unwrap().remove("overhang_z_mm");
+        assert!(!validator.is_valid(&missing_overhang),"a nose limit requires an overhang");
+        let mut no_limit=out["plan"].clone();
+        no_limit["setups"][bi]["clamping"]["part_stop"].as_object_mut().unwrap().remove("maximum_z_mm");
+        assert!(!validator.is_valid(&no_limit),"a recorded overhang requires its limit");
+        no_limit["setups"][bi]["clamping"]["part_stop"].as_object_mut().unwrap().remove("overhang_z_mm");
+        assert!(validator.is_valid(&no_limit),"no overhang implies no height limit");
         let mut bad=out["plan"].clone();
         let d=bad["decisions"].as_array_mut().unwrap().iter_mut().find(|d|d["subject"]=="bottom" && d["rejected_pickups"].as_array().is_some_and(|r|!r.is_empty())).unwrap();
         d["rejected_pickups"][0]["unrecognised"]=json!(true);
@@ -121,6 +142,9 @@ fn absent_finished_features_preserve_the_entire_later_frame() {
     assert_eq!(p["setups"][1]["stock"],old["stock"]);
     assert_eq!(p["setups"][1]["zero"]["status"],"warning");
     assert!(p["warnings"][0].as_str().unwrap().contains("no usable finished feature to locate X/Y"));
+    assert!(p["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("stock size varies")));
+    assert!(p["setups"][1]["zero"]["z"]["description"].as_str().unwrap().contains("stock size varies"));
+    assert!(!p["setups"][1]["zero"]["z"]["description"].as_str().unwrap().contains("bar thickness varies"));
 }
 #[test]
 fn fixed_jaw_side_is_optional_but_validated() {

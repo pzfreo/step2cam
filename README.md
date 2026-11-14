@@ -154,8 +154,8 @@ The plan says **what** to cut, independent of tools and machine.
   includes carried stock and fixtures. Hidden faces can locate by contact against the fixed
   jaw and a required stop picked up as its axis zero before loading; the sheet limits
   the stop nose height below the overhang. Non-flips prefer a direct finished upward
-  face for Z, allowing 0.5 mm of stock-envelope slack. Flip Z uses a finished seat on modeled
-  parallels; absent support evidence requires stock touch-off, a bar-variation warning
+  face for Z; non-flip Z and side probing allow 0.5 mm of stock-envelope slack.
+  Flip Z uses a finished seat on modeled parallels; absent support evidence requires stock touch-off, a bar-variation warning
   and measuring after facing.
   Missing X/Y evidence warns and retains the frame. `rotation` and `origin_model` locate
   all coordinates. The intermediate planner retains legacy stock/part frame labels;

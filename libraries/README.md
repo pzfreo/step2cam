@@ -393,11 +393,17 @@ without a verified finished seat or modeled parallels, stock touch-off explicitl
 that bar thickness varies and the part must be measured after facing.
 
 Non-flip setups touch a reachable finished upward face directly before considering a
-parallel transfer. The direct Z stock check allows 0.5 mm of envelope slack (the
-side-setup envelopes in the planset extend at most 0.182 mm above these faces);
-part and fixture checks remain at 0.02 mm. Flips keep the finished parallel seat.
+parallel transfer. Direct Z and side-face stock checks allow 0.5 mm of envelope slack (the
+side-setup envelopes in the planset extend at most 0.182 mm past these faces).
+Part and fixture checks remain strict. Side probing clips only stock within 0.5 mm
+outside the finished face plane; genuine overhangs remain. Flip checks stay strict,
+and flips keep the finished parallel seat.
 The stop face is picked up as the recorded axis zero before loading. Its recorded
-`maximum_z_mm` limits the nose top: at most 0.5 mm above `contact_z_mm`, and at
-least 0.5 mm below any sampled stock overhang (`overhang_z_mm`), rounded down
-to 0.1 mm. The sheet states this limit; the stop hardware is not simulated.
+`maximum_z_mm` limits the nose top solely from the sampled stock overhang
+(`overhang_z_mm`): 0.5 mm below it, rounded down to 0.1 mm. Both fields are absent
+when there is no overhang. The limit must remain above the clear contact band.
+The sheet says what is limited and the approximate contact height;
+`contact_z_mm` is a band sample, not a physical cap on the nose. Stop hardware
+is not simulated. Side-setup stock touch-off warns that stock size varies; flip
+touch-off keeps the bar-thickness warning.
 Undatumed face names refer to the model's top/bottom, front/back and left/right.

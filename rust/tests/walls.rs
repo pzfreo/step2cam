@@ -199,7 +199,7 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         // The ordinary setup leaves a web: no completely finished side-face pair
         // establishes the front pickup, so M10 must warn rather than invent one.
         "setup front: no usable finished feature to locate X/Y; re-zero on the stock edge; frame retained",
-        "setup front: no finished seat on modelled parallels or reachable finished Z face; measure the part after facing; bar thickness varies"
+        "setup front: no finished seat on modelled parallels or reachable finished Z face; measure the part after facing; stock size varies"
     ]));
     let front=out["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
     assert_eq!(front["zero"]["status"], "warning");
