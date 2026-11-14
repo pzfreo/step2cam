@@ -2449,6 +2449,7 @@
     "says"
    ],
    "properties": {
+    "rejected_pickups": {"type": "array", "items": {"type": "object", "required": ["feature", "reason"], "additionalProperties": false, "properties": {"feature": {"type": "string", "pattern": "^faces:[0-9]+$"}, "reason": {"type": "string", "minLength": 1}}}},
     "id": {
      "type": "string",
      "pattern": "^d-[0-9]+$"
