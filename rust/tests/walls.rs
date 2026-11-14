@@ -195,8 +195,14 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "setup top: 8 mm notch: its 2 square inside corners are left r3 by em6 (the model has them sharp)",
         "setup top: 1.8 mm V-channel: its walls are left up to 0.034 mm thick at the top by vb60, a 60° bit in the 61.9275° channel",
         // This library has no spot drill for the ⌀10 hole: its spot drilling is left out.
-        "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth"
+        "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth",
+        // The ordinary setup leaves a web: no completely finished side-face pair
+        // establishes the front pickup, so M10 must warn rather than invent one.
+        "setup front: no finished feature to pick up X/Y; re-zero on the stock edge; frame retained"
     ]));
+    let front=out["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
+    assert_eq!(front["zero"]["status"], "warning");
+    assert_eq!(front["zero"]["offset_in_previous_frame_mm"], json!([0.,0.,0.]));
     let material = &out["programs"][0]["material"];
     assert_eq!(material["gouge"]["definite_cells"], 0);
     // The original slot stops at the requested blank bottom. Extra purchased
