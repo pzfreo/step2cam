@@ -204,8 +204,6 @@ mod tests {
         // Coarse stock is sufficient for a structural handoff test, and avoids
         // duplicating the full-resolution fixture/benchmark checks.
         library["cell_size_mm"] = json!(1.);
-        // Synthetic shop inventory keeps the front handoff under test; the standard set cannot hold it.
-        library["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
         library["decisions"] = json!([{"rule":"setup.workholding", "subject":"part", "choice":"vise_ordinary", "source":"user", "reason":"test the web route"}]);
         let output = crate::process(&analysis, &mesh, &library).unwrap();
         assert!(output["error"].is_null(), "{}", output["error"]);

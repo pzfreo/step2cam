@@ -346,9 +346,7 @@ mod tests {
     }
     #[test]
     fn a_candidate_execution_error_does_not_discard_the_other_run() {
-        let (a, m, mut t) = inputs();
-        // Keep both routes holdable for the injected execution error.
-        t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
+        let (a, m, t) = inputs();
         for fail_flip in [false, true] {
             let mut calls = 0;
             let out = process_using(&a, &m, &t, |a, m, t, p| {

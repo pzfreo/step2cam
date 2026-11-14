@@ -480,7 +480,7 @@ standard height meeting grip limits; the flip selects the deepest grip passing
 all limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
 First-setup stock uses the smallest containing bar area, trying both orientations,
 with thickness along the tool axis, width across the narrower side, and sawn length
-rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
+rounded up to whole mm. Extra thickness goes below the part, preserving the top margin and tool reach; side and length extra is shared
 equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
 computed size and warn. Later setups record remaining material, not purchased bars.
 Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet

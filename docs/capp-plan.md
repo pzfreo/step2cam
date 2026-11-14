@@ -77,6 +77,8 @@ setup, without suggesting a longer tool would solve the clamping obstruction.
 Each jaw is passed to camlib as a fixture prism, checked against the whole tool assembly.
 Jaw thickness is conservatively modeled equal to jaw height. Without a fixed height,
 choose the tallest library inventory or cited standard height meeting grip limits.
+If no standard height fits ordinary clamping, retain the computed minimum grip and
+unmodeled support, with one warning that it is not a standard size; shop inventories remain strict.
 The selected height seats the stock on two modeled edge bars; grip becomes
 jaw height minus parallel height and must satisfy the same limits. Bar envelopes use the rule's minimum grip as
 width (or one third of the opening for narrow stock) and span the stock length. Their
@@ -255,7 +257,7 @@ standard height meeting grip limits; the flip selects the deepest grip passing
 all limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
 First-setup stock uses the smallest containing bar area, trying both orientations,
 with thickness along the tool axis, width across the narrower side, and sawn length
-rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
+rounded up to whole mm. Extra thickness goes below the part, preserving the top margin and tool reach; side and length extra is shared
 equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
 computed size and warn. Later setups record remaining material, not purchased bars.
 Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet

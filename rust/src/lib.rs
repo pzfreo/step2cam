@@ -195,7 +195,8 @@ impl Outcome {
 }
 
 /// Simulates the plan, and plans again without each operation camlib refuses. The loop ends: each
-/// pass stops, falls back from the flip (at most once), or leaves out one more operation, and the
+/// pass stops, rejects one more finite seating candidate, falls back from the flip (at most once),
+/// or leaves out one more operation, and the
 /// operations left out since the last start are at most the operations that start's plan had.
 fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Exclusion>) -> Result<Outcome, String> {
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
@@ -203,6 +204,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     let mut plan;
     let mut setup_cache = vec![];
     let mut fell_back = false;
+    let mut rejected_seats = vec![];
     // Since the last start: the operations left out, and the first finished plan's operations.
     let mut refused: Vec<Option<Key>> = vec![];
     let mut started = None;
@@ -223,11 +225,15 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 error = Some("replanning stopped: the plan without the flip still asks for one".into());
                 break;
             }
+            rejected_seats.push(bottom.flip_seating.clone().unwrap());
+            if capp::flip::retry_seating(&mut planned, mesh, library, &rejected_seats)? {
+                continue;
+            }
             let grip_rule=capp::trace::cite("machine.grip_vs_cut");
             let reason=plan.warnings.iter().map(String::as_str)
                 .filter(|w| !plan.decisions.iter().flatten().any(|d| d["rule"]==grip_rule && d["outcome"]=="warning" && d["says"]==*w))
                 .filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
-            planned=capp::flip::build_fallback(analysis,mesh,&reason)?;
+            planned=capp::flip::build_fallback(analysis,mesh,library,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
             exclusions.clear();
@@ -338,9 +344,7 @@ mod flip_tests {
     }
     #[test]
     fn explicit_ordinary_demo_programs_and_notes_match_ordinary_planning() {
-        let mut resources: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
-        // Shop fixture for the front: parity here tests candidate replay, not standard-set availability.
-        resources["machines"][0]["workholding"][0]["parallels_heights_mm"]=json!([8.,12.7,15.875]);
+        let resources: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         for (a,m) in [
             (include_str!("../../tests/fixtures/plate.analysis.json"),include_str!("../../tests/fixtures/plate.mesh.json")),
             (include_str!("../../tests/fixtures/mounting-plate.analysis.json"),include_str!("../../tests/fixtures/mounting-plate.mesh.json")),
@@ -399,7 +403,7 @@ mod flip_tests {
         let out=process_planned(&a,&m,&t,typed(&planned),vec![typed(&exclusion)]).unwrap().json();
         assert!(out["error"].is_null(),"{}",out["error"]);
         assert!(out["plan"]["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
-        assert_eq!(out["plan"]["setups"][0]["stock"]["min"][2],-20.);
+        assert_eq!(out["plan"]["setups"][0]["stock"]["min"][2],-19.);
         assert!(out["plan"]["setups"][0]["operations"].as_array().unwrap().iter().any(|o|o["kind"]=="roughing" && o["tool"].is_string()));
         let ordinary=capp::plan::build(&a,Some(&m),&Default::default()).unwrap();
         let ordinary=process_planned(&a,&m,&t,ordinary,vec![]).unwrap().json();
@@ -437,8 +441,6 @@ mod flip_tests {
         let m: Value=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
         let mut t: Value=serde_json::from_str(include_str!("../../tests/fixtures/placeholder-tools.json")).unwrap();
         t["overrides"]["workholding_option"]=json!("vise_flip_face");
-        // Keep both ordinary jobs available while testing exclusion reset after fallback.
-        t["machines"][0]["workholding"][0]["parallels_heights_mm"]=json!([8.,12.7,15.875]);
         let mut p=capp::flip::plan(&a,&m,&t).unwrap();
         // Distort a lower corner arc while preserving the straight grip faces: camlib must refuse it, after
         // which the bottom grip loses its preparation and triggers fallback.
@@ -450,7 +452,7 @@ mod flip_tests {
         assert!(out["error"].is_null(),"{}",out["error"]);
         let p=&out["plan"];
         assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
-        assert_eq!(p["setups"][0]["stock"]["min"][2],-20.);
+        assert_eq!(p["setups"][0]["stock"]["min"][2],-19.);
         assert!(p["decisions"].as_array().unwrap().iter().any(|d|d["chosen"]["available"]==false && d["says"].as_str().unwrap().contains("replanned without sacrificial bottom stock")));
         assert_eq!(out["programs"].as_array().unwrap().len(),2,"log: {}; warnings: {}",out["log"],out["plan"]["warnings"]);
     }
@@ -473,11 +475,11 @@ mod flip_tests {
         let wall=p["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o|o["kind"]=="wall_finish").unwrap();
         wall["outer"][0][2]=json!(2.);
         let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
-        assert_eq!(fallback_reason(&out),"top-12-wall_finish left out: setup top: boundary vertices require finite coordinates within ±1e6 mm and bulge within [-1,1]; \
+        assert_eq!(fallback_reason(&out),"top-13-wall_finish left out: setup top: boundary vertices require finite coordinates within ±1e6 mm and bulge within [-1,1]; \
             setup bottom: earlier cuts may have removed material in the later grip band: [{\"faces\":[\"stock.x.min\",\"stock.x.max\"],\"operation\":\"top-2-roughing\"}]; \
             checks stock-face contact bands from stock bottom to jaw top against earlier tooled operations' conservative cutting envelopes, transformed through setup rotation and origin_model; \
             roughing/contour envelopes include preserved material and grouped holes include the space between them; not a stock simulation or proof of face retention, contact area or holding strength; \
-            missing frames or geometry are unchecked; certain part-face contact per jaw: 206.2500 mm², 206.2500 mm²; carried upper-bound stock contributes no contact");
+            missing frames or geometry are unchecked; certain part-face contact per jaw: 158.7500 mm², 158.7500 mm²; carried upper-bound stock contributes no contact");
         // A bottom operation left out: its warning starts "bottom-".
         let p=capp::flip::plan(&a,&m,&t).unwrap();
         let exclusion=json!({"operation":"bottom-1-facing","message":"test facing refusal"});
