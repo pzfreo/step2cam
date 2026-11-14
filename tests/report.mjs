@@ -300,3 +300,8 @@ for (const modelled of [true, false]) {
 const computedStock = structuredClone(data);
 computedStock.plan.setups[0].stock_size = { kind: 'computed' };
 assert.ok(reportDocument(computedStock, options).blocks.find(b => b.id === 'header').rows[0][3].includes('not a standard size'));
+
+// M10: the sheet reads the pickup record verbatim in the approved two-line form.
+const pickup = { ...clamped, zero: { xy: { description: 'centre of ⌀10 bore (cut in setup top)' }, z: { description: 'datum A face (finished in setup top)' } } };
+assert.equal(setupDetails(pickup, {}).at(-1), 'Zero   X0 Y0: centre of ⌀10 bore (cut in setup top)\n       Z0: datum A face (finished in setup top)');
+assert.ok(!setupDetails(pickup, {}).join(' ').includes('Work zero'));

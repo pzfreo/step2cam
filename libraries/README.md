@@ -373,3 +373,14 @@ axial cycles are thrust into supports. Roughing, helix-milled holes/counterbores
 thread milling record runtime engagement as not checked before camlib runs. A
 follow-up must use its actual moves. Holding capacity does not scale with contact
 area; pressure and overturning remain unchecked.
+
+### Fixed jaw and pickup
+
+Optional vise `fixed_jaw` names its installed side in setup axes (`x.min`, `x.max`,
+`y.min`, `y.max`), validated against the selected grip axis. Add it only with a source
+for the installed orientation. None of the shipped vise sources establishes that
+orientation, so all shipped libraries omit it. The planner explicitly defaults to
+the minimum side of the chosen grip axis as step2cam judgement, preserving the stock
+corner convention, and records it in each setup's clamping. This says nothing about
+machine-axis vise mounting. Final process zeros and pickup methods are documented in
+[the M10 policy](../docs/capp-plan.md#setup-zero-and-pickup-m10).

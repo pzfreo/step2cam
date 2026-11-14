@@ -550,7 +550,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
     let index = setups.iter().position(|s| s.id == "bottom");
     let mut bottom = index.map(|i| setups.remove(i)).unwrap_or_else(|| Setup {
         id: "bottom".into(),
-        zero: Some("part".into()),
+        zero: Some(json!("part")),
         rotation: Some([[1, 0, 0], [0, -1, 0], [0, 0, -1]]),
         origin_model: Some([lo[0], hi[1], lo[2]]),
         stock: Box3 { min: [0., 0., r(lo[2] - hi[2])], max: [r(hi[0] - lo[0]), r(hi[1] - lo[1]), 0.] },

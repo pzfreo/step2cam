@@ -9,7 +9,8 @@ that real process planning is a much harder problem, and step2cam does not model
 makes it hard:
 
 - **Workholding and datums:** how the part is located and clamped, which faces are reference
-  faces, how a second setup picks up the first. It assumes a part in a vise.
+  faces, and physical locating accuracy remain limited. It records a pickup for each setup
+  or warns when finished references are unavailable; it assumes a part in a vise.
 - **Tolerances and GD&T,** which in practice decide the order of operations and what goes in one
   setup. It ignores them.
 - **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
@@ -144,15 +145,16 @@ The plan says **what** to cut, independent of tools and machine.
 - **Stock**: the part's box plus minimum `margin` (2 mm) around the sides, `top_stock` (1 mm) above
   and `bottom_stock` (0) below (`capp::plan::Options`), rounded up to a cited standard flat bar
   and whole-mm sawn length. A catalog miss keeps the computed size and warns.
-- **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
-  `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
-  **X0 Y0 on the minimum corner and Z0 on the top** of:
-  - the **stock**, in the `rough_from` setup (the first; default `top`);
-  - the **part's own box**, in every later setup. By then roughing has cut away the stock
-    around the part, so zero on the part, after removing the web roughing leaves (below).
-
-  Each setup records its `zero` (`stock` or `part`), its `rotation` and `origin_model` (the
-  model point at X0 Y0 Z0).
+- **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`,
+  `back`, `left`, `right`). Each setup turns its tool down −Z. The final process output
+  records `zero.xy` and `zero.z`: pickup description, feature ids, earlier finishing setup
+  and method. First zero is the stock corner against the fixed jaw (minimum on the other
+  axis), Z on stock top. Later setups prefer drawing datums, then the largest reachable
+  previously finished bore at least 6 mm diameter, else exposed perpendicular finished
+  faces. Z uses a finished upward face or an explicit stock-top touch-off offset.
+  Missing X/Y evidence warns and retains the frame. `rotation` and `origin_model` locate
+  all coordinates. The intermediate planner retains legacy stock/part frame labels;
+  final pickup selection follows execution refusals. See [pickup policy](docs/capp-plan.md#setup-zero-and-pickup-m10).
 - **Operations** in each setup, in setup coordinates:
   - `facing` down to the part's top (the `rough_from` setup only);
   - `roughing` of the whole part from the mesh (the `rough_from` setup only, needs the mesh).

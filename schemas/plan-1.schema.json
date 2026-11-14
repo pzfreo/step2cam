@@ -229,6 +229,7 @@
  },
  "additionalProperties": false,
  "$defs": {
+  "zero_pickup": {"type": "object", "required": ["description", "features", "finished_in", "method"], "additionalProperties": false, "properties": {"description": {"type": "string"}, "features": {"type": "array", "items": {"type": "string"}}, "finished_in": {"type": ["string", "array", "null"], "items": {"type": "string"}}, "method": {"type": "string"}}},
   "box": {
    "type": "object",
    "required": [
@@ -288,12 +289,7 @@
       "right"
      ]
     },
-    "zero": {
-     "enum": [
-      "stock",
-      "part"
-     ]
-    },
+    "zero": {"oneOf": [{"enum": ["stock", "part"]}, {"type": "object", "required": ["status", "xy", "z", "offset_in_previous_frame_mm", "because"], "additionalProperties": false, "properties": {"status": {"enum": ["located", "warning"]}, "xy": {"$ref": "#/$defs/zero_pickup"}, "z": {"$ref": "#/$defs/zero_pickup"}, "offset_in_previous_frame_mm": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}, "because": {"type": "array", "items": {"type": "string"}}}}]},
     "rotation": {
      "type": "array",
      "items": {
@@ -370,6 +366,7 @@
      "additionalProperties": false,
      "properties": {
       "parallels_size": {"type":"object", "required":["kind"], "properties":{"kind":{"enum":["standard","library","computed"]}}},
+      "fixed_jaw": {"enum": ["x.min", "x.max", "y.min", "y.max"]},
       "force_check": {"$ref": "#/$defs/grip_force"},
       "contacts": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "properties": {"area_mm2": {"type": "number", "minimum": 0}, "fraction": {"type": "number", "minimum": 0, "maximum": 1.0001}, "effective_length_mm": {"type": "number", "minimum": 0}, "face_model": {"type": "string"}, "offset_mm": {"type": "number", "minimum": 0}}, "additionalProperties": false}},
       "contact_area_mm2": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0}},

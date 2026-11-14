@@ -1007,9 +1007,9 @@
   {
    "id": "machine.clamping",
    "warning_label": "vise clamping limits",
-   "version": 2,
+   "version": 3,
    "stage": "machine",
-   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without a fixed height or override, select from the library inventory or the cited standard heights (setup.standard_sizes); model the chosen supports and check through cuts against them. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength.",
+   "rationale": "Grip the stock long sides across the narrower XY dimension (X on a tie). Use at least 3.175 mm and 20% of stock height, no more than 50%; leave 1 mm above the jaws for side cutting. These values are step2cam judgement, not a sourced minimum for standard vise jaws or a holding-force calculation. With specified parallels the grip is jaw height minus parallels height. Without a fixed height or override, select from the library inventory or the cited standard heights (setup.standard_sizes); model the chosen supports and check through cuts against them. Jaw thickness is conservatively modeled equal to jaw height because resources do not yet describe thickness. Per-setup resources.overrides.clamping proposals select an axis, grip and optional parallels; validate them by the same dimensional and clearance checks, and trace them as given. Audit later stock-face grip bands against earlier retained, tooled operations after caps and exclusions, using rotation/origin transforms and conservative cut envelopes. Warn on possible overlap or missing information; the audit is not a stock simulation or a proof of face retention or holding strength. Record the fixed jaw in setup axes; an explicit library side must match the selected grip axis. Without a sourced installed orientation, choose the minimum side of that axis: this keeps the established minimum stock corner and is step2cam judgement, not a manufacturer claim.",
    "code": "workholding.rs clamp, validate_overrides; settle.rs cap_roughing; clamping_history.rs check",
    "sources": [
     {
@@ -1293,6 +1293,20 @@
      "kind": "supplier",
      "url": "https://metalstockist.co.uk/collections/aluminium-flat-bar",
      "note": "Read 2026-11-14: rectangular aluminium flat-bar list, metric products in mm and inch products converted exactly at 25.4 mm/inch with supplier labels retained; transcribed as thickness x width, excluding feather-edge profiles."
+    }
+   ]
+  },
+  {
+   "id": "setup.datum_pickup",
+   "version": 1,
+   "stage": "setup",
+   "warning_label": "no finished datum pickup",
+   "rationale": "After retained operations and execution refusals, first zero is the stock corner against the fixed jaw, minimum on the other axis, with stock-top Z. Later prefer drawing datums, then largest finished bore at least 6 mm diameter along the current tool axis, with an exposed mouth above jaws; reversed blind bores are forbidden. The 6 mm minimum is conservative step2cam judgement for clearance around a small probe/edge finder, not an installed instrument specification; verify the actual instrument. Otherwise use two exposed perpendicular finished side faces above jaws. Z uses an exposed upward finished plane. Full face mesh vertices must be within a retained facing/flats plane or finished wall envelope; roughing alone is not finish evidence. If no finished upward Z face exists, retain the known Z plane and touch off the reachable stock top with its recorded offset, explicitly without claiming that plane finished. With no XY pickup retain the complete frame and warn. Apply a pure coordinate translation to all retained geometry and checked programs after candidate selection; historical trace evidence stays in the frame in which it was decided. No pickup cycle or part stop hardware is generated. These policies are step2cam judgement implementing the maintainer decision approved 2026-11-14.",
+   "code": "zero.rs; rust/src/zero.rs",
+   "sources": [
+    {
+     "kind": "step2cam",
+     "note": "Maintainer decision approved 2026-11-14, project review M10: record zero and how to find it; finished earlier, reachable now; warn rather than invent a datum."
     }
    ]
   }

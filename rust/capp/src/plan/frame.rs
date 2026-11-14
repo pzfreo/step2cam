@@ -96,7 +96,7 @@ impl Frame {
     pub(super) fn describe(&self, id: &str, operations: Vec<model::Operation>) -> model::Setup {
         model::Setup {
             id: id.into(),
-            zero: Some(self.zeroed_on.into()),
+            zero: Some(json!(self.zeroed_on)),
             rotation: Some(self.rows.map(|row| row.map(|v| v as i8))),
             origin_model: Some(rp(self.origin_model)),
             stock: model::Box3 { min: rp(self.stock.0), max: rp(self.stock.1) },

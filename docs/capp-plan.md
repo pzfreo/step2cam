@@ -793,3 +793,35 @@ while keeping their cutting data. Materials without a force/friction reference g
 one not-checked warning per gripped setup. This checks
 estimated mean tangential sliding load; peak forces, thrust, contact pressure, deformation,
 lift, overturning, chatter and support flatness remain unchecked.
+
+## Setup zero and pickup (M10)
+
+`setup.datum_pickup@1` records a final process setup's `zero` as `xy`, `z`,
+`status`, `because` and `offset_in_previous_frame_mm`. Each pickup has a description,
+`features` (hole ids or `faces:N`), `finished_in` (setup id, two ids for side faces,
+or null for stock/unestablished references), and a method. No probing cycle is generated.
+The setup sheet prints these as “Zero   X0 Y0: …” and “Z0: …”.
+
+A vise may state `fixed_jaw`: `x.min`, `x.max`, `y.min`, or `y.max`, in setup axes.
+It must agree with the selected grip axis. The unsourced default is its minimum side,
+keeping the established stock corner; this is step2cam judgement. The other axis uses
+its minimum stock edge and Z uses stock top. Clamping records the chosen side.
+
+After operation/tool refusals, later setups prefer drawing datum faces/bores, then
+the largest finished bore at least 6 mm across along the new tool axis. The 6 mm minimum
+is a conservative judgement for a small probe/edge finder; check the actual instrument.
+A reversed blind bore is forbidden. The mouth must be above jaws and unobstructed.
+Otherwise use perpendicular finished side faces exposed above the jaws. Z uses a
+finished upward plane reachable from above. Finishing evidence requires retained
+facing, flats or wall finishing over the face mesh; roughing alone is insufficient.
+Where no finished upward plane exists (notably an uncut flip underside), the recorded
+Z plane is retained with the actual stock-top touch-off offset; it is never labelled
+finished. No usable X/Y pair means a per-setup warning and the entire old frame retained.
+
+Coordinate relocation happens after checked workholding selection, preserving every
+retained operation and motion by a pure translation. Saved jobs, stock, fixtures,
+plan geometry and drawn moves use the new frame; historical decisions retain the
+coordinates at which their evidence was evaluated. Intermediate `plan`/`finish` output
+keeps its stock/part construction frames; the process output has final pickup records.
+No part-stop hardware, locating accuracy, probe/stylus calibration or instrument
+inventory is inferred. The rule and its minimum diameter are judgement, not vendor facts.

@@ -123,6 +123,7 @@ export function workholdingText(c) {
 
 export function setupZero(setup, format = trim) {
   const lo = setup.stock?.min, hi = setup.stock?.max;
+  if (setup.zero?.xy) return `X0 Y0: ${setup.zero.xy.description} · Z0: ${setup.zero.z.description}`;
   return `Tool comes down −Z; zero on the ${setup.zero === "stock" ? "stock" : "part's box"}, stock ${lo && hi ? hi.map((v, i) => format(v - lo[i])).join(" × ") : "—"} mm.`;
 }
 
@@ -230,7 +231,7 @@ export function setupDetails(setup, plan) {
     else if (zero(box.min[2])) z = `bottom of the ${name} in setup coordinates`;
     else z = `${reportLength(box.max[2])} mm below the top of the ${name}`;
   }
-  lines.push(`Work zero (from the recorded setup frame): XY — ${xy}; Z — ${z}.${setup.stock?.max ? ` Stock top Z${reportLength(setup.stock.max[2])} mm.` : ""} Tool comes down −Z.`);
+  lines.push(`Zero   X0 Y0: ${setup.zero?.xy?.description || xy}\n       Z0: ${setup.zero?.z?.description || z}`);
   return lines;
 }
 const heading = (text, level = 2) => ({ type: "heading", level, text });
