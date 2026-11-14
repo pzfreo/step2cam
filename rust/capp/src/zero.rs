@@ -189,6 +189,7 @@ fn stop_contact(s: &Value, part: &Value, face: &Face<'_>, axis: usize, stock: &[
     band_points(&face.vs,jaw).into_iter().find(|p| {
         let mut a=*p;let mut b=*p;a[axis]+=4.*face.n[axis];b[axis]+=face.n[axis];
         !box_hits(a,b,bs) && !stock.iter().any(|t|segment_hits(a,b,t))
+            && stop_height(stock,*p,axis,face.n[axis]).0>p[2]
     })
 }
 // Bound the nose both near the verified contact band and below the lowest
