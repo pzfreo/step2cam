@@ -173,7 +173,7 @@ fn each_grip_refusal_names_the_failed_limit_and_the_effect_of_parallels() {
     assert_eq!(refusal(&planned("plate", &tools)), "grip 2.0 mm set by 18.0 mm parallels is below minimum grip 3.175 mm; use shorter parallels");
     for (bottom, top, message) in [
         (-140., -1., "grip 28.0 mm exceeds jaw height 20.0 mm"),
-        (-10., -6., "part top Z-6.0 does not clear jaw top Z-5.875 plus 1.0 mm side-cut clearance: must be above Z-4.875"),
+        (-10., -6., "part top Z-6.0 does not clear jaw top Z-6.825 plus 1.0 mm side-cut clearance: must be above Z-5.825"),
     ] {
         let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,bottom],"max":[30,20,0]}, "operations":[{"kind":"facing","floor_z":top}]}],
             "covered_by_roughing":[], "skipped":[], "warnings":[]});
