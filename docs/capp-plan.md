@@ -75,10 +75,11 @@ interior features retain their depth.
 Features and wall allowance below the cap are reported as remainders requiring another
 setup, without suggesting a longer tool would solve the clamping obstruction.
 Each jaw is passed to camlib as a fixture prism, checked against the whole tool assembly.
-Jaw thickness is conservatively modeled equal to jaw height. Without `parallels_height_mm`,
-the stock must be raised on parallels or similar so the jaws grip only the chosen height.
-That support is not modeled or checked, so through cuts are not checked against it.
-If `parallels_height_mm` is supplied, stock seats on two modeled edge bars; grip becomes
+Jaw thickness is conservatively modeled equal to jaw height. Without a fixed height,
+choose the tallest library inventory or cited standard height meeting grip limits.
+If no standard height fits ordinary clamping, retain the computed minimum grip and
+unmodeled support, with one warning that it is not a standard size; shop inventories remain strict.
+The selected height seats the stock on two modeled edge bars; grip becomes
 jaw height minus parallel height and must satisfy the same limits. Bar envelopes use the rule's minimum grip as
 width (or one third of the opening for narrow stock) and span the stock length. Their
 prisms are included in verification so through cuts cannot silently enter them.
@@ -222,10 +223,12 @@ in `workholding.json`, not a holding-force calculation. Holes, pockets and edge
 breaks reduce contact instead of rejecting the entire band. The retained contact
 polygons, area, fraction and effective length per side are recorded in seating,
 clamping and the trace. A top round/chamfer leaves the actual contact below the
-break; the nominal jaw top and seating height remain physically consistent. When
-minimum grip gives too little contact, search grip upward in the same 0.25 mm
-steps, within the existing 50% and jaw-height limits; use the least acceptable
-grip. The 16 mm support search covers large edge chamfers on benchmark-sized
+break; the nominal jaw top and seating height remain physically consistent.
+In the flipped setup, test all available heights and choose the deepest grip passing
+the existing 50%, jaw-height, clearance, contact and support limits: the sides are
+already finished. Equal-depth candidates retain the prior contact-completeness and
+stable axis/level order. The first setup keeps the least passing grip, exposing its sides.
+The 16 mm support search covers large edge chamfers on benchmark-sized
 blocks; bars cannot overlap each other.
 
 Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
@@ -239,11 +242,27 @@ measured reason. Numerical area tolerance is 1e-6 relative, and 0.0002 mm frame
 matching covers compounded four-decimal serialization; neither is a manufacturing
 tolerance. The mesh seating defines flip parallels with height equal to jaw height minus
 the seating grip, along with the measured support width and footprints. A vise may list
-available `parallels_heights_mm` with `_sources`; the seating height must be achievable
-from that inventory. Without seating, choose the tallest height compatible with grip limits;
-without either seating or inventoried parallels, support stays explicitly unmodeled.
+available `parallels_heights_mm` with `_sources`; seating must use that inventory, or the
+cited standard set when none is listed. Without seating, choose the tallest available
+height compatible with grip limits. A standard-set miss keeps the prior computed height or unmodelled support, with a warning; an explicit shop inventory miss still refuses the setup.
 A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
 are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
+
+Standard blank and parallel sizes come from the cited rulebase data in
+[`standard-sizes.json`](../rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
+LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
+and Metal Stockist UK's aluminium flat bars (inch products use exact conversions, with supplier labels retained). A library's parallels inventory,
+fixed height or setup override wins. Otherwise the first setup selects the tallest
+standard height meeting grip limits; the flip selects the deepest grip passing
+all limits and mesh seating; if preparation later fails, retry the next passing shallower seat. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
+First-setup stock uses the smallest containing bar area, trying both orientations,
+with thickness along the tool axis, width across the narrower side, and sawn length
+rounded up to whole mm. Extra thickness goes below the part, preserving the top margin and tool reach; side and length extra is shared
+equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
+computed size and warn. Later setups record remaining material, not purchased bars.
+Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
+adds “standard size, not checked against your shop” only to standard sizes;
+computed fallbacks say “not a standard size”.
 
 The clamping-history audit requires retained, tooled wall contour segments covering
 all real contact polygons at their depths, and retained facing/flats at the support

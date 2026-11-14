@@ -43,10 +43,10 @@ fn plate_drills_what_has_a_drill_and_bores_the_rest() {
     assert_eq!(d66["tool"], "drill6.6");
     assert_eq!(list(&d66["centers_mm"]).len(), 6);
     // Through, onto the part's face: full diameter 1 mm past it, the tip below the stock
-    // bottom (-11) allowed and said.
+    // bottom (-12) allowed and said.
     assert_eq!(d66["depth_reference"], "full_diameter");
     assert_eq!(number(&d66["depth_z_mm"]), -12.);
-    assert_close(number(&d66["allow_breakthrough_mm"]), 1. + tip(6.6) + 0.01);
+    assert_close(number(&d66["allow_breakthrough_mm"]), tip(6.6) + 0.01);
     assert!(any_note(&notes, "below the stock bottom"), "{notes:?}");
     assert!(notes.iter().any(|n| n.contains("0.5 mm band of uncut walls below Z-10.5") && n.contains("vise")), "{notes:?}");
     assert!(d66["peck_mm"].is_null(), "under 3D: one plunge despite the tool cap");

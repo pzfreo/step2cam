@@ -71,12 +71,14 @@ pub struct Options {
     pub top_stock: f64,
     pub bottom_stock: f64,
     pub skin: f64,
+    /// Maximum transverse bar width accepted by the selected vise.
+    pub stock_width_limit: Option<f64>,
     pub rough_from: String,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { margin: 2., top_stock: 1., bottom_stock: 0., skin: 0.5, rough_from: "top".into() }
+        Self { margin: 2., top_stock: 1., bottom_stock: 0., skin: 0.5, stock_width_limit: None, rough_from: "top".into() }
     }
 }
 
@@ -151,6 +153,17 @@ pub fn plan(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result
     serde_json::to_value(build(analysis, mesh, options)?).map_err(|e| e.to_string())
 }
 
+/// Least-area published section containing the blank and fitting the vise.
+pub(crate) fn standard_bar(size: [f64; 3], limit: Option<f64>) -> Option<[f64; 2]> {
+    let bars = &crate::rules::standard_sizes()["flat_bar"];
+    bars["sizes_mm"].as_array().unwrap().iter().flat_map(|bar| {
+        let a = bar[0].as_f64().unwrap();
+        let b = bar[1].as_f64().unwrap();
+        [[a,b],[b,a]]
+    }).filter(|bar| bar[0] >= size[2] && bar[1] >= size[usize::from(size[0] > size[1])] && limit.is_none_or(|max| bar[1] <= max))
+        .min_by(|a,b| (a[0]*a[1]).total_cmp(&(b[0]*b[1])).then(a[0].total_cmp(&b[0])))
+}
+
 /// The cam plan for an analysis (and optionally its mesh), as types.
 pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Result<model::Plan, String> {
     if analysis.get("features").is_none() || analysis.get("dimensioning").is_none() {
@@ -190,6 +203,32 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
         stock_lo[i] -= grow_lo;
         stock_hi[i] += grow_hi;
     }
+    // Select in the roughing frame, then grow the model box along those axes.
+    let rows = rows_of(rough_from);
+    let axes: [usize; 3] = rows.map(|row| row.iter().position(|v| v.abs() > 0.5).unwrap());
+    let size = axes.map(|i| stock_hi[i] - stock_lo[i]);
+    let width = usize::from(size[0] > size[1]);
+    let length = 1 - width;
+    let bars = &crate::rules::standard_sizes()["flat_bar"];
+    let chosen_bar = standard_bar(size, options.stock_width_limit);
+    let stock_size = if let Some(bar) = chosen_bar {
+        let mut target = size;
+        target[2] = bar[0];
+        target[width] = bar[1];
+        target[length] = size[length].ceil();
+        for local in 0..3 {
+            let i = axes[local];
+            let extra = target[local] - size[local];
+            if local == 2 {
+                if rows[2][i] > 0. { stock_lo[i] -= extra; } else { stock_hi[i] += extra; }
+            } else {
+                stock_lo[i] -= extra / 2.;
+                stock_hi[i] += extra / 2.;
+            }
+        }
+        json!({"kind":"standard", "source":bars["source"], "requested_mm":size, "cross_section_mm":bar,
+            "sawn_length_mm":target[length], "allocation":"extra thickness below the part; width and sawn-length extra split equally between sides, keeping all margins as minimums"})
+    } else { json!({"kind":"computed", "source":bars["source"], "requested_mm":size}) };
     let frames: HashMap<&'static str, Frame> = SETUPS
         .iter()
         .map(|(name, _, _)| {
@@ -226,6 +265,11 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
     let mut by_setup: HashMap<&'static str, Vec<Hole>> = HashMap::new();
     let mut slots: HashMap<&'static str, Vec<model::Cut>> = HashMap::new();
     let mut trace = Trace::default();
+    if chosen_bar.is_none() {
+        trace.warn("setup.standard_sizes", rough_from, format!("no standard flat bar in {} holds {} × {} × {} mm; stock is the computed size", bars["source"]["ref"].as_str().unwrap(), show(size[0]), show(size[1]), show(size[2])), json!({"chosen":{"stock_size":stock_size}}));
+    } else {
+        trace.decide("setup.standard_sizes", rough_from, "chosen", "standard flat bar, not checked against your shop; extra thickness below the part to preserve the top margin and tool reach; sides evenly to preserve minimum margins", json!({"chosen":stock_size}));
+    }
     let mut covered: Vec<String> = vec![];
     let mut roughing_feature_depths = BTreeMap::new();
     // The decision that put each hole in its setup.
@@ -492,7 +536,9 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
             operations.push(model::Operation { cut, tool: None, tool_note: None, because: Some(because), iso14649: None, technology: None });
         }
         trace.skipped.retain(|s| !chamfered.contains(&s.feature));
-        setups.push(frame.describe(name, operations));
+        let mut setup = frame.describe(name, operations);
+        setup.stock_size = Some(if *name == rough_from { stock_size.clone() } else { json!({"kind":"remaining", "from_setup":rough_from}) });
+        setups.push(setup);
     }
 
     // Nothing is covered by roughing that does not run.

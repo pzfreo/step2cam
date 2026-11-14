@@ -69,7 +69,7 @@ fn plate_from_the_top() {
     assert_eq!(ids(&plan), ["top"]);
     let top = &plan["setups"][0];
     // Part 100 x 60 x 10, 2 mm margin, 1 mm on top: Z0 is the stock top.
-    assert_same(top["stock"].clone(), json!({"min": [0, 0, -11], "max": [104, 64, 0]}));
+    assert_same(top["stock"].clone(), json!({"min": [0, 0, -12], "max": [104, 80, 0]}));
     assert_eq!(kinds(&plan, 0), ["facing", "holes", "holes", "holes"]);
     assert_eq!(number(&top["operations"][0]["floor_z"]), -1.);
     let holes = of_kind(&plan, 0, "holes");
@@ -81,7 +81,7 @@ fn plate_from_the_top() {
     for op in by_d.values() {
         assert_same(json!([op["top_z"], op["bottom_z"], op["bottom"]]), json!([-1, -11, "through"]));
     }
-    assert_same(by_d["8.0"]["centers"].clone(), json!([[52, 32]]));
+    assert_same(by_d["8.0"]["centers"].clone(), json!([[52, 40]]));
     assert_eq!(plan["skipped"], json!([]));
     assert_eq!(top["zero"], "stock");
 }
@@ -148,7 +148,7 @@ fn a_through_hole_is_entered_from_the_preferred_side() {
     assert_eq!(ids(&plan), ["top"]);
     let op = &plan["setups"][0]["operations"][0];
     assert_same(json!([op["top_z"], op["bottom_z"]]), json!([0, -10]));
-    assert_same(op["centers"].clone(), json!([[27, 22]]));
+    assert_same(op["centers"].clone(), json!([[30, 22]]));
 }
 
 #[test]

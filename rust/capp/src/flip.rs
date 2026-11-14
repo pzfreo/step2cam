@@ -93,6 +93,14 @@ fn measured(tris: &[Tri], axes: [usize; 2], rect: [[f64; 2]; 2]) -> f64 {
 /// Contact may be interrupted by modelled holes/notches. Measure the retained
 /// planar face, and search inboard for supported strips below horizontal faces.
 fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, String> {
+    seating_from(mesh, lo, hi, vise, false, &[]).or_else(|reason| {
+        if vise["parallels_height_mm"].is_null() && vise.get("parallels_heights_mm").is_none() {
+            seating_from(mesh, lo, hi, vise, true, &[])
+        } else { Err(reason) }
+    })
+}
+
+fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool, rejected: &[Value]) -> Result<Value, String> {
     let width = vise["jaw_width_mm"].as_f64().unwrap();
     let tris = mesh_triangles(mesh).map_err(|_| "flip seating needs a complete mesh")?;
     let rule = crate::rules::workholding();
@@ -112,6 +120,7 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
     let mut best: Option<(f64, Value)> = None;
     let mut best_contact = 0_f64;
     let mut contact_ok = false;
+    let mut height_ok = false;
     for axis in [preferred, 1 - preferred] {
         if hi[axis] - lo[axis] > vise["max_jaw_opening_mm"].as_f64().unwrap() {
             continue;
@@ -160,28 +169,30 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
         }
         for z in levels {
             let minimum = bar.max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
-            let maximum = ((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
-                .min(vise["jaw_height_mm"].as_f64().unwrap());
-            let grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
+            let mut grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
                 vec![r(vise["jaw_height_mm"].as_f64().unwrap() - p)]
-            } else if let Some(heights) = vise["parallels_heights_mm"].as_array() {
-                heights.iter().filter_map(Value::as_f64).map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect()
-            } else if maximum >= minimum {
-                (0..=((maximum - minimum) / step).floor() as usize)
-                    .map(|n| r(minimum + n as f64 * step))
-                    .chain([r(maximum)])
-                    .collect()
+            } else if fallback {
+                let maximum = ((z-lo[2])*rule["max_grip_fraction"].as_f64().unwrap())
+                    .min(vise["jaw_height_mm"].as_f64().unwrap());
+                if maximum >= minimum {
+                    (0..=((maximum-minimum)/step).floor() as usize).map(|n| r(minimum+n as f64*step))
+                        .chain([r(maximum)]).collect()
+                } else { vec![] }
             } else {
-                vec![]
+                crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64)
+                    .map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect()
             };
+            grips.sort_by(|a,b| b.total_cmp(a));
             for grip in grips {
+                if rejected.last().is_some_and(|seat| seat["grip_height_mm"].as_f64().is_some_and(|old| grip > old+1e-6)) { continue; }
                 if grip < r(minimum)
-                    || grip > vise["jaw_height_mm"].as_f64().unwrap()
+                    || grip >= vise["jaw_height_mm"].as_f64().unwrap()
                     || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
                     || z - lo[2] <= grip + rule["clearance_mm"].as_f64().unwrap()
                 {
                     continue;
                 }
+                height_ok = true;
                 let band = [[start, z - grip], [end, z]];
                 let contact: Vec<_> = side_tris
                     .iter()
@@ -274,17 +285,45 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
                     .collect();
                 let contacts: Vec<_>=areas.iter().zip(&fractions).enumerate().map(|(side,(a,f))|json!({"face_model":format!("part.{}.{}",["x","y"][axis],["min","max"][side]),"area_mm2":r(*a),"fraction":r(*f),"effective_length_mm":r(a/grip)})).collect();
                 let seat = json!({"axis":axis,"along_min_model":start,"along_max_model":end,"seat_z_model":z,"grip_height_mm":grip,"support_width_mm":bar,"contacts":contacts,"supports":supports,"contact_patches_model":contact_model,"material_below_seat_mm":r(hi[2]-z)});
-                if best.as_ref().is_none_or(|(old, _)| score > *old + 1e-6) {
+                if rejected.iter().any(|old| ["axis", "seat_z_model", "grip_height_mm"].iter().all(|k| old[k] == seat[k])) { continue; }
+                if best.as_ref().is_none_or(|(old, seat)| {
+                    let old_grip = seat["grip_height_mm"].as_f64().unwrap();
+                    grip > old_grip + 1e-6 || ((grip-old_grip).abs() <= 1e-6 && score > *old + 1e-6)
+                }) {
                     best = Some((score, seat));
                 }
-                // Use the least grip that satisfies the contact rule at this seat.
+                // Descending order: deeper rejected seats have already been skipped.
                 break;
             }
         }
     }
-    best.map(|(_,s)|s).ok_or_else(|| if contact_ok {
+    best.map(|(_,s)|s).ok_or_else(|| if !height_ok {
+        "no available parallels height satisfies flip seating grip limits".into()
+    } else if contact_ok {
         format!("no horizontal support pair reaches {}% contact within {} mm inboard, without interfering material",100.*support_fraction,inset)
     } else {format!("opposed finished side contact below rule: best minimum fraction {}, required {} and {} mm effective length per side",r(best_contact),fraction,bar)})
+}
+
+/// Retry preparation without rebuilding operations. Indices remain valid, but the
+/// caller must reconsider engine exclusions for the receiving setup's changed fixtures.
+pub fn retry_seating(plan: &mut Plan, mesh: &Value, resources: &Value, rejected: &[Value]) -> Result<bool, String> {
+    let Some(vise) = crate::machines::dimensioned_vise(resources) else { return Ok(false); };
+    let lo: Point = serde_json::from_value(mesh["bbox"][0].clone()).map_err(|e| e.to_string())?;
+    let hi: Point = serde_json::from_value(mesh["bbox"][1].clone()).map_err(|e| e.to_string())?;
+    let next = seating_from(mesh, lo, hi, vise, false, rejected).or_else(|reason| {
+        if vise["parallels_height_mm"].is_null() && vise.get("parallels_heights_mm").is_none() {
+            seating_from(mesh, lo, hi, vise, true, rejected)
+        } else { Err(reason) }
+    });
+    let Ok(mut seat) = next else { return Ok(false); };
+    let Some(bottom) = plan.setups.iter_mut().find(|s| s.flip_seating.is_some()) else { return Ok(false); };
+    let old = bottom.flip_seating.as_ref().unwrap();
+    for key in ["modeled_cuts", "residual_margin_mm"] { seat[key] = old[key].clone(); }
+    bottom.flip_seating = Some(seat.clone());
+    let mut trace = Trace::take_plan(plan);
+    trace.decide(RULE, "bottom", "chosen", "deeper seat failed retained-operation preparation; retry the next passing shallower seat, preserving operations; reconsider receiving-setup engine refusals", json!({"chosen":{"seating_attempt":rejected.len()+1,"seating":seat}}));
+    trace.store_plan(plan);
+    Ok(true)
 }
 
 /// A cut is modelled only when all its original geometric inputs still agree.
@@ -339,12 +378,13 @@ pub(crate) fn modeled_cut(seat: &Value, op: &Operation) -> bool {
 
 /// Reset exclusions when switching plans: operation indices belong to one plan.
 pub fn fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Value, String> {
-    serde_json::to_value(build_fallback(analysis, mesh, reason)?).map_err(|e| e.to_string())
+    serde_json::to_value(build_fallback(analysis, mesh, &Value::Null, reason)?).map_err(|e| e.to_string())
 }
 
 /// [`fallback`], as types.
-pub fn build_fallback(analysis: &Value, mesh: &Value, reason: &str) -> Result<Plan, String> {
-    let mut p = crate::plan::build(analysis, Some(mesh), &Options::default())?;
+pub fn build_fallback(analysis: &Value, mesh: &Value, resources: &Value, reason: &str) -> Result<Plan, String> {
+    let options = Options { stock_width_limit: crate::machines::dimensioned_vise(resources).and_then(|v| v["max_jaw_opening_mm"].as_f64()), ..Options::default() };
+    let mut p = crate::plan::build(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take_plan(&mut p);
     trace.decide(
         RULE,
@@ -367,7 +407,7 @@ pub fn plan(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Value, 
 pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, String> {
     let requested = crate::resources::workholding_option(resources)?;
     let selected = requested == Some("vise_flip_face");
-    let defaults = Options::default();
+    let defaults = Options { stock_width_limit: crate::machines::dimensioned_vise(resources).and_then(|v| v["max_jaw_opening_mm"].as_f64()), ..Options::default() };
     let original = crate::plan::build(analysis, Some(mesh), &defaults)?;
     let availability: Result<(f64, Value, Point, Point), String> = (|| {
         let vise = crate::machines::dimensioned_vise(resources)
@@ -407,12 +447,37 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
             return Err("no valid top roughing surface to prepare the finished grip".into());
         }
 
-        let b = bottom_stock(
-            hi[2] - lo[2],
-            defaults.top_stock,
-            vise["parallels_height_mm"].as_f64(),
-            vise["jaw_height_mm"].as_f64().unwrap(),
-        )?;
+        let jaw = vise["jaw_height_mm"].as_f64().unwrap();
+        let heights = vise["parallels_height_mm"].as_f64().map(|p| vec![p])
+            .unwrap_or_else(|| crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64).collect());
+        let mut candidates = heights;
+        candidates.sort_by(|a,b| b.total_cmp(a));
+        let b = candidates.into_iter().find_map(|p| {
+            let b = bottom_stock(hi[2]-lo[2], defaults.top_stock, Some(p), jaw).ok()?;
+            let size = [hi[0]-lo[0]+2.*defaults.margin, hi[1]-lo[1]+2.*defaults.margin, hi[2]-lo[2]+defaults.top_stock+b];
+            let h = crate::plan::standard_bar(size, defaults.stock_width_limit).map_or(size[2], |bar| bar[0]);
+            let rule = crate::rules::workholding();
+            let grip = jaw-p;
+            (grip >= rule["min_grip_mm"].as_f64().unwrap().max(h*rule["min_grip_fraction"].as_f64().unwrap())
+                && grip <= h*rule["max_grip_fraction"].as_f64().unwrap()).then_some(b)
+        });
+        let b = match b {
+            Some(b) => b,
+            None if vise["parallels_height_mm"].is_null() && vise.get("parallels_heights_mm").is_none() => {
+                let mut b = bottom_stock(hi[2]-lo[2], defaults.top_stock, None, jaw)?;
+                loop {
+                    let size = [hi[0]-lo[0]+2.*defaults.margin, hi[1]-lo[1]+2.*defaults.margin, hi[2]-lo[2]+defaults.top_stock+b];
+                    let h = crate::plan::standard_bar(size, defaults.stock_width_limit).map_or(size[2], |bar| bar[0]);
+                    let rule = crate::rules::workholding();
+                    let grip = rule["min_grip_mm"].as_f64().unwrap().max(h*rule["min_grip_fraction"].as_f64().unwrap());
+                    let needed = ((grip + rule["clearance_mm"].as_f64().unwrap() + rule["flip_facing_allowance_mm"].as_f64().unwrap())*1e4).ceil()/1e4;
+                    if needed <= b { break b; }
+                    b = needed;
+                }
+            }
+            None if vise["parallels_height_mm"].is_number() => return Err(bottom_stock(hi[2]-lo[2], defaults.top_stock, vise["parallels_height_mm"].as_f64(), jaw).err().unwrap_or_else(|| "parallels prescribe less than the minimum Op 1 grip".into())),
+            None => return Err("no available parallels height satisfies Op 1 grip limits with standard stock".into()),
+        };
         let seat = seating(mesh, lo, hi, vise)?;
         let axis = seat["axis"].as_u64().unwrap() as usize;
         if hi[axis] - lo[axis] > vise["max_jaw_opening_mm"].as_f64().unwrap() {
@@ -457,8 +522,9 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         ..defaults
     };
     let mut p = crate::plan::build(analysis, Some(mesh), &options)?;
+    let b = -p.setups.iter().find(|s| s.id == "top").unwrap().stock.min[2] - (hi[2]-lo[2]) - options.top_stock;
     let mut trace = Trace::take_plan(&mut p);
-    let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
+    let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach; flip: deepest allowed grip, the sides being finished; first setup: least grip, leaving the sides exposed for cutting",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating_attempt":1,"seating":seat}}));
     let warning = trace.warn(RULE,"bottom",format!("bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Holding strength is not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the conservative height-field stock can fill voids within the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
     let setups = &mut p.setups;
     let top = setups.iter_mut().find(|s| s.id == "top").unwrap();
@@ -490,6 +556,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         stock: Box3 { min: [0., 0., r(lo[2] - hi[2])], max: [r(hi[0] - lo[0]), r(hi[1] - lo[1]), 0.] },
         operations: vec![],
         machine: None,
+        stock_size: None,
         stock_note: None,
         flip_role: None,
         part_surface: None,
@@ -498,7 +565,8 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         before_setup: None,
         grip_surface_model: None,
     });
-    bottom.stock.max[2] = b;
+    bottom.stock_size = Some(json!({"kind":"remaining", "from_setup":"top"}));
+    bottom.stock.max[2] = r(b);
     // Both jobs carry the complete target surface for camlib's material check.
     if let Some(rough) = setups[0].operations.iter().find(|o| matches!(o.cut, Cut::Roughing(_))) {
         let mut surface = rough.clone();
@@ -609,7 +677,7 @@ mod tests {
         for c in seat["contacts"].as_array().unwrap() {
             let f = c["fraction"].as_f64().unwrap();
             assert!(f > 0.9 && f < 1.);
-            assert!((c["area_mm2"].as_f64().unwrap() - (40. * 3.175 - 8.)).abs() < 1e-4);
+            assert!((c["area_mm2"].as_f64().unwrap() - (40. * 4.125 - 8.)).abs() < 1e-4);
         }
         let deeper = seating(
             &interrupted_sides(30., 7., true),
@@ -618,7 +686,7 @@ mod tests {
             &vise,
         )
         .unwrap();
-        assert!(deeper["grip_height_mm"].as_f64().unwrap() > 3.175);
+        assert_eq!(deeper["grip_height_mm"], 4.125);
         assert!(deeper["grip_height_mm"].as_f64().unwrap() <= 5.);
         assert!(
             deeper["contacts"]

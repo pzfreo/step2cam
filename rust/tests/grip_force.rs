@@ -35,7 +35,7 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
     let out = run(&lib);
     let setups = out["plan"]["setups"].as_array().unwrap();
     let bottom = setups.iter().find(|s| s["flip_seating"].is_object()).unwrap();
-    near(num(&bottom["clamping"]["grip_height_mm"]), 3.175);
+    near(num(&bottom["clamping"]["grip_height_mm"]), 5.969);
     let face = bottom["operations"].as_array().unwrap().iter().find(|o| o["kind"]=="facing").unwrap();
     let t = lib["tools"].as_array().unwrap().iter().find(|t| t["id"]==face["tool"]).unwrap();
     let d = num(&t["diameter"]);
@@ -49,16 +49,16 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
     let slope = kc*ae*feed/(PI*d*rpm);
     let limit = (holding/(2.*slope)/0.05).floor()*0.05;
     let depth = num(&bottom["stock"]["max"][2])-num(&face["floor_z"]);
-    near(depth, 7.25);
+    near(depth, 12.75);
     near(limit, 1.65);
     let passes = (depth/limit).ceil() as u64;
-    assert_eq!(passes, 5);
+    assert_eq!(passes, 8);
     near(num(&face["technology"]["stepdown_mm"]), limit);
     let ds = decisions(&out);
     let decision = ds.iter().find(|d| d["subject"]=="bottom-1-facing").unwrap();
     assert_eq!(decision["outcome"], "stepped_down");
     assert_eq!(decision["passes"], passes);
-    near(num(&decision["cutting_force_n"]), slope*depth);
+    near(num(&decision["cutting_force_n"]), slope*depth.min(num(&t["stepdown_mm"])));
     near(num(&decision["per_pass_force_n"]), slope*limit);
     assert!(slope*limit*2. <= holding);
     assert!(slope*(limit+0.05)*2. > holding);

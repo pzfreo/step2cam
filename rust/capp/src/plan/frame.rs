@@ -102,6 +102,7 @@ impl Frame {
             stock: model::Box3 { min: rp(self.stock.0), max: rp(self.stock.1) },
             operations,
             machine: None,
+            stock_size: None,
             stock_note: None,
             flip_role: None,
             part_surface: None,

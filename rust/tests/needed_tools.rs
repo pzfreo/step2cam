@@ -219,6 +219,5 @@ fn needs_suffixes_are_decision_fields() {
             }
         }
     }
-    // 896, 4,301 and 864 when this was written.
     assert!(plans > 800 && named > 3000 && refused > 700, "{plans} plans, {named} decisions naming a need, {refused} refusals with a need");
 }

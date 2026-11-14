@@ -113,6 +113,9 @@ pub struct Setup {
     pub origin_model: Option<Point3>,
     /// The stock in the setup's coordinates.
     pub stock: Box3,
+    /// Purchased standard/computed blank, or remaining material from the first setup. Rule 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stock_size: Option<Value>,
     /// The operations, in the order they are cut.
     pub operations: Vec<Operation>,
     /// The machine that cuts it. Rule 1: written by `finish`.

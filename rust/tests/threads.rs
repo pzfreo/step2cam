@@ -29,7 +29,7 @@ fn a_tapped_answer_threads_its_hole() {
     assert_eq!(ops[0]["start_diameter"], 4.2);
     assert_eq!(ops[0]["through"], true);
     assert_eq!(ops[0]["features"], json!(["holes:12"]));
-    assert_same(json!([ops[0]["top_z"], ops[0]["bottom_z"], ops[0]["centers"]]), json!([-1, -11, [[97, 32]]]));
+    assert_same(json!([ops[0]["top_z"], ops[0]["bottom_z"], ops[0]["centers"]]), json!([-1, -11, [[97, 40]]]));
     let plan = plan_of(&plate(json!({"hole.function:holes:12": "tapped:M5"})));
     let kinds: Vec<&str> = list(&plan["setups"][0]["operations"]).iter().map(|o| o["kind"].as_str().unwrap()).collect();
     assert!(kinds.iter().position(|k| *k == "thread").unwrap() > kinds.iter().rposition(|k| *k == "holes").unwrap(), "{kinds:?}");

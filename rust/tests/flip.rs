@@ -66,9 +66,9 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
             .all(|s| s["reason"].as_str().unwrap().starts_with("thread left out: M3 "))
     );
     let top = setup(p, "top");
-    assert_eq!(top["stock"]["min"][2], -26.25);
-    assert_eq!(top["clamping"]["grip_height_mm"], 5.25);
-    assert_eq!(top["clamping"]["jaw_top_z"], -21.);
+    assert_eq!(top["stock"]["min"][2], -30.);
+    assert_eq!(top["clamping"]["grip_height_mm"], 7.3);
+    assert_eq!(top["clamping"]["jaw_top_z"], -22.7);
     let rough = list(&top["operations"])
         .iter()
         .find(|o| o["kind"] == "roughing")
@@ -80,7 +80,7 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
     // camlib's conservative numerical enclosure, rather than a fresh part box.
     assert_eq!(bottom["stock"]["min"][0], -2.);
     assert_eq!(bottom["stock"]["min"][1], -2.);
-    assert_eq!(bottom["stock"]["max"], json!([102.,58.,7.25]));
+    assert_eq!(bottom["stock"]["max"], json!([102.,58.,11.]));
     let low = bottom["stock"]["min"][2].as_f64().unwrap();
     assert!(low <= -18. && low > -18.001);
     let job = list(&out["programs"]).iter().find(|j|j["setup"]=="bottom").unwrap();
@@ -103,7 +103,7 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
         bottom["clamping"]["contact_min_z"], -12.,
         "seat under plate top, not boss top at -18"
     );
-    assert_eq!(bottom["clamping"]["jaw_top_z"], -8.825);
+    assert_eq!(bottom["clamping"]["jaw_top_z"], -7.875);
     assert_eq!(bottom["clamping"]["parallels"][0]["max"][2], -12.);
     let bodies = list(&job["job"]["verification"]["scene"]["scene"]["bodies"]);
     assert_eq!(bodies.iter().filter(|b| b["id"].as_str().unwrap().contains("parallel") && b["role"]=="fixture").count(), 2);
@@ -182,7 +182,7 @@ fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning(
     assert!(
         p["warnings"]
             .to_string()
-            .contains("part remains on 7.25 mm of sacrificial bottom stock")
+            .contains("part remains on 11 mm of sacrificial bottom stock")
     );
     let mut fallback = capp::flip::fallback(
         &input().0,
@@ -191,7 +191,7 @@ fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning(
     )
     .unwrap();
     capp::finish(&mut fallback, &tools(), &[]).unwrap();
-    assert_eq!(setup(&fallback, "top")["stock"]["min"][2], -19.);
+    assert_eq!(setup(&fallback, "top")["stock"]["min"][2], -20.);
     assert!(
         list(&fallback["setups"])
             .iter()
@@ -205,7 +205,7 @@ fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
     let mut t = tools();
     t["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(14.);
     let mut p = capp::flip::plan(&a, &m, &t).unwrap();
-    assert_eq!(setup(&p, "top")["stock"]["min"][2], -27.);
+    assert_eq!(setup(&p, "top")["stock"]["min"][2], -30.);
     capp::finish(&mut p, &t, &[]).unwrap();
     assert_eq!(setup(&p, "top")["clamping"]["grip_height_mm"], 6.);
     assert_eq!(setup(&p, "bottom")["clamping"]["grip_height_mm"], 6.);

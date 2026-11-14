@@ -141,8 +141,9 @@ Siemens, Centroid; camlib's `docs/posts.md`).
 
 The plan says **what** to cut, independent of tools and machine.
 
-- **Stock**: the part's box plus `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`capp::plan::Options`).
+- **Stock**: the part's box plus minimum `margin` (2 mm) around the sides, `top_stock` (1 mm) above
+  and `bottom_stock` (0) below (`capp::plan::Options`), rounded up to a cited standard flat bar
+  and whole-mm sawn length. A catalog miss keeps the computed size and warns.
 - **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`, `back`,
   `left`, `right`). Each setup is the part turned so its tool comes down -Z, then zeroed with
   **X0 Y0 on the minimum corner and Z0 on the top** of:
@@ -463,11 +464,28 @@ certify contact. This does not establish holding force. Flip seating and prepara
 need their separate checks.
 
 Vise libraries may inventory `parallels_heights_mm`, with provenance in `_sources`.
-The tallest height satisfying grip limits and mesh seating is chosen and the support bars
+The first setup chooses the tallest height satisfying grip limits; flip seating chooses
+the deepest passing grip on already-finished sides. The support bars
 are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
-Flip seating defines its modeled support parallels from the mesh, independently of inventory;
-if an inventory is supplied, it must include the required seating height. Without seating or
-inventoried parallels, support remains explicitly unchecked.
+Flip seating searches those real heights against the mesh. Without a library inventory or
+fixed/override height, the cited rulebase standard set supplies heights, labelled
+“standard size, not checked against your shop”; a standard-set miss retains the computed height or unmodelled support and warns once per setup, labelled “not a standard size”.
+
+Standard blank and parallel sizes come from the cited rulebase data in
+[`standard-sizes.json`](rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
+LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
+and Metal Stockist UK's aluminium flat bars (inch products use exact conversions, with supplier labels retained). A library's parallels inventory,
+fixed height or setup override wins. Otherwise the first setup selects the tallest
+standard height meeting grip limits; the flip selects the deepest grip passing
+all limits and mesh seating; if preparation later fails, retry the next passing shallower seat. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
+First-setup stock uses the smallest containing bar area, trying both orientations,
+with thickness along the tool axis, width across the narrower side, and sawn length
+rounded up to whole mm. Extra thickness goes below the part, preserving the top margin and tool reach; side and length extra is shared
+equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
+computed size and warn. Later setups record remaining material, not purchased bars.
+Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
+adds “standard size, not checked against your shop” only to standard sizes;
+computed fallbacks say “not a standard size”.
 
 Later side jaws use the full part mesh's extent within their grip-height band. A remote
 boss outside that band does not set the opening; only analytic planar faces at the chosen

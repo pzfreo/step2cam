@@ -80,19 +80,57 @@ fn same(a: &Value, b: &Value, path: &str) -> Result<(), String> {
     }
 }
 
+/// Apply only the new nominal blank and its frame translation to the frozen Python plan.
+/// All original operation geometry, coverage and output fields remain compared.
+fn standard_blank(p: &mut Value, spindle: bool) {
+    let (bar, length, dx, dy) = if spindle { ([60.,30.],28.,1.,0.) } else { ([12.,80.],104.,0.,8.) };
+    let top = &mut p["setups"][0];
+    top["stock"]["min"][2] = serde_json::json!(-bar[0]);
+    if spindle { top["stock"]["max"][0] = serde_json::json!(30.); }
+    top["origin_model"][0] = serde_json::json!(top["origin_model"][0].as_f64().unwrap()-dx);
+    if !spindle { top["stock"]["max"][1] = serde_json::json!(80.); }
+    top["origin_model"][1] = serde_json::json!(top["origin_model"][1].as_f64().unwrap()-dy);
+    for op in top["operations"].as_array_mut().unwrap() {
+        if let Some(points) = op.get_mut("positions").and_then(Value::as_array_mut) {
+            for point in points.chunks_mut(3) {
+                point[0] = serde_json::json!(point[0].as_f64().unwrap()+dx);
+                point[1] = serde_json::json!(point[1].as_f64().unwrap()+dy);
+            }
+        }
+        for key in ["centers", "outer"] {
+            if let Some(points) = op.get_mut(key).and_then(Value::as_array_mut) {
+                for point in points {
+                    point[0] = serde_json::json!(point[0].as_f64().unwrap()+dx);
+                    point[1] = serde_json::json!(point[1].as_f64().unwrap()+dy);
+                }
+            }
+        }
+    }
+    for (i, setup) in p["setups"].as_array_mut().unwrap().iter_mut().enumerate() {
+        setup["stock_size"] = if i == 0 { serde_json::json!({"kind":"standard",
+            "source":capp::rules::standard_sizes()["flat_bar"]["source"], "requested_mm":if spindle {vec![28.,28.,53.]} else {vec![104.,64.,11.]}, "cross_section_mm":bar,
+            "sawn_length_mm":length, "allocation":"extra thickness below the part; width and sawn-length extra split equally between sides, keeping all margins as minimums"})
+        } else { serde_json::json!({"kind":"remaining", "from_setup":"top"}) };
+    }
+}
+
 #[test]
 fn the_plate_plans_as_in_python() {
     let analysis = json("tests/fixtures/plate.analysis.json");
     let mesh = json("tests/fixtures/plate.mesh.json");
     let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
-    same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate.plan.json"), "plan").unwrap();
+    let mut expected = json("tests/fixtures/rust-golden/plate.plan.json");
+    standard_blank(&mut expected, false);
+    same(&untraced(&plan), &expected, "plan").unwrap();
 }
 
 #[test]
 fn the_spindle_plans_without_a_mesh_as_in_python() {
     let analysis = json("tests/fixtures/spindle.analysis.json");
     let plan = capp::plan::plan(&analysis, None, &Default::default()).unwrap();
-    same(&untraced(&plan), &json("tests/fixtures/rust-golden/spindle.plan.json"), "plan").unwrap();
+    let mut expected = json("tests/fixtures/rust-golden/spindle.plan.json");
+    standard_blank(&mut expected, true);
+    same(&untraced(&plan), &expected, "plan").unwrap();
 }
 
 /// Deliberate changes since Python in the plate jobs: roughing keeps the em6's centre within
@@ -152,7 +190,7 @@ fn the_plates_job_runs_in_camlib() {
     // Two spot cycles add 5 and 24 moves, sharing one tool.
     // Roughing kept within a radius and 1 mm of the stock (process.roughing.region) makes 1,334
     // moves instead of 1,565. Facing, twist drills and the bore retain their move counts.
-    assert_eq!(&ends[..7], [53, 1387, 1392, 1416, 1421, 1445, 1483]);
+    assert_eq!(&ends[..7], [67, 1569, 1574, 1598, 1603, 1627, 1665]);
     assert_eq!(ends.len(), 8); // two spots plus the wall finish
     assert_eq!(out["programs"][0]["moves"].as_array().unwrap().len() as u64, ends[7]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
@@ -169,7 +207,9 @@ fn tapped_plate() -> Value {
 #[test]
 fn a_tapped_hole_plans_as_in_python() {
     let plan = capp::plan::plan(&tapped_plate(), Some(&json("tests/fixtures/plate.mesh.json")), &Default::default()).unwrap();
-    same(&untraced(&plan), &json("tests/fixtures/rust-golden/plate-thread.plan.json"), "plan").unwrap();
+    let mut expected = json("tests/fixtures/rust-golden/plate-thread.plan.json");
+    standard_blank(&mut expected, false);
+    same(&untraced(&plan), &expected, "plan").unwrap();
 }
 
 #[test]

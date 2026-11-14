@@ -276,3 +276,27 @@ assert.equal(choice([{ candidate: 'b', rejected: 'too wide for the 4 mm width' }
 // Where the words and the field disagree, the field decides.
 assert.equal(choice([{ candidate: 'b', rejected: 'qualifies, but supplied choice is used' }]), 'the only one that qualifies');
 assert.equal(choice([{ candidate: 'b', rejected: 'held back for a later setup', qualifies: true }]), 'a cuts it');
+
+// Standard provenance is shown only on standard sizes; shop sizes keep existing text.
+for (const kind of ['standard', 'library']) {
+  const sample = structuredClone(data);
+  sample.plan.setups[0] = { ...clamped, operations: sample.plan.setups[0].operations,
+    stock_size: { kind }, clamping: { ...clamped.clamping, parallels_size: { kind } } };
+  const report = reportDocument(sample, options);
+  const label = 'standard size, not checked against your shop';
+  assert.equal(report.blocks.find(b => b.id === 'header').rows[0][3].includes(label), kind === 'standard');
+  assert.equal(setupDetails(sample.plan.setups[0], sample.plan).join(' ').includes(label), kind === 'standard');
+}
+
+for (const modelled of [true, false]) {
+  const setup = structuredClone(clamped);
+  setup.clamping.parallels_size = { kind: 'computed' };
+  if (!modelled) setup.clamping.parallels = [];
+  const text = setupDetails(setup, { part: {} }).join(' ');
+  assert.ok(text.toLowerCase().includes('not a standard size'));
+  assert.ok(!text.includes('standard size, not checked against your shop'));
+}
+
+const computedStock = structuredClone(data);
+computedStock.plan.setups[0].stock_size = { kind: 'computed' };
+assert.ok(reportDocument(computedStock, options).blocks.find(b => b.id === 'header').rows[0][3].includes('not a standard size'));

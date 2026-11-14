@@ -282,7 +282,7 @@ fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() 
         }
         assert_eq!(a.len(), b.len());
         let base = &before.manifest["verification"]["material"][0]["target"]["base_z_mm"];
-        assert_eq!(base, -11.);
+        assert_eq!(base, -12.);
         assert_eq!(base, &after.manifest["verification"]["material"][0]["target"]["base_z_mm"]);
         for id in ["top-5-holes", "top-6-holes"] {
             assert_eq!(b.iter().find(|o| o["id"] == id).unwrap()["floor_z_mm"], -11.);
@@ -291,8 +291,8 @@ fn through_tap_travel_preserves_other_operations_and_the_real_comparison_base() 
         assert_close(number(&own_drill["depth_z_mm"]), -15. - capp::resources::DRILLING_GUARD);
         let drill = with_tap["tools"].as_array().unwrap().iter().find(|t| t["id"] == own_drill["tool"]).unwrap();
         let tip = number(&own_drill["depth_z_mm"]) - capp::resources::drill_tip_length(drill).unwrap();
-        // Breakthrough allowance is still measured from the real -11 mm stock bottom.
-        assert_close(number(&own_drill["allow_breakthrough_mm"]), -11. - tip + 0.01);
+        // Breakthrough allowance is still measured from the real -12 mm stock bottom.
+        assert_close(number(&own_drill["allow_breakthrough_mm"]), -12. - tip + 0.01);
         assert!(any_note(&after.notes, "tap tip goes 3.2 mm and its drill tip 5.27 mm below the part's bottom (drill full diameter 4.01 mm below): keep the hole clear of parallels"), "{:?}", after.notes);
         let run = step2cam::simulate::simulate_job(after).unwrap();
         assert_eq!(run.moves.iter().filter(|m| matches!(m.kind, camlib::motion::MoveKind::Tap)).count(), 2);

@@ -21,6 +21,18 @@ pub fn workholding() -> &'static Value {
     parsed(WORKHOLDING, "workholding.json", &CELL)
 }
 
+pub(crate) const STANDARD_SIZES: &str = include_str!("../rulebase/rules/standard-sizes.json");
+pub fn standard_sizes() -> &'static Value {
+    static CELL: OnceLock<Value> = OnceLock::new();
+    parsed(STANDARD_SIZES, "standard-sizes.json", &CELL)
+}
+
+/// An explicit inventory (even empty) wins over the standard set.
+pub(crate) fn parallel_heights(vise: Option<&Value>) -> &'_ Vec<Value> {
+    vise.and_then(|v| v["parallels_heights_mm"].as_array())
+        .unwrap_or_else(|| standard_sizes()["parallels"]["heights_mm"].as_array().unwrap())
+}
+
 pub const TOOLS: &str = include_str!("../rulebase/rules/tools.json");
 pub(crate) const SEQUENCE: &str = include_str!("../rulebase/rules/sequence.json");
 pub const PROCESS: &str = include_str!("../rulebase/rules/process.json");
