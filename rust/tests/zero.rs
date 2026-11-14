@@ -88,13 +88,14 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]),"{lib}");
         assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
         assert!(!out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().starts_with("setup front: no finished seat")));
+        assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
         let chamfered=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate-chamfered.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate-chamfered.mesh.json"),&read(lib)).unwrap();
         assert!(chamfered["error"].is_null(),"{lib}: {}",chamfered["error"]);
         let front=chamfered["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
         assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");
         assert_eq!(front["zero"]["z"]["features"],json!(["faces:6"]),"{lib}");
         assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
-        assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
+        assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 6"));
         for s in setups {assert!(s["zero"].is_object());}
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
         let errors:Vec<_>=validator.iter_errors(&out["plan"]).map(|e|format!("{e} at {}",e.instance_path())).collect();
