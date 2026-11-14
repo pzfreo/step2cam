@@ -290,7 +290,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
   const stockSize = (stock) => stock ? stock.max.map((v, i) => reportLength(v - stock.min[i])).join(" × ") : "—";
   blocks.push(heading("SETUP SHEET", 1), heading(text(data.name)), paragraph("Draft — check before cutting"));
   blocks.push(table(["Machine", "Date", "Material", "Stock size (mm)", "Feed-rate estimate"], [row([
-    text(machine?.name || data.library?.machine).replace(/^the\s+/i, ""), text(date), text(plan.material?.used), stockSize(plan.setups[0]?.stock) + (plan.setups[0]?.stock_size?.kind === "standard" ? " — standard size, not checked against your shop" : ""),
+    text(machine?.name || data.library?.machine).replace(/^the\s+/i, ""), text(date), text(plan.material?.used), stockSize(plan.setups[0]?.stock) + (plan.setups[0]?.stock_size?.kind === "standard" ? " — standard size, not checked against your shop" : plan.setups[0]?.stock_size?.kind === "computed" ? " — not a standard size" : ""),
     programs.length ? reportDuration(estimatedSeconds ?? total) : "—",
   ])], "header"));
   blocks.push(paragraph(sheetWords(`Camlib: ${data.error ? `could not run the plan: ${data.error}` : programs.length ? check.compact : "—"}`)));

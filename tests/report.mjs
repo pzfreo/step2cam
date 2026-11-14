@@ -296,3 +296,7 @@ for (const modelled of [true, false]) {
   assert.ok(text.toLowerCase().includes('not a standard size'));
   assert.ok(!text.includes('standard size, not checked against your shop'));
 }
+
+const computedStock = structuredClone(data);
+computedStock.plan.setups[0].stock_size = { kind: 'computed' };
+assert.ok(reportDocument(computedStock, options).blocks.find(b => b.id === 'header').rows[0][3].includes('not a standard size'));

@@ -484,7 +484,8 @@ rounded up to whole mm. Extra thickness goes on top; side and length extra is sh
 equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
 computed size and warn. Later setups record remaining material, not purchased bars.
 Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
-adds “standard size, not checked against your shop” only to standard sizes.
+adds “standard size, not checked against your shop” only to standard sizes;
+computed fallbacks say “not a standard size”.
 
 Later side jaws use the full part mesh's extent within their grip-height band. A remote
 boss outside that band does not set the opening; only analytic planar faces at the chosen

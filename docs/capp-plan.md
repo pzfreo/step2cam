@@ -259,7 +259,8 @@ rounded up to whole mm. Extra thickness goes on top; side and length extra is sh
 equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
 computed size and warn. Later setups record remaining material, not purchased bars.
 Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
-adds “standard size, not checked against your shop” only to standard sizes.
+adds “standard size, not checked against your shop” only to standard sizes;
+computed fallbacks say “not a standard size”.
 
 The clamping-history audit requires retained, tooled wall contour segments covering
 all real contact polygons at their depths, and retained facing/flats at the support

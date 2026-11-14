@@ -43,7 +43,7 @@ heights (½–1⅝ inch, in ⅛ inch steps) supply standard heights: choose the 
 that meets grip limits in the first setup; the flip instead chooses the deepest grip
 passing every existing limit and mesh-seating check on the already-finished sides. A standard-set miss keeps the prior computed height or unmodelled support and warns; shop inventories remain strict.
 Supports enter the fixture scene. Standard sizes are labelled “standard size, not
-checked against your shop”.
+checked against your shop”; computed fallbacks say “not a standard size”.
 The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.
 
 The first blank uses the least-area containing cross-section in the rulebase's
