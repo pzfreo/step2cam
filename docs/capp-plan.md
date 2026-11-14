@@ -240,7 +240,7 @@ tolerance. The mesh seating defines flip parallels with height equal to jaw heig
 the seating grip, along with the measured support width and footprints. A vise may list
 available `parallels_heights_mm` with `_sources`; seating must use that inventory, or the
 cited standard set when none is listed. Without seating, choose the tallest available
-height compatible with grip limits. A miss refuses the setup with its reason.
+height compatible with grip limits. A standard-set miss keeps the prior computed height or unmodelled support, with a warning; an explicit shop inventory miss still refuses the setup.
 A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
 are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
 
@@ -249,7 +249,7 @@ Standard blank and parallel sizes come from the cited rulebase data in
 LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
 and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
 fixed height or setup override wins; otherwise select the tallest standard height
-meeting grip limits and mesh seating, refusing a miss. No shop inventory is inferred.
+meeting grip limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
 First-setup stock uses the smallest containing bar area, trying both orientations,
 with thickness along the tool axis, width across the narrower side, and sawn length
 rounded up to whole mm. Extra thickness goes on top; side and length extra is shared

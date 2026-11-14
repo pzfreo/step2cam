@@ -1275,10 +1275,10 @@
   },
   {
    "id": "setup.standard_sizes",
-   "version": 1,
+   "version": 2,
    "stage": "setup",
    "warning_label": "standard size unavailable",
-   "rationale": "Use the cited parallel heights only without a library inventory or fixed/per-setup height: tallest satisfying existing grip limits, and mesh seating for a flip. Grip is jaw height minus the real parallel height. Refuse on a miss as for inventory. Round first-setup stock up to the least-area listed aluminium flat bar containing tool-axis thickness and narrower transverse width, trying both bar orientations; ties prefer the thinner tool-axis section. Saw length up to whole mm. Put extra thickness on top and transverse/length extra equally on either side, preserving minimum margins and sacrificial bottom grip. These selection and allocation policies are step2cam judgement. Later setups describe remaining part/carry envelopes, not fresh purchased bars. Standard sizes are not checked against the shop; no stock inventory schema exists.",
+   "rationale": "Use the cited parallel heights only without a library inventory or fixed/per-setup height: tallest satisfying existing grip limits, and mesh seating for a flip. Grip is jaw height minus the real parallel height. A standard-set miss keeps the prior computed height or unmodeled support, with one not-a-standard-size warning per setup; only an explicit shop inventory remains strict. Round first-setup stock up to the least-area listed aluminium flat bar containing tool-axis thickness and narrower transverse width, trying both bar orientations; ties prefer the thinner tool-axis section. Saw length up to whole mm. Put extra thickness on top and transverse/length extra equally on either side, preserving minimum margins and sacrificial bottom grip. These selection and allocation policies are step2cam judgement. Later setups describe remaining part/carry envelopes, not fresh purchased bars. Standard sizes are not checked against the shop; no stock inventory schema exists.",
    "code": "plan/mod.rs; workholding.rs; flip.rs",
    "data": [
     "rules/standard-sizes.json"

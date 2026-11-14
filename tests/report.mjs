@@ -287,3 +287,12 @@ for (const kind of ['standard', 'library']) {
   assert.equal(report.blocks.find(b => b.id === 'header').rows[0][3].includes(label), kind === 'standard');
   assert.equal(setupDetails(sample.plan.setups[0], sample.plan).join(' ').includes(label), kind === 'standard');
 }
+
+for (const modelled of [true, false]) {
+  const setup = structuredClone(clamped);
+  setup.clamping.parallels_size = { kind: 'computed' };
+  if (!modelled) setup.clamping.parallels = [];
+  const text = setupDetails(setup, { part: {} }).join(' ');
+  assert.ok(text.toLowerCase().includes('not a standard size'));
+  assert.ok(!text.includes('standard size, not checked against your shop'));
+}

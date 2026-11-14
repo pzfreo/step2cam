@@ -36,7 +36,11 @@ fn shipped_mills_use_cited_heights_and_flat_bars() {
         assert!(heights.contains(&c["parallels_size"]["height_mm"]));
         for s in list(&p["setups"]) {
             if let Some(c) = s.get("clamping") {
-                assert!(heights.contains(&c["parallels_size"]["height_mm"]));
+                if c["parallels_size"]["kind"] == "computed" {
+                    assert_eq!(s["id"], "front");
+                    assert!(list(&c["parallels"]).is_empty());
+                    assert_eq!(c["grip_height_mm"], 11.2);
+                } else { assert!(heights.contains(&c["parallels_size"]["height_mm"])); }
                 for support in list(&c["parallels"]) {
                     assert_close(number(&support["max"][2])-number(&support["min"][2]), number(&c["parallels_size"]["height_mm"]));
                 }
@@ -102,4 +106,21 @@ fn explicit_setup_height_is_shop_provenance() {
     assert_eq!(c["parallels_size"]["kind"], "library");
     assert_eq!(c["parallels_size"]["height_mm"], 13.);
     assert_eq!(c["grip_height_mm"], 7.);
+}
+
+#[test]
+fn standard_miss_keeps_main_support_and_warns_once_even_after_refinishing() {
+    let tools = fixture("../../demo/tools.json");
+    let mut p = planned(&tools);
+    for _ in 0..2 { capp::finish(&mut p, &tools, &[]).unwrap(); }
+    let front = list(&p["setups"]).iter().find(|s|s["id"]=="front").unwrap();
+    assert_eq!(front["clamping"]["grip_height_mm"], 11.2);
+    assert_eq!(front["clamping"]["parallels_size"]["kind"], "computed");
+    assert!(list(&front["clamping"]["parallels"]).is_empty());
+    assert!(!list(&front["operations"]).is_empty());
+    let warnings: Vec<_> = list(&p["decisions"]).iter().filter(|d| d["subject"]=="front" && d["outcome"]=="warning"
+        && d["chosen"]["parallels_size"]["kind"]=="computed").collect();
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0]["says"].as_str().unwrap().contains("not a standard size"));
+    assert_eq!(list(&p["warnings"]).iter().filter(|w| **w==warnings[0]["says"]).count(), 1);
 }

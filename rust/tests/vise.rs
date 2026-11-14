@@ -123,7 +123,7 @@ fn complete_vise_rejects_wide_or_too_shallow_stock_but_missing_jaw_data_skips() 
         "covered_by_roughing":[],"skipped":[],"warnings":[]});
     capp::machines::place(&mut thin, &library(), &mut trace);
     assert!(list(&thin["setups"][0]["operations"]).is_empty());
-    assert!(trace.warnings.iter().any(|w| w == "setup top is not cut: no standard parallels height satisfies grip limits and seating (grip 3.175–2.0 mm, jaw 20.0 mm)"));
+    assert!(trace.warnings.iter().any(|w| w == "setup top is not cut: grip 3.175 mm exceeds maximum grip 2.0 mm (50.0% of 4.0 mm stock height)"));
 }
 
 #[test]
@@ -172,7 +172,7 @@ fn each_grip_refusal_names_the_failed_limit_and_the_effect_of_parallels() {
     tools["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(18.);
     assert_eq!(refusal(&planned("plate", &tools)), "grip 2.0 mm set by 18.0 mm parallels is below minimum grip 3.175 mm; use shorter parallels");
     for (bottom, top, message) in [
-        (-140., -1., "no standard parallels height satisfies grip limits and seating (grip 28.0–70.0 mm, jaw 20.0 mm)"),
+        (-140., -1., "grip 28.0 mm exceeds jaw height 20.0 mm"),
         (-10., -6., "part top Z-6.0 does not clear jaw top Z-5.875 plus 1.0 mm side-cut clearance: must be above Z-4.875"),
     ] {
         let mut plan = json!({"setups":[{"id":"top", "stock":{"min":[0,0,bottom],"max":[30,20,0]}, "operations":[{"kind":"facing","floor_z":top}]}],

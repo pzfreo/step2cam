@@ -216,8 +216,8 @@ export function setupDetails(setup, plan) {
   lines.push(c.parallels?.length ? c.parallels.map((p, i) => {
     if (!p.min || !p.max) return `Parallel ${i + 1}: height/width ${unstated}`;
     const spans = p.max.map((v, n) => v - p.min[n]);
-    return `Parallel ${i + 1}: height ${reportLength(spans[2])} mm${c.parallels_size?.kind === "standard" ? " — standard size, not checked against your shop" : ""}, width ${reportLength(Math.min(spans[0], spans[1]))} mm (from support-box dimensions)`;
-  }).join("; ") + "." : `Parallels: none modelled; physical support height/width ${unstated}.`);
+    return `Parallel ${i + 1}: height ${reportLength(spans[2])} mm${c.parallels_size?.kind === "standard" ? " — standard size, not checked against your shop" : c.parallels_size?.kind === "computed" ? " — not a standard size" : ""}, width ${reportLength(Math.min(spans[0], spans[1]))} mm (from support-box dimensions)`;
+  }).join("; ") + "." : `Parallels: none modelled; physical support height/width ${unstated}.${c.parallels_size?.kind === "computed" ? " Not a standard size." : ""}`);
   const name = setup.zero === "stock" ? "stock" : setup.zero === "part" ? "part box" : null;
   const box = setup.zero === "stock" ? setup.stock : setup.zero === "part" ? setupBox(plan.part, setup) : null;
   const zero = (x) => Math.abs(x) < 1e-7;

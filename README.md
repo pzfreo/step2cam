@@ -468,14 +468,14 @@ The tallest height satisfying grip limits and mesh seating is chosen and the sup
 are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
 Flip seating searches those real heights against the mesh. Without a library inventory or
 fixed/override height, the cited rulebase standard set supplies heights, labelled
-“standard size, not checked against your shop”; no fitting height refuses the setup.
+“standard size, not checked against your shop”; a standard-set miss retains the computed height or unmodelled support and warns once per setup, labelled “not a standard size”.
 
 Standard blank and parallel sizes come from the cited rulebase data in
 [`standard-sizes.json`](rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
 LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
 and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
 fixed height or setup override wins; otherwise select the tallest standard height
-meeting grip limits and mesh seating, refusing a miss. No shop inventory is inferred.
+meeting grip limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
 First-setup stock uses the smallest containing bar area, trying both orientations,
 with thickness along the tool axis, width across the narrower side, and sawn length
 rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
