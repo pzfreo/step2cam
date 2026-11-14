@@ -18,8 +18,16 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(top["stock"]["max"][2],0.);
         assert_eq!(top["zero"]["z"]["description"],"stock top");
         let bottom=setups.iter().find(|s|s["id"]=="bottom").unwrap();
-        assert_eq!(bottom["zero"]["xy"]["features"],json!(["holes:36"]));
-        assert_eq!(bottom["zero"]["xy"]["finished_in"],"top");
+        assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("holes:36 is finished in setup top but carried stock caps")));
+        assert_eq!(bottom["zero"]["xy"]["features"],json!(["faces:0","faces:5"]));
+        assert_eq!(bottom["zero"]["xy"]["finished_in"],json!(["top","top"]));
+        // With the cap removed, the same retained top bore is the preferred pickup.
+        // This isolated selector case does not claim the shipped program removed it.
+        let mut uncapped=out["plan"].clone();
+        capp::zero::locate(&mut uncapped,&a,&m,&[]);
+        let b=uncapped["setups"].as_array().unwrap().iter().find(|s|s["id"]=="bottom").unwrap();
+        assert_eq!(b["zero"]["xy"]["features"],json!(["holes:36"]));
+        assert_eq!(b["zero"]["xy"]["finished_in"],"top");
         // Top machining cannot finish the underside before the flip. It must
         // explicitly transfer Z from stock rather than invent an earlier finish.
         assert!(bottom["zero"]["z"]["finished_in"].is_null());
@@ -39,7 +47,7 @@ fn absent_finished_features_preserve_the_entire_later_frame() {
         {"id":"front","rotation":[[1,0,0],[0,0,1],[0,-1,0]],"origin_model":[1,2,3],"stock":{"min":[0,0,-20],"max":[20,10,0]},"operations":[]}
     ],"decisions":[],"warnings":[],"skipped":[]});
     let old=p["setups"][1].clone();
-    let offsets=capp::zero::locate(&mut p,&json!({"features":[],"faces":[]}),&json!({}));
+    let offsets=capp::zero::locate(&mut p,&json!({"features":[],"faces":[]}),&json!({}),&[]);
     assert_eq!(offsets[1],[0.;3]);
     assert_eq!(p["setups"][1]["origin_model"],old["origin_model"]);
     assert_eq!(p["setups"][1]["stock"],old["stock"]);

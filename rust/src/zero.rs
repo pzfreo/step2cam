@@ -42,7 +42,9 @@ fn geometry(v: &mut Value, d: [f64;3]) {
 }
 
 pub fn apply(out: &mut Value, analysis: &Value, mesh: &Value) {
-    let offsets=capp::zero::locate(&mut out["plan"],analysis,mesh);
+    let stocks:Vec<_>=out["plan"]["setups"].as_array().unwrap().iter().map(|s|
+        out["programs"].as_array().into_iter().flatten().find(|p|p["setup"]==s["id"]).map_or(Value::Null,|p|p["job"]["stock"].clone())).collect();
+    let offsets=capp::zero::locate(&mut out["plan"],analysis,mesh,&stocks);
     for (i,d) in offsets.into_iter().enumerate() {
         let s=&mut out["plan"]["setups"][i];
         let id=s["id"].clone();
@@ -72,7 +74,10 @@ mod tests {
         let a=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
         let m=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.mesh.json")).unwrap();
         let lib=serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap();
-        let original=crate::workholding::process(&a,&m,&lib).unwrap();
+        let mut original=crate::workholding::process(&a,&m,&lib).unwrap();
+        // Exercise an actual nonzero first-setup translation as well as later
+        // datum choices; the physical stock and cuts remain exactly the same.
+        original["plan"]["setups"][0]["clamping"]["fixed_jaw"]=json!("y.max");
         let mut moved=original.clone();
         apply(&mut moved,&a,&m);
         assert_eq!(original["plan"]["skipped"],moved["plan"]["skipped"]);

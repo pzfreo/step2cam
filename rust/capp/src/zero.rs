@@ -54,13 +54,24 @@ fn finished<'a>(f: &Value, vs: &[P], previous: &'a [Value]) -> Option<&'a Value>
         })
     })
 }
+fn stock_touch(s: &Value, analysis: &Value) -> Value {
+    let mut faces:Vec<_>=analysis["faces"].as_array().into_iter().flatten().filter(|f| {
+        f["kind"]=="plane" && point(&f["direction"]).is_some_and(|n|dot(rows(s)[2],n)>0.999)
+            && point(&f["centroid"]).is_some_and(|p|local(s,p)[2].abs()<0.02)
+    }).collect();
+    faces.sort_by_key(|f|datum(analysis,&f["id"]).map_or_else(||"~".into(),|d|d));
+    let (name,ids)=faces.first().map_or_else(||("recorded Z plane".into(),json!([])),|f|
+        (format!("{} (not yet finished)",face_name(analysis,f)),json!([format!("faces:{}",f["id"])])));
+    let top=s["stock"]["max"][2].as_f64().unwrap();
+    pickup(format!("{name}; touch off stock top at Z{}{}",if top>=0. {"+"} else {""},crate::plan::show(top)),ids,Value::Null,"touch off stock top using recorded offset")
+}
 fn pickup(description: String, features: Value, setup: Value, method: &str) -> Value {
     json!({"description":description,"features":features,"finished_in":setup,"method":method})
 }
 
 /// Record each zero and return the old-frame location of the new origin. Missing XY
 /// evidence keeps the complete frame, with a warning. All geometry is translated by callers.
-pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
+pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]) -> Vec<P> {
     let original=plan["setups"].as_array().unwrap().clone();
     let mut trace=Trace::take(plan);
     let mut shifts=vec![];
@@ -76,6 +87,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
              pickup("stock top".into(),json!([]),Value::Null,"touch off stock top"),"located")
         } else {
             let r=rows(s);
+            let triangles:Vec<_>=crate::plan::mesh_triangles(mesh).unwrap_or_default().into_iter().map(|t|t.map(|v|local(s,v))).collect();
             let jaw_top=s["clamping"]["jaw_top_z"].as_f64().unwrap_or(f64::NEG_INFINITY);
             let previous=&original[..index];
             let mut holes=vec![];
@@ -93,7 +105,15 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
                         let ends:Vec<_>=f["faces"].as_array().into_iter().flatten().filter_map(Value::as_u64).flat_map(|i|vertices(mesh,i as usize)).map(|v|local(s,v)).collect();
                         let mouth=ends.iter().map(|p|p[2]).fold(f64::NEG_INFINITY,f64::max);
                         if mouth<=jaw_top+1. {continue;}
-                        let blocked=crate::plan::mesh_triangles(mesh).unwrap_or_default().iter().map(|t|t.map(|v|local(s,v))).any(|t|t.iter().any(|v|v[2]>mouth+0.02) && crate::plan::disk_meets_for_test((p[0],p[1]),d/2.-0.05,&t));
+                        let stock=&stocks.get(index).unwrap_or(&Value::Null)["mesh"];
+                        let capped=stock["indices"].as_array().into_iter().flatten().filter_map(|t| {
+                            Some([point(&stock["vertices"][t[0].as_u64()? as usize])?,point(&stock["vertices"][t[1].as_u64()? as usize])?,point(&stock["vertices"][t[2].as_u64()? as usize])?])
+                        }).any(|t|t.iter().any(|v|v[2]>mouth+0.02) && crate::plan::disk_meets_for_test((p[0],p[1]),d/2.-0.05,&t));
+                        if capped {
+                            trace.warn("setup.datum_pickup",id,format!("setup {id}: {} is finished in setup {} but carried stock caps its pickup mouth; use exposed finished faces or re-zero on stock",f["id"].as_str().unwrap(),prior["id"].as_str().unwrap()),json!({"features":[f["id"]]}));
+                            continue;
+                        }
+                        let blocked=triangles.iter().any(|t|t.iter().any(|v|v[2]>mouth+0.02) && crate::plan::disk_meets_for_test((p[0],p[1]),d/2.-0.05,t));
                         if blocked {continue;}
                         let is_datum=f["faces"].as_array().into_iter().flatten().any(|i|datum(analysis,i).is_some());
                         holes.push((is_datum,d,p,f,prior));
@@ -120,7 +140,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
                 let exposed=external || (n[2]>0.999 && vs.as_chunks::<3>().0.iter().any(|t| {
                     let c=std::array::from_fn(|i|(t[0][i]+t[1][i]+t[2][i])/3.);
                     let q=local(s,c);
-                    !crate::plan::mesh_triangles(mesh).unwrap_or_default().iter().map(|t|t.map(|v|local(s,v))).any(|t|t.iter().any(|v|v[2]>q[2]+0.02) && crate::plan::disk_meets_for_test((q[0],q[1]),0.05,&t))
+                    !triangles.iter().any(|t|t.iter().any(|v|v[2]>q[2]+0.02) && crate::plan::disk_meets_for_test((q[0],q[1]),0.05,t))
                 }));
                 if exposed {faces.push((datum(analysis,&f["id"]),f,prior,p,n));}
             }
@@ -141,8 +161,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
                 let z=z.unwrap_or_else(|| {
                     // No previously finished upward face: retain the existing Z plane,
                     // whose offset from actual reachable stock is recorded, never guessed.
-                    let top=s["stock"]["max"][2].as_f64().unwrap();
-                    pickup(format!("recorded Z plane; touch off stock top at Z+{}",crate::plan::show(top)),json!([]),Value::Null,"touch off stock top using recorded offset")
+                    stock_touch(s,analysis)
                 });
                 (xy,z,"located")
             } else {
@@ -150,7 +169,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value) -> Vec<P> {
                 let warning=format!("setup {id}: no finished feature to pick up X/Y; re-zero on the stock edge; frame retained");
                 trace.warn("setup.datum_pickup",id,warning,json!({}));
                 (pickup("recorded X/Y; re-zero on the stock edge".into(),json!([]),Value::Null,"manual re-zero; no finished pickup"),
-                 pickup(format!("recorded Z plane; touch off stock top at Z+{}",crate::plan::show(s["stock"]["max"][2].as_f64().unwrap())),json!([]),Value::Null,"touch off stock top using recorded offset"),"warning")
+                 stock_touch(s,analysis),"warning")
             }
         };
         let mut zero=json!({"status":status,"xy":xy,"z":z,"offset_in_previous_frame_mm":shift});

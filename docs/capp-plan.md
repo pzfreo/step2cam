@@ -811,6 +811,9 @@ After operation/tool refusals, later setups prefer drawing datum faces/bores, th
 the largest finished bore at least 6 mm across along the new tool axis. The 6 mm minimum
 is a conservative judgement for a small probe/edge finder; check the actual instrument.
 A reversed blind bore is forbidden. The mouth must be above jaws and unobstructed.
+Carried-stock mesh surfaces above the mouth also disqualify a bore: the shipped
+stepped-plate flip still has a sacrificial cap over its otherwise finished ⌀10 bore.
+It therefore uses exposed finished side faces, with a warning explaining the capped bore.
 Otherwise use perpendicular finished side faces exposed above the jaws. Z uses a
 finished upward plane reachable from above. Finishing evidence requires retained
 facing, flats or wall finishing over the face mesh; roughing alone is insufficient.
