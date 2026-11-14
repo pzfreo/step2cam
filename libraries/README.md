@@ -49,9 +49,9 @@ The shipped libraries have no parallels inventory; catalog availability alone is
 The first blank uses the least-area containing cross-section in the rulebase's
 [Metal Stockist UK flat-bar list](https://metalstockist.co.uk/collections/aluminium-flat-bar)
 (read 2026-11-14), trying both orientations with thickness along the tool axis and
-width across the narrower side. Length is sawn up to a whole mm. Extra thickness
-is on top; width and length extra are split equally on both sides, preserving
-minimum margins and sacrificial grip below. A miss keeps the computed stock and
+width across the narrower side. Length is sawn up to a whole mm. Main's top margin is kept; extra bar
+thickness is below the part. Width and length extra are split equally on both
+sides, preserving minimum margins and sacrificial grip below. A miss keeps the computed stock and
 warns. Later setups carry remaining-material envelopes. These allocation choices
 are step2cam judgement. The library schema has no stock-size inventory; none is added.
 All sizes, original parallel inch heights, exact mm conversions, URLs and read dates

@@ -363,3 +363,86 @@ fn preparation_failure_retries_shallower_seats_without_restoring_operations() {
         .map(|n| minimum+n as f64*step).filter(|g| *g <= 10.-prepared_from_model_z).max_by(f64::total_cmp).unwrap();
     assert_close(grip, expected);
 }
+
+#[test]
+fn process_retries_when_only_the_upper_side_band_is_prepared() {
+    let mut a = fixture("synthetic/tall-wall-pocket.analysis.json");
+    let mut m = fixture("synthetic/tall-wall-pocket.mesh.json");
+    let mut t = fixture("../../libraries/linuxcnc-vmc.json");
+    t["overrides"]["workholding_option"] = json!("vise_flip_face");
+    // Synthetic near-vertical lower band: its analytic normal is just outside
+    // the upright-contour tolerance, while its mesh remains within mesh error.
+    // The upper band is upright and can be prepared for the receiving jaws.
+    let split = 5.6;
+    let positions: Vec<[f64; 3]> = list(&m["positions"]).chunks(3).map(|p| [number(&p[0]),number(&p[1]),number(&p[2])]).collect();
+    let indices = list(&m["indices"]).clone();
+    let faces = list(&a["faces"]).clone();
+    let mut triangles: Vec<[[f64; 3]; 3]> = vec![];
+    let mut upper_ranges = vec![];
+    let mut lower_ranges = vec![];
+    for range in list(&m["faces"]) {
+        for upper in [true, false] {
+            let start = triangles.len();
+            for i in range[0].as_u64().unwrap() as usize..(range[0].as_u64().unwrap()+range[1].as_u64().unwrap()) as usize {
+                let poly: Vec<_> = indices[3*i..3*i+3].iter().map(|n| positions[n.as_u64().unwrap() as usize]).collect();
+                let mut clipped = vec![];
+                for j in 0..poly.len() {
+                    let (p,q) = (poly[j],poly[(j+1)%poly.len()]);
+                    let inside = |v: [f64; 3]| if upper { v[2] >= split } else { v[2] <= split };
+                    if inside(p) { clipped.push(p); }
+                    if inside(p) != inside(q) {
+                        let f = (split-p[2])/(q[2]-p[2]);
+                        clipped.push([p[0]+f*(q[0]-p[0]),p[1]+f*(q[1]-p[1]),split]);
+                    }
+                }
+                for j in 1..clipped.len().saturating_sub(1) { triangles.push([clipped[0],clipped[j],clipped[j+1]]); }
+            }
+            let r = json!([start,triangles.len()-start]);
+            if upper { upper_ranges.push(r); } else { lower_ranges.push(r); }
+        }
+    }
+    upper_ranges.extend(lower_ranges);
+    let mut new_faces = faces.clone();
+    for face in &faces {
+        let mut lower = face.clone();
+        lower["id"] = json!(new_faces.len());
+        if number(&lower["direction"][2]).abs() < 1e-6 {
+            lower["direction"][2] = json!(2e-6);
+        }
+        new_faces.push(lower);
+    }
+    // A recognised level divides the bands; its empty range adds no support area.
+    new_faces.push(json!({"id":new_faces.len(),"kind":"plane","direction":[0.,0.,1.],"centroid":[0.,0.,split],"area":0.}));
+    upper_ranges.push(json!([triangles.len(),0]));
+    a["faces"] = json!(new_faces);
+    m["faces"] = json!(upper_ranges);
+    m["positions"] = json!(triangles.iter().flatten().flatten().copied().collect::<Vec<_>>());
+    m["indices"] = json!((0..triangles.len()*3).collect::<Vec<_>>());
+    m["edges"] = json!([]);
+    let initial = capp::flip::plan(&a, &m, &t).unwrap();
+    let deepest = list(&initial["setups"]).iter().find(|s| s.get("flip_seating").is_some())
+        .unwrap_or_else(|| panic!("{}", initial["decisions"]))["flip_seating"]["grip_height_mm"].clone();
+    let mut first = initial.clone();
+    capp::finish(&mut first, &t, &[]).unwrap();
+    let first_bottom = list(&first["setups"]).iter().find(|s| s.get("flip_seating").is_some()).unwrap();
+    let evidence = &list(&first["decisions"]).iter().find(|d| d["id"] == first_bottom["clamping"]["because"][0]).unwrap()["chosen"]["prior_setups"];
+    assert_eq!(evidence["prepared_contacts"], false);
+    assert_eq!(evidence["established_seat"], true);
+    let out = step2cam::process(&a, &m, &t).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let bottom = list(&out["plan"]["setups"]).iter().find(|s| s.get("flip_seating").is_some()).expect("retry retains the flip");
+    let evidence = &list(&out["plan"]["decisions"]).iter().find(|d| d["id"] == bottom["clamping"]["because"][0]).unwrap()["chosen"]["prior_setups"];
+    assert_eq!(evidence["prepared_contacts"], true);
+    let grip = number(&bottom["clamping"]["grip_height_mm"]);
+    assert!(grip < number(&deepest));
+    let seat = number(&bottom["flip_seating"]["seat_z_model"]);
+    let rule = capp::rules::workholding();
+    let min = number(&rule["min_grip_mm"]);
+    let step = number(&rule["flip_support_search_step_mm"]);
+    let max = seat*number(&rule["max_grip_fraction"]);
+    let expected = (0..=((max-min)/step).floor() as usize).map(|n| min+n as f64*step)
+        .filter(|g| seat-g >= split).max_by(f64::total_cmp).unwrap();
+    assert_close(grip, expected);
+    assert!(list(&out["plan"]["decisions"]).iter().any(|d| d["chosen"]["seating_attempt"].as_u64().is_some_and(|n| n > 1)));
+    assert!(list(&bottom["operations"]).iter().any(|o| o["kind"] == "facing" && o["tool"].is_string()));
+}

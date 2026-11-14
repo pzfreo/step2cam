@@ -205,6 +205,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     let mut setup_cache = vec![];
     let mut fell_back = false;
     let mut rejected_seats = vec![];
+    let initial_exclusions = exclusions.len();
     // Since the last start: the operations left out, and the first finished plan's operations.
     let mut refused: Vec<Option<Key>> = vec![];
     let mut started = None;
@@ -227,6 +228,12 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             }
             rejected_seats.push(bottom.flip_seating.clone().unwrap());
             if capp::flip::retry_seating(&mut planned, mesh, library, &rejected_seats)? {
+                // Only this receiving setup's fixtures change. Reconsider its engine
+                // refusals, which may depend on the deeper jaws/supports. Preserve
+                // initial explicit exclusions and earlier setups' preparation failures.
+                reconsider_seat_exclusions(&mut exclusions, initial_exclusions, &bottom.id);
+                refused.clear();
+                started = None;
                 continue;
             }
             let grip_rule=capp::trace::cite("machine.grip_vs_cut");
@@ -279,6 +286,15 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         log.push(format!("tools needed: {}", needs.join("; ")));
     }
     Ok(Outcome { plan, programs, log, error })
+}
+
+fn reconsider_seat_exclusions(exclusions: &mut Vec<Exclusion>, initial: usize, setup: &str) {
+    let mut n = 0;
+    exclusions.retain(|exclusion| {
+        let keep = n < initial || exclusion.operation.setup != setup;
+        n += 1;
+        keep
+    });
 }
 
 /// An operation as the replan loop compares it: its setup and the operation without the decisions
@@ -410,6 +426,14 @@ mod flip_tests {
         let reasons=|p: &Value|p["skipped"].as_array().unwrap().iter().map(|s|(s["feature"].clone(),s["reason"].clone())).collect::<Vec<_>>();
         assert_eq!(reasons(&out["plan"]),reasons(&ordinary["plan"]));
         assert_eq!(out["plan"]["covered_by_roughing"],ordinary["plan"]["covered_by_roughing"]);
+    }
+
+    #[test]
+    fn reseating_reconsiders_receiving_engine_refusals_but_keeps_preparation_and_explicit_bans() {
+        let ex = |id: &str| typed(&json!({"operation":id,"message":"test refusal"}));
+        let mut exclusions = vec![ex("bottom-1-facing"), ex("top-2-roughing"), ex("bottom-2-holes")];
+        reconsider_seat_exclusions(&mut exclusions, 1, "bottom");
+        assert_eq!(exclusions.iter().map(|e| e.operation.to_string()).collect::<Vec<_>>(), ["bottom-1-facing", "top-2-roughing"]);
     }
 
     #[test]

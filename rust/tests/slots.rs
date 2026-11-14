@@ -285,3 +285,44 @@ fn recovered_open_corner_arcs_can_extend_into_the_run_out() {
     assert_eq!(op["length"], 3.);
     assert_eq!(op["open"], true);
 }
+
+#[test]
+fn through_slot_notes_distinguish_backing_from_a_real_stock_exit() {
+    let a = fixture("tests/fixtures/mounting-plate.analysis.json");
+    let m = fixture("tests/fixtures/mounting-plate.mesh.json");
+    let mut tools = fixture("tests/fixtures/placeholder-tools.json");
+    tools.as_object_mut().unwrap().remove("machines");
+    let mut p = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
+    capp::finish(&mut p, &tools, &[]).unwrap();
+    let exit = p["setups"][0]["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "slot").unwrap()["floor_z"].as_f64().unwrap();
+    for (backing, flip) in [(true, false), (true, true), (false, false)] {
+        let mut plan = p.clone();
+        if !backing {
+            plan["setups"][0]["stock"]["min"][2] = exit.into();
+            plan["setups"][0]["stock_size"]["kind"] = "computed".into();
+        }
+        if flip {
+            let mut flip_tools = fixture("tests/fixtures/placeholder-tools.json");
+            flip_tools["overrides"]["workholding_option"] = serde_json::json!("vise_flip_face");
+            plan = capp::flip::plan(&a, &m, &flip_tools).unwrap();
+            capp::finish(&mut plan, &flip_tools, &[]).unwrap();
+            // Request no slot breakthrough while retaining the actual flip facing.
+            plan["setups"][0]["stock_size"]["requested_mm"][2] = (-exit).into();
+            assert!(plan["setups"].as_array().unwrap().iter().any(|s| s.get("flip_seating").is_some()
+                && s["operations"].as_array().unwrap().iter().any(|o| o["kind"] == "facing" && o["tool"].is_string())));
+        }
+        let (jobs, _) = step2cam::job::jobs(&plan, &tools).unwrap();
+        let slot = jobs[0].manifest["operations"].as_array().unwrap().iter().find(|o| o["id"].as_str().unwrap().ends_with("-slot")).unwrap();
+        assert_eq!(slot["floor_z_mm"], exit);
+        assert_eq!(jobs[0].manifest["stock"]["min_mm"][2].as_f64().unwrap() < exit, backing);
+        let note = jobs[0].notes.iter().find(|n| n.contains("mm slot is cut to the exit")).unwrap();
+        if backing {
+            assert!(note.contains("sacrificial backing"), "{note}");
+            assert!(!note.contains("stock ends there") && !note.contains("skin or burr"), "{note}");
+            assert!(note.contains(if flip { "faced off in the flip setup" } else { "left for a later setup or cut-off" }), "{note}");
+        } else {
+            assert!(note.contains("the stock ends there") && note.contains("skin or burr"), "{note}");
+            assert!(!note.contains("sacrificial backing"), "{note}");
+        }
+    }
+}

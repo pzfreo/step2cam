@@ -304,7 +304,8 @@ fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool
     } else {format!("opposed finished side contact below rule: best minimum fraction {}, required {} and {} mm effective length per side",r(best_contact),fraction,bar)})
 }
 
-/// Retry preparation without rebuilding operations: their exclusions and indices remain valid.
+/// Retry preparation without rebuilding operations. Indices remain valid, but the
+/// caller must reconsider engine exclusions for the receiving setup's changed fixtures.
 pub fn retry_seating(plan: &mut Plan, mesh: &Value, resources: &Value, rejected: &[Value]) -> Result<bool, String> {
     let Some(vise) = crate::machines::dimensioned_vise(resources) else { return Ok(false); };
     let lo: Point = serde_json::from_value(mesh["bbox"][0].clone()).map_err(|e| e.to_string())?;
@@ -320,7 +321,7 @@ pub fn retry_seating(plan: &mut Plan, mesh: &Value, resources: &Value, rejected:
     for key in ["modeled_cuts", "residual_margin_mm"] { seat[key] = old[key].clone(); }
     bottom.flip_seating = Some(seat.clone());
     let mut trace = Trace::take_plan(plan);
-    trace.decide(RULE, "bottom", "chosen", "deeper seat failed retained-operation preparation; retry the next passing shallower seat, preserving operations and exclusions", json!({"chosen":{"seating_attempt":rejected.len()+1,"seating":seat}}));
+    trace.decide(RULE, "bottom", "chosen", "deeper seat failed retained-operation preparation; retry the next passing shallower seat, preserving operations; reconsider receiving-setup engine refusals", json!({"chosen":{"seating_attempt":rejected.len()+1,"seating":seat}}));
     trace.store_plan(plan);
     Ok(true)
 }

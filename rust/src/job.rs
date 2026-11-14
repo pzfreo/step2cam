@@ -730,7 +730,17 @@ fn slot<'a>(cx: &mut SetupCut<'a>, op: &model::Slot, technology: Technology, op_
         let exit = floor;
         floor = through_bottom(cx).max(exit - cx.breakthrough);
         if floor > exit - 0.05 {
-            cx.notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
+            if cx.stock_bottom < exit - 1e-6 {
+                let flip_faces_backing = cx.setup.flip_role.as_deref() == Some("sacrificial_grip")
+                    && cx.plan.setups.iter().any(|s| s.flip_seating.is_some() && s.operations.iter()
+                        .any(|o| matches!(o.cut, Cut::Facing { .. }) && matches!(o.tool, Some(Some(_)))));
+                let removal = if flip_faces_backing {
+                    "faced off in the flip setup"
+                } else { "left for a later setup or cut-off" };
+                cx.notes.push(format!("{op_id}: the {} mm slot is cut to the exit; material left under the slot is sacrificial backing, {removal}", show(width)));
+            } else {
+                cx.notes.push(format!("{op_id}: the {} mm slot is cut to the exit and no further (the stock ends there): expect a skin or burr to clean up", show(width)));
+            }
         }
     }
     let mut out = json!({
