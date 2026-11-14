@@ -742,39 +742,34 @@ p161, USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought IS
 For milling, `fz = feed/(rpm × flutes)`, `φ = acos(1 − 2ae/D)`,
 `h = fz(1 − cos φ)/φ`, `kc = kc₁h^(−m꜀)` and
 `F = kc × ap × ae × feed/(π × D × rpm)` N, equivalent to removal power / cutting speed.
-Each milling operation uses its resolved feed, rpm and engagement. Facing and flats use
-`ae = min(stepover, D)`, valid through full-width engagement. Roughing uses stepover when `entry_access: "stock_edge"` classifies every region as
-edge-entered; `"closed"` uses full D for the first entry. An absent or `"unknown"`
-classification conservatively assumes full D. The built-in planner does not select
-the entry of each subregion, so leaves it absent; an outer air plunge alone does not
-prove that no interior region requires a helix. Over-capacity warnings state this
-unknown-entry full-slot premise explicitly. Roughing ap checks both end layers
-against the faced surface and the original layer schedule; middle layers may still
-cut a full stepdown.
-Pockets and helix-milled holes use full-slot engagement, walls the radial allowance,
-and flats the roughing step envelope below the faced top. Helix-milled holes and
-counterbores use min(material depth from the actual starting surface, pitch per
-revolution). The pinned bore emits one revolution per operation stepdown, with a
-shortened last revolution: mounting-plate currently executes one 9.5 mm revolution
-under its nominal 10 mm pitch, rather than the 1.3 mm/rev a 3° helix would imply.
-Changing its toolpath is outside this force audit; no fictional smaller pitch is used.
-These envelopes and default flute counts
-(3 for milling tools, matching the adapter) are step2cam judgement, recorded in the rule.
+Only operations with engagement known from the plan are compared: **facing, flats,
+slots, notches, V-channels, wall finishing and chamfers**. They use their resolved
+feed, rpm and engagement below the faced surface or their own lower opening.
+Facing/flats use `ae = min(stepover, D)`, slots/notches/V-channels their plan width
+capped by D, walls the radial allowance, and chamfers D. Flats retain the roughing
+step envelope. These envelopes and default milling flute count 3 (matching the
+adapter) are step2cam judgement, recorded in the rule.
 
-Drilling, spotting, tapping and concentric boring record “thrust into the supports;
-not a sliding load on the grip”, without a sliding over-capacity warning. A drill's
-opposing lip forces form a torque couple, not a net sideways force. We choose this
-simpler sound classification instead of a torque check needing an assumed grip lever
-arm; neither torque capacity nor support thrust capacity is checked. The adapter's
-end-mill hole boring is helix milling; it and thread milling retain the sideways check.
+**Roughing of every kind, helix-milled holes/counterbores and thread milling are not
+compared before execution.** Their engagement depends on the stock and passes camlib
+chooses at run time. Each records “engagement decided by camlib; not checked against
+the grip before camlib runs”, as evidence with no estimated force or over-capacity
+warning. Entry access, a guessed slot width and nominal helix pitch cannot establish
+actual engagement. A follow-up will check the grip against camlib's actual emitted
+moves; this pre-execution rule does not do that check.
+
+**Drilling, spotting and tapping are thrust into the supports**, not a sideways grip
+load. They record “thrust into the supports; not a sliding load on the grip”, without
+a sliding over-capacity warning. Opposing drill lip forces form a torque couple.
+Neither torque capacity nor support thrust capacity is checked.
 
 Compare **2F** with holding force. Facing above capacity gets the largest fitting depth,
 rounded down to **0.05 mm** (step2cam judgement), with the final pass taking the remainder.
 The trace gives original and per-pass force, depth and pass count; the adapter consumes
 the capped stepdown. If even 0.05 mm cannot fit, warn with the cutting and holding forces
 that the facing “cannot be held at any depth” and leave it as planned; do not fail the plan.
-Other milling operations warn with both forces, the assumed diameter/depth/width
-and entry or pitch, the tightening premise, and a computed maximum stepdown remedy,
+Other milling operations warn with both forces, the assumed diameter/depth/width,
+the tightening premise, and a computed maximum stepdown remedy,
 while keeping their cutting data. Materials without a force/friction reference get
 one not-checked warning per gripped setup. This checks
 estimated mean tangential sliding load; peak forces, thrust, contact pressure, deformation,

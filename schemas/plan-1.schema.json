@@ -598,7 +598,6 @@
        "type": "number",
        "minimum": 0
       },
-      "entry_access": {"enum": ["stock_edge", "closed", "unknown"], "description": "Classified access of all roughing regions. Stock edge uses stepover engagement; closed or unclassified uses a full-slot first pass. The built-in planner leaves it absent: conditional execution entry is not classified here."},
       "surface_error_mm": {
        "type": "number",
        "minimum": 0

@@ -384,7 +384,6 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                             .flat_map(|p| frame.point([p[0], p[1], p[2]]).map(r))
                             .collect();
                         ops.push(model::Cut::Roughing(model::Roughing {
-                            entry_access: None,
                             top_z: r(frame.stock.1[2]),
                             floor_z: r(floor),
                             web_mm: r(floor - part_bottom),

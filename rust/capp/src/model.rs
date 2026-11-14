@@ -244,10 +244,6 @@ impl Cut {
 /// Roughing: down to a floor above the part's bottom, leaving the part's surface.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Roughing {
-    /// Classified access of every roughing region. Absent means unknown; a
-    /// stock-edge classification must cover all regions, not just the first entry.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub entry_access: Option<String>,
     /// The stock's top.
     pub top_z: f64,
     /// The lowest roughing layer.

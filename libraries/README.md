@@ -354,8 +354,9 @@ clamping and candidate grip data. The demo’s unvalidated vise has no force and
 not-checked warning, with no cutting-data changes.
 
 [The grip rule](../docs/capp-plan.md#vise-grip-against-the-cut-m3) documents μ = 0.095
-(machined/sawn aluminium side in smooth steel jaws), safety factor 2, ISCAR aluminium
-cutting constants and classified roughing engagement (unknown entry conservatively
-assumes full width, explicitly stated in warnings). Axial cycles are thrust into
-supports, not checked against sliding capacity; helix milling remains a sideways check.
-Holding capacity does not scale with contact area; pressure and overturning remain unchecked.
+(machined/sawn aluminium side in smooth steel jaws), safety factor 2 and ISCAR
+aluminium cutting constants. Facing and other plan-known engagements are checked;
+axial cycles are thrust into supports. Roughing, helix-milled holes/counterbores and
+thread milling record runtime engagement as not checked before camlib runs. A
+follow-up must use its actual moves. Holding capacity does not scale with contact
+area; pressure and overturning remain unchecked.

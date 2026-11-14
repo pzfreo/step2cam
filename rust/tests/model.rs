@@ -183,7 +183,7 @@ fn samples() -> Vec<Cut> {
     let features = vec!["holes:0".to_string()];
     vec![
         Cut::Facing { floor_z: 0. },
-        Cut::Roughing(Roughing { entry_access: None, top_z: 1., floor_z: -9.5, web_mm: 0.5, surface_error_mm: 0.01, positions: None, indices: None }),
+        Cut::Roughing(Roughing { top_z: 1., floor_z: -9.5, web_mm: 0.5, surface_error_mm: 0.01, positions: None, indices: None }),
         Cut::Flats { floor_z: -9.5, levels: vec![-5.] },
         Cut::SpotDrill(SpotDrill { spot_tool: None, diameter: 4., angle: 118., reach: 0., features: features.clone(),
             spots: vec![Spot { center: [0., 0.], top_z: 0., diameter: 4., depth: None, features: features.clone(), countersink: false }] }),

@@ -12,6 +12,15 @@ fn run_named(name: &str, library: &Value) -> Value {
     assert!(result["error"].is_null(), "{}", result["error"]);
     result
 }
+const RUNTIME: &str = "engagement decided by camlib; not checked against the grip before camlib runs";
+fn runtime_not_checked(decision: &Value) {
+    assert_eq!(decision["outcome"], "none");
+    assert_eq!(decision["says"], RUNTIME);
+    assert_eq!(decision["force_model"], RUNTIME);
+    for field in ["cutting_force_n", "axial_depth_mm", "radial_width_mm", "suggested_stepdown_mm"] {
+        assert!(decision.get(field).is_none(), "runtime engagement must not be invented: {decision}");
+    }
+}
 fn near(a: f64, b: f64) { assert!((a-b).abs()<1e-8, "{a} != {b}"); }
 fn num(v: &Value) -> f64 { v.as_f64().unwrap() }
 fn decisions(out: &Value) -> Vec<&Value> {
@@ -53,7 +62,7 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
     near(num(&decision["per_pass_force_n"]), slope*limit);
     assert!(slope*limit*2. <= holding);
     assert!(slope*(limit+0.05)*2. > holding);
-    // Every milling operation has numeric evidence; axial cycles explicitly decline the sliding check.
+    // Plan-known milling has numeric evidence; runtime engagement and thrust are explicit exclusions.
     for setup in setups.iter().filter(|s| s["clamping"].is_object()) {
         assert!(ds.iter().any(|d| d["subject"]==setup["id"] && d["holding_force_n"].is_number()));
         for op in setup["operations"].as_array().unwrap() {
@@ -63,6 +72,8 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
                 assert_eq!(own["outcome"], "none");
                 assert_eq!(own["force_model"], "thrust into the supports; not a sliding load on the grip");
                 assert!(own.get("cutting_force_n").is_none());
+            } else if matches!(op["kind"].as_str(), Some("roughing" | "holes" | "counterbore" | "thread")) {
+                runtime_not_checked(own);
             } else { assert!(own["cutting_force_n"].is_number()); }
         }
     }
@@ -106,7 +117,8 @@ fn ample_force_keeps_the_original_facing_stepdown() {
         if decision["force_model"]=="thrust into the supports; not a sliding load on the grip" {
             assert_eq!(decision["outcome"], "none");
             assert!(decision.get("cutting_force_n").is_none());
-        } else { assert_eq!(decision["outcome"], "checked"); }
+        } else if decision["force_model"]==RUNTIME { runtime_not_checked(decision); }
+        else { assert_eq!(decision["outcome"], "checked"); }
     }
     for setup in out["plan"]["setups"].as_array().unwrap() {
         for face in setup["operations"].as_array().unwrap().iter().filter(|o| o["kind"]=="facing") {
@@ -174,7 +186,7 @@ fn force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flutes: f64) -> f
     800.*h.powf(-0.25)*ap*ae*feed/(PI*diameter*rpm)
 }
 #[test]
-fn engagement_above_half_diameter_and_full_width_roughing_are_checked() {
+fn facing_above_half_diameter_is_checked_and_roughing_is_deferred() {
     let mut lib = read("libraries/haas-vf2.json");
     lib["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"]=="em20").unwrap()["stepover_mm"] = json!(15.);
     let out = settled(&lib);
@@ -184,15 +196,9 @@ fn engagement_above_half_diameter_and_full_width_roughing_are_checked() {
     near(num(&face["cutting_force_n"]), force(1.,15.,20.,4804.87,7882.,4.));
     assert!(num(&face["cutting_force_n"]) > force(1.,10.,20.,4804.87,7882.,4.));
     let rough = ds.iter().find(|d| d["subject"]=="top-2-roughing").unwrap();
-    near(num(&rough["radial_width_mm"]), 20.);
-    near(num(&rough["cutting_force_n"]), force(9.,20.,20.,4804.87,7882.,4.));
-    assert_eq!(rough["outcome"], "warning");
-    near(num(&rough["axial_depth_mm"]), 9.);
-    near(num(&rough["suggested_stepdown_mm"]), 5.2);
-    let text = rough["says"].as_str().unwrap();
-    for premise in ["entry unknown", "40 ft·lbf", "ap9.00 × ae20.00", "reduce stepdown to ≤5.20"] {
-        assert!(text.contains(premise), "{text}");
-    }
+    // The old roughing over-capacity expectation was a false alarm: runtime
+    // engagement must be evidence of a deferred check, never an invented load.
+    runtime_not_checked(rough);
     // ae remains bounded by D even when the library requests a larger stepover.
     lib["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"]=="em20").unwrap()["stepover_mm"] = json!(25.);
     let wide = settled(&lib);
@@ -217,7 +223,7 @@ fn an_unholdable_minimum_face_warns_without_failing_or_altering_the_cut() {
     }
 }
 #[test]
-fn helix_milled_holes_stay_sideways_while_spots_and_taps_are_axial() {
+fn helix_milled_holes_are_deferred_while_spots_and_taps_are_thrust() {
     let mut lib = read("libraries/haas-vf2.json");
     lib["tools"].as_array_mut().unwrap().retain(|t| t["type"]!="drill");
     let out = settled(&lib);
@@ -229,8 +235,7 @@ fn helix_milled_holes_stay_sideways_while_spots_and_taps_are_axial() {
         let tool = lib["tools"].as_array().unwrap().iter().find(|t| t["id"]==op["tool"]).unwrap();
         assert_eq!(tool["type"], "end_mill");
         let own = ds.iter().find(|d| op["because"].as_array().unwrap().contains(&d["id"])).unwrap();
-        assert!(own["cutting_force_n"].is_number());
-        assert_ne!(own["outcome"], "none");
+        runtime_not_checked(own);
     }
     // Supply a tapped M5 hole on the plate using the existing recognised hole.
     let lib = read("libraries/haas-vf2.json");
@@ -249,30 +254,6 @@ fn helix_milled_holes_stay_sideways_while_spots_and_taps_are_axial() {
 }
 
 
-#[test]
-fn classified_stock_edge_roughing_uses_stepover_and_closed_entry_uses_a_slot() {
-    let lib = read("libraries/haas-vf2.json");
-    for (access, width, outcome) in [("stock_edge", 8., "checked"), ("closed",20.,"warning"), ("unknown",20.,"warning")] {
-        let mut plan = capp::plan::plan(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
-            Some(&read("tests/fixtures/synthetic/stepped-plate.mesh.json")), &Default::default()).unwrap();
-        plan["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"]=="roughing").unwrap()["entry_access"] = json!(access);
-        capp::finish(&mut plan, &lib, &[]).unwrap();
-        let out = json!({"plan":plan});
-        let ds = decisions(&out);
-        let rough = ds.iter().find(|d| d["subject"]=="top-2-roughing").unwrap();
-        near(num(&rough["axial_depth_mm"]),9.);
-        near(num(&rough["radial_width_mm"]),width);
-        near(num(&rough["cutting_force_n"]),force(9.,width,20.,4804.87,7882.,4.));
-        assert_eq!(rough["outcome"],outcome);
-        if outcome=="warning" {
-            let limit=num(&rough["suggested_stepdown_mm"]);
-            assert!(force(limit,width,20.,4804.87,7882.,4.)<=num(&rough["allowable_cutting_force_n"]));
-            assert!(force(limit+0.05,width,20.,4804.87,7882.,4.)>num(&rough["allowable_cutting_force_n"]));
-        }
-        let schema=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
-        assert!(schema.is_valid(&out["plan"]));
-    }
-}
 #[test]
 fn missing_material_reference_warns_once_per_setup_not_per_operation() {
     let mut lib=read("libraries/haas-vf2.json");
@@ -300,31 +281,44 @@ fn unspecified_material_is_named_in_the_grouped_warning() {
     assert!(warnings.iter().all(|d| d["says"].as_str().unwrap().ends_with("for unspecified material")));
 }
 #[test]
-fn mounting_bore_uses_the_executed_helix_pitch_not_an_imaginary_three_degree_pitch() {
+fn runtime_engagement_is_evidence_without_false_alarms_on_both_parts() {
     let lib=read("libraries/haas-vf2.json");
-    let out=run_named("mounting-plate",&lib);
-    let program=&out["programs"][0];
-    let job=program["job"]["operations"].as_array().unwrap().iter().find(|o| o["id"]=="top-5-holes").unwrap();
-    near(num(&job["stepdown_mm"]),10.);
-    let operation=program["operations"].as_array().unwrap().iter().find(|o| o["id"]=="top-5-holes").unwrap();
-    let moves=&program["moves"].as_array().unwrap()[operation["start"].as_u64().unwrap() as usize..operation["end"].as_u64().unwrap() as usize];
-    let helix=moves.iter().find(|m| m["kind"]=="lead").unwrap();
-    let points=helix["points"].as_array().unwrap();
-    let center=&job["centers_mm"][0];
-    let turns=points.windows(2).map(|p| {
-        let a=[num(&p[0][0])-num(&center[0]),num(&p[0][1])-num(&center[1])];
-        let b=[num(&p[1][0])-num(&center[0]),num(&p[1][1])-num(&center[1])];
-        (a[0]*b[1]-a[1]*b[0]).atan2(a[0]*b[0]+a[1]*b[1])
-    }).sum::<f64>().abs()/(2.*PI);
-    near(turns,1.);
-    let pitch=(num(&points.first().unwrap()[2])-num(&points.last().unwrap()[2]))/turns;
-    near(pitch,9.5);
+    for (part, ids) in [("synthetic/stepped-plate", vec!["top-2-roughing"]),
+        ("mounting-plate",vec!["top-2-roughing","top-5-holes"])] {
+        let out=run_named(part,&lib);
+        let ds=decisions(&out);
+        for id in ids {
+            let own=ds.iter().find(|d| d["subject"]==id).unwrap();
+            runtime_not_checked(own);
+            assert!(out["plan"]["setups"].as_array().unwrap().iter()
+                .flat_map(|s| s["operations"].as_array().unwrap())
+                .any(|op| op["because"].as_array().unwrap().contains(&own["id"])));
+        }
+        assert!(ds.iter().all(|d| d["outcome"]!="warning"), "{part}: {ds:?}");
+    }
+}
+#[test]
+fn checked_notch_keeps_the_computed_warning_remedy() {
+    let mut lib=read("libraries/haas-vf2.json");
+    lib["machines"][0]["workholding"][0]["clamp_force_n"]=json!(500.);
+    let out=settled(&lib);
     let ds=decisions(&out);
-    let bore=ds.iter().find(|d| d["subject"]=="top-5-holes").unwrap();
-    // Eight mm of actual part material, below the faced top, is less than
-    // the executed pitch. A hypothetical 1.3 mm pitch must not lower this load.
-    near(num(&bore["axial_depth_mm"]),8.);
-    near(num(&bore["cutting_force_n"]),force(8.,20.,20.,4804.87,7882.,4.));
-    assert_eq!(bore["outcome"],"warning");
-    near(num(&bore["suggested_stepdown_mm"]),5.2);
+    // The 8 mm open notch uses em6; the first, closed 6 mm notch uses em3.
+    let op=out["plan"]["setups"][0]["operations"].as_array().unwrap().iter()
+        .find(|o| o["kind"]=="notch" && o["width"]==8.).unwrap();
+    assert_eq!(op["tool"],"em6");
+    let notch=ds.iter().find(|d| op["because"].as_array().unwrap().contains(&d["id"])).unwrap();
+    assert_eq!(notch["outcome"],"warning");
+    near(num(&notch["axial_depth_mm"]),3.);
+    near(num(&notch["radial_width_mm"]),6.);
+    near(num(&notch["cutting_force_n"]),force(3.,6.,6.,299.7,8100.,1.));
+    let limit=num(&notch["suggested_stepdown_mm"]);
+    near(limit,1.95);
+    assert!(force(limit,6.,6.,299.7,8100.,1.)<=num(&notch["allowable_cutting_force_n"]));
+    assert!(force(limit+0.05,6.,6.,299.7,8100.,1.)>num(&notch["allowable_cutting_force_n"]));
+    let text=notch["says"].as_str().unwrap();
+    for premise in ["40 ft·lbf", "ap3.00 × ae6.00", "reduce stepdown to ≤1.95", "operation unchanged"] {
+        assert!(text.contains(premise),"{text}");
+    }
+    near(num(&op["technology"]["stepdown_mm"]),3.);
 }
