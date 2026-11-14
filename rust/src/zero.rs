@@ -24,7 +24,8 @@ fn geometry(v: &mut Value, d: [f64;3]) {
                     "before_setup" | "tools" | "technology" | "zero" | "stock_size" | "flip_seating" | "contacts" | "force_check" | "because" => (),
                     "min" | "max" | "min_mm" | "max_mm" | "initial_position_mm" => point(v,d,3),
                     "a" | "b" | "center" | "start_mm" | "end_mm" | "xy_mm" => point(v,d,2),
-                    "centers" | "centers_mm" | "outer" => points(v,d,2),
+                    "centers" | "centers_mm" => points(v,d,2),
+                    "outer" => {if v.is_array() {points(v,d,2);} else {geometry(v,d);}},
                     "vertices" => points(v,d,if surface {3} else {2}),
                     "triangles" => {if let Some(ts)=v.as_array_mut() {for t in ts {points(t,d,3);}}},
                     "positions" => {if let Some(ps)=v.as_array_mut() {for (i,p) in ps.iter_mut().enumerate() {number(p,d[i%3]);}}},
@@ -69,6 +70,14 @@ pub fn apply(out: &mut Value, analysis: &Value, mesh: &Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn nested_boundaries_translate_xy_without_changing_bulges() {
+        let mut g=json!({"outer":{"vertices":[[1.,2.,0.5],[4.,5.,0.]]},"surface":{"indices":[[0,1,2]],"vertices":[[1.,2.,3.]]},"tools":[{"holders":[{"z_min_mm":8.}]}]});
+        geometry(&mut g,[1.,2.,3.]);
+        assert_eq!(g["outer"]["vertices"],json!([[0.,0.,0.5],[3.,3.,0.]]));
+        assert_eq!(g["surface"]["vertices"],json!([[0.,0.,0.]]));
+        assert_eq!(g["tools"][0]["holders"][0]["z_min_mm"],8.);
+    }
     #[test]
     fn relocation_translates_every_motion_and_preserves_its_metadata() {
         let a=serde_json::from_str(include_str!("../../tests/fixtures/synthetic/stepped-plate.analysis.json")).unwrap();
