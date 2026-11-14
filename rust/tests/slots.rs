@@ -38,8 +38,8 @@ fn the_plate_is_roughed_and_its_slot_cut_to_size() {
 
     let slot = &ops[5];
     assert_eq!(slot["bottom"], "through");
-    assert_eq!(slot["a"], serde_json::json!([84.0, 26.0]));
-    assert_eq!(slot["b"], serde_json::json!([84.0, 48.0]));
+    assert_eq!(slot["a"], serde_json::json!([84.0, 27.0]));
+    assert_eq!(slot["b"], serde_json::json!([84.0, 49.0]));
 
     // ⌀6 in an 8 wide slot: its centre runs ±1 across, and round the ends to 1 from their tips.
     let points: Vec<[f64; 3]> = fed_points(&out, &|m| m["op"].as_str().unwrap().ends_with("-slot")).into_iter().filter(|p| p[2] < -1.).collect();
@@ -50,8 +50,8 @@ fn the_plate_is_roughed_and_its_slot_cut_to_size() {
     let near = |a: f64, b: f64| (a - b).abs() < 0.01;
     let (x, y, z) = (range(&x), range(&y), range(&z));
     assert!(near(x.0, 83.) && near(x.1, 85.), "{x:?}");
-    assert!(near(y.0, 25.) && near(y.1, 49.), "{y:?}");
-    assert!(near(z.0, -9.), "{z:?}");
+    assert!(near(y.0, 26.) && near(y.1, 50.), "{y:?}");
+    assert!(near(z.0, -9.5), "{z:?}");
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn the_top_edges_are_chamfered_where_they_meet_the_round_and_never_inside_it() {
     let lowest = points.iter().map(|p| p[2]).fold(f64::MAX, f64::min);
     let most_x = points.iter().filter(|p| p[2] < -1.).map(|p| p[0]).fold(f64::MIN, f64::max);
     assert!((most_x - 102.75).abs() < 0.01, "{most_x}");
-    assert!((lowest + 1.9686).abs() < 0.01, "{lowest}");
+    assert!((lowest + 2.4686).abs() < 0.01, "{lowest}");
 }
 
 /// Roughing covers features that have no operation of their own, until it is refused: then they

@@ -1,5 +1,5 @@
 //! Real Makera inventory, rather than the generic placeholder regression fixture.
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 
 fn read(path: &str) -> Value {
@@ -25,11 +25,19 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
         assert!(tool["flute_length"].as_f64().unwrap_or(0.) <= tool["overall_length"].as_f64().unwrap());
     }
     for name in ["synthetic/stepped-plate", "plate"] {
-        let out = step2cam::process(
-            &read(&format!("tests/fixtures/{name}.analysis.json")),
-            &read(&format!("tests/fixtures/{name}.mesh.json")),
-            &library,
-        ).unwrap();
+        let analysis = read(&format!("tests/fixtures/{name}.analysis.json"));
+        let mesh = read(&format!("tests/fixtures/{name}.mesh.json"));
+        let standard = step2cam::process(&analysis, &mesh, &library).unwrap();
+        assert!(standard["error"].is_null(), "{standard}");
+        let mut shop = library.clone();
+        if name == "synthetic/stepped-plate" {
+            let front = standard["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
+            assert!(front["operations"].as_array().unwrap().is_empty());
+            assert!(standard["plan"]["warnings"].to_string().contains("no standard parallels height satisfies grip limits"));
+            // Keep the original front-thread execution regression with an explicit synthetic shop set.
+            shop["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
+        }
+        let out = step2cam::process(&analysis, &mesh, &shop).unwrap();
         assert!(out["error"].is_null(), "{name}: {}", out["error"]);
         let setups = out["plan"]["setups"].as_array().unwrap();
         assert!(!setups.is_empty());

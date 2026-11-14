@@ -58,7 +58,7 @@ pub fn clamp(setup: &mut Setup, vise: Option<&Value>, proposal: Option<&Value>, 
                 grip >= minimum && grip <= maximum && grip <= height
             }).max_by(f64::total_cmp);
             if parallel.is_none() {return Some(format!("no {} parallels height satisfies grip limits and seating (grip {}–{} mm, jaw {} mm)", if standard { "standard" } else { "available shop" }, show(minimum), show(r(maximum)), show(height)));}
-            trace.decide(if standard { "setup.standard_sizes" } else { RULE }, &id, "chosen", "choose the tallest available parallels satisfying grip limits and mesh seating (least hidden side material)", json!({"chosen":{"parallels_height_mm":parallel},"sources":if standard { &crate::rules::standard_sizes()["parallels"]["source"] } else { vise.map_or(&Value::Null, |v| &v["_sources"]) }}));
+            trace.decide(if standard { "setup.standard_sizes" } else { RULE }, &id, "chosen", "choose the tallest available parallels satisfying grip limits and mesh seating (least hidden side material)", json!({"chosen":{"parallels_height_mm":parallel,"size_source":if standard { &crate::rules::standard_sizes()["parallels"]["source"] } else { vise.map_or(&Value::Null, |v| &v["_sources"]) }}}));
     }
     if let Some(seat) = &seating {
         if given.is_some() { return Some("flip seating is mesh-validated; clamping override requires withholding the flip option".into()); }
@@ -66,7 +66,7 @@ pub fn clamp(setup: &mut Setup, vise: Option<&Value>, proposal: Option<&Value>, 
             return Some("parallels height disagrees with mesh seating grip".into());
         }
         let required = r(height - seat["grip_height_mm"].as_f64()?);
-        if parallel.is_none() && !heights.iter().filter_map(Value::as_f64).any(|p| (p-required).abs()<1e-4) {
+        if (parallel.is_none() || vise.is_some_and(|v| v.get("parallels_heights_mm").is_some())) && !heights.iter().filter_map(Value::as_f64).any(|p| (p-required).abs()<1e-4) {
             return Some(format!("mesh seating requires {} mm parallels, absent from available heights", show(required)));
         }
         // Seating searched only the fixed, inventory or standard support heights.

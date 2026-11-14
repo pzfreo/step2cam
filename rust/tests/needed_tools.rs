@@ -83,7 +83,7 @@ fn actual_camlib_reach_refusals_keep_the_reason_and_index_every_feature() {
     }
     let group = skipped.iter().find(|s| s["feature"] == "holes:6").unwrap();
     let need = group["reason"].as_str().unwrap().rsplit_once(": needs ").unwrap().1;
-    assert_eq!(need, "a drill of ⌀6.55–6.60 with flutes of at least 12.01 mm plus point length, or an end mill under ⌀6.55 with flutes of at least 12 mm");
+    assert_eq!(need, "a drill of ⌀6.55–6.60 with flutes of at least 13.71 mm plus point length, or an end mill under ⌀6.55 with flutes of at least 13 mm");
     let entry = plan["tools_needed"].as_array().unwrap().iter().find(|n| n["description"] == need).unwrap();
     assert!(entry["features"].as_array().unwrap().len() > 1, "{entry}");
     assert_eq!(out["log"].as_array().unwrap().iter().filter(|l| l.as_str().unwrap().starts_with("tools needed: ")).count(), 1);
@@ -188,7 +188,7 @@ fn needs_suffixes_are_decision_fields() {
     let parts = ["plate", "mounting-plate", "synthetic/stepped-plate", "synthetic/stepped-plate-chamfered", "synthetic/stepped-plate-chamfer-mouths",
         "synthetic/stepped-plate-large-chamfer", "synthetic/tall-wall-pocket", "synthetic/square-slots"];
     let libraries = ["../../demo/tools.json", "../../libraries/haas-vf2.json", "../../libraries/linuxcnc-vmc.json", "../../tests/fixtures/placeholder-tools.json"];
-    let (mut plans, mut named, mut refused) = (0, 0, 0);
+    let (mut plans, mut named, mut refused, mut operations) = (0, 0, 0, 0);
     for part in parts {
         let analysis = fixture(&format!("{part}.analysis.json"));
         let mesh = fixture(&format!("{part}.mesh.json"));
@@ -203,6 +203,7 @@ fn needs_suffixes_are_decision_fields() {
             for setup in done["setups"].as_array().unwrap() {
                 let top = setup["stock"]["max"][2].as_f64().unwrap();
                 for (i, op) in setup["operations"].as_array().unwrap().iter().enumerate() {
+                    operations += 1;
                     let id = format!("{}-{}-{}", setup["id"].as_str().unwrap(), i + 1, op["kind"].as_str().unwrap());
                     for exclusion in [
                         json!({"operation": id, "message": "refused: the holder hits the stock: needs an end mill of ⌀6 with its holder at least 40 mm above the tip"}),
@@ -210,7 +211,7 @@ fn needs_suffixes_are_decision_fields() {
                         json!({"operation": id, "message": "holder collides", "reach": {"limit": "holder", "holder_section": 0, "depth_needed_mm": 12., "top_z_mm": top - 1., "z_mm": top - 12.}}),
                     ] {
                         let mut plan = planned.clone();
-                        if capp::finish(&mut plan, &library, &[exclusion]).is_err() { continue; }
+                        capp::finish(&mut plan, &library, &[exclusion]).unwrap();
                         named += needs_as_fields(&plan);
                         plans += 1;
                         refused += usize::from(plan["decisions"].as_array().unwrap().iter().any(|d| d["rule"].as_str().unwrap().starts_with("execution.refused@") && d.get("needs").is_some()));
@@ -219,6 +220,9 @@ fn needs_suffixes_are_decision_fields() {
             }
         }
     }
-    // 896, 4,301 and 864 when this was written.
-    assert!(plans > 800 && named > 3000 && refused > 700, "{plans} plans, {named} decisions naming a need, {refused} refusals with a need");
+    // Standard-set misses retain fewer operations. Require all 32 input pairs and all
+    // three exclusions for every retained operation; never silently skip a failed finish.
+    assert_eq!(plans, 32 + 3*operations);
+    assert_eq!(refused, 3*operations);
+    assert!(named > 3000, "{named} decisions naming a need");
 }

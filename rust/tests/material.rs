@@ -19,6 +19,8 @@ fn fixture(path: &str) -> Value {
 fn tools() -> Value {
     let mut tools = fixture("../../tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
+    // Synthetic longer-flute tool isolates geometry checks from the standard blank's extra stock.
+    tools["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
     tools
 }
 fn process(part: &str) -> Value {

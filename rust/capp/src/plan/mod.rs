@@ -258,7 +258,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
     let mut slots: HashMap<&'static str, Vec<model::Cut>> = HashMap::new();
     let mut trace = Trace::default();
     if chosen_bar.is_none() {
-        trace.warn("setup.standard_sizes", rough_from, format!("no standard flat bar in {} holds {} × {} × {} mm; stock is the computed size", bars["source"]["ref"].as_str().unwrap(), show(size[0]), show(size[1]), show(size[2])), json!({"stock_size":stock_size}));
+        trace.warn("setup.standard_sizes", rough_from, format!("no standard flat bar in {} holds {} × {} × {} mm; stock is the computed size", bars["source"]["ref"].as_str().unwrap(), show(size[0]), show(size[1]), show(size[2])), json!({"chosen":{"stock_size":stock_size}}));
     } else {
         trace.decide("setup.standard_sizes", rough_from, "chosen", "standard flat bar, not checked against your shop; extra thickness on top and sides evenly to preserve minimum margins", json!({"chosen":stock_size}));
     }

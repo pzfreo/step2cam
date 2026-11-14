@@ -35,7 +35,7 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
     let out = run(&lib);
     let setups = out["plan"]["setups"].as_array().unwrap();
     let bottom = setups.iter().find(|s| s["flip_seating"].is_object()).unwrap();
-    near(num(&bottom["clamping"]["grip_height_mm"]), 3.175);
+    near(num(&bottom["clamping"]["grip_height_mm"]), 5.969);
     let face = bottom["operations"].as_array().unwrap().iter().find(|o| o["kind"]=="facing").unwrap();
     let t = lib["tools"].as_array().unwrap().iter().find(|t| t["id"]==face["tool"]).unwrap();
     let d = num(&t["diameter"]);
@@ -49,16 +49,17 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
     let slope = kc*ae*feed/(PI*d*rpm);
     let limit = (holding/(2.*slope)/0.05).floor()*0.05;
     let depth = num(&bottom["stock"]["max"][2])-num(&face["floor_z"]);
-    near(depth, 7.25);
+    near(depth, 11.144);
     near(limit, 1.65);
     let passes = (depth/limit).ceil() as u64;
-    assert_eq!(passes, 5);
+    assert_eq!(passes, 7);
     near(num(&face["technology"]["stepdown_mm"]), limit);
     let ds = decisions(&out);
     let decision = ds.iter().find(|d| d["subject"]=="bottom-1-facing").unwrap();
     assert_eq!(decision["outcome"], "stepped_down");
     assert_eq!(decision["passes"], passes);
-    near(num(&decision["cutting_force_n"]), slope*depth);
+    // The new blank exceeds the original 10 mm stepdown; initial force is for that pass.
+    near(num(&decision["cutting_force_n"]), slope*depth.min(num(&t["stepdown_mm"])));
     near(num(&decision["per_pass_force_n"]), slope*limit);
     assert!(slope*limit*2. <= holding);
     assert!(slope*(limit+0.05)*2. > holding);
@@ -195,7 +196,7 @@ fn facing_above_half_diameter_is_checked_and_roughing_is_deferred() {
     let ds = decisions(&out);
     let face = ds.iter().find(|d| d["subject"]=="top-1-facing").unwrap();
     near(num(&face["radial_width_mm"]), 15.);
-    near(num(&face["cutting_force_n"]), force(1.,15.,20.,4804.87,7882.,4.));
+    near(num(&face["cutting_force_n"]), force(2.,15.,20.,4804.87,7882.,4.));
     assert!(num(&face["cutting_force_n"]) > force(1.,10.,20.,4804.87,7882.,4.));
     let rough = ds.iter().find(|d| d["subject"]=="top-2-roughing").unwrap();
     // The old roughing over-capacity expectation was a false alarm: runtime
@@ -291,7 +292,13 @@ fn runtime_engagement_is_evidence_without_false_alarms_on_both_parts() {
     let lib=read("libraries/haas-vf2.json");
     for (part, ids) in [("synthetic/stepped-plate", vec!["top-2-roughing"]),
         ("mounting-plate",vec!["top-2-roughing","top-5-holes"])] {
-        let out=run_named(part,&lib);
+        let mut shop = lib.clone();
+        if part == "mounting-plate" {
+            // Synthetic 3.5 mm grip keeps the runtime-engagement regression independent of a standard-set miss.
+            let jaw = num(&shop["machines"][0]["workholding"][0]["jaw_height_mm"]);
+            shop["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([jaw-3.5]);
+        }
+        let out=run_named(part,&shop);
         let ds=decisions(&out);
         for id in ids {
             let own=ds.iter().find(|d| d["subject"]==id).unwrap();

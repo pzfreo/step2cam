@@ -27,6 +27,9 @@ fn shipped_mills_use_cited_heights_and_flat_bars() {
         assert_eq!(first["stock_size"]["kind"], "standard");
         let bar = &first["stock_size"]["cross_section_mm"];
         assert!(list(&sizes["flat_bar"]["sizes_mm"]).iter().any(|b| b == bar || json!([b[1],b[0]]) == *bar));
+        let spans: Vec<_> = (0..3).map(|i| number(&first["stock"]["max"][i])-number(&first["stock"]["min"][i])).collect();
+        assert_close(spans[2], number(&bar[0]));
+        assert!(spans[..2].contains(&number(&bar[1])));
         assert_eq!(number(&first["stock_size"]["sawn_length_mm"]).fract(), 0.);
         let c = &first["clamping"];
         assert_eq!(c["parallels_size"]["kind"], "standard");
@@ -69,4 +72,34 @@ fn oversized_part_keeps_computed_blank_and_warns() {
     assert_eq!(p["setups"][0]["stock_size"]["kind"], "computed");
     assert_eq!(p["setups"][0]["stock"]["max"], json!([1004.,1004.,0.]));
     assert_eq!(p["setups"][0]["stock"]["min"], json!([0.,0.,-1001.]));
+}
+
+#[test]
+fn selected_flip_searches_only_real_heights_and_preserves_sacrificial_grip() {
+    for path in ["../../demo/tools.json", "../../libraries/haas-vf2.json"] {
+        let mut tools = fixture(path);
+        tools["overrides"]["workholding_option"] = json!("vise_flip_face");
+        let p = planned(&tools);
+        let top = &p["setups"][0];
+        let bottom = list(&p["setups"]).iter().find(|s| s["id"] == "bottom").expect("flip seating");
+        let heights = list(&capp::rules::standard_sizes()["parallels"]["heights_mm"]);
+        for setup in [top,bottom] {
+            assert!(heights.contains(&setup["clamping"]["parallels_size"]["height_mm"]));
+        }
+        let sacrificed = number(&bottom["stock"]["max"][2]);
+        let grip = number(&top["clamping"]["grip_height_mm"]);
+        assert!(sacrificed >= grip + 2. - 1e-4, "keep rule clearance plus facing allowance");
+        assert_eq!(bottom["stock_size"]["kind"], "remaining");
+    }
+}
+
+#[test]
+fn explicit_setup_height_is_shop_provenance() {
+    let mut tools = fixture("../../demo/tools.json");
+    tools["overrides"]["clamping"]["top"] = json!({"axis":"y", "grip_height_mm":7., "parallels_height_mm":13.});
+    let p = planned(&tools);
+    let c = &p["setups"][0]["clamping"];
+    assert_eq!(c["parallels_size"]["kind"], "library");
+    assert_eq!(c["parallels_size"]["height_mm"], 13.);
+    assert_eq!(c["grip_height_mm"], 7.);
 }

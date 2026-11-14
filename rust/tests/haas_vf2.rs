@@ -1,5 +1,5 @@
 //! The opt-in industrial library must load, place both fixtures and run camlib.
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 
 fn read(path: &str) -> Value {
@@ -11,10 +11,18 @@ fn read(path: &str) -> Value {
 fn industrial_fixtures_plan_and_simulate_without_definite_gouges() {
     let library = read("libraries/haas-vf2.json");
     for name in ["synthetic/stepped-plate", "mounting-plate"] {
+        let mut shop = library.clone();
+        if name == "mounting-plate" {
+            let standard = step2cam::process(&read(&format!("tests/fixtures/{name}.analysis.json")), &read(&format!("tests/fixtures/{name}.mesh.json")), &library).unwrap();
+            assert!(standard["plan"]["setups"][0]["operations"].as_array().unwrap().is_empty());
+            assert!(standard["plan"]["warnings"].to_string().contains("no standard parallels height"));
+            // Thin plate seating requires a shop height between the standard set's steps.
+            shop["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([40.569]);
+        }
         let out = step2cam::process(
             &read(&format!("tests/fixtures/{name}.analysis.json")),
             &read(&format!("tests/fixtures/{name}.mesh.json")),
-            &library,
+            &shop,
         ).unwrap();
         assert!(out["error"].is_null(), "{name}: {}", out["error"]);
         let setups = out["plan"]["setups"].as_array().unwrap();

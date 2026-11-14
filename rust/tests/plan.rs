@@ -68,10 +68,10 @@ fn plate_from_the_top() {
     assert_eq!(plan["format"], "specify-cam-plan");
     assert_eq!(ids(&plan), ["top"]);
     let top = &plan["setups"][0];
-    // Part 100 x 60 x 10, 2 mm margin, 1 mm on top: Z0 is the stock top.
-    assert_same(top["stock"].clone(), json!({"min": [0, 0, -11], "max": [104, 64, 0]}));
+    // Part 100 x 60 x 10, minimum margins, selected 12.7 x 64 bar: Z0 is the stock top.
+    assert_same(top["stock"].clone(), json!({"min": [0, 0, -12.7], "max": [104, 64, 0]}));
     assert_eq!(kinds(&plan, 0), ["facing", "holes", "holes", "holes"]);
-    assert_eq!(number(&top["operations"][0]["floor_z"]), -1.);
+    assert_eq!(number(&top["operations"][0]["floor_z"]), -2.7);
     let holes = of_kind(&plan, 0, "holes");
     let by_d: HashMap<String, &&Value> = holes.iter().map(|o| (o["diameter"].to_string(), o)).collect();
     let mut diameters: Vec<f64> = holes.iter().map(|o| number(&o["diameter"])).collect();
@@ -79,7 +79,7 @@ fn plate_from_the_top() {
     assert_eq!(diameters, [4.2, 6.6, 8.0]);
     assert_eq!(list(&by_d["6.6"]["centers"]).len(), 6);
     for op in by_d.values() {
-        assert_same(json!([op["top_z"], op["bottom_z"], op["bottom"]]), json!([-1, -11, "through"]));
+        assert_same(json!([op["top_z"], op["bottom_z"], op["bottom"]]), json!([-2.7, -12.7, "through"]));
     }
     assert_same(by_d["8.0"]["centers"].clone(), json!([[52, 32]]));
     assert_eq!(plan["skipped"], json!([]));
@@ -93,11 +93,11 @@ fn the_mesh_adds_roughing_in_the_setup_frame() {
     // The mesh's exact box and the analysis's frame-carried box agree.
     assert_same(top["stock"].clone(), no_mesh(&plate(), &Default::default())["setups"][0]["stock"].clone());
     let rough = roughing(&with_mesh);
-    assert_same(json!([rough["top_z"], rough["floor_z"]]), json!([0, -10.5])); // 0.5 mm skin
+    assert_same(json!([rough["top_z"], rough["floor_z"]]), json!([0, -12.2])); // 0.5 mm skin
     let p: Vec<f64> = list(&rough["positions"]).iter().map(number).collect();
     let (xs, zs): (Vec<f64>, Vec<f64>) = p.as_chunks::<3>().0.iter().map(|c| (c[0], c[2])).unzip();
-    assert_close(zs.iter().copied().fold(f64::MIN, f64::max), -1.);
-    assert_close(zs.iter().copied().fold(f64::MAX, f64::min), -11.);
+    assert_close(zs.iter().copied().fold(f64::MIN, f64::max), -2.7);
+    assert_close(zs.iter().copied().fold(f64::MAX, f64::min), -12.7);
     assert_close(xs.iter().copied().fold(f64::MAX, f64::min), 2.);
     assert_eq!(list(&rough["indices"]).len() % 3, 0);
 }
@@ -148,7 +148,7 @@ fn a_through_hole_is_entered_from_the_preferred_side() {
     assert_eq!(ids(&plan), ["top"]);
     let op = &plan["setups"][0]["operations"][0];
     assert_same(json!([op["top_z"], op["bottom_z"]]), json!([0, -10]));
-    assert_same(op["centers"].clone(), json!([[27, 22]]));
+    assert_same(op["centers"].clone(), json!([[30, 22]]));
 }
 
 #[test]

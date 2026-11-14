@@ -14,6 +14,9 @@ use serde_json::{Value, json};
 fn tools() -> Value {
     let mut t = fixture("../../tests/fixtures/placeholder-tools.json");
     t["overrides"]["workholding_option"] = json!("vise_flip_face");
+    // Synthetic shop fixtures isolate flip geometry from standard-set/reach availability.
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875]);
+    t["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
     t
 }
 fn input() -> (Value, Value) {
@@ -66,21 +69,21 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
             .all(|s| s["reason"].as_str().unwrap().starts_with("thread left out: M3 "))
     );
     let top = setup(p, "top");
-    assert_eq!(top["stock"]["min"][2], -26.25);
-    assert_eq!(top["clamping"]["grip_height_mm"], 5.25);
-    assert_eq!(top["clamping"]["jaw_top_z"], -21.);
+    assert_eq!(top["stock"]["min"][2], -30.);
+    assert_eq!(top["clamping"]["grip_height_mm"], 7.3);
+    assert_eq!(top["clamping"]["jaw_top_z"], -22.7);
     let rough = list(&top["operations"])
         .iter()
         .find(|o| o["kind"] == "roughing")
         .unwrap();
-    assert_eq!(rough["floor_z"], -19.);
+    assert_eq!(rough["floor_z"], -20.7);
     assert_eq!(rough["web_mm"], 0.);
     let bottom = setup(p, "bottom");
     // The receiving envelope includes Op 1's residual stock margins, with
     // camlib's conservative numerical enclosure, rather than a fresh part box.
     assert_eq!(bottom["stock"]["min"][0], -2.);
     assert_eq!(bottom["stock"]["min"][1], -2.);
-    assert_eq!(bottom["stock"]["max"], json!([102.,58.,7.25]));
+    assert_eq!(bottom["stock"]["max"], json!([102.,58.,9.3]));
     let low = bottom["stock"]["min"][2].as_f64().unwrap();
     assert!(low <= -18. && low > -18.001);
     let job = list(&out["programs"]).iter().find(|j|j["setup"]=="bottom").unwrap();
@@ -103,7 +106,7 @@ fn complex_plate_flips_faces_and_checks_real_grip_bands() {
         bottom["clamping"]["contact_min_z"], -12.,
         "seat under plate top, not boss top at -18"
     );
-    assert_eq!(bottom["clamping"]["jaw_top_z"], -8.825);
+    assert_eq!(bottom["clamping"]["jaw_top_z"], -7.875);
     assert_eq!(bottom["clamping"]["parallels"][0]["max"][2], -12.);
     let bodies = list(&job["job"]["verification"]["scene"]["scene"]["bodies"]);
     assert_eq!(bodies.iter().filter(|b| b["id"].as_str().unwrap().contains("parallel") && b["role"]=="fixture").count(), 2);
@@ -182,7 +185,7 @@ fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning(
     assert!(
         p["warnings"]
             .to_string()
-            .contains("part remains on 7.25 mm of sacrificial bottom stock")
+            .contains("part remains on 9.3 mm of sacrificial bottom stock")
     );
     let mut fallback = capp::flip::fallback(
         &input().0,
@@ -191,7 +194,7 @@ fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning(
     )
     .unwrap();
     capp::finish(&mut fallback, &tools(), &[]).unwrap();
-    assert_eq!(setup(&fallback, "top")["stock"]["min"][2], -19.);
+    assert_eq!(setup(&fallback, "top")["stock"]["min"][2], -20.);
     assert!(
         list(&fallback["setups"])
             .iter()
@@ -203,9 +206,10 @@ fn excluded_finishing_requires_replanning_or_explicit_sacrificial_stock_warning(
 fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
     let (a, m) = input();
     let mut t = tools();
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([14.]);
     t["machines"][0]["workholding"][0]["parallels_height_mm"] = json!(14.);
     let mut p = capp::flip::plan(&a, &m, &t).unwrap();
-    assert_eq!(setup(&p, "top")["stock"]["min"][2], -27.);
+    assert_eq!(setup(&p, "top")["stock"]["min"][2], -30.);
     capp::finish(&mut p, &t, &[]).unwrap();
     assert_eq!(setup(&p, "top")["clamping"]["grip_height_mm"], 6.);
     assert_eq!(setup(&p, "bottom")["clamping"]["grip_height_mm"], 6.);
@@ -222,7 +226,7 @@ fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
     assert!(
         list(&p["decisions"])
             .iter()
-            .any(|d| d["outcome"] == "none" && d["says"].as_str().unwrap().contains("minimum"))
+            .any(|d| d["outcome"] == "none" && d["says"].as_str().unwrap().contains("grip limits"))
     );
 }
 
@@ -230,7 +234,10 @@ fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
 fn mounting_plate_edge_breaks_get_inboard_supports_and_full_outline_depth() {
     let a = fixture("mounting-plate.analysis.json");
     let m = fixture("mounting-plate.mesh.json");
-    let out = step2cam::process(&a, &m, &tools()).unwrap();
+    let mut t = tools();
+    // 3.5 mm shop grip fits the thin plate; no standard height does.
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([16.5]);
+    let out = step2cam::process(&a, &m, &t).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let p = &out["plan"];
     let bottom = setup(p, "bottom");

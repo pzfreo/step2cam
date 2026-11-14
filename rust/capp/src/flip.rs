@@ -112,6 +112,7 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
     let mut best: Option<(f64, Value)> = None;
     let mut best_contact = 0_f64;
     let mut contact_ok = false;
+    let mut height_ok = false;
     for axis in [preferred, 1 - preferred] {
         if hi[axis] - lo[axis] > vise["max_jaw_opening_mm"].as_f64().unwrap() {
             continue;
@@ -176,6 +177,7 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
                 {
                     continue;
                 }
+                height_ok = true;
                 let band = [[start, z - grip], [end, z]];
                 let contact: Vec<_> = side_tris
                     .iter()
@@ -276,7 +278,9 @@ fn seating(mesh: &Value, lo: Point, hi: Point, vise: &Value) -> Result<Value, St
             }
         }
     }
-    best.map(|(_,s)|s).ok_or_else(|| if contact_ok {
+    best.map(|(_,s)|s).ok_or_else(|| if !height_ok {
+        "no available parallels height satisfies flip seating grip limits".into()
+    } else if contact_ok {
         format!("no horizontal support pair reaches {}% contact within {} mm inboard, without interfering material",100.*support_fraction,inset)
     } else {format!("opposed finished side contact below rule: best minimum fraction {}, required {} and {} mm effective length per side",r(best_contact),fraction,bar)})
 }
@@ -615,7 +619,7 @@ mod tests {
         for c in seat["contacts"].as_array().unwrap() {
             let f = c["fraction"].as_f64().unwrap();
             assert!(f > 0.9 && f < 1.);
-            assert!((c["area_mm2"].as_f64().unwrap() - (40. * 3.175 - 8.)).abs() < 1e-4);
+            assert!((c["area_mm2"].as_f64().unwrap() - (40. * 4.125 - 8.)).abs() < 1e-4);
         }
         let deeper = seating(
             &interrupted_sides(30., 7., true),
@@ -624,7 +628,7 @@ mod tests {
             &vise,
         )
         .unwrap();
-        assert!(deeper["grip_height_mm"].as_f64().unwrap() > 3.175);
+        assert_eq!(deeper["grip_height_mm"], 4.125);
         assert!(deeper["grip_height_mm"].as_f64().unwrap() <= 5.);
         assert!(
             deeper["contacts"]

@@ -18,7 +18,11 @@ fn assert_close(a: f64, b: f64) {
 fn tools() -> Value {
     // The planner's behaviour, pinned on the frozen placeholder library (#88); the real Carvera
     // library's default is checked in carvera.rs.
-    fixture("placeholder-tools.json")
+    let mut t = fixture("placeholder-tools.json");
+    // Synthetic shop set keeps both thin-plate and front routes available for ranking/replay checks.
+    t["machines"][0]["workholding"][0]["parallels_heights_mm"] = json!([8.,12.7,15.875,16.5]);
+    t["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em3").unwrap()["flute_length"] = json!(22.);
+    t
 }
 fn run(name: &str, t: &Value) -> Value {
     let out = step2cam::process(
@@ -77,7 +81,7 @@ fn demo_defaults_and_independent_consequences() {
         );
         assert_eq!(option(&out, "fixture_plate")["available"], false);
         if name.ends_with("stepped-plate") {
-            assert_eq!(ordinary["reason"], "bottom 4.8 mm of outline left attached");
+            assert_eq!(ordinary["reason"], "bottom 5.125 mm of outline left attached");
             for candidate in [ordinary, flip] {
                 let need = list(&candidate["tools_needed"])
                     .iter()
@@ -93,8 +97,8 @@ fn demo_defaults_and_independent_consequences() {
                 assert_eq!(need["features"], json!(["holes:48.57", "holes:49.58"]));
                 assert!(list(&need["operations"]).contains(&json!("front-3-thread")));
             }
-            assert_close(number(&ordinary["outline_left_mm"]), 4.8);
-            assert_close(number(&flip["extra_stock_mm"]), 7.25);
+            assert_close(number(&ordinary["outline_left_mm"]), 5.125);
+            assert_close(number(&flip["extra_stock_mm"]), 10.);
             assert_eq!(ordinary["setups"], 2);
             assert_eq!(flip["setups"], 3);
             assert!(
@@ -277,12 +281,10 @@ fn choosing_rule_is_lexicographic_in_the_approved_order() {
 #[test]
 fn tall_part_exposes_attached_outline_and_bare_flip_unavailability() {
     let out = run("synthetic/tall-wall-pocket", &tools());
-    assert_eq!(out["plan"]["workholding"]["chosen"], "vise_ordinary");
-    assert_eq!(option(&out, "vise_ordinary")["finished"], false);
-    assert_close(
-        number(&option(&out, "vise_ordinary")["outline_left_mm"]),
-        32.,
-    );
+    assert!(out["plan"]["workholding"]["chosen"].is_null());
+    assert_eq!(option(&out, "vise_ordinary")["available"], false);
+    assert!(out["plan"]["warnings"].to_string().contains("no available shop parallels height"));
+    assert!(out["plan"]["setups"][0]["operations"].as_array().unwrap().is_empty());
     let flip = option(&out, "vise_flip_face");
     assert_eq!(flip["available"], false);
     let reason = flip["reason"].as_str().unwrap();

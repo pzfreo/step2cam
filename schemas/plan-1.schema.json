@@ -2937,8 +2937,7 @@
        "finished_wall"
       ],
       "properties": {
-       "parallels_size": {"type":"object", "required":["kind"], "properties":{"kind":{"enum":["standard","library"]}}},
-      "force_check": {"$ref": "#/$defs/grip_force"},
+       "force_check": {"$ref": "#/$defs/grip_force"},
        "setup": {
         "type": "string"
        },

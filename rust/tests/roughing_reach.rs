@@ -29,7 +29,7 @@ fn short_flutes_keep_shallow_coverage_and_limit_crossing_wall_bands() {
     capp::finish(&mut plan, &library, &[]).unwrap();
     let rough = ops(&plan).iter().find(|o| o["kind"] == "roughing").unwrap();
     assert_eq!(rough["floor_z"], -11.);
-    assert_eq!(rough["web_mm"], 8.);
+    assert_eq!(rough["web_mm"], 9.);
     let depths = original["roughing_feature_depths"].as_object().unwrap();
     let mut kept = 0;
     let mut dropped = 0;
@@ -53,8 +53,8 @@ fn short_flutes_keep_shallow_coverage_and_limit_crossing_wall_bands() {
     let walls: Vec<_> = ops(&plan).iter().filter(|o| o["kind"] == "wall_finish").collect();
     assert_eq!(walls.len(), 2);
     assert_eq!(walls[0]["floor_z"], -11.);
-    assert_eq!(walls[1]["floor_z"], -7.);
-    assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "flats").unwrap()["levels"], json!([-7.]));
+    assert_eq!(walls[1]["floor_z"], -8.);
+    assert_eq!(ops(&plan).iter().find(|o| o["kind"] == "flats").unwrap()["levels"], json!([-8.]));
     let settled = plan.clone();
     capp::settle(&mut plan, &library).unwrap();
     assert_eq!(plan, settled, "settlement is idempotent");

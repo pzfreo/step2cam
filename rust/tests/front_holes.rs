@@ -5,7 +5,14 @@ fn read(path: &str) -> Value {
 /// The stepped plate's front M3 holes, as `process` plans them with `library`.
 fn front_thread(analysis: &Value, library: &str) -> (Value, Option<Value>) {
     let mesh = read("../tests/fixtures/synthetic/stepped-plate.mesh.json");
-    let out = step2cam::process(analysis, &mesh, &read(library)).unwrap();
+    let mut shop = read(library);
+    let standard = step2cam::process(analysis, &mesh, &shop).unwrap();
+    if !library.contains("haas") {
+        assert!(standard["plan"]["warnings"].to_string().contains("no standard parallels height"));
+        // Explicit synthetic support heights keep the tool-entry regression executable.
+        shop["machines"][0]["workholding"][0]["parallels_heights_mm"] = if library.contains("demo") { json!([8.,12.7,15.875]) } else { json!([120.,138.]) };
+    }
+    let out = step2cam::process(analysis, &mesh, &shop).unwrap();
     assert!(out["error"].is_null(), "{library}: {}", out["error"]);
     let front = out["plan"]["setups"].as_array().unwrap().iter().find(|s| s["id"] == "front").unwrap();
     let thread = front["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "thread").cloned();

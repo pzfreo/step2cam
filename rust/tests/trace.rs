@@ -59,7 +59,7 @@ fn the_rules_in_the_code_are_the_rules_in_the_inventory() {
         assert!(rule["sources"].as_array().is_some_and(|s| !s.is_empty()), "{rule}");
         for data in rule["data"].as_array().into_iter().flatten().filter_map(Value::as_str) {
             let (file, selector) = data.split_once('#').unwrap_or((data, ""));
-            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json", "rules/workholding.json"].contains(&file), "{}: {data}", rule["id"]);
+            assert!(["rules/tools.json", "rules/sequence.json", "rules/process.json", "rules/workholding.json", "rules/standard-sizes.json"].contains(&file), "{}: {data}", rule["id"]);
             if !selector.is_empty() {
                 assert!(selectors["selectors"].as_array().unwrap().iter().any(|s| s["id"] == selector), "{}: no selector {selector}", rule["id"]);
             }
@@ -214,14 +214,14 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
     // threshold. From the stock top it would
     // be 20 mm, 6.1×D, but roughing has already cut that stock away.
     let ops = plan["setups"][0]["operations"].as_array().unwrap();
-    assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-7.)));
+    assert_eq!((ops[4]["kind"].as_str(), ops[4]["diameter"].as_f64(), ops[4]["top_z"].as_f64()), (Some("holes"), Some(3.3), Some(-8.7)));
     assert!(!active.iter().any(|d| d["rule"] == "process.hole.peck_by_depth@3"), "no hole here is deeper than 5×D below where it is entered");
     assert_eq!(ops[4]["technology"]["peck_mode"], "full_retract", "13 mm is still over 3×D: pecked");
     // The corner-radius warnings belong to one operation each.
     let warnings: Vec<_> = active.into_iter()
         .filter(|d| d["rule"] == "process.hole.peck_by_depth@3" || d["rule"] == "process.notch.corner_radius@1").collect();
     assert_eq!(warnings.len(), 3);
-    for (d, n) in warnings.iter().zip([8, 9, 10]) {
+    for (d, n) in warnings.iter().zip([7, 8, 9]) {
         assert_eq!(d["features"], ops[n]["features"]);
         assert!(!d["features"].as_array().unwrap().is_empty());
         assert!(ops[n]["because"].as_array().unwrap().contains(&d["id"]));
