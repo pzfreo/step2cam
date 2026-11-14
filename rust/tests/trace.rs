@@ -230,7 +230,7 @@ fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
         assert!(inventory["rules"].as_array().unwrap().iter().any(|r| r["id"] == id && r["warning_label"].as_str().is_some_and(|s| !s.is_empty())));
         let says = d["says"].as_str().unwrap();
         assert!(d["features"].as_array().unwrap().iter().all(|f| !says.contains(f.as_str().unwrap())));
-        let radius = if n == 8 { "1.5" } else { "3" };
+        let radius = if n == 7 { "1.5" } else { "3" };
         assert!(says.contains(&format!("left r{radius} by")), "{says}");
         assert!(!says.contains("r3.0"), "{says}");
     }
