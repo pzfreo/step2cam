@@ -244,6 +244,20 @@ height compatible with grip limits. A miss refuses the setup with its reason.
 A fixed `parallels_height_mm` still prescribes grip. Chosen support bars
 are fixture bodies, alongside the jaws, for through/deep-cut collision checks.
 
+Standard blank and parallel sizes come from the cited rulebase data in
+[`standard-sizes.json`](../rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
+LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
+and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
+fixed height or setup override wins; otherwise select the tallest standard height
+meeting grip limits and mesh seating, refusing a miss. No shop inventory is inferred.
+First-setup stock uses the smallest containing bar area, trying both orientations,
+with thickness along the tool axis, width across the narrower side, and sawn length
+rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
+equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
+computed size and warn. Later setups record remaining material, not purchased bars.
+Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
+adds “standard size, not checked against your shop” only to standard sizes.
+
 The clamping-history audit requires retained, tooled wall contour segments covering
 all real contact polygons at their depths, and retained facing/flats at the support
 level. Both are recorded as positive evidence and required even if no earlier cut
@@ -773,17 +787,3 @@ while keeping their cutting data. Materials without a force/friction reference g
 one not-checked warning per gripped setup. This checks
 estimated mean tangential sliding load; peak forces, thrust, contact pressure, deformation,
 lift, overturning, chatter and support flatness remain unchecked.
-
-Standard blank and parallel sizes come from the cited rulebase data in
-[`standard-sizes.json`](../rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
-LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
-and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
-fixed height or setup override wins; otherwise select the tallest standard height
-meeting grip limits and mesh seating, refusing a miss. No shop inventory is inferred.
-First-setup stock uses the smallest containing bar area, trying both orientations,
-with thickness along the tool axis, width across the narrower side, and sawn length
-rounded up to whole mm. Extra thickness goes on top; side and length extra is shared
-equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
-computed size and warn. Later setups record remaining material, not purchased bars.
-Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
-adds “standard size, not checked against your shop” only to standard sizes.
