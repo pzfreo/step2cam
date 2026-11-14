@@ -63,7 +63,7 @@ fn stock_touch(s: &Value, analysis: &Value) -> Value {
     let (name,ids)=faces.first().map_or_else(||("recorded Z plane".into(),json!([])),|f|
         (format!("{} (not yet finished)",face_name(analysis,f)),json!([format!("faces:{}",f["id"])])));
     let top=s["stock"]["max"][2].as_f64().unwrap();
-    pickup(format!("{name}; touch off stock top at Z{}{}",if top>=0. {"+"} else {""},crate::plan::show(top)),ids,Value::Null,"touch off stock top using recorded offset")
+    pickup(format!("{name}; touch off stock top at Z{}{}",if top>=0. {"+"} else {""},crate::plan::display_position(top)),ids,Value::Null,"touch off stock top using recorded offset")
 }
 fn pickup(description: String, features: Value, setup: Value, method: &str) -> Value {
     json!({"description":description,"features":features,"finished_in":setup,"method":method})
@@ -148,7 +148,7 @@ pub fn locate(plan: &mut Value, analysis: &Value, mesh: &Value, stocks: &[Value]
             let side=|axis:usize|faces.iter().find(|f|f.4[axis].abs()>0.999);
             let xy=if let Some((_,d,p,f,prior))=holes.first() {
                 shift[0]=p[0];shift[1]=p[1];
-                Some(pickup(format!("centre of ⌀{} bore (cut in setup {})",crate::plan::show(*d),prior["id"].as_str().unwrap()),json!([f["id"]]),prior["id"].clone(),"probe bore centre or sweep with edge finder"))
+                Some(pickup(format!("centre of ⌀{} bore (cut in setup {})",crate::plan::display_position(*d),prior["id"].as_str().unwrap()),json!([f["id"]]),prior["id"].clone(),"probe bore centre or sweep with edge finder"))
             } else if let (Some(x),Some(y))=(side(0),side(1)) {
                 shift[0]=x.3[0];shift[1]=y.3[1];
                 Some(pickup(format!("corner of {} and {}",face_name(analysis,x.1),face_name(analysis,y.1)),json!([format!("faces:{}",x.1["id"]),format!("faces:{}",y.1["id"])]),json!([x.2["id"],y.2["id"]]),"edge find perpendicular finished faces above jaws"))
