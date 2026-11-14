@@ -587,7 +587,7 @@ function showToolpaths(m) {
   right.edges = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x626d7c }));
   right.scene.add(right.edges);
 
-  const stockSetup = m.data.plan.setups.find((s) => s.zero === "stock");
+  const stockSetup = m.data.plan.setups.find((s) => s.zero === "stock") || m.data.plan.setups[0];
   if (stockSetup) {
     const a = toModel(stockSetup, stockSetup.stock.min), b = toModel(stockSetup, stockSetup.stock.max);
     const box = new THREE.Box3(new THREE.Vector3(...a), new THREE.Vector3(...a)).expandByPoint(new THREE.Vector3(...b));
