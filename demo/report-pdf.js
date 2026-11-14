@@ -40,7 +40,7 @@ const diagramColours = {
   bed: [null, [231, 229, 224]], part: [null, [238, 241, 245]],
   edge: [[29, 31, 34], null], hidden: [[95, 100, 107], null], stock: [[138, 143, 150], null],
   leader: [[194, 65, 12], null], pickup: [[194, 65, 12], null], axis: [[194, 65, 12], null], zero: [[194, 65, 12], [255, 255, 255]],
-  stop: [[194, 65, 12], [201, 204, 209]], dimension: [[29, 31, 34], null], tag: [[95, 100, 107], null],
+  'zero-fill': [null, [194, 65, 12]], stop: [[194, 65, 12], [201, 204, 209]], dimension: [[29, 31, 34], null], tag: [[95, 100, 107], null],
 };
 export function renderDiagramPdf(doc, view, left, top, width, maxHeight) {
   const [x0, y0, x1, y1] = view.bounds;
@@ -51,7 +51,8 @@ export function renderDiagramPdf(doc, view, left, top, width, maxHeight) {
     if (stroke) doc.setDrawColor(...stroke);
     if (fill) doc.setFillColor(...fill);
     doc.setLineWidth((s.class === 'pickup' || s.class === 'axis' ? 0.65 : 0.35) * view.unit * scale);
-    doc.setLineDashPattern(s.class === 'hidden' || s.class === 'stock' ? [1.6 * view.unit * scale, view.unit * scale] : [], 0);
+    const dash = s.class === 'stock' ? [2, 1.2] : s.class === 'hidden' ? [1.6, 1] : [];
+    doc.setLineDashPattern(dash.map(n => n * view.unit * scale), 0);
     const style = stroke && fill ? 'FD' : fill ? 'F' : 'S';
     if (s.type === 'text') {
       doc.setTextColor(...(stroke || [29, 31, 34]));
@@ -59,10 +60,10 @@ export function renderDiagramPdf(doc, view, left, top, width, maxHeight) {
       doc.text(s.text, x(s.x), y(s.y), { align: s.anchor === 'middle' ? 'center' : s.anchor === 'end' ? 'right' : 'left' });
     } else if (s.type === 'rect') doc.rect(x(s.x), y(s.y + s.height), s.width * scale, s.height * scale, style);
     else if (s.type === 'circle') doc.circle(x(s.x), y(s.y), s.radius * scale, style);
-    else if (s.type === 'polygon') {
+    else if (s.type === 'polygon' || s.type === 'polyline') {
       const first = s.points[0];
-      doc.lines(s.points.slice(1).map((p, i) => [(p[0] - s.points[i][0]) * scale, -(p[1] - s.points[i][1]) * scale]), x(first[0]), y(first[1]), [1, 1], style, true);
-    } else for (let i = 1; i < s.points.length; i++) doc.line(x(s.points[i - 1][0]), y(s.points[i - 1][1]), x(s.points[i][0]), y(s.points[i][1]));
+      doc.lines(s.points.slice(1).map((p, i) => [(p[0] - s.points[i][0]) * scale, -(p[1] - s.points[i][1]) * scale]), x(first[0]), y(first[1]), [1, 1], style, s.type === 'polygon');
+    }
   }
   doc.setLineDashPattern([], 0); doc.setTextColor(20); doc.setLineWidth(0.1);
   return (y1 - y0) * scale;

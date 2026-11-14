@@ -353,13 +353,20 @@ const fixtureSetup = {
     parallels: [{ min: [0,0,-20], max: [2,10,-10] }],
     part_stop: { axis: 'y', coordinate_mm: 10, contact_z_mm: -8, maximum_z_mm: -6, feature: 'faces:4' } },
 };
-const diagram = buildSetupDiagram({ mesh: cube }, fixtureSetup, reportLength);
+const cubeAnalysis = { faces: [
+  { id: 1, centroid: [5,5,10], direction: [0,0,1] },
+  { id: 4, centroid: [5,10,5], direction: [0,1,0] },
+  { id: 5, centroid: [0,5,5], direction: [-1,0,0] },
+] };
+const diagram = buildSetupDiagram({ mesh: cube, analysis: cubeAnalysis }, fixtureSetup, reportLength);
 assert.equal(diagram.views.length, 2);
 assert.deepEqual(diagram.views.map(v => v.caption), ['Seen from above (machine Z down)', 'Seen from the front (looking +Y)']);
 const frontShapes = diagram.views[1].shapes;
-for (const label of ['Fixed jaw', 'Moving jaw', 'Parallels 10', 'Grip 3', 'Facing 2', 'Z0 here', 'Stop · nose ≤ Z-6']) assert.ok(frontShapes.some(s => s.text === label), label);
+for (const label of ['Fixed jaw', 'Moving jaw', 'Parallels 10', 'Grip 3', 'Facing 2', 'Z0 here', 'Stop · nose ≤ Z-6', 'datum A face', 'datum B face', 'datum C face']) assert.ok(frontShapes.some(s => s.text === label), label);
 assert.ok(diagram.views[0].shapes.some(s => s.class === 'hidden' && s.points.some(p => p[0] === 2 && p[1] === 2)), 'bottom B-rep edge is hidden from above');
 assert.ok(diagram.views[0].shapes.some(s => s.class === 'edge' && s.points.some(p => p[0] === 2 && p[1] === 2)), 'top edge remains solid');
+const aCaption = frontShapes.find(s => s.text === 'datum A face'), cCaption = frontShapes.find(s => s.text === 'datum C face');
+assert.ok(Math.abs(aCaption.y - cCaption.y) >= 6 * diagram.views[1].unit, 'coincident pickup labels separate into rows');
 assert.ok(frontShapes.some(s => s.feature === 'faces:5' && s.class === 'pickup'), 'fixed-jaw contact face highlighted');
 assert.ok(frontShapes.some(s => s.class === 'stop' && s.y + s.height === -6 && s.contact[1] === 10), 'stop contacts recorded axis coordinate and obeys nose height');
 const reversed = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, clamping: { ...fixtureSetup.clamping, fixed_jaw: 'x.max' } });
@@ -367,11 +374,11 @@ assert.ok(reversed.views[0].shapes.find(s => s.text === 'Fixed jaw').x > 10, 're
 for (const zero of [undefined, 'stock', { status: 'warning', xy: { description: 'No finished X/Y references' }, z: { description: 'Touch off stock' } }]) {
   const warning = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, zero });
   assert.ok(warning.warnings[0].startsWith('Pickup warning:'));
-  assert.ok(warning.views.every(v => !v.shapes.some(s => ['pickup', 'zero', 'axis', 'stop'].includes(s.class))), 'no invented pickup for missing/warning zero');
+  assert.ok(warning.views.every(v => !v.shapes.some(s => ['pickup', 'zero', 'zero-fill', 'axis', 'stop'].includes(s.class))), 'no invented pickup for missing/warning zero');
 }
 const moved = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, origin_model: [100,200,300], zero: undefined });
 assert.ok(moved.views[0].shapes.filter(s => s.class === 'part').every(s => s.points.every(p => p[0] <= -90 && p[1] <= -190)), 'mesh uses setup origin');
-assert.ok(diagramSvg(diagram.views[0]).includes('stroke-dasharray') === false, 'styles come from CSS tokens');
+assert.match(diagramSvg(diagram.views[0]), /aria-label="Seen from above/, 'SVG carries an accessible view caption');
 const escapedReport = renderReportHtml({ ...document, blocks: [...document.blocks, diagram] });
 assert.ok(escapedReport.includes('&lt;part &amp; &quot;test&quot;&gt;') && escapedReport.includes('<svg'));
 assert.ok(!escapedReport.includes('<part & "test">'));
@@ -382,7 +389,7 @@ class DiagramPdfStub extends PdfStub {
   setLineWidth() {} setLineDashPattern(...a) { this.calls.push(['dash', ...a]); }
   rect(...a) { this.calls.push(['rect', ...a]); }
   circle(...a) { this.calls.push(['circle', ...a]); }
-  lines(...a) { this.calls.push(['polygon', ...a]); }
+  lines(...a) { this.calls.push([a[5] ? 'polygon' : 'polyline', ...a]); }
   line(...a) { this.calls.push(['line', ...a]); }
   text(...a) { this.calls.push(['text', ...a]); }
   addImage() { assert.fail('PDF must stay vector'); }
@@ -392,12 +399,18 @@ class DiagramPdfStub extends PdfStub {
 for (const view of diagram.views) {
   const pdf = new DiagramPdfStub();
   renderDiagramPdf(pdf, view, 15, 30, 180, 65);
-  for (const [shapeType, call] of [['rect','rect'],['circle','circle'],['polygon','polygon'],['text','text']]) {
+  for (const [shapeType, call] of [['rect','rect'],['circle','circle'],['polygon','polygon'],['polyline','polyline'],['text','text']]) {
     assert.equal(pdf.calls.filter(c => c[0] === call).length, view.shapes.filter(s => s.type === shapeType).length, `${shapeType} reaches PDF once per shape`);
   }
-  assert.equal(pdf.calls.filter(c => c[0] === 'line').length, view.shapes.filter(s => s.type === 'polyline').reduce((n, s) => n + s.points.length - 1, 0));
+  assert.equal(pdf.calls.filter(c => c[0] === 'line').length, 0, 'polylines stay continuous so PDF dash patterns do not restart at every segment');
+  assert.deepEqual(pdf.calls.filter(c => c[0] === 'polyline').map(c => c[1].length), view.shapes.filter(s => s.type === 'polyline').map(s => s.points.length - 1));
   assert.deepEqual(pdf.calls.filter(c => c[0] === 'text').map(c => c[1]), view.shapes.filter(s => s.type === 'text').map(s => s.text));
   assert.ok(pdf.calls.some(c => c[0] === 'dash' && c[1].length === 2));
+  const [x0, y0, x1, y1] = view.bounds;
+  const scale = Math.min(180 / (x1 - x0), 65 / (y1 - y0));
+  const rects = view.shapes.filter(s => s.type === 'rect');
+  assert.deepEqual(pdf.calls.filter(c => c[0] === 'rect').map(c => c.slice(1, 5).map(n => Number(n.toFixed(8)))), rects.map(s => [15 + (s.x - x0) * scale, 30 + (y1 - s.y - s.height) * scale, s.width * scale, s.height * scale].map(n => Number(n.toFixed(8)))));
+
 }
 renderReportPdf({ title: 'Diagram test', blocks: [diagram], appendixStart: 1 }, { jsPDF: DiagramPdfStub, fonts: { regular: '', bold: '' }, autoTable() {} });
 
@@ -429,6 +442,19 @@ function exercise(mesh, setups, name, analysis) {
   const elapsed = performance.now() - start;
   if (mesh.indices.length / 3 > largest.triangles) largest = { name, triangles: mesh.indices.length / 3, setups: setups.length, ms: elapsed };
 }
+const steppedMesh = JSON.parse(readFileSync(new URL('./fixtures/synthetic/stepped-plate.mesh.json', import.meta.url)));
+const upsideDown = buildSetupDiagram({ mesh: steppedMesh }, { ...fixtureSetup, rotation: rotations[1], origin_model: [0,0,0], zero: undefined });
+assert.ok(upsideDown.views[0].shapes.some(s => s.class === 'hidden' && s.points.some(p => Math.abs(p[0] - 16) < 1e-4 && Math.abs(p[1]) < 1e-4)), 'real stepped-plate boss is hidden under the plate on the bottom setup');
+assert.ok(upsideDown.views.every(v => v.stats.samples <= 50000), 'visibility obeys its sample budget');
+const steppedAnalysis = JSON.parse(readFileSync(new URL('./fixtures/synthetic/stepped-plate.analysis.json', import.meta.url)));
+const borePickup = buildSetupDiagram({ mesh: steppedMesh, analysis: steppedAnalysis }, { ...fixtureSetup, origin_model: [0,0,0], zero: { status: 'located', xy: { description: 'centre of ⌀10 bore (cut in setup top)', features: ['holes:36'] }, z: { description: 'Stock top', features: [] } } });
+assert.ok(borePickup.views[0].shapes.some(s => s.text === '⌀10 bore'));
+const boreEdges = borePickup.views[0].shapes.filter(s => s.feature === 'holes:36');
+assert.ok(boreEdges.length > 0 && boreEdges.every(s => s.points.every(p => Math.abs(Math.hypot(...p) - 5) < 0.01)), 'bore pickup follows its real cylindrical face boundary');
+const crowdedMesh = { positions: [0,0,10,10,0,10,0,10,10], indices: Array.from({length:300}, () => [0,1,2]).flat(), edges: [[1,1,0,2,1,0]] };
+const crowded = buildSetupDiagram({ mesh: crowdedMesh }, { ...fixtureSetup, zero: undefined });
+assert.ok(crowded.views[0].shapes.some(s => s.class === 'edge' && s.points.some(p => p[0] === 1 && p[1] === 1)), 'overcrowded depth bin falls back to a solid edge');
+
 for (const path of meshPaths) {
   const mesh = JSON.parse(readFileSync(path));
   exercise(mesh, rotations.map((rotation, i) => ({ ...fixtureSetup, id: String(i), rotation, zero: undefined })), path);
