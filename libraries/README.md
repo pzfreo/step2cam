@@ -384,3 +384,10 @@ the minimum side of the chosen grip axis as step2cam judgement, preserving the s
 corner convention, and records it in each setup's clamping. This says nothing about
 machine-axis vise mounting. Final process zeros and pickup methods are documented in
 [the M10 policy](../docs/capp-plan.md#setup-zero-and-pickup-m10).
+
+Flip pickup contacts use a previously finished face against the fixed jaw and another
+against a required vise/part stop, set to the recorded coordinate before loading.
+`clamping.part_stop` is a plan requirement, not sourced library inventory or modeled
+stop hardware. Flip Z is established from the finished seat on modeled parallel tops;
+without a verified finished seat or modeled parallels, stock touch-off explicitly warns
+that bar thickness varies and the part must be measured after facing.

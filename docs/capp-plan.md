@@ -796,35 +796,51 @@ lift, overturning, chatter and support flatness remain unchecked.
 
 ## Setup zero and pickup (M10)
 
-`setup.datum_pickup@1` records a final process setup's `zero` as `xy`, `z`,
-`status`, `because` and `offset_in_previous_frame_mm`. Each pickup has a description,
-`features` (hole ids or `faces:N`), `finished_in` (setup id, two ids for side faces,
-or null for stock/unestablished references), and a method. No probing cycle is generated.
-The setup sheet prints these as “Zero   X0 Y0: …” and “Z0: …”.
+`setup.datum_pickup@2` records each final setup's `zero.xy`, `zero.z`, status,
+trace and old-frame origin offset. X/Y face references include per-axis `axes.x`
+and `axes.y` records: feature id, earlier finishing setup, method, fixture coordinate
+and contact point in the construction frame. `clamping.part_stop` identifies the
+required stop axis, coordinate, finished face and contact height. A stop is a required
+shop fixture to set before loading, not an assertion that the library supplies one.
+Its hardware envelope is not modeled. The sheet uses two real table rows with an
+indented second column; the app panel retains its tool-direction and stock-size text.
 
-A vise may state `fixed_jaw`: `x.min`, `x.max`, `y.min`, or `y.max`, in setup axes.
-It must agree with the selected grip axis. The unsourced default is its minimum side,
-keeping the established stock corner; this is step2cam judgement. The other axis uses
-its minimum stock edge and Z uses stock top. Clamping records the chosen side.
+Vise `fixed_jaw` is optional (`x.min`, `x.max`, `y.min`, `y.max`, in setup axes), and
+must match the grip axis. Without sourced installed orientation, choose the minimum
+side as step2cam judgement, preserving the stock-corner convention. The first zero
+uses that stock corner, the other axis's minimum edge, and stock-top Z.
 
-After operation/tool refusals, later setups prefer drawing datum faces/bores, then
-the largest finished bore at least 6 mm across along the new tool axis. The 6 mm minimum
-is a conservative judgement for a small probe/edge finder; check the actual instrument.
-A reversed blind bore is forbidden. The mouth must be above jaws and unobstructed.
-Carried-stock mesh surfaces above the mouth also disqualify a bore: the shipped
-stepped-plate flip still has a sacrificial cap over its otherwise finished ⌀10 bore.
-It therefore uses exposed finished side faces, with a warning explaining the capped bore.
-Otherwise use perpendicular finished side faces exposed above the jaws. Z uses a
-finished upward plane reachable from above. Finishing evidence requires retained
-facing, flats or wall finishing over the face mesh; roughing alone is insufficient.
-Where no finished upward plane exists (notably an uncut flip underside), the recorded
-Z plane is retained with the actual stock-top touch-off offset; it is never labelled
-finished. No usable X/Y pair means a per-setup warning and the entire old frame retained.
+After refusals, select datum features first (datum bores or finished datum face/contact
+pairs), then the largest reachable finished bore at least 6 mm across, then other
+finished face pairs. The 6 mm minimum allows small-probe clearance by judgement;
+verify the real instrument. Reversed blind bores are forbidden. Check bore mouths,
+side-face touch bands and approaches against carried stock, part geometry, jaws and
+parallels. An exterior part face alone does not prove access. The side-probe check
+uses a point 1 mm outside the wall, 0.5 mm clearance, and a band at least 1 mm above
+jaws. A cap blocks its vertical approach even when its touch band is below the cap.
+One warning per setup lists all bores with capped mouths.
 
-Coordinate relocation happens after checked workholding selection, preserving every
-retained operation and motion by a pure translation. Saved jobs, stock, fixtures,
-plan geometry and drawn moves use the new frame; historical decisions retain the
-coordinates at which their evidence was evaluated. Intermediate `plan`/`finish` output
-keeps its stock/part construction frames; the process output has final pickup records.
-No part-stop hardware, locating accuracy, probe/stylus calibration or instrument
-inventory is inferred. The rule and its minimum diameter are judgement, not vendor facts.
+Coordinator decision, step2cam judgement: when finished references are hidden,
+locate the part by contact before loading. A face finished earlier and matched to
+prepared jaw-contact patches may locate the fixed-jaw axis. Pick up that fixed jaw
+before loading, or use its known coordinate. A finished external face against a stop
+locates the other axis: set the recorded stop coordinate before loading. Prefer drawing
+datums. The stop's horizontal contact band must clear stock and modeled fixtures;
+a probe's vertical path through a cap is not required for a stop set before loading.
+Missing usable references retain the entire frame and warn. Roughing is never finishing
+evidence; retained facing, flats or wall finishing must cover the selected face.
+
+For a flip, establish the thickness-face Z plane from the finished face seated on
+modeled equal-height parallels. Record the seat face, finishing setup, parallel-top Z,
+seat-to-zero offset and target face separately. Touch off an accessible parallel before
+loading. Example: stepped plate datum A is 12 mm above parallel tops at Z−12; the seat
+is face 1, finished in top. This removes raw-bar thickness from final-thickness setting.
+No modeled parallels or no finished seat falls back to stock touch-off with an explicit
+“measure the part after facing; bar thickness varies” instruction and warning.
+Other setups may touch a reachable finished upward plane.
+
+`setup.stock.part_box_with_margins@2` describes temporary construction frames and
+stock envelopes, not an assumed later pickup on the part box. Final coordinate
+relocation follows workholding selection and retained execution: all plan geometry,
+saved jobs and motions translate together. Historical trace evidence keeps its
+construction frame. No automatic probing cycle or stop hardware geometry is generated.

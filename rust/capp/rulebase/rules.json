@@ -116,9 +116,9 @@
   },
   {
    "id": "setup.stock.part_box_with_margins",
-   "version": 1,
+   "version": 2,
    "stage": "setup",
-   "rationale": "The stock is the part's box grown by the margins: top and bottom stock along the roughing direction, the margin across it. The roughing setup is zeroed on the stock, the others on the part's box.",
+   "rationale": "Construct stock from the part bounds and stated margins, including the cited purchased blank selection. Stock and remaining-material envelopes use temporary construction frames; final work zero is selected by setup.datum_pickup from reachable finished references or verified fixture contacts after refusals. A later setup is not located by an assumed part box.",
    "code": "plan/mod.rs plan",
    "sources": [
     {
@@ -1298,15 +1298,15 @@
   },
   {
    "id": "setup.datum_pickup",
-   "version": 1,
+   "version": 2,
    "stage": "setup",
    "warning_label": "no finished datum pickup",
-   "rationale": "After retained operations and execution refusals, first zero is the stock corner against the fixed jaw, minimum on the other axis, with stock-top Z. Later prefer drawing datums, then largest finished bore at least 6 mm diameter along the current tool axis, with an exposed mouth above jaws and no covering carried-stock mesh; reversed blind bores are forbidden. The 6 mm minimum is conservative step2cam judgement for clearance around a small probe/edge finder, not an installed instrument specification; verify the actual instrument. Otherwise use two exposed perpendicular finished side faces above jaws. Z uses an exposed upward finished plane. Full face mesh vertices must be within a retained facing/flats plane or finished wall envelope; roughing alone is not finish evidence. If no finished upward Z face exists, retain the known Z plane and touch off the reachable stock top with its recorded offset, explicitly without claiming that plane finished. With no XY pickup retain the complete frame and warn. Apply a pure coordinate translation to all retained geometry and checked programs after candidate selection; historical trace evidence stays in the frame in which it was decided. No pickup cycle or part stop hardware is generated. These policies are step2cam judgement implementing the maintainer decision approved 2026-11-14.",
+   "rationale": "First zero is the stock corner at the fixed jaw, minimum on the other axis, with stock-top Z. Later select datum features first (datum bores or finished datum face/contact pairs), then the largest reachable finished bore at least 6 mm diameter, then other finished face pairs. A reversed blind bore is forbidden. Check bore mouths and side-face touch bands AND their approaches against carried stock, part geometry, jaws and parallels; an exterior part face is not necessarily exposed. Side approach judgement uses a 1 mm outside point, 0.5 mm clearance and a band at least 1 mm above jaws; verify the real instrument. The 6 mm bore minimum is judgement for small probe clearance, not a sourced instrument specification. Coordinator decision for M10 revision 2026-11-14, step2cam judgement: hidden finished faces may locate by contact before loading. Match the fixed-jaw contact to the measured prepared contact patches, and require a previously finished external face against a required vise/part stop for the other axis, preferring drawing datums. Pick up the fixed jaw before loading or use its known coordinate; set the stop to its recorded axis coordinate before loading. A stop is a required shop fixture, not an invented inventory item; its hardware envelope is not simulated. A stop's horizontal contact band must clear carried stock and modeled fixtures; it does not require a probe's blocked vertical approach. Record each axis's face, finishing setup, method and fixture coordinate. For a flip, retain the thickness-face Z plane and establish it from equal-height modeled parallel tops supporting a face finished earlier: touch off an accessible parallel before loading, then use the drawing-derived seat-to-zero offset. Never derive final thickness from as-bought bar thickness when a finished seat is available. No modeled parallels or no finished seat means explicit stock touch-off, a measure-after-facing/bar-thickness-varies warning, and no invented finish. No usable X/Y pair retains the whole frame and warns. Full face vertices must be covered by retained facing/flats or wall finishing; roughing alone is insufficient. Emit one capped-bore warning per setup with all affected features. Apply only a rigid coordinate translation after candidate selection; historical evidence retains its construction frame. No automatic probing or stop hardware geometry is generated.",
    "code": "zero.rs; rust/src/zero.rs",
    "sources": [
     {
      "kind": "step2cam",
-     "note": "Maintainer decision approved 2026-11-14, project review M10: record zero and how to find it; finished earlier, reachable now; warn rather than invent a datum."
+     "note": "Maintainer decision approved 2026-11-14, project review M10: record zero and how to find it; finished earlier, reachable now; warn rather than invent a datum. Coordinator revision: hidden finished faces locate against the fixed jaw and a required stop set before loading; Z transfers from a finished seat on modeled parallel tops rather than raw bar thickness. These fixture-location policies are step2cam judgement."
     }
    ]
   }

@@ -18,11 +18,33 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         assert_eq!(top["stock"]["max"][2],0.);
         assert_eq!(top["zero"]["z"]["description"],"stock top");
         let bottom=setups.iter().find(|s|s["id"]=="bottom").unwrap();
-        assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("holes:36 is finished in setup top but carried stock caps")));
+        let cap_warnings:Vec<_>=out["plan"]["decisions"].as_array().unwrap().iter().filter(|d|d["subject"]=="bottom" && d["outcome"]=="warning" && d["says"].as_str().unwrap().contains("covers finished bore pickup mouths")).collect();
+        assert_eq!(cap_warnings.len(),1);
+        assert!(cap_warnings[0]["features"].as_array().unwrap().contains(&json!("holes:36")));
+        assert!(!cap_warnings[0]["says"].as_str().unwrap().contains("exposed finished faces"));
         assert_eq!(bottom["zero"]["xy"]["features"],json!(["faces:0","faces:5"]));
         assert_eq!(bottom["zero"]["xy"]["finished_in"],json!(["top","top"]));
-        // With the cap removed, the same retained top bore is the preferred pickup.
-        // This isolated selector case does not claim the shipped program removed it.
+        assert_eq!(bottom["zero"]["xy"]["method"],"fixture_contacts");
+        let x=&bottom["zero"]["xy"]["axes"]["x"];let y=&bottom["zero"]["xy"]["axes"]["y"];
+        assert_eq!(x["method"],"fixed_jaw_contact");assert_eq!(x["features"],json!(["faces:0"]));
+        assert_eq!(y["method"],"part_stop_contact");assert_eq!(y["features"],json!(["faces:5"]));
+        assert_eq!(x["finished_in"],"top");assert_eq!(y["finished_in"],"top");
+        assert_eq!(x["coordinate_mm"],0.);assert_eq!(y["coordinate_mm"],0.);
+        assert_eq!(bottom["clamping"]["part_stop"]["axis"],"y");
+        assert_eq!(bottom["clamping"]["part_stop"]["coordinate_mm"],0.);
+        assert_eq!(bottom["clamping"]["part_stop"]["feature"],"faces:5");
+        let decision=out["plan"]["decisions"].as_array().unwrap().iter().find(|d|d["id"]==bottom["zero"]["because"][0]).unwrap();
+        for id in ["faces:0","faces:5"] {assert!(decision["rejected_pickups"].as_array().unwrap().iter().any(|r|r["feature"]==id));}
+        let z=&bottom["zero"]["z"];
+        assert_eq!(z["method"],"parallel_seat");assert_eq!(z["reference_z_mm"],-12.);
+        assert_eq!(z["offset_mm"],12.);assert_eq!(z["target_features"],json!(["faces:4"]));
+        assert!(z["features"].as_array().unwrap().contains(&json!("faces:1")));
+        assert!(z["seats"].as_array().unwrap().iter().all(|seat|seat["finished_in"]=="top"));
+        assert!(z["description"].as_str().unwrap().contains("touch off a parallel before loading"));
+        assert!(!z["description"].as_str().unwrap().contains("stock top"));
+        for bar in bottom["clamping"]["parallels"].as_array().unwrap() {assert_eq!(bar["max"][2],z["reference_z_mm"]);}
+        // With an explicit uncapped part mesh, drawing datums still outrank a
+        // non-datum bore. Without drawing datums, the largest finished bore wins.
         let mut uncapped=out["plan"].clone();
         let vertices:Vec<[f64;3]>=m["positions"].as_array().unwrap().as_chunks::<3>().0.iter().map(|p|
             std::array::from_fn(|i|(0..3).map(|j|bottom["rotation"][i][j].as_f64().unwrap()*(p[j].as_f64().unwrap()-bottom["origin_model"][j].as_f64().unwrap())).sum())).collect();
@@ -31,19 +53,23 @@ fn stepped_plate_pickups_are_recorded_for_both_machines() {
         let bi=setups.iter().position(|s|s["id"]=="bottom").unwrap();
         stocks[bi]=json!({"mesh":{"vertices":vertices,"indices":indices}});
         capp::zero::locate(&mut uncapped,&a,&m,&stocks);
-        let b=uncapped["setups"].as_array().unwrap().iter().find(|s|s["id"]=="bottom").unwrap();
-        assert_eq!(b["zero"]["xy"]["features"],json!(["holes:36"]));
-        assert_eq!(b["zero"]["xy"]["finished_in"],"top");
-        // Top machining cannot finish the underside before the flip. It must
-        // explicitly transfer Z from stock rather than invent an earlier finish.
-        assert_eq!(bottom["zero"]["z"]["features"],json!(["faces:4"]));
-        assert!(bottom["zero"]["z"]["finished_in"].is_null());
-        assert!(bottom["zero"]["z"]["description"].as_str().unwrap().contains("touch off stock top at Z+"));
-        let front=setups.iter().find(|s|s["id"]=="front").unwrap();
-        assert_eq!(front["zero"]["xy"]["features"],json!(["faces:0","faces:4"]));
-        assert_eq!(front["zero"]["xy"]["finished_in"],json!(["top","bottom"]));
-        assert_eq!(front["zero"]["z"]["features"],json!(["faces:11"]));
-        assert_eq!(front["zero"]["z"]["finished_in"],"top");
+        assert_eq!(uncapped["setups"][bi]["zero"]["xy"]["features"],json!(["faces:0","faces:5"]));
+        let mut no_datums=a.clone();no_datums["characteristics"]=json!([]);
+        capp::zero::locate(&mut uncapped,&no_datums,&m,&stocks);
+        assert_eq!(uncapped["setups"][bi]["zero"]["xy"]["features"],json!(["holes:36"]));
+        assert_eq!(uncapped["setups"][bi]["zero"]["xy"]["finished_in"],"top");
+        // Missing parallels or unfinished seat faces must never imply a finished
+        // thickness reference. The raw-bar fallback now carries its limitation.
+        for remove_seat in [false,true] {
+            let mut fallback=out["plan"].clone();
+            if remove_seat {fallback["setups"][0]["operations"].as_array_mut().unwrap().retain(|o|o["kind"]!="flats");}
+            else {fallback["setups"][bi]["clamping"]["parallels"]=json!([]);}
+            capp::zero::locate(&mut fallback,&a,&m,&[]);
+            let z=&fallback["setups"][bi]["zero"]["z"];
+            assert_eq!(z["method"],"stock_touch_off");assert!(z["finished_in"].is_null());
+            assert!(z["description"].as_str().unwrap().contains("measure the part after facing; bar thickness varies"));
+            assert!(fallback["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().contains("setup bottom: no finished seat")));
+        }
         for s in setups {assert!(s["zero"].is_object());}
         let validator=jsonschema::validator_for(&read("schemas/plan-1.schema.json")).unwrap();
         let errors:Vec<_>=validator.iter_errors(&out["plan"]).map(|e|format!("{e} at {}",e.instance_path())).collect();
@@ -64,7 +90,7 @@ fn absent_finished_features_preserve_the_entire_later_frame() {
     assert_eq!(p["setups"][1]["origin_model"],old["origin_model"]);
     assert_eq!(p["setups"][1]["stock"],old["stock"]);
     assert_eq!(p["setups"][1]["zero"]["status"],"warning");
-    assert!(p["warnings"][0].as_str().unwrap().contains("no finished feature to pick up X/Y"));
+    assert!(p["warnings"][0].as_str().unwrap().contains("no usable finished feature to locate X/Y"));
 }
 #[test]
 fn fixed_jaw_side_is_optional_but_validated() {

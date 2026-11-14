@@ -150,8 +150,11 @@ The plan says **what** to cut, independent of tools and machine.
   records `zero.xy` and `zero.z`: pickup description, feature ids, earlier finishing setup
   and method. First zero is the stock corner against the fixed jaw (minimum on the other
   axis), Z on stock top. Later setups prefer drawing datums, then the largest reachable
-  previously finished bore at least 6 mm diameter, else exposed perpendicular finished
-  faces. Z uses a finished upward face or an explicit stock-top touch-off offset.
+  previously finished bore at least 6 mm diameter, else other finished faces. Probe access
+  includes carried stock and fixtures. Hidden faces can locate by contact against the fixed
+  jaw and a required stop set before loading. Flip Z uses a finished seat on modeled
+  parallels; absent support evidence requires stock touch-off, a bar-variation warning
+  and measuring after facing.
   Missing X/Y evidence warns and retains the frame. `rotation` and `origin_model` locate
   all coordinates. The intermediate planner retains legacy stock/part frame labels;
   final pickup selection follows execution refusals. See [pickup policy](docs/capp-plan.md#setup-zero-and-pickup-m10).

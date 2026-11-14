@@ -32,7 +32,7 @@ fn geometry(v: &mut Value, d: [f64;3]) {
                     "levels" => {if let Some(zs)=v.as_array_mut() {for z in zs {number(z,d[2]);}}},
                     "floor_z" | "top_z" | "bottom_z" | "bore_top_z" | "root_z" | "wall_top" | "jaw_top_z" | "contact_min_z" |
                     "floor_z_mm" | "top_z_mm" | "bottom_z_mm" | "depth_z_mm" | "clearance_z_mm" | "retract_z_mm" | "feed_z_mm" |
-                    "base_z_mm" | "gauge_z_mm" | "z_min_mm" | "z_max_mm" => number(v,d[2]),
+                    "contact_z_mm" | "base_z_mm" | "gauge_z_mm" | "z_min_mm" | "z_max_mm" => number(v,d[2]),
                     _ => geometry(v,d),
                 }
             }

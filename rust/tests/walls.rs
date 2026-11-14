@@ -198,7 +198,8 @@ fn notches_slots_and_the_v_channel_get_tools_that_fit() {
         "setup top: 1 hole drilled without spotting: no usable spot drill: needs a spot drill of at least ⌀10.0, point angle at least 118.0° and under 180°, with flutes and stickout reaching 1.01 mm plus the spot point depth",
         // The ordinary setup leaves a web: no completely finished side-face pair
         // establishes the front pickup, so M10 must warn rather than invent one.
-        "setup front: no finished feature to pick up X/Y; re-zero on the stock edge; frame retained"
+        "setup front: no usable finished feature to locate X/Y; re-zero on the stock edge; frame retained",
+        "setup front: no finished seat on modelled parallels or reachable finished Z face; measure the part after facing; bar thickness varies"
     ]));
     let front=out["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
     assert_eq!(front["zero"]["status"], "warning");

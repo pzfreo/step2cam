@@ -598,7 +598,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
         "face sacrificial bottom stock to the part bottom at thickness",
         Value::Null,
     );
-    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup zeroed on the part bottom; request the preceding finished stock, with part box plus sacrificial stock only as an explicit fallback", json!({"zero":"part","stock":bottom.stock}));
+    let stock = trace.decide("setup.stock.part_box_with_margins", "bottom", "chosen", "bottom setup uses a temporary thickness-plane construction frame; final zero is established from finished references or fixture contacts; request the preceding finished stock, with part bounds plus sacrificial stock only as an explicit fallback", json!({"zero":"part","stock":bottom.stock}));
     let order = trace.decide(
         "sequence.fixed_order",
         "bottom",
