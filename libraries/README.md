@@ -40,7 +40,8 @@ Optional vise `parallels_heights_mm` lists available matched-pair heights in mm;
 its inventory under the vise's `_sources`. Fixed `parallels_height_mm` and per-setup
 clamping overrides also win. Otherwise the rulebase's cited LittleMachineShop 1893
 heights (½–1⅝ inch, in ⅛ inch steps) supply standard heights: choose the tallest
-that meets grip limits and, for flips, actual mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns; shop inventories remain strict.
+that meets grip limits in the first setup; the flip instead chooses the deepest grip
+passing every existing limit and mesh-seating check on the already-finished sides. A standard-set miss keeps the prior computed height or unmodelled support and warns; shop inventories remain strict.
 Supports enter the fixture scene. Standard sizes are labelled “standard size, not
 checked against your shop”.
 The shipped libraries have no parallels inventory; catalog availability alone is not shop inventory.

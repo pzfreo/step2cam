@@ -169,7 +169,7 @@ fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool
         }
         for z in levels {
             let minimum = bar.max((z - lo[2]) * rule["min_grip_fraction"].as_f64().unwrap());
-            let grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
+            let mut grips: Vec<f64> = if let Some(p) = vise["parallels_height_mm"].as_f64() {
                 vec![r(vise["jaw_height_mm"].as_f64().unwrap() - p)]
             } else if fallback {
                 let maximum = ((z-lo[2])*rule["max_grip_fraction"].as_f64().unwrap())
@@ -179,14 +179,13 @@ fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool
                         .chain([r(maximum)]).collect()
                 } else { vec![] }
             } else {
-                let mut grips: Vec<_> = crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64)
-                    .map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect();
-                grips.sort_by(f64::total_cmp);
-                grips
+                crate::rules::parallel_heights(Some(vise)).iter().filter_map(Value::as_f64)
+                    .map(|p| r(vise["jaw_height_mm"].as_f64().unwrap()-p)).collect()
             };
+            grips.sort_by(|a,b| b.total_cmp(a));
             for grip in grips {
                 if grip < r(minimum)
-                    || grip > vise["jaw_height_mm"].as_f64().unwrap()
+                    || grip >= vise["jaw_height_mm"].as_f64().unwrap()
                     || grip > r((z - lo[2]) * rule["max_grip_fraction"].as_f64().unwrap())
                     || z - lo[2] <= grip + rule["clearance_mm"].as_f64().unwrap()
                 {
@@ -285,10 +284,14 @@ fn seating_from(mesh: &Value, lo: Point, hi: Point, vise: &Value, fallback: bool
                     .collect();
                 let contacts: Vec<_>=areas.iter().zip(&fractions).enumerate().map(|(side,(a,f))|json!({"face_model":format!("part.{}.{}",["x","y"][axis],["min","max"][side]),"area_mm2":r(*a),"fraction":r(*f),"effective_length_mm":r(a/grip)})).collect();
                 let seat = json!({"axis":axis,"along_min_model":start,"along_max_model":end,"seat_z_model":z,"grip_height_mm":grip,"support_width_mm":bar,"contacts":contacts,"supports":supports,"contact_patches_model":contact_model,"material_below_seat_mm":r(hi[2]-z)});
-                if best.as_ref().is_none_or(|(old, _)| score > *old + 1e-6) {
+                if best.as_ref().is_none_or(|(old, seat)| {
+                    let old_grip = seat["grip_height_mm"].as_f64().unwrap();
+                    grip > old_grip + 1e-6 || ((grip-old_grip).abs() <= 1e-6 && score > *old + 1e-6)
+                }) {
                     best = Some((score, seat));
                 }
-                // Use the least grip that satisfies the contact rule at this seat.
+                // Descending grips: this is the deepest passing candidate at this seat;
+                // shallower candidates cannot beat it, even if another seat wins overall.
                 break;
             }
         }
@@ -497,7 +500,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
     };
     let mut p = crate::plan::build(analysis, Some(mesh), &options)?;
     let mut trace = Trace::take_plan(&mut p);
-    let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
+    let chosen = trace.decide(RULE,"part","chosen", "selected vise flip-and-face candidate: sacrifice bottom stock for Op 1 grip, side-cut clearance and facing allowance; through exits break into that stock and are finished by Op 2 facing; no outline remains below Op 1 reach; flip: deepest allowed grip, the sides being finished; first setup: least grip, leaving the sides exposed for cutting",json!({"chosen":{"option":"vise_flip_face","selected":true,"available":true,"bottom_stock_mm":b,"seating":seat}}));
     let warning = trace.warn(RULE,"bottom",format!("bottom setup requests the preceding finished stock; simulation records the carried-stock premise or an explicit freed-block assumption. Facing covers the residual margin. Edge supports seat at model Z{}, width {} mm, offsets {}; measured side contact {}. Holding strength is not simulated{}", seat["seat_z_model"],seat["support_width_mm"],seat["supports"],seat["contacts"],if seat["material_below_seat_mm"].as_f64().unwrap_or(0.)>0. {format!("; the conservative height-field stock can fill voids within the {} mm of shaped material below the seat in the flipped frame",seat["material_below_seat_mm"])}else{String::new()}), json!({}));
     let setups = &mut p.setups;
     let top = setups.iter_mut().find(|s| s.id == "top").unwrap();

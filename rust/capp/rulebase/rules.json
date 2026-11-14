@@ -19,9 +19,9 @@
   {
    "id": "setup.flip_face",
    "warning_label": "flip-and-face setup",
-   "version": 3,
+   "version": 4,
    "stage": "setup",
-   "rationale": "Vise flip candidate: trace availability separately; setup.workholding chooses among simulated candidates. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently.",
+   "rationale": "Vise flip candidate: trace availability separately; setup.workholding chooses among simulated candidates. When selected, solve sacrificial grip stock, verify finished side bands and edge seating against the mesh, then face to thickness. Refuse unsupported geometry or reach; #94 may offer or withhold this option independently. flip: deepest allowed grip, the sides being finished; first setup: least grip, leaving the sides exposed for cutting. Every existing grip, clearance, contact and support check still applies. On equal depth retain the prior contact-completeness and stable axis/level order. Approved maintainer judgement 2026-11-14.",
    "code": "flip.rs; workholding.rs; clamping_history.rs",
    "data": ["rules/workholding.json"],
    "sources": [{"kind": "step2cam", "ref": "Judgement: 1 mm facing allowance; existing grip and clearance rules; numerical stock rounding upward to 0.0001 mm. Contact and support fractions, inboard search and numerical tolerances are judgement documented in rules/workholding.json and docs/capp-plan.md."}]

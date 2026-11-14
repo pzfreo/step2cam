@@ -221,10 +221,12 @@ in `workholding.json`, not a holding-force calculation. Holes, pockets and edge
 breaks reduce contact instead of rejecting the entire band. The retained contact
 polygons, area, fraction and effective length per side are recorded in seating,
 clamping and the trace. A top round/chamfer leaves the actual contact below the
-break; the nominal jaw top and seating height remain physically consistent. When
-minimum available grip gives too little contact, try the next available height in
-ascending grip order, within the existing 50% and jaw-height limits; use the least
-acceptable real-height grip. The 16 mm support search covers large edge chamfers on benchmark-sized
+break; the nominal jaw top and seating height remain physically consistent.
+In the flipped setup, test all available heights and choose the deepest grip passing
+the existing 50%, jaw-height, clearance, contact and support limits: the sides are
+already finished. Equal-depth candidates retain the prior contact-completeness and
+stable axis/level order. The first setup keeps the least passing grip, exposing its sides.
+The 16 mm support search covers large edge chamfers on benchmark-sized
 blocks; bars cannot overlap each other.
 
 Each parallel footprint needs 75% horizontal face coverage and 3.175 mm effective
@@ -248,8 +250,9 @@ Standard blank and parallel sizes come from the cited rulebase data in
 [`standard-sizes.json`](../rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
 LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
 and Metal Stockist UK's aluminium flat bars. A library's parallels inventory,
-fixed height or setup override wins; otherwise select the tallest standard height
-meeting grip limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
+fixed height or setup override wins. Otherwise the first setup selects the tallest
+standard height meeting grip limits; the flip selects the deepest grip passing
+all limits and mesh seating. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
 First-setup stock uses the smallest containing bar area, trying both orientations,
 with thickness along the tool axis, width across the narrower side, and sawn length
 rounded up to whole mm. Extra thickness goes on top; side and length extra is shared

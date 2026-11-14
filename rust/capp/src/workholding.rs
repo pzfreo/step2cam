@@ -76,7 +76,7 @@ pub fn clamp(setup: &mut Setup, vise: Option<&Value>, proposal: Option<&Value>, 
             if standard { standard_miss = true; }
             else { return Some(format!("mesh seating requires {} mm parallels, absent from available heights", show(required))); }
         }
-        // Seating searched only the fixed, inventory or standard support heights.
+        // Seating may retain a computed support height after a standard-set miss.
         parallel = Some(required);
     }
     if parallel.is_some_and(|p| !p.is_finite() || p <= 0.) { return Some("parallels height must be positive and finite".into()); }

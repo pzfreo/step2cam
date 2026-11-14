@@ -124,3 +124,47 @@ fn standard_miss_keeps_main_support_and_warns_once_even_after_refinishing() {
     assert!(warnings[0]["says"].as_str().unwrap().contains("not a standard size"));
     assert_eq!(list(&p["warnings"]).iter().filter(|w| **w==warnings[0]["says"]).count(), 1);
 }
+
+#[test]
+fn flip_uses_deepest_available_grip_and_first_setup_keeps_least_grip() {
+    let rule = capp::rules::workholding();
+    let minimum = number(&rule["min_grip_mm"]);
+    let fraction = number(&rule["min_grip_fraction"]);
+    let maximum = number(&rule["max_grip_fraction"]);
+    let clearance = number(&rule["clearance_mm"]);
+    for path in ["../../demo/tools.json", "../../libraries/haas-vf2.json"] {
+        for inventory in [false, true] {
+            let mut tools = fixture(path);
+            tools["overrides"]["workholding_option"] = json!("vise_flip_face");
+            let vise = &mut tools["machines"][0]["workholding"][0];
+            let jaw = number(&vise["jaw_height_mm"]);
+            // Synthetic shop set with three eligible receiving grips; no stored library changes.
+            if inventory { vise["parallels_heights_mm"] = json!([jaw-minimum, jaw-4.125, jaw-6.]); }
+            let heights = if inventory { list(&vise["parallels_heights_mm"]).clone() }
+                else { list(&capp::rules::standard_sizes()["parallels"]["heights_mm"]).clone() };
+            let p = planned(&tools);
+            let top = &p["setups"][0];
+            let bottom = list(&p["setups"]).iter().find(|s| s["id"]=="bottom").unwrap();
+            let seat = &bottom["flip_seating"];
+            let base = number(&p["part"]["min"][2]);
+            let h = number(&seat["seat_z_model"])-base;
+            let fits = |height: f64, stock: f64| {
+                let g = jaw-height;
+                g >= minimum.max(stock*fraction) && g <= stock*maximum && g <= jaw && stock > g+clearance
+            };
+            let expected = heights.iter().map(number).filter(|p| fits(*p,h)).map(|p| jaw-p).max_by(f64::total_cmp).unwrap();
+            assert_close(number(&bottom["clamping"]["grip_height_mm"]), expected);
+            assert_close(number(&bottom["clamping"]["parallels_size"]["height_mm"]), jaw-expected);
+            let span = number(&seat["along_max_model"])-number(&seat["along_min_model"]);
+            for contact in list(&bottom["clamping"]["contacts"]) {
+                assert_close(number(&contact["area_mm2"]), span*expected);
+                assert!(number(&contact["area_mm2"]) > span*minimum, "more contact than main's minimum grip");
+            }
+            let h = number(&top["stock"]["max"][2])-number(&top["stock"]["min"][2]);
+            let expected_top = heights.iter().map(number).filter(|p| fits(*p,h)).map(|p| jaw-p).min_by(f64::total_cmp).unwrap();
+            assert_close(number(&top["clamping"]["grip_height_mm"]), expected_top);
+            assert!(list(&p["decisions"]).iter().any(|d| d["rule"]=="setup.flip_face@4"
+                && d["says"].as_str().unwrap().contains("flip: deepest allowed grip, the sides being finished; first setup: least grip, leaving the sides exposed for cutting")));
+        }
+    }
+}
