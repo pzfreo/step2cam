@@ -3,10 +3,10 @@ use capp::{roughing, trace::Trace};
 use serde_json::{Value, json};
 
 fn library() -> Value {
-    serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap()
+    serde_json::from_str(include_str!("../../../libraries/haas-vf2.json")).unwrap()
 }
 fn check_plan(plan: &Value) {
-    let schema: Value = serde_json::from_str(include_str!("../../schemas/plan-1.schema.json")).unwrap();
+    let schema: Value = serde_json::from_str(include_str!("../../../schemas/plan-1.schema.json")).unwrap();
     let validator = jsonschema::validator_for(&schema).unwrap();
     let errors: Vec<_> = validator.iter_errors(plan).map(|e| format!("{e} at {}", e.instance_path())).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
@@ -119,8 +119,8 @@ fn refusal_restores_slotting_data_records_reason_and_cannot_retry_adaptive_again
     .unwrap();
     op.technology = Some(technology);
     op.because = Some(vec![decision]);
-    let a = serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
-    let m = serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
     let mut plan = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
     plan.setups[0].operations = vec![op];
     plan.decisions = Some(trace.decisions);
@@ -157,9 +157,9 @@ fn refusal_restores_slotting_data_records_reason_and_cannot_retry_adaptive_again
 #[test]
 fn adapter_writes_explicit_stock_driven_strategy_and_no_orbit_options() {
     let a: Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
+        serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
     let m: Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+        serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
     let l = library();
     let mut p = capp::plan::plan(&a, Some(&m), &Default::default()).unwrap();
     capp::finish(&mut p, &l, &[]).unwrap();
@@ -203,14 +203,14 @@ fn nonmetallic_iso_n_has_no_nonferrous_metal_source() {
 #[test]
 fn camlib_refusal_really_replans_raster_and_retains_why() {
     let a: Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
+        serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
     let m: Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+        serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
     let mut l = library();
     // Valid positive policy width, below camlib's native minimum contact angle:
     // camlib must refuse the attempted adaptive operation, rather than a test stub.
     l["roughing_by_group"]["N"]["radial_width_diameter_fraction"] = json!(1e-12);
-    let out = step2cam::process(&a, &m, &l).unwrap();
+    let out = crate::common::process_cached(&a, &m, &l).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     check_plan(&out["plan"]);
     let decision = out["plan"]["decisions"]
@@ -262,15 +262,15 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
 #[test]
 fn flat_residual_refusal_retries_preparation_without_losing_features() {
     let a: Value = serde_json::from_str(include_str!(
-        "../../tests/fixtures/synthetic/stepped-plate.analysis.json"
+        "../../../tests/fixtures/synthetic/stepped-plate.analysis.json"
     ))
     .unwrap();
     let m: Value = serde_json::from_str(include_str!(
-        "../../tests/fixtures/synthetic/stepped-plate.mesh.json"
+        "../../../tests/fixtures/synthetic/stepped-plate.mesh.json"
     ))
     .unwrap();
-    let l: Value = serde_json::from_str(include_str!("../../demo/tools.json")).unwrap();
-    let out = step2cam::process(&a, &m, &l).unwrap();
+    let l: Value = serde_json::from_str(include_str!("../../../demo/tools.json")).unwrap();
+    let out = crate::common::process_cached(&a, &m, &l).unwrap();
     assert!(out["error"].is_null());
     assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
     let top = &out["plan"]["setups"][0];
@@ -321,8 +321,8 @@ fn raster_retry_keeps_the_machine_feed_ceiling_below_nominal_feed() {
     .unwrap();
     assert_eq!(technology["feed_mm_min"], 750.);
     op.technology = Some(technology);
-    let a = serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
-    let m = serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
     let mut plan = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
     plan.setups[0].operations = vec![op];
     plan.decisions = Some(trace.decisions);
@@ -352,9 +352,9 @@ fn adaptive_stepdown_keeps_the_existing_tool_reach_margin() {
 
 #[test]
 fn empty_adaptive_preparation_uses_checked_raster_instead_of_claiming_zero_work() {
-    let a = serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
-    let m = serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
-    let out = step2cam::process(&a, &m, &library()).unwrap();
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
+    let out = crate::common::process_cached(&a, &m, &library()).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(out["plan"]["decisions"].as_array().unwrap().iter().any(|d| d["outcome"] == "fallback"
         && d["refusal"].as_str().is_some_and(|s| s.contains("no clearing moves"))));
@@ -365,12 +365,12 @@ fn empty_adaptive_preparation_uses_checked_raster_instead_of_claiming_zero_work(
 
 #[test]
 fn adaptive_moves_report_over_capacity_without_changing_the_cut() {
-    let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
-    let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
     let mut l = library();
     let vise = &mut l["machines"][0]["workholding"][0];
     vise["clamp_force_n"] = json!(vise["clamp_force_n"].as_f64().unwrap() / 16.);
-    let out = step2cam::process(&a, &m, &l).unwrap();
+    let out = crate::common::process_cached(&a, &m, &l).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let rough = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
         .find(|o| o["kind"] == "roughing").unwrap();
@@ -393,6 +393,6 @@ fn iso_n_without_a_material_scope_cannot_admit_nonmetallics() {
     roughing::choose(&mut op(), &mut technology, &tool(), roughing::Material { group: Some("N"), name: Some("acetal plastic") },
         &l, "top:roughing", &mut Trace::default()).unwrap();
     assert_eq!(technology["clearing_strategy"], "raster");
-    let schema: Value = serde_json::from_str(include_str!("../../schemas/resources-1.schema.json")).unwrap();
+    let schema: Value = serde_json::from_str(include_str!("../../../schemas/resources-1.schema.json")).unwrap();
     assert!(!jsonschema::validator_for(&schema).unwrap().is_valid(&l));
 }

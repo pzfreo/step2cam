@@ -4,6 +4,7 @@
 mod common;
 
 mod adapter;
+mod adaptive;
 mod camlib_reach;
 mod carvera;
 mod flip;
