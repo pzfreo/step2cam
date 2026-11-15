@@ -1798,7 +1798,7 @@ function showProgress(p) {
   const labels = ["Loading engines", `Recognising features${busyFeatures === null ? "" : ` (${busyFeatures} found)`}`,
     `Planning setups and tools${busySetups === null ? "" : ` (${busySetups} setups)`}`,
     ...(busyOptions.length ? busyOptions.map((label, i) => `Option ${i + 1} · ${label}`) : ["Checking toolpaths"]),
-    busyOptions.length ? "Choosing workholding and preparing results" : "Preparing results"];
+    busyOptions.length ? "Choosing workholding and locating setup zeros" : "Locating setup zeros and preparing results"];
   const optionTitle = busyOption === null ? "Checking toolpaths" : `Checking workholding option ${slot + 1} of ${busyOptions.length}: ${busyOptions[slot]}`;
   const title = p.stage === "replanning" ? `${p.title || `Replanning without ${p.label}`}…`
     : checking ? `${optionTitle}${busyOption === null ? `: operation ${p.index} of ${p.total}` : ""}`
