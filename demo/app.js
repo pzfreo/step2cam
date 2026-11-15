@@ -587,6 +587,7 @@ function setFixtureState(setup, open, opacity, visible = true) {
   for (const body of group.children) {
     if (body.userData.openOffset) body.position.copy(body.userData.openOffset).multiplyScalar(open);
     body.material.opacity = opacity;
+    if (body.material.transparent !== (opacity < 1)) body.material.needsUpdate = true;
     body.material.transparent = opacity < 1;
     body.material.depthWrite = opacity === 1;
   }
