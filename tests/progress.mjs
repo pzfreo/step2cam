@@ -80,6 +80,10 @@ assert.equal($("busy-title").textContent, "Choosing workholding…");
 send(1, { stage: "output" });
 assert.equal($("busy-title").textContent, "Preparing results…");
 assert.match($("busy-stages").children[5].textContent, /Choosing workholding and preparing results/);
+send(1, { stage: "zeros" });
+assert.equal($("busy-title").textContent, "Locating setup zeros and positioning toolpaths…");
+send(1, { stage: "encoding" });
+assert.equal($("busy-title").textContent, "Encoding results…");
 // An option rejected before its run still has its own failed row.
 run();
 send(2, { stage: "options", labels: ["Ordinary", "Flip"] });

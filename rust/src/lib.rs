@@ -280,6 +280,8 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
     let mut out = workholding::process(analysis, mesh, library)?;
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"zeros"}));
     zero::apply(&mut out, analysis, mesh);
     Ok(out)
 }
@@ -493,6 +495,8 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str, #[cfg(target_arch
     let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| JsError::new(&e.to_string()));
     let (analysis, mesh, library) = (parse(analysis)?, parse(mesh)?, parse(library)?);
     let out = process(&analysis, &mesh, &library).map_err(|e| JsError::new(&e))?;
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"encoding"}));
     Ok(out.to_string())
 }
 

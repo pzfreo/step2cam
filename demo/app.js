@@ -1792,7 +1792,7 @@ function showProgress(p) {
     planning: busyOption === null ? 2 : 3 + slot, replanning: busyOption === null ? 2 : 3 + slot,
     option: 3 + slot, plan: 3 + slot, checking: 3 + slot, operation_done: 3 + slot,
     comparing: 3 + slot, stock: 3 + slot, summarising: 3 + slot, option_result: 3 + slot,
-    choosing: finalStep, output: finalStep })[p.stage];
+    choosing: finalStep, output: finalStep, zeros: finalStep, encoding: finalStep })[p.stage];
   if (stage === undefined) return;
   busyStep = stage;
   const labels = ["Loading engines", `Recognising features${busyFeatures === null ? "" : ` (${busyFeatures} found)`}`,
@@ -1807,6 +1807,8 @@ function showProgress(p) {
     : p.stage === "stock" ? "Preparing stock for the next setup…"
     : p.stage === "summarising" ? "Preparing checked toolpaths…"
     : p.stage === "choosing" ? "Choosing workholding…"
+    : p.stage === "zeros" ? "Locating setup zeros and positioning toolpaths…"
+    : p.stage === "encoding" ? "Encoding results…"
     : p.stage === "output" ? "Preparing results…" : `${labels[stage]}…`;
   $("busy-title").textContent = title;
   const rows = labels.map((label, i) => {
