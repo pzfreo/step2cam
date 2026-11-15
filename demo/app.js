@@ -1484,7 +1484,6 @@ function show(data) {
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
   model = buildModel(data);
   $("setup-sheet").disabled = false;
-  $("setup-sheet-html").disabled = false;
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
   $("phone-name").textContent = data.name.replace(/\.(step|stp)$/i, "");
   $("meta").textContent = `${data.name} · ${data.analysis.binding.face_count} faces · ${holes} ${holes === 1 ? "hole" : "holes"} · ${data.plan.setups.length} ${data.plan.setups.length === 1 ? "setup" : "setups"} · ${model.lines.length} toolpath moves`;
@@ -1951,24 +1950,6 @@ resized.observe($("cad").parentElement);
 new ResizeObserver(() => drawCode()).observe($("code"));
 
 $("plan-save").addEventListener("click", savePlan);
-$("setup-sheet-html").addEventListener("click", async () => {
-  if (!model) return;
-  const m = model;
-  // Open synchronously so the browser can associate the tab with this click.
-  const tab = window.open("", "_blank");
-  if (!tab) { $("status").textContent = "Allow a new tab to view the setup sheet."; return; }
-  try {
-    const [rules, library, { renderReportHtml }] = await Promise.all([
-      loadRules(), fetch(m.data.library.file).then(r => { if (!r.ok) throw new Error("machine library unavailable"); return r.json(); }),
-      import("./report-html.js"),
-    ]);
-    tab.opener = null;
-    tab.document.write(renderReportHtml(reportDocument(m.data, { rules, library, operations: m.operations, features: m.features, estimatedSeconds: m.machining })));
-    tab.document.close();
-  } catch {
-    tab.close(); $("status").textContent = "Could not create setup sheet HTML. Please try again.";
-  }
-});
 $("setup-sheet").addEventListener("click", async () => {
   if (!model) return;
   const m = model, button = $("setup-sheet");

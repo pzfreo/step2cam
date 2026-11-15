@@ -34,13 +34,13 @@ function readableBreaks(input, width, measure) {
   }).join("");
 }
 
-// Fixed print colours, corresponding to the light-theme CSS tokens.
+// Fixed print colours matching the approved light mock-up.
 const diagramColours = {
   jaw: [[125, 131, 139], [201, 204, 209]], parallel: [[156, 134, 80], [227, 215, 184]],
   bed: [null, [231, 229, 224]], part: [null, [238, 241, 245]],
   edge: [[29, 31, 34], null], hidden: [[95, 100, 107], null], stock: [[138, 143, 150], null],
   leader: [[194, 65, 12], null], pickup: [[194, 65, 12], null], axis: [[194, 65, 12], null], zero: [[194, 65, 12], [255, 255, 255]],
-  'zero-fill': [null, [194, 65, 12]], stop: [[194, 65, 12], [201, 204, 209]], dimension: [[29, 31, 34], null], tag: [[95, 100, 107], null],
+  'zero-fill': [null, [194, 65, 12]], stop: [[194, 65, 12], null], dimension: [[29, 31, 34], null], tag: [[95, 100, 107], null],
 };
 export function renderDiagramPdf(doc, view, left, top, width, maxHeight) {
   const [x0, y0, x1, y1] = view.bounds;
@@ -56,7 +56,7 @@ export function renderDiagramPdf(doc, view, left, top, width, maxHeight) {
     const style = stroke && fill ? 'FD' : fill ? 'F' : 'S';
     if (s.type === 'text') {
       doc.setTextColor(...(stroke || [29, 31, 34]));
-      doc.setFontSize(3.4 * view.unit * scale / 0.352778);
+      doc.setFontSize(s.fontSize * scale / 0.352778);
       doc.text(s.text, x(s.x), y(s.y), { align: s.anchor === 'middle' ? 'center' : s.anchor === 'end' ? 'right' : 'left' });
     } else if (s.type === 'rect') doc.rect(x(s.x), y(s.y + s.height), s.width * scale, s.height * scale, style);
     else if (s.type === 'circle') doc.circle(x(s.x), y(s.y), s.radius * scale, style);
