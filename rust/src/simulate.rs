@@ -400,6 +400,8 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
     let mut grip_cuts = vec![];
 
     for (index, operation) in manifest.operations.iter().enumerate() {
+        #[cfg(target_arch = "wasm32")]
+        crate::progress::operation(operation.id());
         let mut one = || -> Result<(), String> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;

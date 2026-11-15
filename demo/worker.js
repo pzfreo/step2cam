@@ -3,6 +3,8 @@
 import initSpecify, { IntentEngine } from "./specify/specify_core_wasm.js";
 import initCam, { process, lastPanic } from "./step2cam/step2cam.js";
 
+import { NOT_FEATURES, operationName } from "./report.js";
+
 const ready = Promise.all([initSpecify(), initCam()]);
 const libraries = new Map();
 function loadLibrary(url) {
@@ -19,8 +21,17 @@ function loadLibrary(url) {
 }
 
 self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => {
+  const progress = (event) => {
+    if (event.operation) {
+      event.label = operationName(event.operation, { id: event.setup }, { setups: Array(event.setups) });
+      delete event.operation;
+    }
+    self.postMessage({ id, progress: event });
+  };
   try {
+    progress({ stage: "engines" });
     const [, toolsText] = await Promise.all([ready, loadLibrary(library.file)]);
+    progress({ stage: "recognising" });
     const tools = JSON.parse(toolsText);
     if (workholding) {
       tools.decisions = [...(tools.decisions || []).filter((d) => d.rule.split("@")[0] !== "setup.workholding"),
@@ -39,7 +50,9 @@ self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => 
       engine.free();
     }
     const { analysis, mesh } = snapshot;
-    const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), JSON.stringify(tools)));
+    progress({ stage: "features", count: analysis.features.filter((f) => !NOT_FEATURES.has(f.family)).length });
+    const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), JSON.stringify(tools),
+      (event) => progress(JSON.parse(event))));
     self.postMessage({
       id,
       data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
