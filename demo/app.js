@@ -560,39 +560,91 @@ function finishSetupTurn() {
   right.camera.updateMatrixWorld();
   resetRightControls();
   right.turn = null;
+  for (const [setup] of right.fixtures || []) setFixtureState(setup, 0, 1, setup === right.setup);
   if (right.tool) right.tool.visible = time > 0 && time < model.total;
   copyCameraToCad();
   drawRight();
+  drawStatus();
+}
+
+// Opening is measured in setup coordinates, then rotated into model coordinates.
+function movingJaw(clamping) {
+  const match = /^([xyz])\.(min|max)$/.exec(clamping?.fixed_jaw || "");
+  if (!match || (clamping.jaws?.length || 0) < 2) return null;
+  const axis = "xyz".indexOf(match[1]);
+  const sorted = [...clamping.jaws].sort((a, b) => a.min[axis] + a.max[axis] - b.min[axis] - b.max[axis]);
+  const fixed = match[2] === "min" ? sorted[0] : sorted.at(-1);
+  const box = match[2] === "min" ? sorted.at(-1) : sorted[0];
+  const offset = [0, 0, 0];
+  offset[axis] = Math.sign(box.min[axis] + box.max[axis] - fixed.min[axis] - fixed.max[axis]) * 15;
+  return { fixed, box, offset };
+}
+
+function setFixtureState(setup, open, opacity, visible = true) {
+  const group = right.fixtures?.get(setup);
+  if (!group) return;
+  group.visible = visible && opacity > 0;
+  for (const body of group.children) {
+    if (body.userData.openOffset) body.position.copy(body.userData.openOffset).multiplyScalar(open);
+    body.material.opacity = opacity;
+    if (body.material.transparent !== (opacity < 1)) body.material.needsUpdate = true;
+    body.material.transparent = opacity < 1;
+    body.material.depthWrite = opacity === 1;
+  }
+}
+
+function clampingStatus(setup) {
+  const c = setup.clamping, grip = c?.grip_height_mm;
+  let text = `Clamping${grip != null ? `: grip ${trim(grip)} mm` : ""}`;
+  const height = c?.parallels_size?.height_mm;
+  if (c?.parallels?.length) text += height != null ? ` on ${trim(height)} mm parallels` : " on parallels";
+  else text += " without modelled parallels";
+  return text;
 }
 
 function showSetup(setup, animate = false) {
+  if (!animate) finishSetupTurn();
   if (setup === right.setup) return;
   finishSetupTurn();
   const previous = right.setup;
   right.setup = setup;
-  for (const [s, group] of right.fixtures || []) group.visible = s === setup;
+  for (const [s] of right.fixtures || []) setFixtureState(s, 0, 1, s === setup);
   if (!setup) return;
   const rotation = setupOrientation(setup).multiply(setupOrientation(previous).invert());
   const camera = right.camera, target = right.controls.target.clone();
+  const oldGroup = right.fixtures?.get(previous), newGroup = right.fixtures?.get(setup);
+  const unclamp = oldGroup?.userData.moving ? 600 : 0;
+  const remove = oldGroup?.children.length ? 200 : 0;
+  const seat = newGroup?.children.length ? 200 : 0;
+  const clamp = newGroup?.userData.moving ? 600 : 0;
+  const turnAt = unclamp + remove, seatAt = turnAt + 1000, clampAt = seatAt + seat;
   right.turn = { rotation, target, offset: camera.position.clone().sub(target),
     up: camera.up.clone(), quaternion: camera.quaternion.clone(), start: performance.now(), frame: null };
   right.controls.enabled = false;
-  if (right.tool) right.tool.visible = false;  // the cutter is withdrawn while the work is flipped
+  if (right.tool) right.tool.visible = false;  // the cutter is withdrawn throughout the setup change
   if (!animate) { finishSetupTurn(); return; }
   const turn = right.turn;
+  const fraction = (elapsed, start, duration) => duration ? Math.max(0, Math.min(1, (elapsed - start) / duration)) : +(elapsed >= start);
   const step = (now) => {
     if (right.turn !== turn) return;
-    const t = Math.min(1, (now - turn.start) / 1000);
-    if (t >= 1) { finishSetupTurn(); return; }
+    const elapsed = now - turn.start;
+    if (elapsed >= clampAt + clamp) { finishSetupTurn(); return; }
+    setFixtureState(previous, fraction(elapsed, 0, unclamp), 1 - fraction(elapsed, unclamp, remove));
+    setFixtureState(setup, 1 - fraction(elapsed, clampAt, clamp), fraction(elapsed, seatAt, seat));
+    const t = fraction(elapsed, turnAt, 1000);
     const q = new THREE.Quaternion().slerp(turn.rotation, t * t * (3 - 2 * t));
     camera.position.copy(turn.offset).applyQuaternion(q).add(turn.target);
     camera.up.copy(turn.up).applyQuaternion(q);
     camera.quaternion.copy(q).multiply(turn.quaternion);
     camera.updateMatrixWorld();
+    turn.status = elapsed < turnAt ? `Unclamping (setup ${previous.id})`
+      : elapsed < clampAt ? `Turning the part for setup ${setup.id}` : clampingStatus(setup);
+    turn.noteSetup = elapsed < turnAt ? previous : setup;
+    drawStatus();
     drawRight();
     turn.frame = requestAnimationFrame(step);
   };
-  turn.frame = requestAnimationFrame(step);
+  step(turn.start);
 }
 
 function clampingNote(setup) {
@@ -611,9 +663,9 @@ function showFixtures(m) {
   for (const setup of m.data.plan.setups) {
     const group = new THREE.Group(), c = setup.clamping;
     group.visible = false;
-    const jaws = c?.jaws || [], axis = c?.fixed_jaw?.startsWith("x") ? 0 : 1;
-    const sorted = [...jaws].sort((a, b) => a.min[axis] - b.min[axis]);
-    const fixed = c?.fixed_jaw ? sorted[c.fixed_jaw.endsWith("min") ? 0 : sorted.length - 1] : null;
+    const jaws = c?.jaws || [], moving = movingJaw(c);
+    const fixed = moving?.fixed || (c?.fixed_jaw && jaws.length === 1 ? jaws[0] : null);
+    group.userData.moving = Boolean(moving);
     for (const box of [...jaws, ...(c?.parallels || [])]) {
       const size = box.max.map((v, k) => v - box.min[k]);
       const geometry = new THREE.BoxGeometry(...size);
@@ -624,7 +676,12 @@ function showFixtures(m) {
         positions.setXYZ(i, ...toModel(setup, p.map((v, k) => v + (box.min[k] + box.max[k]) / 2)));
       }
       geometry.computeVertexNormals();
-      group.add(new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: box === fixed ? 0x65788b : jaws.includes(box) ? 0x536171 : 0x87919b })));
+      const body = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: box === fixed ? 0x65788b : jaws.includes(box) ? 0x536171 : 0x87919b }));
+      if (box === moving?.box) {
+        body.userData.openOffset = new THREE.Vector3(...toModel(setup, moving.offset))
+          .sub(new THREE.Vector3(...toModel(setup, [0, 0, 0])));
+      }
+      group.add(body);
     }
     right.fixtures.set(setup, group);
     right.scene.add(group);
@@ -1435,7 +1492,9 @@ function drawStatus() {
   if (!model) return;
   const key = activeFocus();
   let text;
-  if (key) {
+  if (right.turn?.status) {
+    text = right.turn.status;
+  } else if (key) {
     const lines = linesOf(key);
     const name = model.features.has(key) ? describeFeature(model.features.get(key)) : model.operations.get(key)?.name || key;
     text = lines.length ? `${name} · moves ${lines[0].n + 1}–${lines[lines.length - 1].n + 1}` : `${name} · no toolpath`;
@@ -1446,7 +1505,7 @@ function drawStatus() {
   } else {
     text = "No toolpaths for this part";
   }
-  const note = clampingNote(right.setup);
+  const note = clampingNote(right.turn?.noteSetup || right.setup);
   $("status").textContent = text + (note ? ` · ${note}` : "");
 }
 
@@ -1459,10 +1518,10 @@ function describeFeature(f) {
 function seek(t) {
   if (!model) return;
   time = Math.max(0, Math.min(model.total, t));
-  drawPlayhead();
+  drawPlayhead(false);
 }
 
-function drawPlayhead() {
+function drawPlayhead(animate = playing) {
   updatePlanSelection();
   $("scrub").value = model.total ? Math.round(time / model.total * 1000) : 0;
   for (const el of document.querySelectorAll(".segment")) {
@@ -1472,7 +1531,7 @@ function drawPlayhead() {
   const i = currentSegment();
   if (i < 0) { showSetup(model.data.plan.setups[0]); drawStatus(); return; }
   const s = model.segments[i];
-  showSetup(s.setup, playing);
+  showSetup(s.setup, animate);
   const before = i ? model.segments[i - 1].end : 0;
   const f = s.end > before ? Math.max(0, Math.min(1, (time - before) / (s.end - before))) : 1;
   right.done.geometry.setDrawRange(0, 2 * i + 2);
