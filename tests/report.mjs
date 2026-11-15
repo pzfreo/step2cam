@@ -370,6 +370,8 @@ assert.ok(diagram.views[0].shapes.some(s => s.class === 'edge' && s.points.some(
 assert.ok(!diagram.views[0].shapes.some(s => s.text === 'Datum A face'), 'Z pickup is not labelled as a plan-view edge');
 assert.ok(diagram.views[0].shapes.some(s => s.text === 'Datum C face'), 'Y contact belongs in plan view');
 assert.ok(!frontShapes.some(s => s.text === 'Datum C face'), 'a face normal to Y is not labelled as a front-view edge');
+const bottomFace = buildSetupDiagram({ mesh: cube, analysis: cubeAnalysis }, { ...fixtureSetup, zero: { ...fixtureSetup.zero, z: { description: 'the bottom face — 10 mm above the parallel tops (seat of datum A face)', features: ['faces:1'] } } });
+assert.ok(bottomFace.views[1].shapes.some(s => s.text === 'Bottom face'), 'label the Z target face rather than a datum mentioned as its seat');
 assert.ok(frontShapes.some(s => s.feature === 'faces:5' && s.class === 'pickup'), 'fixed-jaw contact face highlighted');
 assert.ok(frontShapes.some(s => s.class === 'stop' && s.y + s.height === -6 && s.contact[1] === 10), 'stop contacts recorded axis coordinate and obeys nose height');
 const reversed = buildSetupDiagram({ mesh: cube }, { ...fixtureSetup, clamping: { ...fixtureSetup.clamping, fixed_jaw: 'x.max' } });

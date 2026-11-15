@@ -12,7 +12,8 @@ const pointsOf = (flat) => Array.from({ length: Math.floor(flat.length / 3) }, (
 const bounds = (points) => ({ min: [0, 1, 2].map(i => points.reduce((v, p) => Math.min(v, p[i]), Infinity)), max: [0, 1, 2].map(i => points.reduce((v, p) => Math.max(v, p[i]), -Infinity)) });
 const labelFor = (pickup) => {
   if (pickup?.method === 'stock_edges') return 'Stock corner';
-  const text = pickup?.description || '';
+  // The primary face precedes seat/reference details; those may name another datum.
+  const text = (pickup?.description || '').split(/[—;(]/)[0];
   const bore = text.match(/⌀[\d.]+ bore/);
   const datum = text.match(/datum [A-Z] face/);
   const face = text.match(/(?:finished )?(?:front|back|left|right|top|bottom) face/);
@@ -119,7 +120,7 @@ function crossesBox(a, b, box) {
   }
   return true;
 }
-function layoutLabels(shapes, annotations, unit) {
+function layoutLabels(shapes, annotations, unit, part) {
   const expand = box => box.map((v, i) => v + (i < 2 ? -1 : 1) * unit);
   const segments = s => s.points.slice(1).map((p, i) => [s.points[i], p]);
   const obstacles = shapes.filter(s => ['stock', 'dimension', 'axis'].includes(s.class) && s.type !== 'text').flatMap(s => s.type === 'rect'
@@ -138,6 +139,7 @@ function layoutLabels(shapes, annotations, unit) {
       shape.x = initial[0] + dx * unit;
       shape.y = initial[1] + (row ? Math.ceil(row / 2) * (row % 2 ? 6 : -6) : 0) * unit;
       const box = expand(diagramTextBox(shape));
+      if (part && (annotation || shape.class === 'tag') && overlaps(box, [part.min[0], part.min[1], part.max[0], part.max[1]])) continue;
       if (placed.some(b => overlaps(box, b)) || blocks.some(b => overlaps(box, b)) || [...obstacles, ...leaders].some(([a, b]) => crossesBox(a, b, box))) continue;
       if (annotations.some(a => a !== annotation && a.from[0] >= box[0] && a.from[0] <= box[2] && a.from[1] >= box[1] && a.from[1] <= box[3])) continue;
       let route;
@@ -145,6 +147,9 @@ function layoutLabels(shapes, annotations, unit) {
         const center = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
         const end = annotation.from[0] < box[0] ? [box[0] - unit, center[1]] : annotation.from[0] > box[2] ? [box[2] + unit, center[1]] : [center[0], annotation.from[1] < box[1] ? box[1] - unit : box[3] + unit];
         const paths = [[annotation.from, end], [annotation.from, [end[0], annotation.from[1]], end], [annotation.from, [annotation.from[0], end[1]], end]];
+        // An elbow around an existing label keeps an edge-on face caption on
+        // its own side of the part rather than moving it onto the material.
+        for (const rect of placed) for (const rail of [rect[0] - unit, rect[2] + unit]) paths.push([annotation.from, [rail, annotation.from[1]], [rail, end[1]], end]);
         route = paths.find(points => segments({ points }).every(([a, b]) => [...placed, box].every(rect => !crossesBox(a, b, rect))));
         if (!route) continue;
       }
@@ -204,7 +209,11 @@ export function buildSetupDiagram(data, setup, format = String) {
     const jawAxis = c.fixed_jaw?.startsWith('x') ? 0 : 1;
     const sorted = (c.jaws || []).map((j, i) => ({ j, i })).sort((a, b) => a.j.min[jawAxis] - b.j.min[jawAxis]);
     const fixedIndex = c.fixed_jaw ? sorted[c.fixed_jaw.endsWith('min') ? 0 : sorted.length - 1]?.i : -1;
-    jaws.forEach((j, i) => text('tag', (j.min[0] + j.max[0]) / 2, vertical === 1 ? j.max[1] - 4 * unit : j.min[2] + (jawAxis === 1 && i !== fixedIndex ? 10 : 5) * unit, i === fixedIndex ? 'Fixed jaw' : fixedIndex < 0 ? 'Jaw (fixed not recorded)' : 'Moving jaw', 'middle'));
+    jaws.forEach((j, i) => {
+      const label = i === fixedIndex ? 'Fixed jaw' : fixedIndex < 0 ? 'Jaw (fixed not recorded)' : 'Moving jaw';
+      if (vertical === 2 && jawAxis === 1) text('tag', i === fixedIndex ? j.min[0] + 4 * unit : j.max[0] - 4 * unit, j.min[2] + 3 * unit, label, i === fixedIndex ? 'start' : 'end');
+      else text('tag', (j.min[0] + j.max[0]) / 2, vertical === 1 ? j.max[1] - 4 * unit : j.min[2] + 5 * unit, label, 'middle');
+    });
     function dimension(x, low, high, caption, value, anchor = 'start') {
       if (!Number.isFinite(value) || high <= low) return;
       line('dimension', [x, low], [x, high]);
@@ -282,7 +291,7 @@ export function buildSetupDiagram(data, setup, format = String) {
         annotation(q.slice(0, 2), q[0] + 5 * unit, vertical === 1 ? q[1] - 12 * unit : top + 9 * unit, `Stop${stop.maximum_z_mm == null ? '' : ` · nose ≤ Z${number(stop.maximum_z_mm)}`}`);
       }
     }
-    layoutLabels(shapes, annotations, unit);
+    layoutLabels(shapes, annotations, unit, geometry.part ? { min: [part.min[0], part.min[vertical]], max: [part.max[0], part.max[vertical]] } : null);
     const extents = shapes.flatMap(s => s.points || (s.type === 'rect' ? [[s.x, s.y], [s.x + s.width, s.y + s.height]] : s.type === 'text' ? [diagramTextBox(s).slice(0, 2), diagramTextBox(s).slice(2)] : [[s.x, s.y]]));
     // Include complete text boxes so labels cannot be clipped by the view.
     const b = bounds(extents.map(p => [...p, 0]));
