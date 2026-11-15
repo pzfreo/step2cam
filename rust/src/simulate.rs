@@ -286,6 +286,8 @@ fn compare(producer: &mut StreamProducer, binding: &Binding, after: Option<&str>
     if producer.start_material_verification(after)?.is_none() {
         return Ok(None);
     }
+    #[cfg(target_arch = "wasm32")]
+    crate::progress::emit(serde_json::json!({"stage":"comparing"}));
     let bytes = producer.finish_material_verification(cancel)?;
     let Check::Material { report, sweep_proof, .. } = binding.decode(&bytes, producer.completed(), None)?.check else {
         return Err(Failure::from("camlib's material check gave no report"));
@@ -401,7 +403,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
 
     for (index, operation) in manifest.operations.iter().enumerate() {
         #[cfg(target_arch = "wasm32")]
-        crate::progress::operation(operation.id());
+        crate::progress::operation(operation.id(), false);
         let mut one = || -> Result<(), String> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
@@ -494,6 +496,8 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             Ok(())
         };
         one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
+        #[cfg(target_arch = "wasm32")]
+        crate::progress::operation(operation.id(), true);
         if material.is_none() {
             material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
@@ -503,6 +507,8 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
     }
     producer.finish(DEFAULT_FRAME_LIMIT)?;
     let (material, sweep_proof) = material.map_or((None, None), |comparison| (Some(comparison.report), comparison.sweep_proof));
+    #[cfg(target_arch = "wasm32")]
+    if return_stock { crate::progress::emit(serde_json::json!({"stage":"stock"})); }
     let finished_stock = return_stock.then(|| {
         let stock = producer.stock()?;
         let mut snapshot = stock.snapshot();

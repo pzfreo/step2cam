@@ -12,7 +12,7 @@ import { createStock } from "./stock.js";
 import { NOT_FEATURES, reportDocument, trim, featureName, operationName, describeTime, escapeHtml, STAGES, describeSource, planWarnings, warningText, checkText, workholdingText, setupZero, warningOperations, toolChoiceRows } from "./report.js";
 
 const $ = (id) => document.getElementById(id);
-const FACING = "#a6b0be", ROUGHING = "#e7ebf0", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
+const FACING = "#a6b0be", ROUGHING = "#fb923c", RAPID = "#59626f", BODY = "#8d97a6", UNPLANNED = "#6b7482";
 const PALETTE = ["#2dd4bf", "#5aa9ff", "#ffb020", "#f472b6", "#a78bfa", "#a3e635", "#fb7185", "#38bdf8"];
 const ROUGHED = "#7fb7a8", NOT_CUT = "#ff7a4d";
 const PLAYBACK_SECONDS = 45;
@@ -90,6 +90,7 @@ let playing = false;
 let showRapids = false;  // moves through the air in the toolpath view
 let showCurrent = true;  // while playing, the operation being cut stands out
 let showStock = true;    // the block, cut away as the program plays
+let paintedLayer = null; // the depth layer last painted bold
 let paintedOp = null;    // the operation the toolpath view was last painted for
 let hoveredLine = null;  // the move under the pointer
 
@@ -233,7 +234,7 @@ function readMoves(data, operations) {
         length += d;
         const seconds = d / rate * 60;
         machining += seconds;
-        segments.push({ line: line.n, op: line.op, feature: line.feature, rapid: line.rapid, tool, setup, seconds, machining });
+        segments.push({ kind: move.kind, line: line.n, op: line.op, feature: line.feature, rapid: line.rapid, tool, setup, seconds, machining });
         positions.push(...toModel(setup, from), ...toModel(setup, to));
         local.push(...from, ...to);
       }
@@ -241,7 +242,26 @@ function readMoves(data, operations) {
       line.last = segments.length - 1;
     }
   }
+  findLayers(segments, local);
   return { lines, segments, positions: new Float32Array(positions), local: new Float32Array(local), machining };
+}
+
+// Use setup-local tool Z, including flipped setups. Vertical entries and rapids are not
+// cutting layers. Keep ranges once, so playback only compares the cached layer identity.
+function findLayers(segments, local) {
+  let layer = null;
+  const tolerance = 1e-4;
+  segments.forEach((s, i) => {
+    const at = 6 * i, z = local[at + 2];
+    const planar = ["cut", "lead", "link"].includes(s.kind) && Math.abs(z - local[at + 5]) <= tolerance
+      && Math.hypot(local[at] - local[at + 3], local[at + 1] - local[at + 4]) > tolerance;
+    if (!planar) { s.layer = null; return; }
+    if (!layer || layer.op !== s.op || Math.abs(layer.z - z) > tolerance) {
+      layer = { op: s.op, z, start: i, end: i };
+    }
+    layer.end = i;
+    s.layer = layer;
+  });
 }
 
 function nearestFeature(op, point) {
@@ -804,6 +824,7 @@ function paintToolpaths() {
   const index = currentSegment();
   const current = showCurrent && !key && (playing || time > 0) && index >= 0 ? model.segments[index].op : null;
   paintedOp = current;
+  paintedLayer = current ? model.segments[index].layer : null;
   const future = model.futureColors.array, done = model.doneColors.array;
   const focused = [];
   let focusColor = null;
@@ -816,12 +837,18 @@ function paintToolpaths() {
     let a = s.rapid ? 0.28 : wholePart ? 0.13 : 0.9, b = s.rapid ? 0.45 : wholePart ? 0.3 : 0.9;
     if (key && !matches) { a *= 0.25; b *= 0.2; }
     if (current) {
-      if (s.op === current) { a = s.rapid ? a : 0.75; b = s.rapid ? b : 0.95; }
+      if (s.op === current) {
+        if (!wholePart || (paintedLayer && s.layer === paintedLayer)) {
+          a = s.rapid ? a : 0.75; b = s.rapid ? b : 0.95;
+        }
+      }
       else { a *= 0.2; b *= 0.25; }
     }
     if (s.rapid && !showRapids) { a = 0; b = 0; }
     // With the block drawn, what has been cut is shown by the block; its paths would only hide it.
     if (showStock && right.block && s.op !== current && !matches) b = 0;
+    // So are the finished layers of a whole-part operation being cut: stacked, they hide the block.
+    if (showStock && right.block && s.op === current && wholePart && (!paintedLayer || s.layer !== paintedLayer)) b = 0;
     for (let v = 0; v < 2; v++) {
       future.set([c.r, c.g, c.b, a], 8 * i + 4 * v);
       done.set([c.r, c.g, c.b, b], 8 * i + 4 * v);
@@ -1548,7 +1575,7 @@ function drawPlayhead(animate = playing) {
   right.tool.scale.set(radius, radius, s.tool?.stickout || 30);
   right.tool.visible = !right.turn && time > 0 && time < model.total;
   const current = showCurrent && !activeFocus() && (playing || time > 0) ? s.op : null;
-  if (current !== paintedOp) paintToolpaths();
+  if (current !== paintedOp || (current && !model.operations.get(current)?.features?.length && s.layer !== paintedLayer)) paintToolpaths();
   drawRight();
   scrollCodeTo(s.line);
   drawCode();
@@ -1746,6 +1773,7 @@ for (const button of document.querySelectorAll("[data-machine]")) {
 // Progress belongs to the current request; the worker can still be finishing an older one.
 let busyTimer, busyStarted;
 let busyFeatures = null, busySetups = null, busyOption = null;
+let busyOptions = [], busyCounts = [], busyResults = [], busyStep = 0;
 function stopBusy() {
   clearInterval(busyTimer);
   $("busy").hidden = true;
@@ -1753,29 +1781,55 @@ function stopBusy() {
 function showProgress(p) {
   if (p.stage === "features") busyFeatures = p.count;
   if (p.stage === "plan") busySetups = p.setups;
-  if (p.stage === "planning" || p.stage === "replanning" || p.stage === "option") busySetups = null;
-  if (p.stage === "option") busyOption = p.label;
-  const stage = ({ engines: 0, recognising: 1, features: 2, option: 2, planning: 2, replanning: 2, plan: 3, checking: 3 })[p.stage];
+  if (["planning", "replanning", "option"].includes(p.stage)) busySetups = null;
+  if (p.stage === "options") busyOptions = p.labels;
+  if (p.stage === "option") busyOption = p.index - 1;
+  const slot = busyOption ?? 0;
+  const finalStep = 3 + (busyOptions.length || 1);
+  const checking = p.stage === "checking" || p.stage === "operation_done";
+  if (checking) busyCounts[slot] = { done: p.index - (p.stage === "checking" ? 1 : 0), total: p.total };
+  if (p.stage === "plan") busyCounts[slot] = null; // a replan starts a fresh count
+  if (p.stage === "option_result") busyResults[p.index - 1] = p;
+  const stage = ({ engines: 0, recognising: 1, features: 2, options: 2,
+    planning: busyOption === null ? 2 : 3 + slot, replanning: busyOption === null ? 2 : 3 + slot,
+    option: 3 + slot, plan: 3 + slot, checking: 3 + slot, operation_done: 3 + slot,
+    comparing: 3 + slot, stock: 3 + slot, summarising: 3 + slot, option_result: 3 + slot,
+    choosing: finalStep, output: finalStep, zeros: finalStep, encoding: finalStep })[p.stage];
   if (stage === undefined) return;
+  busyStep = stage;
   const labels = ["Loading engines", `Recognising features${busyFeatures === null ? "" : ` (${busyFeatures} found)`}`,
-    `Planning setups and tools${busySetups === null ? "" : ` (${busySetups} setups)`}`, "Checking toolpaths"];
-  const checking = p.stage === "checking";
+    `Planning setups and tools${busySetups === null ? "" : ` (${busySetups} setups)`}`,
+    ...(busyOptions.length ? busyOptions.map((label, i) => `Option ${i + 1} · ${label}`) : ["Checking toolpaths"]),
+    busyOptions.length ? "Choosing workholding and locating setup zeros" : "Locating setup zeros and preparing results"];
+  const optionTitle = busyOption === null ? "Checking toolpaths" : `Checking workholding option ${slot + 1} of ${busyOptions.length}: ${busyOptions[slot]}`;
   const title = p.stage === "replanning" ? `${p.title || `Replanning without ${p.label}`}…`
-    : checking ? `Checking toolpaths: operation ${p.index} of ${p.total}`
-    : p.stage === "option" ? `Planning workholding option: ${p.label}…` : `${labels[stage]}…`;
+    : checking ? `${optionTitle}${busyOption === null ? `: operation ${p.index} of ${p.total}` : ""}`
+    : p.stage === "option" ? `Planning workholding option ${p.index} of ${p.total}: ${p.label}…`
+    : p.stage === "comparing" ? "Comparing the finished stock with the model…"
+    : p.stage === "stock" ? "Preparing stock for the next setup…"
+    : p.stage === "summarising" ? "Preparing checked toolpaths…"
+    : p.stage === "choosing" ? "Choosing workholding…"
+    : p.stage === "zeros" ? "Locating setup zeros and positioning toolpaths…"
+    : p.stage === "encoding" ? "Encoding results…"
+    : p.stage === "output" ? "Preparing results…" : `${labels[stage]}…`;
   $("busy-title").textContent = title;
-  for (const [i, row] of [...$("busy-stages").children].entries()) {
-    row.className = i < stage ? "done" : i === stage ? "current" : "";
-    row.textContent = labels[i] + (i === 3 && checking ? `　${p.index} / ${p.total}` : "");
-  }
+  const rows = labels.map((label, i) => {
+    const row = document.createElement("li");
+    const n = i - 3, result = busyResults[n], count = busyCounts[n];
+    row.className = i < busyStep || result?.available ? "done" : i === busyStep ? "current" : "";
+    let detail = count ? (count.done === count.total ? `${count.total} operations` : `${count.done} / ${count.total}`) : "";
+    if (result?.available === false) {
+      row.className = "";
+      detail = `✗ not possible for this part: ${String(result.reason).slice(0, 120)}`;
+    }
+    row.textContent = label + (n >= 0 && i < finalStep && detail ? `　${detail}` : "");
+    return row;
+  });
+  $("busy-stages").replaceChildren(...rows);
   const bar = $("busy-bar");
   bar.hidden = !checking;
-  if (checking) {
-    bar.max = p.total;
-    // The callback precedes the operation: only earlier operations are known to have run.
-    bar.value = p.index - 1;
-  }
-  $("busy-detail").textContent = [busyOption, checking ? p.label : ""].filter(Boolean).join(" · ");
+  if (checking) { bar.max = p.total; bar.value = busyCounts[slot].done; }
+  $("busy-detail").textContent = [busyOptions[slot], checking ? p.label : ""].filter(Boolean).join(" · ");
 }
 
 // own: a visitor's file (true) or a sample (false); left out when the same part is planned again
@@ -1786,6 +1840,7 @@ function run(name, bytes, own, workholding) {
   clearInterval(busyTimer);
   busyStarted = performance.now();
   busyFeatures = busySetups = busyOption = null;
+  busyOptions = []; busyCounts = []; busyResults = []; busyStep = 0;
   $("busy-elapsed").textContent = "0 s";
   showProgress({ stage: "engines" });
   busyTimer = setInterval(() => {

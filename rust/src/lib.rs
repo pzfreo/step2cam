@@ -69,13 +69,13 @@ mod progress {
         });
         emit(json!({"stage":"plan", "setups":plan.setups.len()}));
     }
-    pub fn operation(id: &str) {
+    pub fn operation(id: &str, done: bool) {
         let event = ACTIVE.with(|s| {
             let s = s.borrow();
             let s = s.as_ref()?;
             let index = s.operations.iter().position(|o| o["id"] == id)?;
             let mut event = s.operations[index].clone();
-            event["stage"] = json!("checking");
+            event["stage"] = json!(if done { "operation_done" } else { "checking" });
             event["index"] = json!(index + 1);
             event["total"] = json!(s.operations.len());
             Some(event)
@@ -280,6 +280,8 @@ pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value,
     let normalized = capp::resources::normalize(library)?;
     let library = normalized.as_ref();
     let mut out = workholding::process(analysis, mesh, library)?;
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"zeros"}));
     zero::apply(&mut out, analysis, mesh);
     Ok(out)
 }
@@ -422,6 +424,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let reach = match failure.cause { simulate::Cause::Reach(reach) => Some(*reach), _ => None };
         exclusions.push(Exclusion { operation, message: failure.message, tool, selection, reach });
     }
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"summarising"}));
     let needs: Vec<&str> = plan.tools_needed.iter().flatten().map(|n| n.description.as_str()).collect();
     if !needs.is_empty() {
         log.push(format!("tools needed: {}", needs.join("; ")));
@@ -491,6 +495,8 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str, #[cfg(target_arch
     let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| JsError::new(&e.to_string()));
     let (analysis, mesh, library) = (parse(analysis)?, parse(mesh)?, parse(library)?);
     let out = process(&analysis, &mesh, &library).map_err(|e| JsError::new(&e))?;
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"encoding"}));
     Ok(out.to_string())
 }
 
