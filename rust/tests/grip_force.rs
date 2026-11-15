@@ -221,19 +221,11 @@ fn an_unholdable_minimum_face_warns_without_failing_or_altering_the_cut() {
     let rough = ds.iter().find(|d| d["subject"] == "top-2-roughing").unwrap();
     assert_eq!(rough["outcome"], "warning");
     let text = rough["says"].as_str().unwrap();
-    for word in ["move", "X", "Y", "Z", "ap", "ae", "allowable", "stepdown", "stepover", "operation unchanged"] {
+    for word in ["move", "X", "Y", "Z", "ap", "ae", "allowable", "cannot be held", "operation unchanged"] {
         assert!(text.contains(word), "{text}");
     }
-    let ap = num(&rough["axial_depth_mm"]);
-    let ae = num(&rough["radial_width_mm"]);
-    let d = num(&rough["diameter_mm"]);
-    let f = num(&rough["feed_mm_min"]);
-    let rpm = num(&rough["spindle_rpm"]);
-    let z = num(&rough["flutes"]);
-    let capacity = num(&rough["allowable_cutting_force_n"]);
-    let step = num(&rough["suggested_stepdown_mm"]);
-    near(force(step, ae, d, f, rpm, z), capacity);
-    near(force(ap, num(&rough["suggested_stepover_mm"]), d, f, rpm, z), capacity);
+    // Below the 0.05 mm quantum there is no remedy to offer, as for the planner's own checks.
+    assert!(rough.get("suggested_stepdown_mm").is_none() && rough.get("suggested_stepover_mm").is_none(), "{rough}");
     for setup in out["plan"]["setups"].as_array().unwrap() {
         for op in setup["operations"].as_array().unwrap().iter().filter(|o| o["kind"]=="facing") {
             near(num(&op["technology"]["stepdown_mm"]), 10.);
@@ -244,6 +236,36 @@ fn an_unholdable_minimum_face_warns_without_failing_or_altering_the_cut() {
             assert!(num(&own["cutting_force_n"]) > num(&own["holding_force_n"]));
         }
     }
+}
+#[test]
+fn measured_roughing_over_capacity_offers_a_quantised_remedy() {
+    // A quarter of Kurt's cited clamp puts the allowable force below the measured roughing peak.
+    let mut lib = read("libraries/haas-vf2.json");
+    let clamp = num(&lib["machines"][0]["workholding"][0]["clamp_force_n"]);
+    lib["machines"][0]["workholding"][0]["clamp_force_n"] = json!(clamp / 4.);
+    let out = run(&lib);
+    let ds = decisions(&out);
+    let rough = ds.iter().find(|d| d["subject"] == "top-2-roughing").unwrap();
+    assert_eq!(rough["outcome"], "warning", "{rough}");
+    let text = rough["says"].as_str().unwrap();
+    for word in ["move", "X", "Y", "Z", "ap", "ae", "allowable", "stepdown", "stepover", "operation unchanged"] {
+        assert!(text.contains(word), "{text}");
+    }
+    assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w| w == &rough["says"]));
+    let ap = num(&rough["axial_depth_mm"]);
+    let ae = num(&rough["radial_width_mm"]);
+    let d = num(&rough["diameter_mm"]);
+    let f = num(&rough["feed_mm_min"]);
+    let rpm = num(&rough["spindle_rpm"]);
+    let z = num(&rough["flutes"]);
+    let capacity = num(&rough["allowable_cutting_force_n"]);
+    assert!(force(ap, ae, d, f, rpm, z) > capacity);
+    // Each remedy is the largest 0.05 mm multiple that fits under the same model.
+    let step = num(&rough["suggested_stepdown_mm"]);
+    let over = num(&rough["suggested_stepover_mm"]);
+    for v in [step, over] { near((v / 0.05).round() * 0.05, v); }
+    assert!(step >= 0.05 && force(step, ae, d, f, rpm, z) <= capacity && force(step + 0.05, ae, d, f, rpm, z) > capacity, "{rough}");
+    assert!(over >= 0.05 && force(ap, over, d, f, rpm, z) <= capacity && force(ap, over + 0.05, d, f, rpm, z) > capacity, "{rough}");
 }
 #[test]
 fn helix_milled_holes_are_deferred_while_spots_and_taps_are_thrust() {

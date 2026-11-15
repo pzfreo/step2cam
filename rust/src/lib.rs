@@ -180,9 +180,16 @@ fn measured_grip(plan: &mut Plan, setup: usize, cuts: &[simulate::MeasuredCut]) 
                     let f = capp::grip_force::milling_force(ap, mid, cut.diameter_mm, cut.feed_mm_min, cut.spindle_rpm, cut.flutes).map_or(0., |f| f.force_n);
                     if f <= capacity { lo = mid; } else { hi = mid; }
                 }
-                d["suggested_stepdown_mm"] = json!(limit);
-                d["suggested_stepover_mm"] = json!(lo);
-                says.push_str(&format!("; reduce stepdown to ≤{limit:.5} mm or stepover to ≤{lo:.5} mm under this model; operation unchanged"));
+                // Rounded down to the planner's depth quantum, as its own remedies are.
+                let quantum = capp::rules::workholding()["grip_force"]["facing_depth_quantum_mm"].as_f64().unwrap();
+                let (limit, lo) = ((limit / quantum).floor() * quantum, (lo / quantum).floor() * quantum);
+                if limit >= quantum || lo >= quantum {
+                    d["suggested_stepdown_mm"] = json!(limit);
+                    d["suggested_stepover_mm"] = json!(lo);
+                    says.push_str(&format!("; reduce stepdown to ≤{limit:.2} mm or stepover to ≤{lo:.2} mm under this model; operation unchanged"));
+                } else {
+                    says.push_str(&format!("; even {quantum} mm cannot be held under this model; increase verified clamping capacity or change the engagement; operation unchanged"));
+                }
                 d["outcome"] = json!("warning");
                 if !plan.warnings.contains(&says) { plan.warnings.push(says.clone()); }
             } else { d["outcome"] = json!("checked"); }
