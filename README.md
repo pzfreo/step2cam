@@ -135,7 +135,7 @@ chip thinning raises feed within the machine ceiling. Shallow-floor stairs use t
 original slotting increment. If adaptive clearing or its flat preparation is refused,
 the planner retries raster once with the original cutting data, records why, and keeps
 all stock-contact, flat-depth and material checks. Adaptive planning also has a portable
-20,000,000 cancellation-poll work budget before raster retry; verification is outside it.
+100,000,000 cancellation-poll work budget before raster retry; verification is outside it.
 The move-based grip check measures
 the admitted roughing moves; a deeper bounded cut can still exceed the grip capacity.
 

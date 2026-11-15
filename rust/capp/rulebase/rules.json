@@ -1312,9 +1312,9 @@
   },
   {
    "id": "process.roughing.bounded_engagement",
-   "version": 4,
+   "version": 5,
    "stage": "tools",
-   "rationale": "Use sourced per-material light radial width and flute-based axial depth capped by 2D and the existing reach margin, with chip thinning capped by the machine feed ceiling. Limit adaptive planning to 20000000 cancellation polls shared across its layers, then retry raster; this portable work budget is step2cam judgement to bound pathological planning cost, not a wall-clock limit. Stock-contact and material checks do not consume the planning budget. Missing policy stays raster. Retry raster with original capped cutting data after adaptive refusal, the existing flat residual-depth check refusing its prepared stock, or admission with no clearing moves; retain the exact reason, tool-selection evidence and all checks.",
+   "rationale": "Use sourced per-material light radial width and flute-based axial depth capped by 2D and the existing reach margin, with chip thinning capped by the machine feed ceiling. Limit adaptive planning to 100000000 cancellation polls shared across its layers, then retry raster; this portable work budget is step2cam judgement to bound pathological planning cost, not a wall-clock limit. Stock-contact and material checks do not consume the planning budget. Missing policy stays raster; ISO N requires an explicit whole-word material scope so a missing filter never admits nonmetallics. Retry raster with original capped cutting data after adaptive refusal, the existing flat residual-depth check refusing its prepared stock, or admission with no clearing moves; retain the exact reason, tool-selection evidence and all checks.",
    "code": "roughing.rs; rust/src/lib.rs; rust/src/job.rs; rust/src/simulate.rs",
    "sources": [
     {

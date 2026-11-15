@@ -10,7 +10,8 @@
  "properties": {
   "roughing_by_group": {
  "type": "object",
- "description": "Sourced bounded-engagement roughing policy by ISO 513 material group. Missing groups use raster.",
+ "description": "Sourced bounded-engagement roughing policy by ISO 513 material group. Missing groups use raster; N requires an explicit material-word scope.",
+ "allOf": [{"properties": {"N": {"required": ["material_words"]}}}],
  "propertyNames": {
   "enum": [
    "P",

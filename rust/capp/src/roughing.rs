@@ -28,7 +28,7 @@ pub fn choose(
         .and_then(|g| library["roughing_by_group"].get(g))
         .filter(|p| {
             let Some(words) = p["material_words"].as_array() else {
-                return true;
+                return group != Some("N");
             };
             let name = material.name.unwrap_or("").to_lowercase();
             words.iter().filter_map(Value::as_str).any(|word| {

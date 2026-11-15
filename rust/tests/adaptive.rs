@@ -218,7 +218,7 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
         .unwrap()
         .iter()
         .find(|d| {
-            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@4"
+            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@5"
         })
         .unwrap();
     assert!(
@@ -361,4 +361,38 @@ fn empty_adaptive_preparation_uses_checked_raster_instead_of_claiming_zero_work(
     assert!(out["programs"].as_array().unwrap().iter().flat_map(|p| p["moves"].as_array().unwrap())
         .any(|m| m["op"] == "top-2-roughing" && m["feed"].as_f64().is_some_and(|f| f > 0.)));
     check_plan(&out["plan"]);
+}
+
+#[test]
+fn adaptive_moves_report_over_capacity_without_changing_the_cut() {
+    let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+    let mut l = library();
+    let vise = &mut l["machines"][0]["workholding"][0];
+    vise["clamp_force_n"] = json!(vise["clamp_force_n"].as_f64().unwrap() / 16.);
+    let out = step2cam::process(&a, &m, &l).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    let rough = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
+        .find(|o| o["kind"] == "roughing").unwrap();
+    assert_eq!(rough["clearing"]["kind"], "adaptive");
+    let force = out["plan"]["decisions"].as_array().unwrap().iter()
+        .find(|d| d["rule"] == capp::trace::cite("machine.grip_vs_cut") && d["subject"] == rough["id"]).unwrap();
+    assert_eq!(force["outcome"], "warning", "{force}");
+    assert!(force["cutting_force_n"].as_f64().unwrap() > force["allowable_cutting_force_n"].as_f64().unwrap());
+    assert!(force["motion_id"].is_number());
+    assert!(force["says"].as_str().unwrap().contains("operation unchanged"));
+    assert!(out["plan"]["warnings"].as_array().unwrap().contains(&force["says"]));
+    check_plan(&out["plan"]);
+}
+
+#[test]
+fn iso_n_without_a_material_scope_cannot_admit_nonmetallics() {
+    let mut l = library();
+    l["roughing_by_group"]["N"].as_object_mut().unwrap().remove("material_words");
+    let mut technology = data();
+    roughing::choose(&mut op(), &mut technology, &tool(), roughing::Material { group: Some("N"), name: Some("acetal plastic") },
+        &l, "top:roughing", &mut Trace::default()).unwrap();
+    assert_eq!(technology["clearing_strategy"], "raster");
+    let schema: Value = serde_json::from_str(include_str!("../../schemas/resources-1.schema.json")).unwrap();
+    assert!(!jsonschema::validator_for(&schema).unwrap().is_valid(&l));
 }
