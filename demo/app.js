@@ -847,6 +847,8 @@ function paintToolpaths() {
     if (s.rapid && !showRapids) { a = 0; b = 0; }
     // With the block drawn, what has been cut is shown by the block; its paths would only hide it.
     if (showStock && right.block && s.op !== current && !matches) b = 0;
+    // So are the finished layers of a whole-part operation being cut: stacked, they hide the block.
+    if (showStock && right.block && s.op === current && wholePart && (!paintedLayer || s.layer !== paintedLayer)) b = 0;
     for (let v = 0; v < 2; v++) {
       future.set([c.r, c.g, c.b, a], 8 * i + 4 * v);
       done.set([c.r, c.g, c.b, b], 8 * i + 4 * v);
