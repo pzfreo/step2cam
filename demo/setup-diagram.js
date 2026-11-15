@@ -263,6 +263,29 @@ function crossesBox(a, b, box) {
   }
   return true;
 }
+// Shared pickup origins may meet; crossing or overlapping leader runs may not.
+function leadersCross(a, b, c, d, clearance) {
+  const cross = (u, v) => u[0] * v[1] - u[1] * v[0];
+  const sub = (u, v) => u.map((n, i) => n - v[i]);
+  const r = sub(b, a), t = sub(d, c), offset = sub(c, a), den = cross(r, t), epsilon = 1e-8;
+  if (Math.abs(den) < epsilon) {
+    if (Math.abs(cross(offset, r)) <= epsilon) {
+      const axis = Math.abs(r[0]) > Math.abs(r[1]) ? 0 : 1;
+      if (Math.min(Math.max(a[axis], b[axis]), Math.max(c[axis], d[axis])) - Math.max(Math.min(a[axis], b[axis]), Math.min(c[axis], d[axis])) > epsilon) return true;
+    }
+  } else {
+    const u = cross(offset, t) / den, v = cross(offset, r) / den;
+    if (u >= -epsilon && u <= 1 + epsilon && v >= -epsilon && v <= 1 + epsilon && !(Math.abs(u) < epsilon && Math.abs(v) < epsilon)) return true;
+  }
+  if (Math.hypot(...offset) < Math.max(epsilon, clearance)) return false;
+  const distance = (p, a, b) => {
+    const delta = sub(b, a), length = delta[0] ** 2 + delta[1] ** 2;
+    const u = length ? Math.max(0, Math.min(1, sub(p, a).reduce((n, v, i) => n + v * delta[i], 0) / length)) : 0;
+    return Math.hypot(...p.map((v, i) => v - a[i] - u * delta[i]));
+  };
+  return Math.min(distance(a,c,d),distance(b,c,d),distance(c,a,b),distance(d,a,b)) < clearance;
+}
+
 function layoutLabels(shapes, annotations, unit, part) {
   const expand = box => box.map((v, i) => v + (i < 2 ? -1 : 1) * unit);
   const segments = s => s.points.slice(1).map((p, i) => [s.points[i], p]);
@@ -271,37 +294,40 @@ function layoutLabels(shapes, annotations, unit, part) {
     : s.type === 'outline' ? s.loops.flatMap(points => segments({ points })) : segments(s));
   const blocks = shapes.filter(s => s.class === 'stop' || s.class === 'zero').map(s => s.type === 'rect' ? [s.x, s.y, s.x + s.width, s.y + s.height] : [s.x - s.radius, s.y - s.radius, s.x + s.radius, s.y + s.radius]);
   const labels = shapes.filter(s => s.type === 'text'), placed = [], leaders = [];
-  // Fixed captions go first. Reserve nearby space for stop and datum pickups
-  // before movable dimension captions; later leaders route around these boxes.
-  const priority = s => s.text.startsWith('Stop') ? 0 : s.text.startsWith('Datum') ? 1 : s.class === 'dimension' ? 3 : 2;
-  const ordered = [...labels.filter(s => !annotations.some(a => a.shape === s)), ...annotations.map(a => a.shape).sort((a, b) => priority(a) - priority(b))];
+  // Reserve space beside dimensions first, then fixed captions and pickups.
+  // Later leaders route around both the captions and earlier leaders.
+  const priority = s => s.text.startsWith('Stop') ? 0 : s.text.startsWith('Datum') ? 1 : 2;
+  const ordered = [...labels.filter(s => s.dimension), ...labels.filter(s => !annotations.some(a => a.shape === s)), ...annotations.map(a => a.shape).filter(s => !s.dimension).sort((a, b) => priority(a) - priority(b))];
   const partInterior = part && [part.min[0] + unit / 10, part.min[1] + unit / 10, part.max[0] - unit / 10, part.max[1] - unit / 10];
   const jawBoxes = shapes.filter(s => ['jaw', 'jaw-near'].includes(s.class)).map(s => [s.x, s.y, s.x + s.width, s.y + s.height]);
   const contains = (box, p) => p[0] >= box[0] - 1e-8 && p[0] <= box[2] + 1e-8 && p[1] >= box[1] - 1e-8 && p[1] <= box[3] + 1e-8;
   for (const shape of ordered) {
     const annotation = annotations.find(a => a.shape === shape), initial = [shape.x, shape.y, shape.anchor], candidates = [];
-    const offsets = annotation ? [0, -4, 4, -8, 8, -16, 16, -32, 32, -48, 48] : [0, -8, 8, -16, 16];
+    const offsets = shape.dimension ? [0, -0.5, 0.5, -1, 1, -1.5, 1.5, -2, 2, -3, 3, -4, 4, -6, 6, -8, 8, -16, 16] : annotation ? [0, -4, 4, -8, 8, -16, 16, -32, 32, -48, 48] : [0, -8, 8, -16, 16];
     // Search positions before choosing a route. A free nearby straight leader
     // wins over an elbow from the first free (but badly placed) caption box.
     for (let row = 0; row < 64; row++) for (const dx of offsets) for (const anchor of annotation ? [initial[2], ...['start', 'middle', 'end'].filter(a => a !== initial[2])] : [initial[2]]) {
       shape.x = initial[0] + dx * unit;
-      shape.y = initial[1] + (row ? Math.ceil(row / 2) * (row % 2 ? 6 : -6) : 0) * unit; shape.anchor = anchor;
-      const box = expand(diagramTextBox(shape));
-      let end, distance;
+      shape.y = initial[1] + (row ? Math.ceil(row / 2) * (row % 2 ? 1 : -1) * (shape.dimension ? 0.5 : 6) : 0) * unit; shape.anchor = anchor;
+      const textBox = diagramTextBox(shape), box = expand(textBox);
+      let end, distance, captionDistance;
       if (annotation) {
         if (contains(box, annotation.from)) continue;
+        captionDistance = Math.hypot(Math.max(textBox[0] - annotation.from[0], 0, annotation.from[0] - textBox[2]), Math.max(textBox[1] - annotation.from[1], 0, annotation.from[1] - textBox[3]));
         end = [Math.max(box[0], Math.min(box[2], annotation.from[0])), Math.max(box[1], Math.min(box[3], annotation.from[1]))];
         const d = Math.hypot(end[0] - annotation.from[0], end[1] - annotation.from[1]);
         end = end.map((v, i) => v + Math.min(unit, d / 2) * (annotation.from[i] - v) / d);
         distance = Math.hypot(end[0] - annotation.from[0], end[1] - annotation.from[1]);
       } else distance = Math.hypot(shape.x - initial[0], shape.y - initial[1]);
-      candidates.push({ x: shape.x, y: shape.y, anchor, box, end, distance });
+      candidates.push({ x: shape.x, y: shape.y, anchor, box, end, distance, captionDistance });
     }
     candidates.sort((a, b) => a.distance - b.distance);
     let fitted = false;
     for (const elbows of annotation ? [false, true] : [false]) {
       for (const candidate of candidates) {
         const { box, end } = candidate;
+        // Keep dimension captions within 3 mm on paper of their own midpoint.
+        if (shape.dimension && candidate.captionDistance > unit * (3 / 0.6)) continue;
         if (part && (annotation || shape.class === 'tag') && overlaps(box, [part.min[0], part.min[1], part.max[0], part.max[1]])) continue;
         if (placed.some(b => overlaps(box, b)) || blocks.some(b => overlaps(box, b)) || [...obstacles, ...leaders].some(([a, b]) => crossesBox(a, b, box))) continue;
         if (annotations.some(a => a !== annotation && contains(box, a.from))) continue;
@@ -312,7 +338,15 @@ function layoutLabels(shapes, annotations, unit, part) {
             paths.push([annotation.from, [end[0], annotation.from[1]], end], [annotation.from, [annotation.from[0], end[1]], end]);
             for (const rect of placed) for (const rail of [rect[0] - unit, rect[2] + unit]) paths.push([annotation.from, [rail, annotation.from[1]], [rail, end[1]], end]);
           }
-          const valid = paths.filter(points => segments({ points }).every(([a, b]) => (!partInterior || contains(partInterior, annotation.from) || !crossesBox(a, b, partInterior)) && [...placed, box].every(rect => !crossesBox(a, b, rect)) && jawBoxes.every(rect => contains(rect, annotation.from) || !crossesBox(a, b, rect))));
+          // Leave room to route later leaders out of their pickup anchors.
+          const anchorClear = (a, b) => annotations.every(other => other === annotation
+            || other.from.every((v, i) => Math.abs(v - annotation.from[i]) <= unit / 2)
+            || !crossesBox(a, b, [other.from[0] - unit / 2, other.from[1] - unit / 2, other.from[0] + unit / 2, other.from[1] + unit / 2]));
+          const valid = paths.filter(points => segments({ points }).every(([a, b]) =>
+            !leaders.some(([c, d]) => leadersCross(a, b, c, d, unit / 2)) && anchorClear(a, b)
+            && (!partInterior || contains(partInterior, annotation.from) || !crossesBox(a, b, partInterior))
+            && [...placed, box].every(rect => !crossesBox(a, b, rect))
+            && jawBoxes.every(rect => contains(rect, annotation.from) || !crossesBox(a, b, rect))));
           const length = p => segments({ points: p }).reduce((n, [a, b]) => n + Math.hypot(b[0] - a[0], b[1] - a[1]), 0);
           valid.sort((a, b) => length(a) - length(b)); route = valid[0];
           if (!route) continue;
@@ -395,14 +429,18 @@ function setupDiagram(data, setup, format = String) {
       if (!Number.isFinite(value) || high <= low) return;
       line('dimension', [x, low], [x, high]);
       for (const y of [low, high]) line('dimension', [x - 1.6 * unit, y], [x + 1.6 * unit, y]);
-      const label = annotation([x, (low + high) / 2], x + (anchor === 'end' ? -2.5 : 2.5) * unit, (low + high) / 2, `${caption} ${number(value)}`, anchor, 'dimension');
+      const label = annotation([x, (low + high) / 2], x + (anchor === 'end' ? -4 : 4) * unit, (low + high) / 2, `${caption} ${number(value)}`, anchor, 'dimension');
       label.dimension = { kind: caption, value, low, high };
     }
     if (vertical === 2) {
+      // Put support dimensions outside the held material and jaws so captions
+      // can stay beside their lines, even when a short grip cannot fit text.
+      const left = Math.min(part.min[0], stock?.min[0] ?? part.min[0], ...jaws.map(j => j.min[0]), ...(c.parallels || []).map(p => p.min[0]));
+      const right = Math.max(part.max[0], stock?.max[0] ?? part.max[0], ...jaws.map(j => j.max[0]), ...(c.parallels || []).map(p => p.max[0]));
       const p = c.parallels?.[0];
-      if (p) dimension(part.min[0] + 18 * unit, p.min[2], p.max[2], 'Parallels', p.max[2] - p.min[2]);
+      if (p) dimension(right + 6 * unit, p.min[2], p.max[2], 'Parallels', p.max[2] - p.min[2]);
       const seat = c.jaw_top_z - c.grip_height_mm;
-      if (c.grip_height_mm != null) dimension(part.min[0] - 6 * unit, seat, c.jaw_top_z, 'Grip', c.grip_height_mm, 'end');
+      if (c.grip_height_mm != null) dimension(left - 6 * unit, seat, c.jaw_top_z, 'Grip', c.grip_height_mm, 'end');
       if (stock && facing) dimension(part.max[0] + 8 * unit, facing.floor_z, stock.max[2], 'Facing', stock.max[2] - facing.floor_z);
     }
     if (located) {
@@ -487,7 +525,7 @@ function setupDiagram(data, setup, format = String) {
       if (attempt === 9) throw new Error('labels exceed printable diagram area');
       scale *= Math.min(175 / w, 90 / h, 0.9);
     }
-    return { caption: vertical === 1 ? 'Seen from above (machine Z down)' : 'Seen from the front (looking +Y)', shapes, unit, bounds: viewBounds, scale, height: (viewBounds[3] - viewBounds[1]) * scale, partBounds: part, cropped, stats: geometry.stats };
+    return { caption: vertical === 1 ? 'Seen from above (machine Z down)' : 'Seen from the front (looking +Y)', shapes, unit, bounds: viewBounds, scale, height: (viewBounds[3] - viewBounds[1]) * scale, partBounds: part, cropped, note: geometry.stats.silhouetteTruncated ? 'Some curved edges omitted' : '', stats: geometry.stats };
 
   });
   return { type: 'setup-diagram', setup: setup.id, views, warnings, legend: diagramLegend.filter(([cls]) => views.some(v => v.shapes.some(s => s.class === cls || (cls === 'jaw' && s.class === 'jaw-near')))), note: views[0].cropped ? 'Jaws cropped in Y in the view from above.' : '' };
@@ -496,5 +534,14 @@ function setupDiagram(data, setup, format = String) {
 // One unavailable drawing must never prevent the rest of the setup sheet.
 export function buildSetupDiagram(data, setup, format = String) {
   try { return setupDiagram(data, setup, format); }
-  catch { return { type: 'paragraph', text: 'Setup diagram not drawn: the part is too detailed to draw here.' }; }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const limited = /exceeds? .*budget|exceeds? .*area/.test(message);
+    if (!limited) console.warn('Setup diagram not drawn', error);
+    const reason = limited ? 'the part is too detailed to draw here.'
+      : message === 'non-finite mesh coordinates' ? 'the part position is invalid.'
+      : message.startsWith('Cannot place setup diagram label:') ? 'a label could not be placed clearly.'
+      : 'the drawing could not be built.';
+    return { type: 'paragraph', text: `Setup diagram not drawn: ${reason}` };
+  }
 }

@@ -386,6 +386,24 @@ function checkLabels(view, name) {
       for(let i=1;i<leader.points.length;i++) assert.ok(!segmentHits(leader.points[i-1],leader.points[i],box),`${name}: leader crosses an unrelated jaw`);
     }
   }
+  const routed = view.shapes.filter(s => s.class === 'leader' || s.class === 'guide');
+  const turn = (a,b,c) => (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  for(let i=0;i<routed.length;i++) for(let j=i+1;j<routed.length;j++) {
+    for(let u=1;u<routed[i].points.length;u++) for(let v=1;v<routed[j].points.length;v++) {
+      const [a,b]=routed[i].points.slice(u-1,u+1),[c,d]=routed[j].points.slice(v-1,v+1);
+      if(Math.hypot(a[0]-c[0],a[1]-c[1])<1e-8) continue; // shared pickup origin
+      const box=[Math.min(c[0],d[0]),Math.min(c[1],d[1]),Math.max(c[0],d[0]),Math.max(c[1],d[1])];
+      const crossing=segmentHits(a,b,box)&&turn(a,b,c)*turn(a,b,d)<=1e-8&&turn(c,d,a)*turn(c,d,b)<=1e-8;
+      assert.ok(!crossing,`${name}: leaders cross each other`);
+    }
+  }
+  for(let i=0;i<labels.length;i++) if(labels[i].dimension) {
+    const dim=labels[i].dimension, line=view.shapes.find(s=>s.class==='dimension'&&s.type==='polyline'&&s.points[0][1]===dim.low&&s.points[1][1]===dim.high&&s.points[0][0]===s.points[1][0]);
+    assert.ok(line,`${name}: own dimension line exists`);
+    const x=line.points[0][0],mid=(dim.low+dim.high)/2,box=boxes[i];
+    const gap=Math.hypot(Math.max(box[0]-x,0,x-box[2]),Math.max(box[1]-mid,0,mid-box[3]))*view.scale;
+    assert.ok(gap<=3.01,`${name}: ${labels[i].text} is ${gap} mm from its dimension midpoint`);
+  }
   boxes.forEach((box, i) => {
     assert.ok(box[0] >= view.bounds[0] && box[1] >= view.bounds[1] && box[2] <= view.bounds[2] && box[3] <= view.bounds[3], `${name}: clipped ${labels[i].text}`);
     for (let j = i + 1; j < boxes.length; j++) assert.ok(!overlap(box, boxes[j]), `${name}: ${labels[i].text} overlaps ${labels[j].text}`);
@@ -451,15 +469,37 @@ assert.ok(noFacing.views.every(v => !v.shapes.some(s => s.class === 'stock' || s
 assert.ok(!noFacing.legend.some(([cls]) => cls === 'stock'));
 const isolated = structuredClone(data);
 isolated.mesh = cube; isolated.plan.setups = [{...fixtureSetup,id:'bad',origin_model:[Infinity,0,0]}, {...fixtureSetup,id:'good'}];
+const warningsLogged=[], savedWarn=console.warn;
+console.warn=(...args)=>warningsLogged.push(args);
 const isolatedReport = reportDocument(isolated, options);
+assert.ok(isolatedReport.blocks.some(b=>b.text==='Setup diagram not drawn: the part position is invalid.'));
+assert.ok(warningsLogged.some(args=>args[1] instanceof Error&&args[1].message==='non-finite mesh coordinates'));
 assert.equal(isolatedReport.blocks.filter(b => b.type === 'setup-diagram').length, 1);
 assert.equal(isolatedReport.blocks.filter(b => b.text?.startsWith('Setup diagram not drawn:')).length, 1);
 assert.doesNotThrow(() => renderReportPdf(isolatedReport, deps), 'one broken drawing cannot prevent the PDF');
 const failPlacement = buildSetupDiagram({mesh:cube},{...fixtureSetup,zero:{status:'located',xy:{description:'W'.repeat(300),features:[]},z:{description:'Stock top',features:[]}}},reportLength);
 assert.equal(failPlacement.type,'paragraph');
-assert.equal(failPlacement.text,'Setup diagram not drawn: the part is too detailed to draw here.');
+assert.equal(failPlacement.text,'Setup diagram not drawn: a label could not be placed clearly.');
+assert.ok(warningsLogged.some(args=>args[1] instanceof Error&&args[1].message.startsWith('Cannot place setup diagram label:')));
+const loggedBefore=warningsLogged.length;
+const overBudget=buildSetupDiagram({mesh:{...cube,indices:Array.from({length:300},()=>cube.indices).flat()}},fixtureSetup,reportLength);
+assert.equal(overBudget.text,'Setup diagram not drawn: the part is too detailed to draw here.');
+assert.equal(warningsLogged.length,loggedBefore,'expected drawing limits are not unexpected bugs');
+console.warn=savedWarn;
 assert.ok(!failPlacement.text.includes('WWW'), 'unplaceable caption is not repeated as another unplaceable warning');
 assert.doesNotThrow(()=>renderReportPdf({title:'Unavailable',blocks:[failPlacement,diagram],appendixStart:2},deps));
+const reverseX = buildSetupDiagram({mesh:cube},{...fixtureSetup,clamping:{...fixtureSetup.clamping,fixed_jaw:'x.max'}},reportLength);
+assert.equal(reverseX.type,'setup-diagram',reverseX.text);
+for(const view of reverseX.views) {
+  const fixed=view.shapes.find(s=>s.text==='Fixed jaw'),moving=view.shapes.find(s=>s.text==='Moving jaw');
+  assert.ok(fixed.x>moving.x&&fixed.x>=10,'x.max fixed jaw label is on the recorded side');
+  for(const jaw of fixtureSetup.clamping.jaws) assert.ok(view.shapes.some(s=>s.class==='jaw'&&s.x===jaw.min[0]&&s.width===jaw.max[0]-jaw.min[0]),'recorded jaws are drawn');
+  checkLabels(view,'x.max fixed jaw');
+}
+const bottomPickup = buildSetupDiagram({mesh:cube,analysis:{faces:[{id:1,kind:'plane',centroid:[5,5,10],direction:[0,0,1]}]}},{...fixtureSetup,zero:{status:'located',xy:{method:'stock_edges',description:'Stock corner',features:[]},z:{description:'bottom face — above the seat on datum A face',features:['faces:1']}}},reportLength);
+assert.equal(bottomPickup.type,'setup-diagram',bottomPickup.text);
+assert.ok(bottomPickup.views[1].shapes.some(s=>s.text==='Bottom face'));
+assert.ok(!bottomPickup.views[1].shapes.some(s=>s.text==='Datum A face'),'Z caption names the target before the seat reference');
 const reverseY = buildSetupDiagram({mesh:cube},{...fixtureSetup,clamping:{...fixtureSetup.clamping,fixed_jaw:'y.max',jaws:[{min:[-2,-5,-20],max:[12,0,-7]},{min:[-2,10,-20],max:[12,15,-7]}]}},reportLength);
 assert.equal(reverseY.type,'setup-diagram',reverseY.text);
 assert.ok(reverseY.views[1].shapes.some(s=>s.text==='Moving jaw (near side)'), 'the plan can make the far jaw fixed');
@@ -470,12 +510,20 @@ for(const n of [100,300]) {
   assert.equal(dense.type,'setup-diagram',dense.text);
   for(const view of dense.views) {
     assert.ok(view.shapes.filter(s=>s.type==='outline').length<=1);
+    assert.equal(view.note,view.stats.silhouetteTruncated?'Some curved edges omitted':'');
     assert.ok(view.stats.contourVertices<=8000);
     assert.ok(!view.shapes.some(s=>s.type==='polygon'&&s.class==='part'), 'fill does not become per-triangle commands');
     assert.ok(view.shapes.length<2500&&view.stats.silhouetteEdges<=2048, 'restored silhouette commands stay bounded');
     checkLabels(view,`dense ${4*n*n}`);
   }
-  const pdf=renderReportPdf({title:'Dense projection',blocks:[dense],appendixStart:1},deps);
+  const drawnNotes=[];
+  function NotePdf(...args) {
+    const doc=new jsPDF(...args), text=doc.text;
+    doc.text=function(value,...rest) { if(value==='Some curved edges omitted') drawnNotes.push(value); return text.call(this,value,...rest); };
+    return doc;
+  }
+  const pdf=renderReportPdf({title:'Dense projection',blocks:[dense],appendixStart:1},{...deps,jsPDF:NotePdf});
+  assert.equal(drawnNotes.length,dense.views.filter(v=>v.stats.silhouetteTruncated).length,'PDF prints the omission note under each affected view');
   assert.ok(pdf.output('arraybuffer').byteLength<=300000, 'dense setup stays below the requested 300 kB budget');
 }
 const cylinder = buildSetupDiagram({mesh:cylinderMesh()},cylinderSetup,reportLength);

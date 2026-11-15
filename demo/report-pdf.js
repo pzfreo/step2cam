@@ -111,12 +111,13 @@ export function renderReportPdf(report, { jsPDF, autoTable, fonts }) {
       // Keep both views together, including captions, warning and legend.
       const heights = block.views.map(v => v.height);
       const legendHeight = Math.ceil(block.legend.length / 3) * 5 + 3;
-      const height = heights.reduce((a, b) => a + b, 0) + 16 + legendHeight + block.warnings.length * 6 + (block.note ? 6 : 0);
+      const height = heights.reduce((a, b) => a + b, 0) + 16 + legendHeight + block.warnings.length * 6 + (block.note ? 6 : 0) + block.views.filter(v => v.note).length * 6;
       if (y + height > bottom) newPage();
       for (const warning of block.warnings) write(warning, { size: 9 });
       block.views.forEach((view, i) => {
         write(view.caption, { size: 9, gap: 1 });
         y += renderDiagramPdf(doc, view, left, y, width, heights[i]) + 3;
+        if (view.note) write(view.note, { size: 8 });
       });
       // Swatches use the same print styles as the drawing.
       block.legend.forEach(([cls, label], i) => {
