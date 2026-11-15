@@ -25,7 +25,7 @@ fn real_carvera_fixtures_plan_and_pass_camlib_checks() {
         assert!(tool["flute_length"].as_f64().unwrap_or(0.) <= tool["overall_length"].as_f64().unwrap());
     }
     for name in ["synthetic/stepped-plate", "plate"] {
-        let out = step2cam::process(
+        let out = crate::common::process_cached(
             &read(&format!("tests/fixtures/{name}.analysis.json")),
             &read(&format!("tests/fixtures/{name}.mesh.json")),
             &library,

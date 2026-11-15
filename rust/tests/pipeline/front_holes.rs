@@ -5,7 +5,7 @@ fn read(path: &str) -> Value {
 /// The stepped plate's front M3 holes, as `process` plans them with `library`.
 fn front_thread(analysis: &Value, library: &str) -> (Value, Option<Value>) {
     let mesh = read("../tests/fixtures/synthetic/stepped-plate.mesh.json");
-    let out = step2cam::process(analysis, &mesh, &read(library)).unwrap();
+    let out = crate::common::process_cached(analysis, &mesh, &read(library)).unwrap();
     assert!(out["error"].is_null(), "{library}: {}", out["error"]);
     let front = out["plan"]["setups"].as_array().unwrap().iter().find(|s| s["id"] == "front").unwrap();
     let thread = front["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "thread").cloned();

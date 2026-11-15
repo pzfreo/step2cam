@@ -21,7 +21,7 @@ fn tools() -> Value {
     fixture("placeholder-tools.json")
 }
 fn run(name: &str, t: &Value) -> Value {
-    let out = step2cam::process(
+    let out = crate::common::process_cached(
         &fixture(&format!("{name}.analysis.json")),
         &fixture(&format!("{name}.mesh.json")),
         t,
@@ -428,7 +428,7 @@ fn process_retries_when_only_the_upper_side_band_is_prepared() {
     let evidence = &list(&first["decisions"]).iter().find(|d| d["id"] == first_bottom["clamping"]["because"][0]).unwrap()["chosen"]["prior_setups"];
     assert_eq!(evidence["prepared_contacts"], false);
     assert_eq!(evidence["established_seat"], true);
-    let out = step2cam::process(&a, &m, &t).unwrap();
+    let out = crate::common::process_cached(&a, &m, &t).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let bottom = list(&out["plan"]["setups"]).iter().find(|s| s.get("flip_seating").is_some()).expect("retry retains the flip");
     let evidence = &list(&out["plan"]["decisions"]).iter().find(|d| d["id"] == bottom["clamping"]["because"][0]).unwrap()["chosen"]["prior_setups"];

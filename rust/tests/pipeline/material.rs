@@ -1,6 +1,6 @@
 //! camlib compares the stock left by the last move with the part. A height field cannot decide cells
 //! beside a wall on its own; camlib also reports a separate per-motion gouge proof.
-mod common;
+use crate::common;
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::simulate::simulate;
@@ -23,7 +23,7 @@ fn tools() -> Value {
     tools
 }
 fn process(part: &str) -> Value {
-    let out = step2cam::process(&fixture(&format!("{part}.analysis.json")), &fixture(&format!("{part}.mesh.json")), &tools()).unwrap();
+    let out = crate::common::process_cached(&fixture(&format!("{part}.analysis.json")), &fixture(&format!("{part}.mesh.json")), &tools()).unwrap();
     assert!(out["error"].is_null(), "{part}: {}", out["error"]);
     out
 }
@@ -152,7 +152,7 @@ fn the_threaded_job_compares_immediately_before_thread_milling() {
 /// And the fine grid it needs used to exhaust the check, which then said nothing.
 #[test]
 fn a_threaded_part_is_compared_right_through_before_its_threads() {
-    let out = step2cam::process(&threaded("plate"), &fixture("plate.mesh.json"), &tools()).unwrap();
+    let out = crate::common::process_cached(&threaded("plate"), &fixture("plate.mesh.json"), &tools()).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert_eq!(out["programs"][0]["material"]["complete"], true);
     assert!(out["log"].to_string().contains("before thread milling"), "{}", out["log"]);
@@ -197,7 +197,7 @@ fn the_stock_is_still_compared_when_roughing_is_refused() {
             tool["stepdown_mm"] = 0.into();
         }
     }
-    let out = step2cam::process(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
+    let out = crate::common::process_cached(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
     assert!(out["plan"]["warnings"].to_string().contains("roughing left out"), "{}", out["plan"]["warnings"]);
     assert!(out["programs"][0]["material"].is_object(), "{}", out["log"]);
     assert!(out.to_string().find("part_surface").is_none());
@@ -235,7 +235,7 @@ fn the_per_motion_proof_reports_when_mesh_error_spends_its_tolerance() {
 
 #[test]
 fn the_per_motion_proof_decides_the_channels_wall_cells() {
-    let out = step2cam::process(
+    let out = crate::common::process_cached(
         &fixture("synthetic/walls/channel.analysis.json"),
         &fixture("synthetic/walls/channel.mesh.json"),
         &fixture("../../tests/fixtures/placeholder-tools.json"),

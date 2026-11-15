@@ -35,7 +35,7 @@ fn run(flutes: f64, holder: f64) -> Value {
             .iter()
             .any(|f| f["family"] == "pockets")
     );
-    let out = step2cam::process(
+    let out = crate::common::process_cached(
         &analysis,
         &read("tests/fixtures/synthetic/tall-wall-pocket.mesh.json"),
         &tools(flutes, holder),
@@ -150,7 +150,7 @@ fn local_pocket(flutes: f64, holder: f64) -> Value {
     rougher["overall_length"] = json!(130.);
     library["roughing_tool"] = json!("em12");
     library["tools"].as_array_mut().unwrap().push(rougher);
-    let out = step2cam::process(&read("tests/fixtures/synthetic/tall-wall-pocket.analysis.json"),
+    let out = crate::common::process_cached(&read("tests/fixtures/synthetic/tall-wall-pocket.analysis.json"),
         &read("tests/fixtures/synthetic/tall-wall-pocket.mesh.json"), &library).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     out
@@ -265,7 +265,7 @@ fn mesh_blocked_roughing_does_not_withhold_the_pocket() {
     // Without per-face triangulation ranges the planner must use specify-core's conservative
     // chordal bound, over camlib's limit for this tall part. The triangles stay unchanged.
     mesh["faces"] = json!([]);
-    let out = step2cam::process(&analysis, &mesh, &tools(80., 12.)).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &tools(80., 12.)).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(
         out["plan"]["decisions"]
@@ -293,7 +293,7 @@ fn short_drill_preserves_a_cuttable_bore_and_is_deferred_without_one() {
             .find(|t| t["id"] == "drill4.2")
             .unwrap();
         drill["flute_length"] = json!(2.);
-        let out = step2cam::process(
+        let out = crate::common::process_cached(
             &read("tests/fixtures/plate.analysis.json"),
             &read("tests/fixtures/plate.mesh.json"),
             &library,
@@ -359,7 +359,7 @@ fn short_drill_preserves_a_cuttable_bore_and_is_deferred_without_one() {
 
 #[test]
 fn haas_complex_plate_holder_sentence_and_tool_query_share_camlib_evidence() {
-    let out = step2cam::process(
+    let out = crate::common::process_cached(
         &read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
         &read("tests/fixtures/synthetic/stepped-plate.mesh.json"),
         &read("libraries/haas-vf2.json"),

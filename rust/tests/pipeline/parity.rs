@@ -182,7 +182,7 @@ fn the_plates_job_is_python_s_job() {
 fn the_plates_job_runs_in_camlib() {
     let analysis = json("tests/fixtures/plate.analysis.json");
     let mesh = json("tests/fixtures/plate.mesh.json");
-    let out = step2cam::process(&analysis, &mesh, &json("examples/tools.example.json")).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &json("examples/tools.example.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let ends: Vec<u64> = out["programs"][0]["operations"].as_array().unwrap().iter().map(|o| o["end"].as_u64().unwrap()).collect();
     // camlib #104 simplifies the roughing layer shadows: 1,565 moves instead of 1,922.
@@ -240,7 +240,7 @@ fn each_tool_starts_at_the_declared_machine_pose() {
     let mut library = json("examples/tools.example.json");
     library["tool_change_xy_mm"] = serde_json::json!([-7., -9.]);
     library["tool_change_gauge_z_mm"] = 130.into();
-    let out = step2cam::process(&json("tests/fixtures/plate.analysis.json"), &json("tests/fixtures/plate.mesh.json"), &library).unwrap();
+    let out = crate::common::process_cached(&json("tests/fixtures/plate.analysis.json"), &json("tests/fixtures/plate.mesh.json"), &library).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let program = &out["programs"][0];
     let job = &program["job"];
