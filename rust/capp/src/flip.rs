@@ -609,6 +609,7 @@ pub fn build(analysis: &Value, mesh: &Value, resources: &Value) -> Result<Plan, 
     bottom.operations.insert(
         0,
         Operation {
+            raster_technology: None,
             cut: Cut::Facing { floor_z: 0. },
             tool: None,
             tool_note: None,

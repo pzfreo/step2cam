@@ -209,7 +209,7 @@ fn each_cut_writes_its_own_kind() {
     let kinds: BTreeSet<&str> = samples.iter().map(|c| c.kind().name()).collect();
     assert_eq!(kinds, OpKind::ALL.iter().map(|k| k.name()).collect(), "one sample of every kind");
     for cut in samples {
-        let op = Operation { cut, tool: None, tool_note: None, because: None, iso14649: None, technology: None };
+        let op = Operation { raster_technology: None, cut, tool: None, tool_note: None, because: None, iso14649: None, technology: None };
         let encoded = serde_json::to_value(&op).unwrap();
         assert_eq!(encoded["kind"], op.cut.kind().name());
         assert_eq!(serde_json::from_value::<Operation>(encoded).unwrap(), op);

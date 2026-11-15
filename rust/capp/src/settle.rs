@@ -235,7 +235,7 @@ fn exclude_with(plan: &mut Plan, operation: &str, message: &str, need: Option<&s
 }
 
 const REACH_RULE: &str = "process.roughing.reach";
-const REACH_MARGIN_MM: f64 = 1.;
+pub(crate) const REACH_MARGIN_MM: f64 = 1.;
 
 fn reach_reason(rough: &Roughing, mill: &Value) -> Result<String, String> {
     Ok(format!("roughing reaches only Z{} ({} mm below the stock top, {}'s {} mm flutes, {} mm stickout, {} mm clearance)",
@@ -866,6 +866,9 @@ fn resolve_with(plan: &mut Plan, library_data: &Value, trace: &mut Trace) -> Res
                             "Finish the wall in the fewest equal axial passes its flute length allows; roughing stepdown does not limit the finishing allowance cut. Camlib still checks reach and stock contact.",
                             json!({"chosen": {"passes": passes as u64, "stepdown_mm": stepdown, "depth_mm": depth, "flute_length_mm": flute}})));
                     }
+                }
+                if matches!(op.cut, Cut::Roughing(_)) {
+                    why.push(crate::roughing::choose(op, &mut technology, spec, crate::roughing::Material { group: group.as_deref(), name: plan_material.as_deref() }, library_data, &subject, trace)?);
                 }
                 op.technology = Some(technology);
             }

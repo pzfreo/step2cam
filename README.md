@@ -26,7 +26,7 @@ decades of rules still produce a first draft that a machinist edits.
 
 **Use it** to see how recognition and planning could fit together, to read a plan's reasoning,
 and to argue with specific rules: every planning decision names the rule it was made by, and the
-camlib job's own process choices (raster clearing, roughing allowances, the 3° helix entry, and
+camlib job's own process choices (clearing strategy, roughing allowances, the 3° helix entry, and
 any flute count or tool material the library leaves out) are named in its notes by rule, so "rule
 X is wrong here, because…" is the most useful feedback. The rest of the job's settings (the
 stock grid, simulation limits, facing and drilling cycle details) are not traced. **Do not cut anything from its output without
@@ -126,6 +126,16 @@ camlib's checks run on every move before anything is shown: its stock-contact ch
 holder against the stock as it stands), its link limits, a flat-depth guard, and the comparison of
 the finished stock with the part. An operation that fails is left out and reported; a gouge refuses
 the setup. These check the toolpaths; checking G-code is the job of the post that writes it.
+
+Roughing uses bounded radial engagement where the library has a sourced material policy:
+25% of tool diameter in the listed nonferrous metals, 10% in ISO P steel. ISO N
+nonmetallics and materials outside that policy retain raster with a traced reason.
+Axial depth uses the flute length, capped at 2D and the existing reach margin; radial
+chip thinning raises feed within the machine ceiling. Shallow-floor stairs use the
+original slotting increment. If adaptive clearing or its flat preparation is refused,
+the planner retries raster once with the original cutting data, records why, and keeps
+all stock-contact, flat-depth and material checks. The move-based grip check measures
+the admitted roughing moves; a deeper bounded cut can still exceed the grip capacity.
 
 ## Getting G-code: camlib's posts
 

@@ -1169,14 +1169,14 @@
   },
   {
    "id": "process.roughing.clearing",
-   "version": 1,
+   "version": 2,
    "stage": "process",
-   "rationale": "Roughing clears each layer in parallel raster passes at the end mill's stepover (at most half its diameter), joined by the shortest routing camlib offers. The job's roughing note cites this rule.",
+   "rationale": "Map the neutral bounded-engagement policy to adaptive engagement-front clearing, with radial width from technology, deep layers capped by tool reach, and shallow-floor stepup at the original slotting increment. Otherwise clear parallel raster passes at the end mill's stepover (at most half its diameter), with economical routing. Keep entry, stock band and checks unchanged. The job's roughing note cites this rule.",
    "code": "rust/src/job.rs roughing",
    "sources": [
     {
      "kind": "step2cam",
-     "note": "judgement: one simple clearing pattern for every part; no adaptive or offset clearing is chosen"
+     "note": "process.roughing.bounded_engagement selects the sourced policy or traces why raster is used; the adapter alone names the execution strategy."
     }
    ]
   },
@@ -1309,6 +1309,19 @@
      "note": "Maintainer decision approved 2026-11-14, project review M10: record zero and how to find it; finished earlier, reachable now; warn rather than invent a datum. Coordinator revision: hidden finished faces locate against the fixed jaw and a required stop set before loading; Z transfers from a finished seat on modeled parallel tops rather than raw bar thickness. These fixture-location policies are step2cam judgement."
     }
    ]
+  },
+{
+ "id": "process.roughing.bounded_engagement",
+ "version": 1,
+ "stage": "tools",
+ "rationale": "Use sourced per-material light radial width and flute-based axial depth, chip thinning capped by controller cutting feed or existing feed limit. Missing source stays raster. Retry raster with original cutting data only after camlib refuses adaptive, or the existing flat residual-depth check refuses its prepared stock; retain the exact reason and all checks.",
+ "code": "roughing.rs; rust/src/lib.rs; rust/src/job.rs",
+ "sources": [
+  {
+   "kind": "practice",
+   "ref": "Library roughing_by_group._sources; Harvey depth-of-cut, trochoidal and chip-thinning guidance; Seco advanced roughing; RobbJack FAQ"
   }
+ ]
+}
  ]
 }

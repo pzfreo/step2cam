@@ -262,6 +262,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
     let mut setup_cache = vec![];
+    let mut roughing_refusals = std::collections::HashMap::new();
     let mut fell_back = false;
     let mut rejected_seats = vec![];
     let initial_exclusions = exclusions.len();
@@ -276,6 +277,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             error = Some(message);
             break;
         }
+        capp::roughing::fallbacks(&mut plan, &roughing_refusals);
         let start: &Vec<Key> = started.get_or_insert_with(|| plan.setups.iter()
             .flat_map(|s| s.operations.iter().map(|op| cut_of(&s.id, op))).collect());
         let operations = start.len();
@@ -309,6 +311,11 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {
             break;
         };
+        if let Some(operation) = failure.operation.as_ref()
+            && let Some(setup) = capp::roughing::retry_setup(&plan, operation, &failure.message) {
+            roughing_refusals.insert(setup, failure.message);
+            continue;
+        }
         // An operation capp can take out is excluded and the plan finished again; anything else
         // stops: nothing is given out, not even a setup that ran before this one stopped.
         let excludable = failure.operation.as_ref().is_some_and(|id| capp::excludable(&plan, id));
@@ -340,6 +347,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let reach = match failure.cause { simulate::Cause::Reach(reach) => Some(*reach), _ => None };
         exclusions.push(Exclusion { operation, message: failure.message, tool, selection, reach });
     }
+    log.extend(plan.decisions.iter().flatten().filter(|d| d["outcome"] == "fallback" && d["rule"] == capp::trace::cite("process.roughing.bounded_engagement"))
+        .filter_map(|d| d["says"].as_str()).map(|s| format!("note: {s}")));
     let needs: Vec<&str> = plan.tools_needed.iter().flatten().map(|n| n.description.as_str()).collect();
     if !needs.is_empty() {
         log.push(format!("tools needed: {}", needs.join("; ")));

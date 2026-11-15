@@ -46,6 +46,24 @@ no camlib:
   what an execution engine refused; places the material in its ISO 513 group; and names each
   operation's tool, cutting data and ISO 14649 names.
 
+The `process.roughing.bounded_engagement` decision selects `technology.clearing_strategy`
+(`bounded_engagement` or `raster`). A sourced `roughing_by_group` entry supplies radial
+width as a diameter fraction and axial depth as a flute fraction, capped at its maximum
+diameters and `min(flute_length, stickout) - 1 mm`. ISO N additionally matches the
+policy's whole material words; nonmetallics and other unsupported groups stay raster.
+The chip-thinning multiplier is `1 / (2 sqrt(w (1-w)))` for radial fraction `w < 0.5`,
+after spindle capping. Cutting feed is capped by the controller's maximum cutting feed,
+or the existing library rapid-feed ceiling (5000 mm/min if absent); plunge is unchanged.
+`raster_technology` keeps the original data, including that feed ceiling, for retry.
+The adapter maps bounded engagement to adaptive clearing and uses the original slotting
+stepdown for shallow-floor stepup. A dependent flat's residual-depth limit uses that
+increment, never the deeper adaptive stepdown. An adaptive refusal, including a dependent
+flat reporting stock where roughing did not reach, triggers one raster retry per setup
+within each independent workholding candidate. The reason is a `fallback` decision and
+log note; only the strategy decision is superseded, preserving tool-selection evidence.
+Replanning a seating or withholding a flip keeps the retry reason. All execution checks
+still run, and a refused raster follows normal exclusion handling.
+
 Settlement caps roughing at stock top minus `min(flute_length, stickout) - 1 mm`, before
 camlib sees it. This is the stopgap for stevecad/camlib#122; once camlib checks each layer's
 cutting depth, the flute limit can be relaxed to holder clearance. The plan keeps

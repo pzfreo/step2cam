@@ -4,7 +4,7 @@ This directory contains resources-format libraries for named machines and
 catalogue tooling, plus the page's generic LinuxCNC mill with placeholder tools and limits. Pass one as the third argument to the Rust `process` example,
 or use `--tools libraries/haas-vf2.json` with the benchmark runner. The demo default (`demo/tools.json`) is the Carvera aluminium library described
 below. The benchmark reference library (`tools/benchmark/tools.json`) is independent
-and unchanged; generic planner regressions use `tests/fixtures/placeholder-tools.json`.
+and now carries a steel material override and sourced roughing policy; generic planner regressions use `tests/fixtures/placeholder-tools.json`.
 
 Every machine capability, vise dimension, holder envelope and tool family needs a
 public source. Keep source URLs, catalogue identifiers, units, conversions and
@@ -28,8 +28,7 @@ observed settings. Never substitute an engine default for an unknown machine fac
 `linuxcnc-vmc.json` replaces the page's generic machining centre. Its three linear
 axes, limits, vise, tools and cutting data are placeholders copied from the
 independent benchmark library; it describes no specific commercial machine.
-The benchmark library is unchanged so controller identity cannot change its
-plan outcomes or input hash. `_sources.controller` cites LinuxCNC 2.9 and camlib.
+Controller identity does not change the benchmark library; bounded-engagement policy and the explicit dataset steel override now do change its input hash. `_sources.controller` cites LinuxCNC 2.9 and camlib.
 
 The new cutting ceiling, tool/length-offset ceilings and tool-change location
 are explicitly **placeholders**, not LinuxCNC defaults. Their provenance and the
@@ -407,3 +406,20 @@ The sheet says what is limited and the approximate contact height;
 is not simulated. Side-setup stock touch-off warns that stock size varies; flip
 touch-off keeps the bar-thickness warning.
 Undatumed face names refer to the model's top/bottom, front/back and left/right.
+
+## Bounded-engagement roughing
+
+`roughing_by_group` holds a sourced policy independently of the slotting data on each
+tool. Shipped demo, Haas, LinuxCNC and benchmark libraries use radial fractions 0.25
+for listed nonferrous metals (RobbJack FAQ, lower end of 25–50%) and 0.10 for ISO P
+steel (Seco advanced roughing, lower end of 10–15%). The N policy's `material_words`
+excludes polymers/composites even though those share ISO N. Other groups stay raster.
+Harvey's depth-of-cut and trochoidal guidance supports full flute depth capped at 2D;
+the planner additionally applies its existing 1 mm reach margin. These are general
+starting policies, not tool-specific load qualifications. `_sources` on each field
+records the references. Chip-thinning compensation uses Harvey's maximum-chip-thickness
+formula and never exceeds the machine feed ceiling. Original plunge and slotting data
+remain available for raster retry and shallow-floor cleanup. Stock-contact, flat-depth
+and material checks remain active. Measured grip warnings are retained, not tuned away.
+The benchmark explicitly supplies steel because its synthetic dataset's STEP analyses
+omit material (doi:10.5281/zenodo.21653081, CC BY 4.0).

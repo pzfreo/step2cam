@@ -149,6 +149,9 @@ pub struct Setup {
 /// One operation: what is cut, and once the plan is finished, with which tool and how.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Operation {
+    /// Original slotting data retained for a checked raster retry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raster_technology: Option<Map<String, Value>>,
     /// The cut, by kind.
     #[serde(flatten)]
     pub cut: Cut,

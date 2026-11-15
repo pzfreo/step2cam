@@ -229,6 +229,52 @@
  },
  "additionalProperties": false,
  "$defs": {
+  "roughing_raster_technology": {
+ "type": "object",
+ "required": [
+  "source"
+ ],
+ "properties": {
+  "feed_mm_min": {
+   "type": "number"
+  },
+  "spindle_rpm": {
+   "type": "number"
+  },
+  "plunge_mm_min": {
+   "type": "number"
+  },
+  "stepdown_mm": {
+   "type": "number"
+  },
+  "stepover_mm": {
+   "type": "number"
+  },
+  "source": {
+   "type": "string",
+   "pattern": "^(tool|cutting_data\\.[PMKNSH])$"
+  },
+  "capped": {
+   "const": true,
+   "description": "The spindle speed was capped at the machine's top speed, the feeds scaled to match."
+  },
+  "peck_mm": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "exclusiveMinimum": 0
+  },
+  "peck_mode": {
+   "enum": [
+    "full_retract",
+    "chip_break"
+   ]
+  }
+ },
+ "additionalProperties": false,
+ "description": "The cutting data the operation uses, once capp::finish has run: its tool's own, or what the tool states for the material's ISO 513 group."
+},
   "grip_move": {
    "type": "object",
    "required": ["cutting_force_n", "axial_depth_mm", "radial_width_mm", "feed_mm_min", "spindle_rpm", "flutes", "diameter_mm", "position_mm", "motion_id", "cell_size_mm"],
@@ -684,12 +730,15 @@
        "additionalProperties": false,
        "description": "The ISO 14649 (STEP-NC) names for it, from capp/rulebase/reference/iso14649-names.json: the feature it machines and the operation (null where ISO 14649-11 has none); exact false where they are only the closest."
       },
+      "raster_technology": {"$ref": "#/$defs/roughing_raster_technology"},
       "technology": {
        "type": "object",
        "required": [
         "source"
        ],
        "properties": {
+        "clearing_strategy": {"enum": ["raster", "bounded_engagement"]},
+        "radial_width_mm": {"type": "number", "exclusiveMinimum": 0},
         "feed_mm_min": {
          "type": "number"
         },
@@ -2466,6 +2515,13 @@
     "says"
    ],
    "properties": {
+    "material_group": {"enum": ["P", "M", "K", "N", "S", "H", null]},
+    "chip_thinning_factor": {"type": "number", "minimum": 1},
+    "base_feed_mm_min": {"type": "number", "exclusiveMinimum": 0},
+    "feed_limit_mm_min": {"type": "number", "exclusiveMinimum": 0},
+    "feed_limit_source": {"enum": ["controller_settings.max_cutting_feed_mm_min", "library existing feed limit"]},
+    "policy": {"type": "object"},
+    "refusal": {"type": "string"},
     "rejected_pickups": {"type": "array", "items": {"type": "object", "required": ["feature", "reason"], "additionalProperties": false, "properties": {"feature": {"type": "string", "pattern": "^faces:[0-9]+$"}, "reason": {"type": "string", "minLength": 1}}}},
     "id": {
      "type": "string",
@@ -2492,7 +2548,7 @@
      "description": "A feature id, a setup id, setup:kind for an operation, or an operation as the execution engine names it."
     },
     "outcome": {
-     "enum": [
+     "enum": ["fallback",
       "chosen",
       "none",
       "planned",

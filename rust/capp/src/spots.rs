@@ -136,7 +136,7 @@ fn groups(ops: &[Operation], setup_id: &str, top: f64, library: &Library, trace:
             group.features.push(feature.clone());
         }
     }
-    Ok(groups.into_iter().map(|(because, spot)| Operation { cut: Cut::SpotDrill(spot), tool: None, tool_note: None,
+    Ok(groups.into_iter().map(|(because, spot)| Operation { raster_technology: None, cut: Cut::SpotDrill(spot), tool: None, tool_note: None,
         because: Some(because), iso14649: None, technology: None }).collect())
 }
 

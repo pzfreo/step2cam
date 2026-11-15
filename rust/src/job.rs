@@ -495,7 +495,19 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         "limits": {"contain": stock_band(cx, op_id, num(s, "diameter")? / 2.)},
     });
     cutting(&mut out, s, true)?;
-    cx.notes.push(format!("{op_id}: clears in raster passes ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius and {} mm of the stock ({})",
+    let adaptive = s["clearing_strategy"] == "bounded_engagement";
+    if adaptive {
+        out.as_object_mut().unwrap().remove("omit_empty_cuts");
+        out["clearing"] = json!({"kind": "adaptive", "path_strategy": "engagement_front",
+            "max_radial_engagement_mm": num(s, "radial_width_mm")?, "boundary_tolerance_mm": 0.01});
+        // Shallow-floor stairs keep the original slotting increment; Flat's guard stays unchanged.
+        let stepup = technology.and_then(|_| setup.operations.iter().find(|o| matches!(o.cut, Cut::Roughing(_))))
+            .and_then(|o| o.raster_technology.as_ref()).and_then(|t| t.get("stepdown_mm")).and_then(Value::as_f64)
+            .ok_or("adaptive roughing has no original stepdown")?;
+        if stepup < num(s, "stepdown_mm")? { out["stepup_mm"] = json!(stepup); }
+    }
+    let strategy = if adaptive { "bounded-engagement passes" } else { "raster passes" };
+    cx.notes.push(format!("{op_id}: clears in {strategy} ({}), leaving {} mm on the walls and {} mm on the floors ({}); enters from the stock edge or by a {ENTRY_ANGLE_DEG}° helix ({}); its tool centre stays within one cutter radius and {} mm of the stock ({})",
         cite("process.roughing.clearing"), show(radial), show(bottom), cite("process.roughing.allowance"), cite("process.entry.helix"), show(REGION_AIR_MM), cite("process.roughing.region")));
     if setup.flip_role.as_deref() == Some("sacrificial_grip") && op.web_mm == 0. {
         cx.notes.push(format!("{op_id}: clears {} mm from the walls to the part bottom; sacrificial bottom stock retains the grip and is faced off in bottom setup", show(radial)));

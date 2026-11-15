@@ -533,7 +533,7 @@ pub fn build(analysis: &Value, mesh: Option<&Value>, options: &Options) -> Resul
                 }
             }
             let because = [in_setup.clone(), order.clone(), made].into_iter().chain(holes_placed).collect();
-            operations.push(model::Operation { cut, tool: None, tool_note: None, because: Some(because), iso14649: None, technology: None });
+            operations.push(model::Operation { raster_technology: None, cut, tool: None, tool_note: None, because: Some(because), iso14649: None, technology: None });
         }
         trace.skipped.retain(|s| !chamfered.contains(&s.feature));
         let mut setup = frame.describe(name, operations);
