@@ -6,6 +6,24 @@ use std::f64::consts::PI;
 
 const RULE: &str = "machine.grip_vs_cut";
 
+/// The common mean tangential milling model, for plan and measured engagements.
+#[derive(Clone, Copy, Debug)]
+pub struct MillingForce {
+    pub force_n: f64,
+    pub kc_n_mm2: f64,
+    pub chip_thickness_mm: f64,
+}
+
+pub fn milling_force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flutes: f64) -> Option<MillingForce> {
+    if ap <= 0. || ae <= 0. || diameter <= 0. || feed <= 0. || rpm <= 0. || flutes <= 0. { return None; }
+    let rule = &crate::rules::workholding()["grip_force"];
+    let phi = (1.-2.*ae/diameter).clamp(-1., 1.).acos();
+    let h = feed / (rpm * flutes) * (1.-phi.cos()) / phi;
+    if h <= 0. || !h.is_finite() { return None; }
+    let kc = rule["kc1_n_mm2"].as_f64().unwrap() * h.powf(-rule["mc"].as_f64().unwrap());
+    Some(MillingForce { force_n: kc * (ap * ae * feed / (PI * diameter * rpm)), kc_n_mm2: kc, chip_thickness_mm: h })
+}
+
 // Only plan-known engagements are estimated here. Stock-aware runtime operations
 // are recorded as not checked before this helper is called.
 fn engagement(op: &Operation, top: f64, diameter: f64, step: f64, over: f64, allowance: f64) -> (f64, f64) {
@@ -64,7 +82,8 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
                 continue;
             }
             if matches!(op.cut, Cut::Roughing(_) | Cut::Holes(_) | Cut::Counterbore(_) | Cut::Thread(_)) {
-                let says = "engagement decided by camlib; not checked against the grip before camlib runs";
+                let says = if aluminium { "engagement decided by camlib; not checked against the grip before camlib runs" }
+                    else { "grip not checked: no applicable material reference (see setup warning)" };
                 let mut extra = detail.clone();
                 extra["force_model"] = json!(says);
                 because_op(op, [trace.decide(RULE, &subject, "none", says, extra)]);
@@ -83,16 +102,11 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
             let allowance = library["radial_allowance_mm"].as_f64().unwrap_or(0.3);
             let (ap, ae) = engagement(op, top, diameter, step, over, allowance);
             let flutes = tool["flutes"].as_f64().unwrap_or(3.);
-            let fz = feed / (rpm * flutes);
-            let phi = (1.-2.*ae/diameter).clamp(-1., 1.).acos();
-            let h = if phi > 0. { fz * (1.-phi.cos()) / phi } else { 0. };
-            if h <= 0. || !h.is_finite() {
+            let Some(load) = milling_force(ap, ae, diameter, feed, rpm, flutes) else {
                 because_op(op, [trace.warn(RULE, &subject, "grip force not checked: no positive chip thickness".into(), detail.clone())]);
                 continue;
-            }
-            let kc = kc1 * h.powf(-mc);
-            let section = ap * ae * feed / (PI * diameter * rpm);
-            let force = kc * section;
+            };
+            let (force, kc, h) = (load.force_n, load.kc_n_mm2, load.chip_thickness_mm);
             let mut extra = detail.clone();
             extra["cutting_force_n"] = json!(force);
             extra["kc1_n_mm2"] = json!(kc1);
