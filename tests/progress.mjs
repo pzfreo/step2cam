@@ -111,9 +111,9 @@ const layers = vm.createContext({ Math });
 vm.runInContext(source.slice(source.indexOf("function findLayers"), source.indexOf("function nearestFeature")), layers);
 vm.runInContext(`
 const segments = [{op:"rough"}, {op:"rough",rapid:true}, {op:"rough"},
-  {op:"rough"}, {op:"rough"}, {op:"rough"}, {op:"feature"}];
+  {op:"rough"}, {op:"rough"}, {op:"rough"}, {op:"feature"}, {op:"feature"}];
 const local = [0,0,-1, 5,0,-1, 5,0,-1, 0,1,-1, 0,1,-1, 5,1,-1.00001,
-  5,1,-1, 5,1,-2, 5,1,-2, 0,1,-2, 0,1,-2, 5,2,-2, 0,0,-2, 5,0,-2];
+  5,1,-1, 5,1,-2, 5,1,-2, 0,1,-2, 0,1,-2, 5,2,-2, 0,0,-2, 5,0,-2, 0,0,-3, 5,0,-3];
 for (const s of segments) s.kind = s.rapid ? "rapid" : "cut";
 findLayers(segments, local);
 `, layers);
@@ -141,4 +141,8 @@ assert.ok(Math.abs(alpha(0) - 0.13) < 1e-6);
 assert.ok(Math.abs(alpha(3) - 0.13) < 1e-6);
 assert.ok(Math.abs(alpha(4) - 0.75) < 1e-6);
 assert.ok(Math.abs(alpha(5) - 0.75) < 1e-6);
-console.log("Whole-part depth layers and faint other layers passed.");
+paint.currentSegment = () => 6;
+vm.runInContext("paintToolpaths()", paint);
+assert.ok(Math.abs(alpha(6) - 0.75) < 1e-6);
+assert.ok(Math.abs(alpha(7) - 0.75) < 1e-6); // feature operations still highlight all depths
+console.log("Whole-part depth layers, faint other layers and unchanged feature highlighting passed.");
