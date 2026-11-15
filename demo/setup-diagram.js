@@ -25,6 +25,8 @@ const labelFor = (pickup) => {
 // Work is linear in the input mesh, but retained geometry and raster work are
 // bounded. The 192-cell silhouette (128 for dense meshes) can lose details below
 // one cell. B-rep wires retain their original detail within the wire budget.
+// Curved-face silhouettes retain at most 2048 facing transitions per view;
+// normals within 0.001 of tangent are edge-on to suppress chord-sampling noise.
 function prepareMesh(mesh, setup) {
   const source = mesh?.positions || [], xyz = new Float64Array(source.length);
   const r = setup.rotation || identity, o = setup.origin_model || [0, 0, 0];
@@ -37,7 +39,9 @@ function prepareMesh(mesh, setup) {
       xyz[i + a] = v; min[a] = Math.min(min[a], v); max[a] = Math.max(max[a], v);
     }
   }
-  return { xyz, part: source.length ? { min, max } : null };
+  const faceIds = new Uint32Array((mesh?.indices?.length || 0) / 3);
+  (mesh?.faces || []).forEach(([start, count], i) => faceIds.fill(i + 1, start, start + count));
+  return { xyz, faceIds, part: source.length ? { min, max } : null };
 }
 function simplify(points, tolerance) {
   if (points.length < 3) return points;
@@ -63,25 +67,48 @@ function projection(mesh, setup, vertical, prepared) {
   const sx = Math.max(part.max[0] - x0, 1e-6) / n, sy = Math.max(part.max[vertical] - y0, 1e-6) / n;
   const span = Math.max(part.max[0] - x0, part.max[vertical] - y0, 1);
   const depth = new Float64Array(n * n).fill(-Infinity), triangles = [];
-  let rasterTests = 0;
+  const signs = new Int8Array(count), faceMasks = new Uint8Array((mesh?.faces?.length || 0) + 1);
+  let rasterTests = 0, rasterRows = 0;
   for (let i = 0; i < indices.length; i += 3) {
     const ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
     const ax = xyz[ia], ay = xyz[ia + vertical], bx = xyz[ib], by = xyz[ib + vertical], cx = xyz[ic], cy = xyz[ic + vertical];
     const az = vertical === 1 ? xyz[ia + 2] : -xyz[ia + 1], bz = vertical === 1 ? xyz[ib + 2] : -xyz[ib + 1], cz = vertical === 1 ? xyz[ic + 2] : -xyz[ic + 1];
     const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+    const normalLength = Math.hypot((by - ay) * (cz - az) - (bz - az) * (cy - ay), (bz - az) * (cx - ax) - (bx - ax) * (cz - az), area);
+    // Chord sampling at opposite ends of a cylinder can stagger by a few
+    // microns. Treat near-tangent normals as edge-on, not a false facing flip.
+    const tangent = Math.max(1e-12, normalLength * 0.001);
+    const sign = area > tangent ? 1 : area < -tangent ? -1 : 0;
+    signs[i / 3] = sign; faceMasks[prepared.faceIds[i / 3]] |= sign > 0 ? 1 : sign < 0 ? 2 : 0;
     if (Math.abs(area) < 1e-12) continue;
     if (count <= 20000) triangles.push([ax, ay, az, bx, by, bz, cx, cy, cz, area]);
     const lx = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - x0) / sx - 0.5)), hx = Math.min(n - 1, Math.floor((Math.max(ax, bx, cx) - x0) / sx - 0.5));
     const ly = Math.max(0, Math.ceil((Math.min(ay, by, cy) - y0) / sy - 0.5)), hy = Math.min(n - 1, Math.floor((Math.max(ay, by, cy) - y0) / sy - 0.5));
-    rasterTests += Math.max(0, hx - lx + 1) * Math.max(0, hy - ly + 1);
-    if (rasterTests > 4000000) throw new Error('mesh projection exceeds raster budget');
-    for (let y = ly; y <= hy; y++) for (let x = lx; x <= hx; x++) {
-      const px = x0 + (x + 0.5) * sx, py = y0 + (y + 0.5) * sy;
-      const u = ((px - ax) * (cy - ay) - (py - ay) * (cx - ax)) / area;
-      const v = ((bx - ax) * (py - ay) - (by - ay) * (px - ax)) / area;
-      if (u >= -1e-7 && v >= -1e-7 && u + v <= 1 + 1e-7) depth[y * n + x] = Math.max(depth[y * n + x], az + u * (bz - az) + v * (cz - az));
+    if (lx > hx || ly > hy) continue;
+    // Scan-convert the actual horizontal span, not the triangle's bounding
+    // rectangle. Fan ends and long thin triangles cost only their covered area.
+    for (let y = ly; y <= hy; y++) {
+      if (++rasterRows > 4000000) throw new Error('mesh projection exceeds raster budget');
+      const py = y0 + (y + 0.5) * sy;
+      let left = Infinity, right = -Infinity;
+      const intersect = (x1, y1, x2, y2) => {
+        if (py < Math.min(y1, y2) - 1e-9 || py > Math.max(y1, y2) + 1e-9) return;
+        if (Math.abs(y2 - y1) < 1e-12) { left = Math.min(left, x1, x2); right = Math.max(right, x1, x2); }
+        else { const x = x1 + (py - y1) * (x2 - x1) / (y2 - y1); left = Math.min(left, x); right = Math.max(right, x); }
+      };
+      intersect(ax, ay, bx, by); intersect(bx, by, cx, cy); intersect(cx, cy, ax, ay);
+      const start = Math.max(lx, Math.ceil((left - x0) / sx - 0.5 - 1e-7)), end = Math.min(hx, Math.floor((right - x0) / sx - 0.5 + 1e-7));
+      rasterTests += Math.max(0, end - start + 1);
+      if (rasterTests > 4000000) throw new Error('mesh projection exceeds raster budget');
+      for (let x = start; x <= end; x++) {
+        const px = x0 + (x + 0.5) * sx;
+        const u = ((px - ax) * (cy - ay) - (py - ay) * (cx - ax)) / area;
+        const v = ((bx - ax) * (py - ay) - (by - ay) * (px - ax)) / area;
+        if (u >= -1e-7 && v >= -1e-7 && u + v <= 1 + 1e-7) depth[y * n + x] = Math.max(depth[y * n + x], az + u * (bz - az) + v * (cz - az));
+      }
     }
   }
+
   // Trace the raster union into closed outer/inner loops; one even-odd fill
   // preserves holes without retaining a polygon for every input triangle.
   const boundary = new Map(); let edgeCount = 0;
@@ -139,10 +166,47 @@ function projection(mesh, setup, vertical, prepared) {
     }
     return false;
   }
+  // Indexed vertex incidence avoids the former unbounded string-keyed edge
+  // map. Only faces with both facing signs can have interior silhouettes.
+  const curves = new Map(); let comparisons = 0, silhouetteEdges = 0, silhouetteTruncated = false;
+  if (faceMasks.some(mask => mask === 3)) {
+    if (!prepared.incidence) {
+      const canonical = new Uint32Array(xyz.length / 3), weld = new Map(), epsilon = span * 1e-7;
+      for (let v = 0; v < canonical.length; v++) {
+        if (count > 20000) { canonical[v] = v; continue; }
+        const key = [0, 1, 2].map(a => Math.round(xyz[v * 3 + a] / epsilon)).join(',');
+        if (!weld.has(key)) weld.set(key, v); canonical[v] = weld.get(key);
+      }
+      const heads = new Int32Array(xyz.length / 3).fill(-1), next = new Int32Array(indices.length);
+      for (let i = 0; i < indices.length; i++) { const v = canonical[indices[i]]; next[i] = heads[v]; heads[v] = i; }
+      prepared.incidence = { heads, next, canonical };
+    }
+    const { heads, next, canonical } = prepared.incidence;
+    outer: for (let t = 0; t < count; t++) {
+      const face = prepared.faceIds[t];
+      if (faceMasks[face] !== 3 || signs[t] < 0) continue;
+      for (let e = 0; e < 3; e++) {
+        const a = canonical[indices[t * 3 + e]], b = canonical[indices[t * 3 + (e + 1) % 3]]; let degree = 0;
+        for (let link = heads[a]; link >= 0 && degree++ < 64; link = next[link]) {
+          if (++comparisons > 4000000 || silhouetteEdges >= 2048) { silhouetteTruncated = true; break outer; }
+          const other = Math.floor(link / 3);
+          if (other === t || prepared.faceIds[other] !== face || signs[other] >= signs[t] || (signs[t] === 0 && signs[other] === 0)) continue;
+          const j = other * 3;
+          if (canonical[indices[j]] !== b && canonical[indices[j + 1]] !== b && canonical[indices[j + 2]] !== b) continue;
+          if (!curves.has(face)) curves.set(face, []);
+          curves.get(face).push([a, b]); silhouetteEdges++; break;
+        }
+      }
+    }
+  }
   const lines = []; let wireSegments = 0, wireVertices = 0;
-  for (const flat of mesh?.edges || []) {
-    if (wireSegments + flat.length / 3 > 12000) break;
-    const points = pointsOf(flat).map(p => project(transform(p, setup))); let run = [], state;
+  function drawWire(points, source, face) {
+    let run = [], state;
+    const emit = () => {
+      const p = simplify(run, span * 1e-8); wireVertices += p.length;
+      if (wireVertices > 8000) return false;
+      lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: p, source, ...(face == null ? {} : { face }) }); return true;
+    };
     for (let j = 1; j < points.length; j++) {
       const a = points[j - 1], b = points[j]; wireSegments++;
       const length = Math.hypot(b[0] - a[0], b[1] - a[1]); if (length < span * 1e-8) continue;
@@ -150,14 +214,33 @@ function projection(mesh, setup, vertical, prepared) {
       let last = a.slice(0, 2); if (!run.length) run.push(last);
       for (let k = 0; k < steps; k++) {
         const at = f => a.map((v, i) => v + (b[i] - v) * f), h = hidden(at((k + 0.5) / steps));
-        if (state !== undefined && h !== state) { lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: simplify(run, span * 1e-8) }); run = [last]; }
+        if (state !== undefined && h !== state) { if (!emit()) return false; run = [last]; }
         state = h; last = at((k + 1) / steps).slice(0, 2); run.push(last);
       }
     }
-    if (run.length > 1) { const p = simplify(run, span * 1e-8); wireVertices += p.length; lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: p }); }
-    if (wireVertices > 8000) break;
+    return run.length <= 1 || emit();
   }
-  return { part, project, loops, lines, stats: { triangles: count, samples: Math.min(samples, 20000), rasterTests, cell_mm: Math.max(sx, sy), contourVertices: vertices } };
+  for (const flat of mesh?.edges || []) {
+    if (wireSegments + flat.length / 3 > 12000) break;
+    if (!drawWire(pointsOf(flat).map(p => project(transform(p, setup))), 'brep')) break;
+  }
+  // Join adjacent silhouette edges before classification and PDF output. Long
+  // hole walls stay continuous, including hidden dashes and tessellated curves.
+  for (const [face, edges] of curves) {
+    const links = new Map(), used = new Set();
+    edges.forEach(([a, b], i) => { for (const v of [a, b]) { if (!links.has(v)) links.set(v, []); links.get(v).push(i); } });
+    for (let i = 0; i < edges.length; i++) if (!used.has(i)) {
+      const [a, b] = edges[i]; let at = links.get(a).length === 1 ? a : links.get(b).length === 1 ? b : a;
+      const chain = [at];
+      while (true) {
+        const e = links.get(at).find(j => !used.has(j)); if (e == null) break;
+        used.add(e); at = edges[e][0] === at ? edges[e][1] : edges[e][0]; chain.push(at);
+      }
+      if (!drawWire(chain.map(v => project([xyz[v * 3], xyz[v * 3 + 1], xyz[v * 3 + 2]])), 'silhouette', face - 1)) { silhouetteTruncated = true; break; }
+    }
+  }
+
+  return { part, project, loops, lines, stats: { triangles: count, samples: Math.min(samples, 20000), rasterTests, rasterRows, silhouetteEdges, silhouetteTruncated, comparisons, cell_mm: Math.max(sx, sy), contourVertices: vertices } };
 }
 
 // Conservative DejaVu Sans bounds, in setup mm (baseline + ascenders/descenders).
@@ -188,37 +271,62 @@ function layoutLabels(shapes, annotations, unit, part) {
     : s.type === 'outline' ? s.loops.flatMap(points => segments({ points })) : segments(s));
   const blocks = shapes.filter(s => s.class === 'stop' || s.class === 'zero').map(s => s.type === 'rect' ? [s.x, s.y, s.x + s.width, s.y + s.height] : [s.x - s.radius, s.y - s.radius, s.x + s.radius, s.y + s.radius]);
   const labels = shapes.filter(s => s.type === 'text'), placed = [], leaders = [];
-  // Labels without leaders go first; later leaders must route around all of them.
-  const ordered = [...labels.filter(s => !annotations.some(a => a.shape === s)), ...annotations.map(a => a.shape)];
+  // Fixed captions go first. Reserve nearby space for stop and datum pickups
+  // before movable dimension captions; later leaders route around these boxes.
+  const priority = s => s.text.startsWith('Stop') ? 0 : s.text.startsWith('Datum') ? 1 : s.class === 'dimension' ? 3 : 2;
+  const ordered = [...labels.filter(s => !annotations.some(a => a.shape === s)), ...annotations.map(a => a.shape).sort((a, b) => priority(a) - priority(b))];
+  const partInterior = part && [part.min[0] + unit / 10, part.min[1] + unit / 10, part.max[0] - unit / 10, part.max[1] - unit / 10];
+  const jawBoxes = shapes.filter(s => ['jaw', 'jaw-near'].includes(s.class)).map(s => [s.x, s.y, s.x + s.width, s.y + s.height]);
+  const contains = (box, p) => p[0] >= box[0] - 1e-8 && p[0] <= box[2] + 1e-8 && p[1] >= box[1] - 1e-8 && p[1] <= box[3] + 1e-8;
   for (const shape of ordered) {
-    const annotation = annotations.find(a => a.shape === shape), initial = [shape.x, shape.y];
-    let fitted = false;
-    // Bounded nearby search, then exterior rows. Every accepted label has an
-    // explicit box and a leader route checked against every previously placed box.
-    for (let row = 0; row < 96 && !fitted; row++) for (const dx of [0, -8, 8, -16, 16]) {
+    const annotation = annotations.find(a => a.shape === shape), initial = [shape.x, shape.y, shape.anchor], candidates = [];
+    const offsets = annotation ? [0, -4, 4, -8, 8, -16, 16, -32, 32, -48, 48] : [0, -8, 8, -16, 16];
+    // Search positions before choosing a route. A free nearby straight leader
+    // wins over an elbow from the first free (but badly placed) caption box.
+    for (let row = 0; row < 64; row++) for (const dx of offsets) for (const anchor of annotation ? [initial[2], ...['start', 'middle', 'end'].filter(a => a !== initial[2])] : [initial[2]]) {
       shape.x = initial[0] + dx * unit;
-      shape.y = initial[1] + (row ? Math.ceil(row / 2) * (row % 2 ? 6 : -6) : 0) * unit;
+      shape.y = initial[1] + (row ? Math.ceil(row / 2) * (row % 2 ? 6 : -6) : 0) * unit; shape.anchor = anchor;
       const box = expand(diagramTextBox(shape));
-      if (part && (annotation || shape.class === 'tag') && overlaps(box, [part.min[0], part.min[1], part.max[0], part.max[1]])) continue;
-      if (placed.some(b => overlaps(box, b)) || blocks.some(b => overlaps(box, b)) || [...obstacles, ...leaders].some(([a, b]) => crossesBox(a, b, box))) continue;
-      if (annotations.some(a => a !== annotation && a.from[0] >= box[0] && a.from[0] <= box[2] && a.from[1] >= box[1] && a.from[1] <= box[3])) continue;
-      let route;
+      let end, distance;
       if (annotation) {
-        const center = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
-        const end = annotation.from[0] < box[0] ? [box[0] - unit, center[1]] : annotation.from[0] > box[2] ? [box[2] + unit, center[1]] : [center[0], annotation.from[1] < box[1] ? box[1] - unit : box[3] + unit];
-        const paths = [[annotation.from, end], [annotation.from, [end[0], annotation.from[1]], end], [annotation.from, [annotation.from[0], end[1]], end]];
-        // An elbow around an existing label keeps an edge-on face caption on
-        // its own side of the part rather than moving it onto the material.
-        for (const rect of placed) for (const rail of [rect[0] - unit, rect[2] + unit]) paths.push([annotation.from, [rail, annotation.from[1]], [rail, end[1]], end]);
-        route = paths.find(points => segments({ points }).every(([a, b]) => [...placed, box].every(rect => !crossesBox(a, b, rect))));
-        if (!route) continue;
+        if (contains(box, annotation.from)) continue;
+        end = [Math.max(box[0], Math.min(box[2], annotation.from[0])), Math.max(box[1], Math.min(box[3], annotation.from[1]))];
+        const d = Math.hypot(end[0] - annotation.from[0], end[1] - annotation.from[1]);
+        end = end.map((v, i) => v + Math.min(unit, d / 2) * (annotation.from[i] - v) / d);
+        distance = Math.hypot(end[0] - annotation.from[0], end[1] - annotation.from[1]);
+      } else distance = Math.hypot(shape.x - initial[0], shape.y - initial[1]);
+      candidates.push({ x: shape.x, y: shape.y, anchor, box, end, distance });
+    }
+    candidates.sort((a, b) => a.distance - b.distance);
+    let fitted = false;
+    for (const elbows of annotation ? [false, true] : [false]) {
+      for (const candidate of candidates) {
+        const { box, end } = candidate;
+        if (part && (annotation || shape.class === 'tag') && overlaps(box, [part.min[0], part.min[1], part.max[0], part.max[1]])) continue;
+        if (placed.some(b => overlaps(box, b)) || blocks.some(b => overlaps(box, b)) || [...obstacles, ...leaders].some(([a, b]) => crossesBox(a, b, box))) continue;
+        if (annotations.some(a => a !== annotation && contains(box, a.from))) continue;
+        let route;
+        if (annotation) {
+          const paths = [[annotation.from, end]];
+          if (elbows) {
+            paths.push([annotation.from, [end[0], annotation.from[1]], end], [annotation.from, [annotation.from[0], end[1]], end]);
+            for (const rect of placed) for (const rail of [rect[0] - unit, rect[2] + unit]) paths.push([annotation.from, [rail, annotation.from[1]], [rail, end[1]], end]);
+          }
+          const valid = paths.filter(points => segments({ points }).every(([a, b]) => (!partInterior || contains(partInterior, annotation.from) || !crossesBox(a, b, partInterior)) && [...placed, box].every(rect => !crossesBox(a, b, rect)) && jawBoxes.every(rect => contains(rect, annotation.from) || !crossesBox(a, b, rect))));
+          const length = p => segments({ points: p }).reduce((n, [a, b]) => n + Math.hypot(b[0] - a[0], b[1] - a[1]), 0);
+          valid.sort((a, b) => length(a) - length(b)); route = valid[0];
+          if (!route) continue;
+        }
+        shape.x = candidate.x; shape.y = candidate.y; shape.anchor = candidate.anchor;
+        placed.push(box);
+        if (route) { annotation.leader.points = route; leaders.push(...segments({ points: route })); }
+        fitted = true; break;
       }
-      placed.push(box);
-      if (route) { annotation.leader.points = route; leaders.push(...segments({ points: route })); }
-      fitted = true; break;
+      if (fitted) break;
     }
     if (!fitted) throw new Error(`Cannot place setup diagram label: ${shape.text}`);
   }
+
 }
 
 function setupDiagram(data, setup, format = String) {
@@ -388,5 +496,5 @@ function setupDiagram(data, setup, format = String) {
 // One unavailable drawing must never prevent the rest of the setup sheet.
 export function buildSetupDiagram(data, setup, format = String) {
   try { return setupDiagram(data, setup, format); }
-  catch (error) { return { type: 'paragraph', text: `Setup diagram unavailable: ${String(error.message || error).split(':')[0].replace(/\s+/g, ' ').slice(0, 60)}` }; }
+  catch { return { type: 'paragraph', text: 'Setup diagram not drawn: the part is too detailed to draw here.' }; }
 }

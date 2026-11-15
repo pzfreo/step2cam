@@ -349,10 +349,11 @@ const { fileURLToPath } = await import('node:url');
 const { execFile } = await import('node:child_process');
 const { promisify } = await import('node:util');
 const exec = promisify(execFile);
-const font = readFileSync(new URL('./fixtures/fonts/DejaVuSans.ttf', import.meta.url)).toString('base64');
+const font = readFileSync(new URL('../node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf', import.meta.url)).toString('base64');
+assert.equal(readFileSync(new URL('./fixtures/fonts/LICENSE',import.meta.url),'utf8'),readFileSync(new URL('../node_modules/dejavu-fonts-ttf/LICENSE',import.meta.url),'utf8'), 'the build ships the pinned font licence without needing npm');
 const metrics = new jsPDF();
 metrics.addFileToVFS('diagram.ttf', font); metrics.addFont('diagram.ttf', 'Diagram', 'normal'); metrics.setFont('Diagram');
-const deps = { jsPDF, autoTable: autoTableModule.default.default || autoTableModule.default, fonts: { regular: font, bold: readFileSync(new URL('./fixtures/fonts/DejaVuSans-Bold.ttf',import.meta.url)).toString('base64') } };
+const deps = { jsPDF, autoTable: autoTableModule.default.default || autoTableModule.default, fonts: { regular: font, bold: readFileSync(new URL('../node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf',import.meta.url)).toString('base64') } };
 const near = (a, b) => Math.abs(a - b) < 1e-7;
 const overlap = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 function segmentHits(a, b, box) {
@@ -377,6 +378,14 @@ function checkLabels(view, name) {
   const lines = view.shapes.filter(s => ['leader','guide','dimension','axis','edge','hidden','pickup'].includes(s.class) && s.type === 'polyline').map(s => s.points);
   for (const s of view.shapes.filter(s => ['stock','stock-body','jaw','jaw-near','parallel','stop'].includes(s.class) && s.type === 'rect')) lines.push([[s.x,s.y],[s.x+s.width,s.y],[s.x+s.width,s.y+s.height],[s.x,s.y+s.height],[s.x,s.y]]);
   for (const s of view.shapes.filter(s => s.type === 'outline')) lines.push(...s.loops);
+  for (const leader of view.shapes.filter(s=>s.class==='leader'||s.class==='guide')) {
+    const from=leader.points[0];
+    for (const jaw of view.shapes.filter(s=>['jaw','jaw-near'].includes(s.class))) {
+      const box=[jaw.x,jaw.y,jaw.x+jaw.width,jaw.y+jaw.height];
+      if (from[0]>=box[0]-1e-8&&from[0]<=box[2]+1e-8&&from[1]>=box[1]-1e-8&&from[1]<=box[3]+1e-8) continue;
+      for(let i=1;i<leader.points.length;i++) assert.ok(!segmentHits(leader.points[i-1],leader.points[i],box),`${name}: leader crosses an unrelated jaw`);
+    }
+  }
   boxes.forEach((box, i) => {
     assert.ok(box[0] >= view.bounds[0] && box[1] >= view.bounds[1] && box[2] <= view.bounds[2] && box[3] <= view.bounds[3], `${name}: clipped ${labels[i].text}`);
     for (let j = i + 1; j < boxes.length; j++) assert.ok(!overlap(box, boxes[j]), `${name}: ${labels[i].text} overlaps ${labels[j].text}`);
@@ -444,38 +453,48 @@ const isolated = structuredClone(data);
 isolated.mesh = cube; isolated.plan.setups = [{...fixtureSetup,id:'bad',origin_model:[Infinity,0,0]}, {...fixtureSetup,id:'good'}];
 const isolatedReport = reportDocument(isolated, options);
 assert.equal(isolatedReport.blocks.filter(b => b.type === 'setup-diagram').length, 1);
-assert.equal(isolatedReport.blocks.filter(b => b.text?.startsWith('Setup diagram unavailable:')).length, 1);
+assert.equal(isolatedReport.blocks.filter(b => b.text?.startsWith('Setup diagram not drawn:')).length, 1);
 assert.doesNotThrow(() => renderReportPdf(isolatedReport, deps), 'one broken drawing cannot prevent the PDF');
 const failPlacement = buildSetupDiagram({mesh:cube},{...fixtureSetup,zero:{status:'located',xy:{description:'W'.repeat(300),features:[]},z:{description:'Stock top',features:[]}}},reportLength);
 assert.equal(failPlacement.type,'paragraph');
-assert.match(failPlacement.text,/^Setup diagram unavailable:/);
+assert.equal(failPlacement.text,'Setup diagram not drawn: the part is too detailed to draw here.');
 assert.ok(!failPlacement.text.includes('WWW'), 'unplaceable caption is not repeated as another unplaceable warning');
 assert.doesNotThrow(()=>renderReportPdf({title:'Unavailable',blocks:[failPlacement,diagram],appendixStart:2},deps));
 const reverseY = buildSetupDiagram({mesh:cube},{...fixtureSetup,clamping:{...fixtureSetup.clamping,fixed_jaw:'y.max',jaws:[{min:[-2,-5,-20],max:[12,0,-7]},{min:[-2,10,-20],max:[12,15,-7]}]}},reportLength);
 assert.equal(reverseY.type,'setup-diagram',reverseY.text);
 assert.ok(reverseY.views[1].shapes.some(s=>s.text==='Moving jaw (near side)'), 'the plan can make the far jaw fixed');
-function denseMesh(n) {
-  const positions=[],indices=[],faces=[];
-  for (let k=0;k<2;k++) for(let y=0;y<=n;y++) for(let x=0;x<=n;x++) positions.push(x*100/n,y*60/n,k?10+2*Math.sin(x/7)*Math.cos(y/5):0);
-  const offset=(n+1)**2;
-  for(let k=0;k<2;k++) { const start=indices.length/3;
-    for(let y=0;y<n;y++) for(let x=0;x<n;x++) { const a=k*offset+y*(n+1)+x,b=a+1,c=b+n+1,d=c-1; indices.push(a,b,c,a,c,d); }
-    faces.push([start,indices.length/3-start]);
-  }
-  return {positions,indices,faces,edges:[]};
-}
+const { denseMesh, cylinderMesh, cylinderSetup } = await import('./diagram-meshes.mjs');
+
 for(const n of [100,300]) {
   const dense = buildSetupDiagram({mesh:denseMesh(n)},fixtureSetup,reportLength);
   assert.equal(dense.type,'setup-diagram',dense.text);
   for(const view of dense.views) {
     assert.ok(view.shapes.filter(s=>s.type==='outline').length<=1);
     assert.ok(view.stats.contourVertices<=8000);
-    assert.ok(view.shapes.length<100, 'dense input does not become triangle PDF commands');
+    assert.ok(!view.shapes.some(s=>s.type==='polygon'&&s.class==='part'), 'fill does not become per-triangle commands');
+    assert.ok(view.shapes.length<2500&&view.stats.silhouetteEdges<=2048, 'restored silhouette commands stay bounded');
     checkLabels(view,`dense ${4*n*n}`);
   }
   const pdf=renderReportPdf({title:'Dense projection',blocks:[dense],appendixStart:1},deps);
   assert.ok(pdf.output('arraybuffer').byteLength<=300000, 'dense setup stays below the requested 300 kB budget');
 }
+const cylinder = buildSetupDiagram({mesh:cylinderMesh()},cylinderSetup,reportLength);
+assert.equal(cylinder.type,'setup-diagram',cylinder.text);
+for(const view of cylinder.views) {checkLabels(view,'1000-segment cylinder');checkPdf(view);assert.ok(view.stats.rasterTests<4000000&&view.stats.rasterRows<4000000);}
+assert.ok(cylinder.views[1].shapes.some(s=>s.source==='silhouette'&&s.points.length>=2));
+// A dense projected bin is explicitly uncertain; its edge must stay solid.
+const crowdedMesh={positions:[0,0,10,10,0,10,0,10,10,100,100,10,90,100,10,100,90,10],indices:[...Array.from({length:300},()=>[0,1,2]).flat(),3,4,5],faces:[[0,300],[300,1]],edges:[[1,1,0,2,1,0]]};
+const crowded=buildSetupDiagram({mesh:crowdedMesh},{...fixtureSetup,zero:undefined,clamping:undefined,operations:[]},reportLength);
+assert.equal(crowded.type,'setup-diagram',crowded.text);
+assert.ok(crowded.views[0].shapes.some(s=>s.class==='edge'&&s.source==='brep'&&s.points.some(p=>near(p[0],1)&&near(p[1],1))), 'overcrowded bin falls back to solid, not invented hidden edges');
+// Setup-frame coordinates, and the work zero itself, are separate invariants.
+const translatedCube=structuredClone(cube);
+translatedCube.positions=translatedCube.positions.map((v,i)=>v+[100,200,300][i%3]);
+translatedCube.edges=translatedCube.edges.map(edge=>edge.map((v,i)=>v+[100,200,300][i%3]));
+const shifted=buildSetupDiagram({mesh:translatedCube},{...fixtureSetup,rotation:[[0,1,0],[-1,0,0],[0,0,1]],origin_model:[110,200,310]},reportLength);
+assert.equal(shifted.type,'setup-diagram',shifted.text);
+assert.deepEqual(shifted.views[0].partBounds,{min:[0,0,-10],max:[10,10,0]});
+for(const view of shifted.views) assert.ok(view.shapes.some(s=>s.class==='zero'&&s.x===0&&s.y===0));
 const steppedMesh = JSON.parse(readFileSync(new URL('./fixtures/synthetic/stepped-plate.mesh.json',import.meta.url)));
 const steppedAnalysis = JSON.parse(readFileSync(new URL('./fixtures/synthetic/stepped-plate.analysis.json',import.meta.url)));
 const bore = steppedAnalysis.features.find(f=>f.family==='holes'&&f.record.diameter===10);
@@ -533,6 +552,56 @@ async function checkRealPlans() {
         assert.ok(near(d.views[0].partBounds.max[axis],Math.max(...transformed.map(p=>p[axis]))));
       }
       if (setup.zero?.status==='located') for (const view of d.views) assert.ok(view.shapes.some(s=>s.class==='zero'&&s.x===0&&s.y===0));
+      if (setup.zero?.status==='located') {
+        const topLabels=d.views[0].shapes.filter(s=>s.type==='text').map(s=>s.text), frontLabels=d.views[1].shapes.filter(s=>s.type==='text').map(s=>s.text);
+        assert.ok(topLabels.includes('X0 Y0')&&frontLabels.includes('Z0 here'));
+        for(const pickup of Object.values(setup.zero.xy.axes||{})) {
+          const datum=pickup.description.match(/datum [A-Z] face/)?.[0];
+          if(datum) assert.ok(topLabels.includes(datum[0].toUpperCase()+datum.slice(1)),`${name}: recorded XY datum is labelled`);
+        }
+      }
+      // Clip a horizontal mesh triangle to each support rectangle. A positive
+      // intersection area proves seating; overlapping boxes alone do not.
+      function seatArea(triangle, parallel) {
+        let poly=triangle.map(p=>p.slice(0,2));
+        for(let axis=0;axis<2;axis++) for(const lower of [true,false]) {
+          const value=(lower?parallel.min:parallel.max)[axis], out=[];
+          for(let i=0;i<poly.length;i++) {
+            const a=poly[i],b=poly[(i+1)%poly.length],inside=p=>lower?p[axis]>=value:p[axis]<=value;
+            if(inside(a)) out.push(a);
+            if(inside(a)!==inside(b)) {const t=(value-a[axis])/(b[axis]-a[axis]);out.push(a.map((v,j)=>v+t*(b[j]-v)));}
+          }
+          poly=out;
+        }
+        return Math.abs(poly.reduce((sum,a,i)=>{const b=poly[(i+1)%poly.length];return sum+a[0]*b[1]-a[1]*b[0];},0))/2;
+      }
+      for(const parallel of setup.clamping?.parallels||[]) {
+        const z=parallel.max[2];
+        if(setup===sample.plan.setups[0]) assert.ok(near(setup.stock.min[2],z),`${name}: stock seats on parallels`);
+        else {
+          let area=0;
+          for(let i=0;i<mesh.indices.length;i+=3) {
+            const tri=mesh.indices.slice(i,i+3).map(v=>transformed[v]);
+            if(tri.every(p=>near(p[2],z))) area+=seatArea(tri,parallel);
+          }
+          assert.ok(area>1e-8,`${name}: mesh seats on parallel tops with nonzero area`);
+        }
+      }
+      if(meshPath.endsWith('/stepped-plate.mesh.json')&&library.includes('haas')&&setup.id==='bottom') {
+        function wall(view,face,x,low,high) {
+          const segments=view.shapes.filter(s=>s.source==='silhouette'&&s.face===face&&s.class==='hidden').flatMap(s=>s.points.slice(1).map((p,i)=>[s.points[i],p]));
+          return segments.some(([a,b])=>Math.abs(a[0]-x)<0.02&&Math.abs(b[0]-x)<0.02&&Math.min(a[1],b[1])<=low+0.02&&Math.max(a[1],b[1])>=high-0.02);
+        }
+        for(const x of [45,55]) assert.ok(wall(d.views[1],36,x,-18,0),`${name}: hidden bore wall at X${x}`);
+        for(const hole of analysis.features.filter(f=>f.family==='holes'&&f.record.diameter===2.5)) {
+          const x=hole.record.location[0]-setup.origin_model[0], face=hole.faces.find(f=>analysis.faces.find(a=>a.id===f)?.kind==='cylinder');
+          for(const edge of [x-1.25,x+1.25]) assert.ok(wall(d.views[0],face,edge,46,56),`${name}: 10 mm side-hole wall`);
+        }
+        assert.ok(d.views[0].shapes.some(s=>s.text==='Datum B face')&&d.views[0].shapes.some(s=>s.text==='Datum C face'));
+        assert.ok(!d.views[0].shapes.some(s=>s.text==='Datum A face')&&d.views[1].shapes.some(s=>s.text==='Datum A face'));
+        assert.ok(!d.views[1].shapes.some(s=>s.text==='Datum C face'));
+      }
+
       if (setup.clamping?.part_stop && setup.zero?.status==='located') for (const view of d.views) {
         const stop = view.shapes.find(s=>s.class==='stop'); assert.ok(stop);
         assert.equal(stop.contact[2],setup.clamping.part_stop.contact_z_mm);
