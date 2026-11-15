@@ -140,7 +140,7 @@ fn without_a_machine_the_trace_says_nothing_was_checked() {
 fn the_stepped_plate_runs_on_the_carvera() {
     let analysis = read("tests/fixtures/synthetic/stepped-plate.analysis.json");
     let mesh = read("tests/fixtures/synthetic/stepped-plate.mesh.json");
-    let out = step2cam::process(&analysis, &mesh, &read("demo/tools.json")).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &read("demo/tools.json")).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     assert!(!out["programs"].as_array().unwrap().is_empty());
 }

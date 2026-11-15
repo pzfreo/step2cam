@@ -7,7 +7,7 @@ fn read(path: &str) -> Value {
 }
 fn run(library: &Value) -> Value { run_named("synthetic/stepped-plate", library) }
 fn run_named(name: &str, library: &Value) -> Value {
-    let result = step2cam::process(&read(&format!("tests/fixtures/{name}.analysis.json")),
+    let result = crate::common::process_cached(&read(&format!("tests/fixtures/{name}.analysis.json")),
         &read(&format!("tests/fixtures/{name}.mesh.json")), library).unwrap();
     assert!(result["error"].is_null(), "{}", result["error"]);
     result

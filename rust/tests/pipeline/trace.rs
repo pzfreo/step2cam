@@ -108,7 +108,7 @@ fn every_warning_skip_and_operation_goes_back_to_its_rules() {
         for part in PARTS {
             let analysis = read(&format!("tests/fixtures/{part}.analysis.json"));
             let mesh = read(&format!("tests/fixtures/{part}.mesh.json"));
-            let out = step2cam::process(&analysis, &mesh, &read(library)).unwrap();
+            let out = crate::common::process_cached(&analysis, &mesh, &read(library)).unwrap();
             check(&out["plan"], &format!("{part} with {library}"));
         }
     }
@@ -198,7 +198,7 @@ fn an_unlabelled_rule_cannot_warn() {
 
 #[test]
 fn stepped_warnings_carry_features_and_link_to_the_exact_operation() {
-    let out = step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
+    let out = crate::common::process_cached(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),
         &read("tests/fixtures/synthetic/stepped-plate.mesh.json"), &read("tests/fixtures/placeholder-tools.json")).unwrap();
     let plan = &out["plan"];
     let active: Vec<_> = plan["decisions"].as_array().unwrap().iter()

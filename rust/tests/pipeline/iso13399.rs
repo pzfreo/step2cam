@@ -1,5 +1,5 @@
 //! Public-source property meanings and equivalent libraries at both entry points.
-mod common;
+use crate::common;
 use common::*;
 use capp::reference::iso13399_fields;
 use capp::resources::normalize;
@@ -155,8 +155,8 @@ fn plate_has_identical_plans_jobs_and_reason_texts_with_symbols() {
     let plan = capp::plan::plan(&analysis, Some(&mesh), &Default::default()).unwrap();
     assert_eq!(finished(&plan, &library), finished(&plan, &iso));
     // process must normalize the library for both capp and the camlib job adapter.
-    let current = step2cam::process(&analysis, &mesh, &library).unwrap();
-    let aliased = step2cam::process(&analysis, &mesh, &iso).unwrap();
+    let current = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
+    let aliased = crate::common::process_cached(&analysis, &mesh, &iso).unwrap();
     assert!(!current["programs"].as_array().unwrap().is_empty());
     assert_eq!(current, aliased);
 }

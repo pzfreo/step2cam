@@ -428,11 +428,22 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String,
 }
 
 #[cfg(test)]
+#[path = "../tests/common/cache.rs"]
+mod test_cache;
+
+#[cfg(test)]
 mod flip_tests {
     use super::*;
     /// A JSON plan or setup as its type, for the functions that take one.
     fn typed<T: serde::de::DeserializeOwned>(value: &Value) -> T {
         serde_json::from_value(value.clone()).unwrap()
+    }
+
+    // These tests inspect different consequences of the same refused preparation.
+    fn refused_preparation(a: &Value, m: &Value, t: &Value, plan: &Value) -> Value {
+        static RESULTS: test_cache::Cache<Value> = test_cache::Cache::new();
+        let key = serde_json::to_string(&(a, m, t, plan)).unwrap();
+        RESULTS.get(key, || process_planned(a, m, t, typed(plan), vec![]).unwrap().json())
     }
     #[test]
     fn explicit_ordinary_demo_programs_and_notes_match_ordinary_planning() {
@@ -548,7 +559,7 @@ mod flip_tests {
         wall["outer"][0][2]=json!(2.);
         let mut checked=p.clone();capp::finish(&mut checked,&t,&[]).unwrap();
         assert!(checked["setups"][1]["operations"].as_array().unwrap().iter().any(|o|o["kind"]=="facing"));
-        let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
+        let out=refused_preparation(&a,&m,&t,&p);
         assert!(out["error"].is_null(),"{}",out["error"]);
         let p=&out["plan"];
         assert!(p["setups"].as_array().unwrap().iter().all(|s|s.get("flip_seating").is_none()));
@@ -574,7 +585,7 @@ mod flip_tests {
         let mut p=capp::flip::plan(&a,&m,&t).unwrap();
         let wall=p["setups"][0]["operations"].as_array_mut().unwrap().iter_mut().find(|o|o["kind"]=="wall_finish").unwrap();
         wall["outer"][0][2]=json!(2.);
-        let out=process_planned(&a,&m,&t,typed(&p),vec![]).unwrap().json();
+        let out=refused_preparation(&a,&m,&t,&p);
         assert_eq!(fallback_reason(&out),"top-13-wall_finish left out: setup top: boundary vertices require finite coordinates within ±1e6 mm and bulge within [-1,1]; setup bottom: earlier cuts may have removed material in the later grip band: [{\"faces\":[\"stock.y.min\",\"stock.y.max\"],\"operation\":\"top-2-roughing\"},{\"faces\":[\"stock.y.min\"],\"operation\":\"top-10-notch\"},{\"faces\":[\"stock.y.max\"],\"operation\":\"top-11-notch\"},{\"faces\":[\"stock.y.min\",\"stock.y.max\"],\"operation\":\"top-12-v_channel\"}]; checks stock-face contact bands from stock bottom to jaw top against earlier tooled operations' conservative cutting envelopes, transformed through setup rotation and origin_model; roughing/contour envelopes include preserved material and grouped holes include the space between them; not a stock simulation or proof of face retention, contact area or holding strength; missing frames or geometry are unchecked; certain part-face contact per jaw: 270.3500 mm², 270.3500 mm²; carried upper-bound stock contributes no contact");
         // A bottom operation left out: its warning starts "bottom-".
         let p=capp::flip::plan(&a,&m,&t).unwrap();

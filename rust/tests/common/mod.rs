@@ -5,6 +5,19 @@ use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use capp::plan::Options;
 
+pub mod cache;
+
+/// Cache the complete inputs, including all library overrides and supplied choices.
+/// Full JSON keys avoid conflating fixtures with edited analyses, meshes or options.
+pub fn process_cached(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
+    // Retain compact JSON rather than every move's separately allocated Value tree.
+    // Parsing gives each caller its own result, with float_roundtrip preserving numbers.
+    static RESULTS: cache::Cache<Result<String, String>> = cache::Cache::new();
+    let key = serde_json::to_string(&(analysis, mesh, library)).unwrap();
+    RESULTS.get(key, || step2cam::process(analysis, mesh, library).map(|out| out.to_string()))
+        .map(|out| serde_json::from_str(&out).unwrap())
+}
+
 pub type Bounds = ([f64; 3], [f64; 3]);
 pub const BOX: Bounds = ([-20., -20., -10.], [20., 20., 0.]);
 

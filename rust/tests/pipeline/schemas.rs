@@ -110,7 +110,7 @@ fn spindle_collet_change_mode_is_optional_but_checked() {
 
 #[test]
 fn simulated_workholding_candidates_match_schema_and_catch_missing_costs() {
-    let out=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate.mesh.json"),&read("demo/tools.json")).unwrap();
+    let out=crate::common::process_cached(&read("tests/fixtures/synthetic/stepped-plate.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate.mesh.json"),&read("demo/tools.json")).unwrap();
     check("schemas/plan-1.schema.json","simulated workholding",&out["plan"]);
     let mut bad=out["plan"].clone();
     bad["workholding"]["candidates"][0].as_object_mut().unwrap().remove("estimated_seconds");

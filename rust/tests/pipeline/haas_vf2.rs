@@ -11,7 +11,7 @@ fn read(path: &str) -> Value {
 fn industrial_fixtures_plan_and_simulate_without_definite_gouges() {
     let library = read("libraries/haas-vf2.json");
     for name in ["synthetic/stepped-plate", "mounting-plate"] {
-        let out = step2cam::process(
+        let out = crate::common::process_cached(
             &read(&format!("tests/fixtures/{name}.analysis.json")),
             &read(&format!("tests/fixtures/{name}.mesh.json")),
             &library,
@@ -49,7 +49,7 @@ fn catalogue_m5_cut_tap_is_used_and_checked_on_the_threaded_plate() {
     let analysis = read("tests/fixtures/plate-m5.analysis.json");
     let mut mesh = read("tests/fixtures/plate.mesh.json");
     mesh["binding"] = analysis["binding"].clone();
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let tap = out["programs"].as_array().unwrap().iter()
         .flat_map(|p| p["job"]["operations"].as_array().unwrap())

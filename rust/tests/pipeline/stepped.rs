@@ -12,7 +12,7 @@ fn process_part(name: &str) -> Value {
     let mesh = fixture(&format!("tests/fixtures/synthetic/{name}.mesh.json"));
     let mut tools=fixture("tests/fixtures/placeholder-tools.json");
     tools["overrides"]["workholding_option"]=serde_json::json!("vise_flip_face");
-    step2cam::process(&analysis, &mesh, &tools).unwrap()
+    crate::common::process_cached(&analysis, &mesh, &tools).unwrap()
 }
 fn process() -> Value {
     process_part("stepped-plate")

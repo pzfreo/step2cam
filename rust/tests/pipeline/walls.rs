@@ -1,5 +1,5 @@
 //! Finishing walls and flats: shapes an outline alone would cut wrongly, in tests/fixtures/synthetic/walls.
-mod common;
+use crate::common;
 use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 use step2cam::simulate::simulate;
@@ -26,7 +26,7 @@ fn part(name: &str) -> (Value, Value) {
 }
 fn process(name: &str) -> Value {
     let (analysis, mesh) = part(name);
-    let out = step2cam::process(&analysis, &mesh, &tools()).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &tools()).unwrap();
     assert!(out["error"].is_null(), "{name}: {}", out["error"]);
     out
 }
@@ -97,7 +97,7 @@ fn with_roughing_refused_no_wall_or_flat_is_cut() {
         }
     }
     let (analysis, mesh) = part("stepped-plate");
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
     assert!(warnings(&out).contains("roughing left out"), "{}", warnings(&out));
     let kinds = out["plan"]["setups"][0]["operations"].to_string();
     assert!(!kinds.contains("wall_finish") && !kinds.contains("flats"), "{kinds}");
@@ -281,7 +281,7 @@ fn a_v_channel_needs_a_sharp_bit_no_wider_than_it() {
             bit[key] = value.clone();
         }
         let (analysis, mesh) = part("stepped-plate");
-        let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+        let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
         assert!(out["plan"]["warnings"].to_string().contains("no sharp V-bit"), "{change}: {}", out["plan"]["warnings"]);
         assert!(out["plan"]["skipped"].to_string().contains("no sharp V-bit"), "{change}");
         assert!(!out["plan"]["setups"][0]["operations"].to_string().contains("v_channel"), "{change}");
@@ -300,7 +300,7 @@ fn a_v_channel_on_a_flat_goes_with_the_flat() {
         }
     }
     let (analysis, mesh) = part("stepped-plate");
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
     assert!(!out["plan"]["setups"][0]["operations"].to_string().contains("v_channel"));
     assert!(out["plan"]["warnings"].to_string().contains("V-channel left out"), "{}", out["plan"]["warnings"]);
 }
@@ -313,7 +313,7 @@ fn finishing_walls_cuts_full_depth_despite_a_shallow_roughing_stepdown() {
     for tool in library["tools"].as_array_mut().unwrap() {
         if tool["type"] == "end_mill" { tool["stepdown_mm"] = json!(0.2); }
     }
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let program = &out["programs"][0];
     let top = number(&out["plan"]["setups"][0]["stock"]["max"][2]);

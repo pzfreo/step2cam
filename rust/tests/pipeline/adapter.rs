@@ -1,11 +1,11 @@
 //! What the camlib adapter tells camlib of each tool, and the rules its notes cite for the process
 //! choices it makes.
-mod common;
+use crate::common;
 use common::*;
 use serde_json::{Value, json};
 
 fn run(part: &str, library: &Value) -> Value {
-    let out = step2cam::process(&fixture(&format!("{part}.analysis.json")), &fixture(&format!("{part}.mesh.json")), library).unwrap();
+    let out = crate::common::process_cached(&fixture(&format!("{part}.analysis.json")), &fixture(&format!("{part}.mesh.json")), library).unwrap();
     assert!(out["error"].is_null(), "{part}: {}", out["error"]);
     out
 }

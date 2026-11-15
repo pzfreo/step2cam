@@ -14,7 +14,7 @@ fn process() -> Value {
     // The demo's tools on no particular machine: this is about planning, not the Carvera.
     let mut tools = fixture("tests/fixtures/placeholder-tools.json");
     tools.as_object_mut().unwrap().remove("machines");
-    step2cam::process(&analysis, &mesh, &tools).unwrap()
+    crate::common::process_cached(&analysis, &mesh, &tools).unwrap()
 }
 /// The points of camlib's fed moves (not rapids) for which `keep` holds.
 fn fed_points(out: &Value, keep: &dyn Fn(&Value) -> bool) -> Vec<[f64; 3]> {
@@ -122,7 +122,7 @@ fn nothing_is_covered_by_a_roughing_that_was_refused() {
             tool["stepdown_mm"] = 0.into();
         }
     }
-    let out = step2cam::process(&analysis, &mesh, &library).unwrap();
+    let out = crate::common::process_cached(&analysis, &mesh, &library).unwrap();
     assert!(out["plan"]["warnings"].to_string().contains("roughing left out"), "{}", out["plan"]["warnings"]);
     assert_eq!(out["plan"]["covered_by_roughing"], serde_json::json!([]));
     assert!(out["plan"]["skipped"].to_string().contains("roughing was refused"), "{}", out["plan"]["skipped"]);
