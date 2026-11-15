@@ -68,8 +68,8 @@ Missing spindle power or a sub-0.05 mm result retains raster with its reason.
 The adapter maps bounded engagement to adaptive clearing and uses the original slotting
 stepdown for shallow-floor stepup. A dependent flat's residual-depth limit uses that
 increment, never the deeper adaptive stepdown. An adaptive refusal (or admission without any clearing moves), including a dependent
-flat reporting stock where roughing did not reach, triggers one raster retry per setup
-within each independent workholding candidate. The reason is a `fallback` decision and
+flat reporting stock where roughing did not reach, triggers one raster retry per setup preparation,
+remembered across equivalent workholding candidates. The reason is a `fallback` decision and
 log note; only the strategy decision is superseded, preserving tool-selection evidence.
 Adaptive planning has a fixed planning work budget shared by parallel
 layers, covering preparation, motion planning and planner reports. Exhaustion retries
@@ -79,7 +79,8 @@ the value is step2cam judgement for pathological adaptive cost.
 An execution memo is shared by exclusion iterations and workholding candidates. Its key
 contains the complete operation/tool planning input, initial position, work budget and
 incoming stock snapshot (including cell bounds). It stores planned motions, or the motion
-prefix and planner refusal/exhaustion. Every replay rechecks stock contact, links and final
+prefix and refusal/exhaustion. Verification refusals also require identical check settings.
+Every replay rechecks stock contact, links and final
 material independently. Changed stock or parameters miss the memo. Remembered raster
 fallbacks are shared across candidates but scoped to the setup's stock, fixtures and cuts
 preceding roughing, so changed preparation is reconsidered. Reach and gouge/stock-contact

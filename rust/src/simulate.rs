@@ -24,7 +24,8 @@ const DEPTH_TOLERANCE: f64 = 0.01;
 const ARC_STEP_RAD: f64 = std::f64::consts::PI / 18.;
 
 /// Per-process planner memo, shared by exclusion retries and workholding candidates.
-/// Only motions and planner failures are memoised: stock/contact/material checks run again.
+/// Motion prefixes and refusals are memoised; stock/contact/material checks run again.
+/// Verification refusals additionally require the same check configuration.
 #[derive(Default)]
 pub(crate) struct AdaptiveCache {
     entries: Vec<(AdaptiveInput, std::sync::Arc<PlannedAdaptive>)>,
@@ -32,7 +33,7 @@ pub(crate) struct AdaptiveCache {
     pub(crate) misses: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct AdaptiveInput {
     manifest: String,
     stock: camlib::stock::StockSnapshot,
@@ -41,16 +42,17 @@ struct AdaptiveInput {
 struct PlannedAdaptive {
     motions: Vec<Motion>,
     refusal: Option<String>,
+    verification: Option<String>,
 }
 
 impl AdaptiveCache {
-    fn get(&mut self, input: &AdaptiveInput) -> Option<std::sync::Arc<PlannedAdaptive>> {
-        let found = self.entries.iter().find(|(key, _)| key == input).map(|(_, value)| value.clone());
+    fn get(&mut self, input: &AdaptiveInput, verification: &str) -> Option<std::sync::Arc<PlannedAdaptive>> {
+        let found = self.entries.iter().find(|(key, value)| key == input && value.verification.as_deref().is_none_or(|v| v == verification)).map(|(_, value)| value.clone());
         if found.is_some() { self.hits += 1; } else { self.misses += 1; }
         found
     }
     fn store(&mut self, input: AdaptiveInput, motions: Vec<Motion>, refusal: Option<String>) {
-        self.entries.push((input, std::sync::Arc::new(PlannedAdaptive { motions, refusal })));
+        self.entries.push((input, std::sync::Arc::new(PlannedAdaptive { motions, refusal, verification: None })));
     }
 }
 
@@ -464,7 +466,8 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 manifest: serde_json::json!({"operation":raw["operations"][index],"tool":tool,"position":producer.position(),"work_budget":planning_polls}).to_string(),
                 stock: producer.stock()?.snapshot(),
             }) } else { None };
-            let cached = input.as_ref().and_then(|key| cache.get(key));
+            let verification = adaptive.then(|| serde_json::json!({"checks":manifest.verification,"sweep":manifest.sweep,"retract":manifest.rapid_retracts,"physical_bottom":physical_bottom,"grip":grip}).to_string());
+            let cached = input.as_ref().and_then(|key| cache.get(key, verification.as_deref().unwrap()));
             let mut recorded = vec![];
             let mut cursor = 0;
             let mut plan = if cached.is_some() { None } else {
@@ -473,11 +476,12 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                     Ok(plan) => Some(plan),
                     Err(message) => {
                         let message = planning_error(message);
-                        if let Some(key) = input.take() { cache.store(key, recorded, Some(message.clone())); }
+                        if let Some(key) = input.take() { cache.store(key, std::mem::take(&mut recorded), Some(message.clone())); }
                         return Err(message);
                     }
                 }
             };
+            let result = (|| {
             let start = producer.completed();
             let measured = grip && operation.id().parse::<capp::kind::OpId>().is_ok_and(|id|
                 matches!(id.kind, capp::kind::OpKind::Roughing | capp::kind::OpKind::Holes | capp::kind::OpKind::Counterbore | capp::kind::OpKind::Thread))
@@ -508,7 +512,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                     Ok(None) => break,
                     Err(message) => {
                         let message = planning_error(message);
-                        if let Some(key) = input.take().filter(|_| cached.is_none()) { cache.store(key, recorded, Some(message.clone())); }
+                        if let Some(key) = input.take().filter(|_| cached.is_none()) { cache.store(key, std::mem::take(&mut recorded), Some(message.clone())); }
                         return Err(message);
                     }
                 };
@@ -572,13 +576,23 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             if let Some(plan) = &mut plan {
                 if let Err(message) = plan.finish_report(&planning_cancel) {
                     let message = planning_error(message);
-                    if let Some(key) = input.take() { cache.store(key, recorded, Some(message.clone())); }
+                    if let Some(key) = input.take() { cache.store(key, std::mem::take(&mut recorded), Some(message.clone())); }
                     return Err(message);
                 }
-                if let Some(key) = input.take() { cache.store(key, recorded, None); }
+                if let Some(key) = input.take() { cache.store(key, std::mem::take(&mut recorded), None); }
             }
             operations.push(OperationRange { id: operation.id().to_string(), start, end: producer.completed() });
             Ok(())
+            })();
+            if let Err(message) = &result
+                && cached.is_none() && let Some(key) = input.take() {
+                    // Unlike planner failures, a verification refusal is reusable only
+                    // with the same check configuration. Its prefix is still rechecked.
+                    cache.entries.push((key, std::sync::Arc::new(PlannedAdaptive {
+                        motions: recorded, refusal: Some(message.clone()), verification,
+                    })));
+            }
+            result
         };
         one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
         if material.is_none() {
