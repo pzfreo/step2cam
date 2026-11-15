@@ -218,7 +218,7 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
         .unwrap()
         .iter()
         .find(|d| {
-            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@3"
+            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@4"
         })
         .unwrap();
     assert!(

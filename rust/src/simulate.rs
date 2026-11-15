@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// Portable planning-work limit: cancellation polls, shared by parallel adaptive layers.
 /// Exhaustion retries raster; verification and material checks never consume this budget.
-pub(crate) const ADAPTIVE_PLANNING_POLLS: usize = 2_000_000;
+pub(crate) const ADAPTIVE_PLANNING_POLLS: usize = 20_000_000;
 
 const DEPTH_TOLERANCE: f64 = 0.01;
 /// Arcs and helices are drawn as straight pieces of at most this angle.
