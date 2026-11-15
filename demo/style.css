@@ -110,9 +110,12 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 .start { position: absolute; inset: 0; display: grid; place-items: center; background: var(--ground); z-index: 30; text-align: center; }
 .start p { margin: 0 0 12px; font-size: 16px; }
 .start .views { justify-content: center; flex-wrap: wrap; }
-.busy { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: #0f1318c0; z-index: 50; }
+.busy { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: start center; padding: max(16px, 18vh) 16px 16px; background: #0f1318c0; z-index: 50; }
 .busy-card { width: 100%; max-width: 460px; padding: 20px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel); color: var(--text); }
+/* Fixed line heights and a fixed top edge: the card must not jump as its text changes. */
+#busy-title, #busy-detail, #busy-stages li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #busy-title { font-weight: 500; font-size: 16px; }
+#busy-bar[hidden] { display: block !important; visibility: hidden; }
 #busy-bar { display: block; width: 100%; height: 12px; margin-top: 14px; accent-color: var(--accent); }
 #busy-stages { margin: 18px 0 10px; padding-left: 22px; color: var(--muted); }
 #busy-stages li { padding: 3px 0; }
@@ -120,7 +123,7 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 #busy-stages li.done::before { content: "✓"; }
 #busy-stages li.current { color: var(--text); }
 #busy-stages li.current::before { content: "▸"; }
-#busy-detail { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+#busy-detail { min-height: 1.4em; color: var(--muted); font-size: 12px; }
 #busy-elapsed { margin-top: 10px; text-align: right; color: var(--muted); font: 12px var(--mono); }
 [hidden] { display: none !important; }
 
