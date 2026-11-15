@@ -5,6 +5,13 @@ on:
 jobs:
   rust:
     runs-on: ubuntu-latest
+    # Tests and the native example need no link-time optimisation: the release
+    # profile's thin LTO and single codegen unit are for the shipped WebAssembly,
+    # which the site job builds unchanged. Here they made every test binary a
+    # whole-program optimised link.
+    env:
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
     steps:
       - uses: actions/checkout@v4
       - name: The benchmark's own tests
