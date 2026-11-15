@@ -422,6 +422,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
         let reach = match failure.cause { simulate::Cause::Reach(reach) => Some(*reach), _ => None };
         exclusions.push(Exclusion { operation, message: failure.message, tool, selection, reach });
     }
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"summarising"}));
     let needs: Vec<&str> = plan.tools_needed.iter().flatten().map(|n| n.description.as_str()).collect();
     if !needs.is_empty() {
         log.push(format!("tools needed: {}", needs.join("; ")));

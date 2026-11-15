@@ -47,6 +47,9 @@ send(1, { stage: "plan", setups: 1 });
 send(1, { stage: "checking", index: 17, total: 17, label: "Last cut" });
 assert.equal($("busy-bar").value, 16); // last operation still running
 send(1, { stage: "operation_done", index: 17, total: 17 });
+send(1, { stage: "summarising" });
+assert.equal($("busy-title").textContent, "Preparing checked toolpaths…");
+assert.equal($("busy-bar").hidden, true);
 send(1, { stage: "option_result", index: 1, available: true });
 send(1, { stage: "option", index: 2, total: 2, label: "Vise, flip and face" });
 assert.equal($("busy-stages").children.length, 6);

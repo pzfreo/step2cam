@@ -1791,7 +1791,7 @@ function showProgress(p) {
   const stage = ({ engines: 0, recognising: 1, features: 2, options: 2,
     planning: busyOption === null ? 2 : 3 + slot, replanning: busyOption === null ? 2 : 3 + slot,
     option: 3 + slot, plan: 3 + slot, checking: 3 + slot, operation_done: 3 + slot,
-    comparing: 3 + slot, stock: 3 + slot, option_result: 3 + slot,
+    comparing: 3 + slot, stock: 3 + slot, summarising: 3 + slot, option_result: 3 + slot,
     choosing: finalStep, output: finalStep })[p.stage];
   if (stage === undefined) return;
   busyStep = stage;
@@ -1805,6 +1805,7 @@ function showProgress(p) {
     : p.stage === "option" ? `Planning workholding option ${p.index} of ${p.total}: ${p.label}…`
     : p.stage === "comparing" ? "Comparing the finished stock with the model…"
     : p.stage === "stock" ? "Preparing stock for the next setup…"
+    : p.stage === "summarising" ? "Preparing checked toolpaths…"
     : p.stage === "choosing" ? "Choosing workholding…"
     : p.stage === "output" ? "Preparing results…" : `${labels[stage]}…`;
   $("busy-title").textContent = title;
