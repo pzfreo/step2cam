@@ -219,7 +219,7 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
         .unwrap()
         .iter()
         .find(|d| {
-            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@1"
+            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@2"
         })
         .unwrap();
     assert!(
@@ -452,4 +452,45 @@ fn flat_on_another_cutter_retries_the_same_preparation() {
     let id = "top-2-flats".parse().unwrap();
     assert_eq!(roughing::retry_setup(&p, &id, "where roughing did not reach", true), Some("top".into()));
     assert_eq!(roughing::retry_setup(&p, &"top-1-roughing".parse().unwrap(), "reach evidence", false), None);
+}
+
+#[test]
+fn force_reference_rejects_other_iso_groups_and_copper_alloys() {
+    for (group, name) in [("P", "steel"), ("P", "aluminium steel"), ("N", "aluminium bronze"), ("N", "copper aluminium alloy")] {
+        let mut l = library();
+        l["cutting_data_material_group"] = json!(group);
+        assert!(!capp::grip_force::has_reference(name, Some(group)));
+        let mut tech = data();
+        roughing::choose(&mut op(), &mut tech, &tool(), roughing::Material { group: Some(group), name: Some(name) }, &l, "top:roughing", &mut Trace::default()).unwrap();
+        assert_eq!(tech["clearing_strategy"], "raster");
+        assert_eq!(tech["feed_mm_min"], 1000.);
+    }
+    assert!(capp::grip_force::has_reference("Aluminium 6082-T6", Some("N")));
+}
+
+#[test]
+fn unbound_depth_is_preserved_and_each_roughing_uses_its_own_stepup() {
+    let mut t = tool();
+    t["flute_length"] = json!(29.999999999999996);
+    let mut l = library();
+    l["roughing_by_group"]["N"]["axial_flute_fraction"] = json!(0.5);
+    let mut tech = data();
+    roughing::choose(&mut op(), &mut tech, &t, material(Some("N")), &l, "top:roughing", &mut Trace::default()).unwrap();
+    assert_eq!(tech["stepdown_mm"], 14.999999999999998);
+    assert_eq!(tech["stepover_mm"], tech["radial_width_mm"]);
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+    let l = library();
+    let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+    capp::finish_plan(&mut p, &l, &[]).unwrap();
+    let mut second = p.setups[0].operations[1].clone();
+    second.raster_technology.as_mut().unwrap().insert("stepdown_mm".into(), json!(3.75));
+    p.setups[0].operations[1].raster_technology.as_mut().unwrap().insert("stepdown_mm".into(), json!(1.25));
+    p.setups[0].operations.insert(2, second);
+    let value = serde_json::to_value(p).unwrap();
+    let (jobs, _) = step2cam::job::jobs(&value, &l).unwrap();
+    let rough: Vec<_> = jobs[0].manifest["operations"].as_array().unwrap().iter().filter(|o| o["kind"] == "roughing").collect();
+    assert_eq!(rough.len(), 2);
+    assert_eq!(rough[0]["stepup_mm"], 1.25);
+    assert_eq!(rough[1]["stepup_mm"], 3.75);
 }

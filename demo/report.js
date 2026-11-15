@@ -345,7 +345,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
       notes.push(...warnings.filter((d) => op.because?.includes(d.id) && !d.rule.startsWith("machine.spindle.manual_collets@") && !d.rule.startsWith("execution.refused@"))
         .map((d) => t.peck_mode && d.depth_diameter_ratio != null ? warningText(m, d, true).replace(/: full-retract pecks$/, "") : warningText(m, d, true)));
       // Notes stay in the operation's row so the PDF never separates them.
-      return row([text(i + 1), sheetWords(o?.name || operationName(op, setup, plan)) + (notes.length ? "\n" + notes.map(sheetWords).join("\n") : ""), toolLabel(op.tool).replace(" · ", "\n"), rate(t.spindle_rpm), rate(t.feed_mm_min), rate(t.plunge_mm_min), `${reportLength(t.stepdown_mm)} / ${reportLength(t.stepover_mm)}`, o?.time ? operationTime(o.time) : "not run"]);
+      return row([text(i + 1), sheetWords(o?.name || operationName(op, setup, plan)) + (notes.length ? "\n" + notes.map(sheetWords).join("\n") : ""), toolLabel(op.tool).replace(" · ", "\n"), rate(t.spindle_rpm), rate(t.feed_mm_min), rate(t.plunge_mm_min), `${reportLength(t.stepdown_mm)} / ${reportLength(t.clearing_strategy === "bounded_engagement" ? t.radial_width_mm : t.stepover_mm)}`, o?.time ? operationTime(o.time) : "not run"]);
     });
     blocks.push(table(["#", "Operation / notes", "Tool", "RPM", "Feed mm/min", "Plunge mm/min", "Stepdown / stepover mm", "Time est."], rows, "operations"));
   }

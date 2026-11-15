@@ -53,7 +53,7 @@ pub fn choose(
         && ["feed_mm_min", "spindle_rpm"].iter().all(|key| tool["cutting_data"][g][key].as_f64().is_some()));
     let reason = if !declared && !qualified_override {
         Some("Raster roughing: cutting data in use is not declared for this material group")
-    } else if !crate::grip_force::has_reference(material.name.unwrap_or("")) {
+    } else if !crate::grip_force::has_reference(material.name.unwrap_or(""), group) {
         Some("Raster roughing: no applicable material force/power reference")
     } else { None };
     if let Some(reason) = reason {
@@ -99,7 +99,9 @@ pub fn choose(
     let fraction = 0.6;
     let allowed = spindle_power * fraction;
     let original_depth = stepdown;
-    stepdown = (stepdown.min(stepdown * allowed / before.power_kw) / 0.05).floor() * 0.05;
+    if before.power_kw > allowed {
+        stepdown = (stepdown * allowed / before.power_kw / 0.05).floor() * 0.05;
+    }
     if stepdown < 0.05 {
         technology.insert("clearing_strategy".into(), json!("raster"));
         return Ok(trace.decide(RULE, subject, "chosen", "Raster roughing: adaptive power allowance cannot hold a 0.05 mm axial increment", json!({"chosen":"raster", "material_group":group})));
@@ -108,6 +110,7 @@ pub fn choose(
     let power = json!({"before_kw":before.power_kw,"after_kw":after.power_kw,"spindle_power_kw":spindle_power,"allowed_kw":allowed,"fraction":fraction,"stepdown_before_mm":original_depth,"stepdown_after_mm":stepdown,"quantum_mm":0.05,"basis":"mean tangential Kienzle force times cutting speed; 60% spindle rating is step2cam judgement"});
     technology.insert("clearing_strategy".into(), json!("bounded_engagement"));
     technology.insert("radial_width_mm".into(), json!(diameter * width));
+    technology.insert("stepover_mm".into(), json!(diameter * width));
     technology.insert("stepdown_mm".into(), json!(stepdown));
     technology.insert("feed_mm_min".into(), json!((base * factor).min(limit)));
     Ok(trace.decide(RULE, subject, "chosen", "Bounded-engagement roughing: sourced material radial width, flute-based stepdown (reach cap unchanged), radial chip thinning and spindle-power axial cap; entry/plunge feed unchanged", json!({"chosen":technology,"material_group":group,"power":power,"chip_thinning_factor":factor,"base_feed_mm_min":base,"feed_limit_mm_min":limit,"feed_limit_source":if controller.is_some(){"controller_settings.max_cutting_feed_mm_min"}else{"library existing feed limit"},"policy":policy})))

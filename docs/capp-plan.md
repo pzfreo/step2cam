@@ -78,18 +78,32 @@ this budget. It bounds work at the planner's work checkpoints, not wall-clock se
 the value is step2cam judgement for pathological adaptive cost.
 An execution memo is shared by exclusion iterations and workholding candidates. Its key
 contains the complete operation/tool planning input, initial position, work budget and
-incoming stock snapshot (including cell bounds). It stores planned motions, or the motion
+incoming stock snapshot (including cell bounds), initial stock specification, and every
+preceding operation and its tool. This distinguishes committed sweep/axial history even
+when the resulting cells and generation match. It stores planned motions, or the motion
 prefix and refusal/exhaustion. Verification refusals also require identical check settings.
 Every replay rechecks stock contact, links and final
 material independently. Changed stock or parameters miss the memo. Remembered raster
 fallbacks are shared across candidates but scoped to the setup's stock, fixtures and cuts
-preceding roughing, so changed preparation is reconsidered. Reach and gouge/stock-contact
-failures are excluded from strategy retries. A dependent flat can use a different cutter;
+preceding roughing plus all upstream setup preparation (including selected tools/technology).
+Scopes are captured before execution annotations; earlier remembered fallbacks are applied
+first. The part and library are immutable within this cache, so changed carried-stock
+producers invalidate a downstream refusal. Reach and gouge/stock-contact
+failures are excluded from strategy retries. Typed reach and stream verification findings
+are retained as causes. Planner and LinkGuard APIs returning only strings still require
+text matching for gouge, stock-contact and fixture/scene refusals. A dependent flat can use a different cutter;
 its residual-depth check uses that cutter's radius and the original roughing increment.
 A flat-height-only precheck is deliberately absent: heights do not prove what the 3D
 shadow, side passes and stepup bands actually clear, so it could discard valid adaptive work.
 Replanning a seating or withholding a flip keeps the retry reason. All execution checks
 still run, and a refused raster follows normal exclusion handling.
+
+Adaptive technology records the actual radial width as stepover, while `raster_technology`
+retains the retry value. The report uses adaptive radial width in its existing field,
+including older plans with a retained raster stepover. Unbound axial depths are not quantised.
+The force/power reference requires ISO N and aluminium/aluminum as a whole word, with
+bronze, brass, copper, steel and iron qualifiers excluded.
+
 
 Settlement caps roughing at stock top minus `min(flute_length, stickout) - 1 mm`, before
 camlib sees it. This is the stopgap for stevecad/camlib#122; once camlib checks each layer's

@@ -32,6 +32,16 @@ assert.equal(document.blocks.filter(b => b.type === 'heading' && b.text.startsWi
 assert.ok(!html.includes('undefined') && !html.includes('NaN'));
 assert.deepEqual(checkText([{ setup: 'top' }]).compact, '⚠ unchecked');
 assert.deepEqual(reportDocument(data, options), document, 'fixed inputs and date produce fixed content');
+const adaptiveReport = structuredClone(data);
+const adaptiveOperation = adaptiveReport.plan.setups[0].operations[0];
+adaptiveOperation.kind = 'roughing';
+adaptiveOperation.technology = { ...adaptiveOperation.technology, clearing_strategy: 'bounded_engagement', stepdown_mm: 19.55, stepover_mm: 8, radial_width_mm: 5 };
+const adaptiveTable = reportDocument(adaptiveReport, options).blocks.find(b => b.id === 'operations');
+assert.equal(adaptiveTable.rows[0][6], '19.55 / 5', 'adaptive operator field shows actual engagement, even for an older plan retaining raster stepover');
+assert.deepEqual(adaptiveTable.headers, document.blocks.find(b => b.id === 'operations').headers, 'engagement correction does not change layout');
+adaptiveOperation.technology.clearing_strategy = 'raster';
+assert.equal(reportDocument(adaptiveReport, options).blocks.find(b => b.id === 'operations').rows[0][6], '19.55 / 8', 'raster retains its own stepover');
+
 
 
 assert.equal(featureName({ family: 'holes' }), '⌀— hole');

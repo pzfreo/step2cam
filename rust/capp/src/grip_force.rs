@@ -16,9 +16,11 @@ pub struct MillingForce {
 }
 
 /// The existing force/power reference covers wrought aluminium only.
-pub fn has_reference(material: &str) -> bool {
+pub fn has_reference(material: &str, group: Option<&str>) -> bool {
     let lower = material.to_lowercase();
-    lower.contains("aluminium") || lower.contains("aluminum")
+    let words: Vec<_> = lower.split(|c: char| !c.is_alphanumeric()).collect();
+    group == Some("N") && words.iter().any(|w| matches!(*w, "aluminium" | "aluminum"))
+        && !words.iter().any(|w| matches!(*w, "bronze" | "brass" | "copper" | "steel" | "iron"))
 }
 
 pub fn milling_force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flutes: f64) -> Option<MillingForce> {
@@ -58,7 +60,7 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
     let mc = rule["mc"].as_f64().unwrap();
     let quantum = rule["facing_depth_quantum_mm"].as_f64().unwrap();
     let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("");
-    let aluminium = has_reference(material);
+    let aluminium = has_reference(material, plan.material.as_ref().and_then(|m| m["iso513"].as_str()));
     for setup in &mut plan.setups {
         if !setup.clamping.as_ref().is_some_and(Value::is_object) { continue; }
         let Some(clamp) = vise["clamp_force_n"].as_f64().filter(|_| vise["_sources"]["clamp_force"]["url"].is_string()) else {

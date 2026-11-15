@@ -48,21 +48,29 @@ struct ExecutionCache {
 
 // Scope remembered fallbacks to the prepared setup prefix. Unrelated exclusions
 // do not erase a refusal; different stocks, fixtures or preceding cuts do.
-fn roughing_scope(setup: &Setup) -> Option<String> {
+// Include all upstream preparation: carried stock is produced by those setups.
+// Part geometry and library/tool bodies are immutable in this per-process cache.
+fn roughing_scope(plan: &Plan, index: usize) -> Option<String> {
+    let setup = &plan.setups[index];
     let end = setup.operations.iter().position(|o| matches!(o.cut, Cut::Roughing(_))
         && o.technology.as_ref().is_some_and(|t| t.get("clearing_strategy").is_some_and(|s| s == "bounded_engagement")))?;
-    let prefix: Vec<_> = setup.operations[..=end].iter().map(|o| json!({"cut":o.cut,"tool":o.tool,"technology":o.technology})).collect();
     let mut fixtures = setup.clamping.clone();
     if let Some(fields) = fixtures.as_mut().and_then(Value::as_object_mut) {
         fields.remove("because");
         fields.remove("force_check");
     }
-    Some(json!({"setup":setup.id,"stock":setup.stock,"rotation":setup.rotation,"origin":setup.origin_model,"clamping":fixtures,"prefix":prefix}).to_string())
+    let mut prepared = serde_json::to_value(setup).ok()?;
+    prepared["operations"] = serde_json::to_value(&setup.operations[..=end]).ok()?;
+    prepared["clamping"] = json!(fixtures);
+    Some(json!({"setup":prepared,"upstream":&plan.setups[..index]}).to_string())
 }
 
 fn remembered_fallbacks(plan: &mut Plan, cache: &ExecutionCache) {
-    let reasons = plan.setups.iter().filter_map(|s| Some((s.id.clone(), cache.roughing_refusals.get(&roughing_scope(s)? )?.clone()))).collect();
-    capp::roughing::fallbacks(plan, &reasons);
+    for i in 0..plan.setups.len() {
+        let Some(reason) = roughing_scope(plan, i).and_then(|key| cache.roughing_refusals.get(&key)) else { continue; };
+        let reasons = [(plan.setups[i].id.clone(), reason.clone())].into();
+        capp::roughing::fallbacks(plan, &reasons);
+    }
 }
 
 fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>, adaptive: &mut simulate::AdaptiveCache) -> Result<(), simulate::Failure> {
@@ -108,7 +116,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
         let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
         let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("").to_lowercase();
-        let grip = (material.contains("aluminium") || material.contains("aluminum"))
+        let grip = capp::grip_force::has_reference(&material, plan.material.as_ref().and_then(|m| m["iso513"].as_str()))
             && plan.setups[setup_index].clamping.as_ref().is_some_and(|c| c["force_check"]["allowable_cutting_force_n"].is_number());
         let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.crop_stock_to == job.crop_stock_to && (!job.return_stock || c.job.return_stock)) {
             job = saved.job.clone();
@@ -345,13 +353,16 @@ fn process_planned_cached(analysis: &Value, mesh: &Value, library: &Value, mut p
             (fell_back, refused, started) = (true, vec![], None);
             continue;
         }
+        // Capture before simulation annotates carried stock and measured evidence.
+        let scopes: std::collections::HashMap<_, _> = plan.setups.iter().enumerate()
+            .filter_map(|(i, s)| Some((s.id.clone(), roughing_scope(&plan, i)?))).collect();
         let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache, &mut execution.adaptive) else {
             break;
         };
         if let Some(operation) = failure.operation.as_ref()
             && let Some(setup) = capp::roughing::retry_setup(&plan, operation, &failure.message, failure.permits_adaptive_retry())
-            && let Some(scope) = plan.setups.iter().find(|s| s.id == setup).and_then(roughing_scope) {
-            execution.roughing_refusals.insert(scope, failure.message);
+            && let Some(scope) = scopes.get(&setup) {
+            execution.roughing_refusals.insert(scope.clone(), failure.message);
             continue;
         }
         // An operation capp can take out is excluded and the plan finished again; anything else
@@ -704,6 +715,26 @@ mod robust_tests {
 #[cfg(test)]
 mod adaptive_candidate_cache_tests {
     use super::*;
+    #[test]
+    fn changed_upstream_preparation_invalidates_downstream_fallback_scope() {
+        let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+        let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+        let l = serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap();
+        let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+        capp::finish_plan(&mut p, &l, &[]).unwrap();
+        let mut prior = p.setups[0].clone();
+        prior.id = "prior".into();
+        p.setups.insert(0, prior);
+        let first = roughing_scope(&p, 1).unwrap();
+        let current_stock = p.setups[1].stock.clone();
+        p.setups[0].operations[0].technology.as_mut().unwrap().insert("feed_mm_min".into(), json!(123.));
+        assert_eq!(p.setups[1].stock, current_stock);
+        assert_ne!(first, roughing_scope(&p, 1).unwrap());
+        let mut cache = ExecutionCache::default();
+        cache.roughing_refusals.insert(first, "prior stock preparation refused".into());
+        remembered_fallbacks(&mut p, &cache);
+        assert_eq!(p.setups[1].operations[1].technology.as_ref().unwrap()["clearing_strategy"], "bounded_engagement");
+    }
     #[test]
     fn candidates_share_results_and_remember_qualified_fallbacks() {
         let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();

@@ -72,13 +72,15 @@ pub enum Cause {
     /// camlib refused an operation for its reach, with the evidence it gave (boxed, to keep
     /// `Failure` small).
     Reach(Box<capp::model::ReachEvidence>),
+    /// A typed streaming verification violation; keep its finding kind when present.
+    Verification(Option<camlib::verification::FindingKind>),
     Other,
 }
 
 impl Failure {
     /// Reach and geometric/stock-contact evidence is terminal, not a strategy retry.
     pub(crate) fn permits_adaptive_retry(&self) -> bool {
-        !matches!(self.cause, Cause::Reach(_))
+        !matches!(self.cause, Cause::Reach(_) | Cause::Verification(_))
             && !["gouge", "stock-contact", "fixture/scene"].iter().any(|word| self.message.to_lowercase().contains(word))
     }
 }
@@ -456,6 +458,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
         let planning_error = |message: String| if adaptive && polls.load(Ordering::Relaxed) > planning_polls {
             "bounded-engagement planning work budget exhausted; retry raster with unchanged verification".to_string()
         } else { message };
+        let mut rejection = None;
         let mut one = || -> Result<(), String> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
@@ -463,7 +466,13 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             }
             let tool = manifest.tools.iter().find(|t| t.id == operation.tool()).ok_or("operation tool missing")?;
             let mut input = if adaptive { Some(AdaptiveInput {
-                manifest: serde_json::json!({"operation":raw["operations"][index],"tool":tool,"position":producer.position(),"work_budget":planning_polls}).to_string(),
+                // Equal height cells need not have equal committed sweep/axial history.
+                // Include every input that produced that history, not future operations.
+                manifest: serde_json::json!({"operation":raw["operations"][index],"tool":tool,"position":producer.position(),"work_budget":planning_polls,
+                    "initial_stock":manifest.stock,"initial_position":manifest.initial_position_mm,
+                    "tool_change":manifest.tool_change,"retract":manifest.rapid_retracts,"sweep":manifest.sweep,"physical_bottom":physical_bottom,
+                    "prefix":&raw["operations"].as_array().unwrap()[..index],
+                    "prefix_tools":manifest.tools.iter().filter(|t| manifest.operations[..index].iter().any(|o| o.tool() == t.id)).collect::<Vec<_>>()}).to_string(),
                 stock: producer.stock()?.snapshot(),
             }) } else { None };
             let verification = adaptive.then(|| serde_json::json!({"checks":manifest.verification,"sweep":manifest.sweep,"retract":manifest.rapid_retracts,"physical_bottom":physical_bottom,"grip":grip}).to_string());
@@ -544,6 +553,12 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                     let checked = binding.decode(&raw, producer.completed(), Some(&motion))?;
                     match checked.check.motion_status() {
                         Some(Status::Violation) => {
+                            let kind = match &checked.check {
+                                Check::Motion { report, stock_contact, .. } => report.as_ref().and_then(|r| r.findings.iter().find(|f| f.status == Status::Violation).map(|f| f.kind))
+                                    .or_else(|| stock_contact.as_ref().and_then(|r| r.findings.iter().find(|f| f.finding.status == Status::Violation).map(|f| f.finding.kind))),
+                                _ => None,
+                            };
+                            rejection = Some(Cause::Verification(kind));
                             // Adapter IDs retain the planner kind (notch/slot/etc.) even when
                             // camlib runs them as pocket jobs. Only the noun enters the reason.
                             let kind = operation.id().parse::<capp::kind::OpId>().map_or("", |id| id.kind.name());
@@ -594,7 +609,11 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             }
             result
         };
-        one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
+        one().map_err(|message| {
+            let mut failure = Failure::from(message);
+            if let Some(cause) = rejection { failure.cause = cause; }
+            Failure { operation: operation.id().parse().ok(), ..failure }
+        })?;
         if material.is_none() {
             material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
@@ -877,6 +896,22 @@ mod adaptive_memo_tests {
         assert_eq!(cache.hits, 1);
     }
     #[test]
+    fn equal_cells_with_different_cut_histories_do_not_share_refusals() {
+        let job = manifest();
+        let mut cache = AdaptiveCache::default();
+        assert!(simulate_with_stock_bottom(&job.to_string(), None, false, None, false, 1, &mut cache).is_err());
+        let mut different = job.clone();
+        assert_eq!(different["operations"][0]["kind"], "facing");
+        // Same sweep geometry, cells, generation and final position; different committed feed history.
+        different["operations"][0]["feed_mm_min"] = json!(different["operations"][0]["feed_mm_min"].as_f64().unwrap() * 0.9);
+        assert!(simulate_with_stock_bottom(&different.to_string(), None, false, None, false, 1, &mut cache).is_err());
+        assert_eq!((cache.misses, cache.hits), (2,0));
+        assert_eq!(cache.entries[0].0.stock, cache.entries[1].0.stock);
+        assert_ne!(cache.entries[0].0.manifest, cache.entries[1].0.manifest);
+        assert!(simulate_with_stock_bottom(&different.to_string(), None, false, None, false, 1, &mut cache).is_err());
+        assert_eq!((cache.misses, cache.hits), (2,1));
+    }
+    #[test]
     fn exhaustion_is_memoised_and_verification_still_runs_on_replay() {
         let job = manifest();
         let mut cache = AdaptiveCache::default();
@@ -893,6 +928,11 @@ mod adaptive_memo_tests {
         let reach = Failure::from(reach);
         assert!(matches!(reach.cause, Cause::Reach(_)));
         assert!(!reach.permits_adaptive_retry());
+        use camlib::verification::FindingKind as K;
+        for kind in [K::Gouge, K::StockContact, K::FixtureContact, K::MachineTravel, K::FeedLimit, K::AxisFeedLimit, K::NormalAccelerationLimit] {
+            let typed = Failure { operation: None, message: "opaque engine finding".into(), cause: Cause::Verification(Some(kind)) };
+            assert!(!typed.permits_adaptive_retry(), "{kind:?}");
+        }
         assert!(!Failure::from("protected-part gouge".to_string()).permits_adaptive_retry());
         assert!(!Failure::from("stock-contact violation".to_string()).permits_adaptive_retry());
         assert!(Failure::from("no admissible clearing entry".to_string()).permits_adaptive_retry());

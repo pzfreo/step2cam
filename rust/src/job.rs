@@ -441,7 +441,7 @@ fn cut_operations<'a>(cx: &mut SetupCut<'a>, tools: &[&'a Value]) -> Result<(), 
         let technology = op.technology.as_ref();
         let built = match &op.cut {
             Cut::Facing { floor_z } => facing(cx, *floor_z, technology, &op_id, tool)?,
-            Cut::Roughing(rough) => roughing(cx, rough, technology, &op_id, tool)?,
+            Cut::Roughing(rough) => roughing(cx, rough, technology, op.raster_technology.as_ref(), &op_id, tool)?,
             Cut::Flats { floor_z, .. } => flats(cx, *floor_z, technology, &op_id, tool)?,
             Cut::SpotDrill(spot) => spot_drill(cx, spot, technology, &op_id, tool)?,
             Cut::Holes(holes_op) => holes(cx, holes_op, technology, &op_id, tool)?,
@@ -477,7 +477,7 @@ fn facing<'a>(cx: &mut SetupCut<'a>, floor_z: f64, technology: Technology, op_id
     Ok(Some((out, spec)))
 }
 
-fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
+fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technology, raster_technology: Technology, op_id: &str, tool: Tool<'a>) -> Result<Built<'a>, String> {
     let (spec, s_cut) = tool_or_skip!(tool, technology, cx.notes);
     let s = &s_cut;
     let setup = cx.setup;
@@ -502,8 +502,7 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
         out["clearing"] = json!({"kind": "adaptive", "path_strategy": "engagement_front",
             "max_radial_engagement_mm": num(s, "radial_width_mm")?, "boundary_tolerance_mm": 0.01});
         // Shallow-floor stairs keep the original slotting increment; Flat's guard stays unchanged.
-        let stepup = technology.and_then(|_| setup.operations.iter().find(|o| matches!(o.cut, Cut::Roughing(_))))
-            .and_then(|o| o.raster_technology.as_ref()).and_then(|t| t.get("stepdown_mm")).and_then(Value::as_f64)
+        let stepup = raster_technology.and_then(|t| t.get("stepdown_mm")).and_then(Value::as_f64)
             .ok_or("adaptive roughing has no original stepdown")?;
         if stepup < num(s, "stepdown_mm")? { out["stepup_mm"] = json!(stepup); }
     }
