@@ -69,13 +69,13 @@ mod progress {
         });
         emit(json!({"stage":"plan", "setups":plan.setups.len()}));
     }
-    pub fn operation(id: &str) {
+    pub fn operation(id: &str, done: bool) {
         let event = ACTIVE.with(|s| {
             let s = s.borrow();
             let s = s.as_ref()?;
             let index = s.operations.iter().position(|o| o["id"] == id)?;
             let mut event = s.operations[index].clone();
-            event["stage"] = json!("checking");
+            event["stage"] = json!(if done { "operation_done" } else { "checking" });
             event["index"] = json!(index + 1);
             event["total"] = json!(s.operations.len());
             Some(event)

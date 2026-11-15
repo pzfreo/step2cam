@@ -165,15 +165,7 @@ fn suitable_fixture_holes(analysis: &Value, mesh: &Value, ordinary: Option<&Plan
 }
 
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
-    #[cfg(target_arch = "wasm32")]
-    let vise = capp::machines::dimensioned_vise(library).is_some();
     process_using(analysis, mesh, library, |a, m, t, p| {
-        // In the browser, say which workholding option is being planned: each is checked in full.
-        #[cfg(target_arch = "wasm32")]
-        if vise {
-            let label = if is_flip(&p) { "Vise, flip and face" } else { "Vise, ordinary grip" };
-            crate::progress::emit(json!({"stage": "option", "label": label}));
-        }
         super::process_planned(a, m, t, p, vec![])
     })
 }
@@ -194,6 +186,12 @@ fn process_using(
         ds.retain(|s| rule_name(&s["rule"]) != Some(capp::candidates::RULE));
     }
     run_library["overrides"]["workholding_option"] = json!("none");
+    let vise = capp::machines::dimensioned_vise(library).is_some();
+    #[cfg(target_arch = "wasm32")]
+    if vise {
+        crate::progress::emit(json!({"stage":"options", "labels":["Vise, ordinary grip", "Vise, flip and face"]}));
+        crate::progress::emit(json!({"stage":"option", "index":1, "total":2, "label":"Vise, ordinary grip"}));
+    }
     let ordinary = capp::flip::build(analysis, mesh, &run_library);
     let ordinary_height = ordinary.as_ref().map(stock_height).unwrap_or(0.);
     let fixture_holes = suitable_fixture_holes(analysis, mesh, ordinary.as_ref().ok());
@@ -202,7 +200,6 @@ fn process_using(
     let mut ordinary_run = ordinary_result.ok();
     let mut runs = vec![];
     let mut candidates = vec![];
-    let vise = capp::machines::dimensioned_vise(library).is_some();
     if vise {
         let c = match &ordinary_run {
             None => unavailable(
@@ -228,8 +225,12 @@ fn process_using(
                 &settings,
             ),
         };
+        #[cfg(target_arch = "wasm32")]
+        crate::progress::emit(json!({"stage":"option_result", "index":1, "available":c["available"], "reason":c["reason"]}));
         candidates.push(c);
         runs.push(ordinary_run.take());
+        #[cfg(target_arch = "wasm32")]
+        crate::progress::emit(json!({"stage":"option", "index":2, "total":2, "label":"Vise, flip and face"}));
         run_library["overrides"]["workholding_option"] = json!("vise_flip_face");
         let flip = capp::flip::build(analysis, mesh, &run_library).and_then(|p| {
             if !is_flip(&p) {
@@ -271,9 +272,13 @@ fn process_using(
                 (c, Some(out))
             }
         };
+        #[cfg(target_arch = "wasm32")]
+        crate::progress::emit(json!({"stage":"option_result", "index":2, "available":c["available"], "reason":c["reason"]}));
         candidates.push(c);
         runs.push(out);
     }
+    #[cfg(target_arch = "wasm32")]
+    crate::progress::emit(json!({"stage":"choosing"}));
     let mut fixture = unavailable(
         "fixture_plate",
         "Fixture plate, screwed through holes",
@@ -330,6 +335,8 @@ fn process_using(
             ordinary_error.unwrap_or_else(|| "no executable workholding candidate".into())
         })?
     };
+    #[cfg(target_arch = "wasm32")]
+    crate::progress::emit(json!({"stage":"output"}));
     // The output is JSON from here on.
     let mut out = out.json();
     capp::candidates::choose(&mut out["plan"], library, &candidates)?;
