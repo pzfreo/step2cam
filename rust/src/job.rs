@@ -497,6 +497,7 @@ fn roughing<'a>(cx: &mut SetupCut<'a>, op: &model::Roughing, technology: Technol
     cutting(&mut out, s, true)?;
     let adaptive = s["clearing_strategy"] == "bounded_engagement";
     if adaptive {
+        cx.notes.push(format!("{op_id}: adaptive planning permits {} cancellation polls, then retries raster with unchanged verification ({})", crate::simulate::ADAPTIVE_PLANNING_POLLS, cite("process.roughing.bounded_engagement")));
         out.as_object_mut().unwrap().remove("omit_empty_cuts");
         out["clearing"] = json!({"kind": "adaptive", "path_strategy": "engagement_front",
             "max_radial_engagement_mm": num(s, "radial_width_mm")?, "boundary_tolerance_mm": 0.01});

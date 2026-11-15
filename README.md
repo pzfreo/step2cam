@@ -134,7 +134,9 @@ Axial depth uses the flute length, capped at 2D and the existing reach margin; r
 chip thinning raises feed within the machine ceiling. Shallow-floor stairs use the
 original slotting increment. If adaptive clearing or its flat preparation is refused,
 the planner retries raster once with the original cutting data, records why, and keeps
-all stock-contact, flat-depth and material checks. The move-based grip check measures
+all stock-contact, flat-depth and material checks. Adaptive planning also has a portable
+2,000,000 cancellation-poll work budget before raster retry; verification is outside it.
+The move-based grip check measures
 the admitted roughing moves; a deeper bounded cut can still exceed the grip capacity.
 
 ## Getting G-code: camlib's posts

@@ -61,6 +61,11 @@ increment, never the deeper adaptive stepdown. An adaptive refusal (or admission
 flat reporting stock where roughing did not reach, triggers one raster retry per setup
 within each independent workholding candidate. The reason is a `fallback` decision and
 log note; only the strategy decision is superseded, preserving tool-selection evidence.
+Adaptive planning has a portable budget of 2,000,000 cancellation polls shared by parallel
+layers, covering preparation, motion planning and planner reports. Exhaustion retries
+raster with a traced reason. Stock-contact checks and material comparison remain outside
+this budget. It bounds work at the engine's cancellation points, not wall-clock seconds;
+the value is step2cam judgement for pathological adaptive cost.
 Replanning a seating or withholding a flip keeps the retry reason. All execution checks
 still run, and a refused raster follows normal exclusion handling.
 

@@ -13,7 +13,11 @@ use camlib::{
     verification::Status,
 };
 use serde::Serialize;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+/// Portable planning-work limit: cancellation polls, shared by parallel adaptive layers.
+/// Exhaustion retries raster; verification and material checks never consume this budget.
+pub(crate) const ADAPTIVE_PLANNING_POLLS: usize = 2_000_000;
 
 const DEPTH_TOLERANCE: f64 = 0.01;
 /// Arcs and helices are drawn as straight pieces of at most this angle.
@@ -341,7 +345,7 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(manifest_json, None, false, None, false)
+    simulate_with_stock_bottom(manifest_json, None, false, None, false, ADAPTIVE_PLANNING_POLLS)
 }
 
 /// Run an adapter job while excluding artificial through-tap backing from the
@@ -354,7 +358,7 @@ pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
 pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job, grip: bool) -> Result<Run, Failure> {
     let mut original_refusals = std::collections::HashMap::new();
     loop {
-        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to, grip);
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to, grip, ADAPTIVE_PLANNING_POLLS);
         let Err(failure) = result else { return result; };
         let operation = failure.operation.as_ref().map(ToString::to_string).unwrap_or_default();
         let operation = operation.as_str();
@@ -378,7 +382,7 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job, grip: bool) -> Re
     }
 }
 
-fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>, grip: bool) -> Result<Run, Failure> {
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>, grip: bool, planning_polls: usize) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
     manifest.validate()?;
@@ -400,6 +404,10 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
     let mut grip_cuts = vec![];
 
     for (index, operation) in manifest.operations.iter().enumerate() {
+        let adaptive = raw["operations"][index]["kind"] == "roughing"
+            && raw["operations"][index]["clearing"]["kind"] == "adaptive";
+        let polls = AtomicUsize::new(0);
+        let planning_cancel = || adaptive && polls.fetch_add(1, Ordering::Relaxed) >= planning_polls;
         let mut one = || -> Result<(), String> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
@@ -412,7 +420,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 producer.stock()?,
                 producer.position(),
                 producer.completed().checked_add(1).ok_or("motion ID overflow")?,
-                &cancel,
+                &planning_cancel,
             )?;
             let start = producer.completed();
             let measured = grip && operation.id().parse::<capp::kind::OpId>().is_ok_and(|id|
@@ -430,7 +438,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 Some((rough["stepup_mm"].as_f64().unwrap_or(rough["stepdown_mm"].as_f64()?) + rough["bottom_allowance_mm"].as_f64()?, radius))
             });
             let guard = camlib::limits::LinkGuard::new(operation.limits(), tool, manifest.sweep.tolerance_mm)?;
-            while let Some(motion) = plan.next_motion_with_stock(producer.stock()?, &cancel)? {
+            while let Some(motion) = plan.next_motion_with_stock(producer.stock()?, &planning_cancel)? {
                 let motion = manifest.retract_policy(motion, producer.stock()?, operation.declares_retract_feed());
                 if let Some((limit, radius)) = flat_limit.filter(|_| motion.feed_mm_min.is_some()) {
                     let depth = deepest_cut(producer.stock()?, &motion, radius);
@@ -487,11 +495,16 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 best.deepest_band = deepest.map(Box::new);
                 grip_cuts.push(best);
             }
-            plan.finish_report(&cancel)?;
+            plan.finish_report(&planning_cancel)?;
             operations.push(OperationRange { id: operation.id().to_string(), start, end: producer.completed() });
             Ok(())
         };
-        one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
+        one().map_err(|message| {
+            let message = if adaptive && polls.load(Ordering::Relaxed) > planning_polls {
+                format!("bounded-engagement planning exceeded {planning_polls} cancellation polls; retry raster with unchanged verification")
+            } else { message };
+            Failure { operation: operation.id().parse().ok(), ..Failure::from(message) }
+        })?;
         if material.is_none() {
             material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
@@ -707,5 +720,35 @@ mod engagement_tests {
         let ring = best.unwrap();
         assert!((0.25..=0.75).contains(&ring.radial_width_mm), "{ring:?}");
         assert_eq!(ring.axial_depth_mm, 9.);
+    }
+}
+
+#[cfg(test)]
+mod adaptive_budget_tests {
+    use super::*;
+    #[test]
+    fn exhausted_planning_retries_raster_without_excluding_features() {
+        let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+        let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+        let l = serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap();
+        let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+        capp::finish_plan(&mut p, &l, &[]).unwrap();
+        let (jobs, _) = crate::job::jobs_from(&p, &l).unwrap();
+        let failure = match simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1) {
+            Err(failure) => failure,
+            Ok(_) => panic!("one planning poll admitted adaptive clearing"),
+        };
+        assert!(failure.message.contains("planning exceeded 1 cancellation polls"), "{}", failure.message);
+        let setup = capp::roughing::retry_setup(&p, failure.operation.as_ref().unwrap(), &failure.message).unwrap();
+        let before = p.skipped.clone();
+        capp::roughing::fallbacks(&mut p, &[(setup, failure.message)].into());
+        assert_eq!(before, p.skipped);
+        let (jobs, _) = crate::job::jobs_from(&p, &l).unwrap();
+        let rough = jobs[0].manifest["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "roughing").unwrap();
+        assert_eq!(rough["clearing"]["kind"], "raster");
+        // Raster is unaffected even by the exhausted adaptive budget, and all checks still run.
+        let run = simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1).unwrap();
+        assert!(run.moves.iter().any(|m| m.op == rough["id"].as_str().unwrap() && m.feed.is_some()));
+        assert!(run.material.is_some());
     }
 }
