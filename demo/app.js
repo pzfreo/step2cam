@@ -1,6 +1,6 @@
 // The step2cam demo page. Draws what worker.js returns: features on the left in
 // three-cad-viewer, camlib's toolpaths on the right in three.js, both in model coordinates and
-// one camera, with features, operations, toolpaths and camlib's moves linked to each other.
+// a shared camera in top setups, with features, operations, toolpaths and camlib's moves linked to each other.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -381,6 +381,14 @@ function fitZoom(m) {
   for (let i = 0; i < m.positions.length; i += 3) {
     reach = Math.max(reach, Math.hypot(m.positions[i] - c[0], m.positions[i + 1] - c[1], m.positions[i + 2] - c[2]));
   }
+  for (const setup of m.data.plan.setups) {
+    for (const box of [...(setup.clamping?.jaws || []), ...(setup.clamping?.parallels || [])]) {
+      for (let i = 0; i < 8; i++) {
+        const p = toModel(setup, box.min.map((v, k) => i & (1 << k) ? box.max[k] : v));
+        reach = Math.max(reach, Math.hypot(...p.map((v, k) => v - c[k])));
+      }
+    }
+  }
   return part / reach;
 }
 
@@ -481,11 +489,7 @@ function initRight() {
   right.scene.add(sun);
   right.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10000);
   right.camera.up.set(0, 0, 1);
-  right.controls = new OrbitControls(right.camera, right.renderer.domElement);
-  right.controls.addEventListener("change", () => {
-    drawRight();
-    copyCameraToCad();
-  });
+  resetRightControls();
   const pointer = new THREE.Vector2();
   const ray = new THREE.Raycaster();
   let queued = false, downAt = null;
@@ -517,6 +521,116 @@ function initRight() {
   });
 }
 
+// OrbitControls caches the up axis at construction. Rebuild it after a setup turn.
+function resetRightControls() {
+  const target = right.controls?.target.clone() || new THREE.Vector3();
+  right.controls?.dispose();
+  right.controls = new OrbitControls(right.camera, right.renderer.domElement);
+  right.controls.target.copy(target);
+  right.controls.update();
+  right.controls.addEventListener("change", () => {
+    drawRight();
+    copyCameraToCad();
+  });
+}
+
+// three-cad-viewer 5.1.3 supports named Y/Z up presets, not an arbitrary setup up.
+// Keep its normal orientation while the simulation is turned, and reconnect on return.
+function shareCamera() {
+  return !right.turn && (!right.setup || new THREE.Vector3(...right.setup.rotation[2]).distanceTo(new THREE.Vector3(0, 0, 1)) < 1e-6);
+}
+
+function setupOrientation(setup) {
+  if (!setup) return new THREE.Quaternion();
+  const r = setup.rotation;
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().set(
+    r[0][0], r[1][0], r[2][0], 0,
+    r[0][1], r[1][1], r[2][1], 0,
+    r[0][2], r[1][2], r[2][2], 0,
+    0, 0, 0, 1));
+}
+
+function finishSetupTurn() {
+  if (!right.turn) return;
+  const turn = right.turn;
+  cancelAnimationFrame(turn.frame);
+  right.camera.position.copy(turn.offset).applyQuaternion(turn.rotation).add(turn.target);
+  right.camera.up.copy(turn.up).applyQuaternion(turn.rotation);
+  right.camera.quaternion.copy(turn.rotation).multiply(turn.quaternion);
+  right.camera.updateMatrixWorld();
+  resetRightControls();
+  right.turn = null;
+  if (right.tool) right.tool.visible = time > 0 && time < model.total;
+  copyCameraToCad();
+  drawRight();
+}
+
+function showSetup(setup, animate = false) {
+  if (setup === right.setup) return;
+  finishSetupTurn();
+  const previous = right.setup;
+  right.setup = setup;
+  for (const [s, group] of right.fixtures || []) group.visible = s === setup;
+  if (!setup) return;
+  const rotation = setupOrientation(setup).multiply(setupOrientation(previous).invert());
+  const camera = right.camera, target = right.controls.target.clone();
+  right.turn = { rotation, target, offset: camera.position.clone().sub(target),
+    up: camera.up.clone(), quaternion: camera.quaternion.clone(), start: performance.now(), frame: null };
+  right.controls.enabled = false;
+  if (right.tool) right.tool.visible = false;  // the cutter is withdrawn while the work is flipped
+  if (!animate) { finishSetupTurn(); return; }
+  const turn = right.turn;
+  const step = (now) => {
+    if (right.turn !== turn) return;
+    const t = Math.min(1, (now - turn.start) / 1000);
+    if (t >= 1) { finishSetupTurn(); return; }
+    const q = new THREE.Quaternion().slerp(turn.rotation, t * t * (3 - 2 * t));
+    camera.position.copy(turn.offset).applyQuaternion(q).add(turn.target);
+    camera.up.copy(turn.up).applyQuaternion(q);
+    camera.quaternion.copy(q).multiply(turn.quaternion);
+    camera.updateMatrixWorld();
+    drawRight();
+    turn.frame = requestAnimationFrame(step);
+  };
+  turn.frame = requestAnimationFrame(step);
+}
+
+function clampingNote(setup) {
+  const c = setup?.clamping, notes = [];
+  if (c && !c.parallels?.length && c.parallels_size?.height_mm === null) notes.push("Support not modelled or checked");
+  if (Object.values(setup?.zero?.xy?.axes || {}).some((a) => a.method === "part_stop_contact")) notes.push("Part stop not checked");
+  return notes.join(" · ");
+}
+
+function showFixtures(m) {
+  if (right.fixtures) for (const group of right.fixtures.values()) {
+    right.scene.remove(group);
+    group.traverse((body) => { body.geometry?.dispose(); body.material?.dispose(); });
+  }
+  right.fixtures = new Map();
+  for (const setup of m.data.plan.setups) {
+    const group = new THREE.Group(), c = setup.clamping;
+    group.visible = false;
+    const jaws = c?.jaws || [], axis = c?.fixed_jaw?.startsWith("x") ? 0 : 1;
+    const sorted = [...jaws].sort((a, b) => a.min[axis] - b.min[axis]);
+    const fixed = c?.fixed_jaw ? sorted[c.fixed_jaw.endsWith("min") ? 0 : sorted.length - 1] : null;
+    for (const box of [...jaws, ...(c?.parallels || [])]) {
+      const size = box.max.map((v, k) => v - box.min[k]);
+      const geometry = new THREE.BoxGeometry(...size);
+      // Transform every vertex with the same setup->model mapping as the toolpaths.
+      const positions = geometry.getAttribute("position");
+      for (let i = 0; i < positions.count; i++) {
+        const p = [positions.getX(i), positions.getY(i), positions.getZ(i)];
+        positions.setXYZ(i, ...toModel(setup, p.map((v, k) => v + (box.min[k] + box.max[k]) / 2)));
+      }
+      geometry.computeVertexNormals();
+      group.add(new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: box === fixed ? 0x65788b : jaws.includes(box) ? 0x536171 : 0x87919b })));
+    }
+    right.fixtures.set(setup, group);
+    right.scene.add(group);
+  }
+}
+
 function drawRight() {
   if (!right.renderer) return;
   right.block?.aim(right.camera);
@@ -527,11 +641,15 @@ function resizeRight() {
   const box = $("gcode-view").getBoundingClientRect();
   right.renderer.setSize(box.width, box.height);
   right.focus?.material.resolution.set(box.width, box.height);
+  const half = (right.camera.top - right.camera.bottom) / 2, aspect = box.width / box.height;
+  right.camera.left = -half * aspect; right.camera.right = half * aspect;
+  right.camera.updateProjectionMatrix();
   copyCameraFromCad();
+  drawRight();
 }
 
 function copyCameraFromCad() {
-  if (!viewer?.ready || syncing) return;
+  if (!viewer?.ready || syncing || !shareCamera()) return;
   const from = viewer.rendered.camera.getCamera(), to = right.camera;
   const box = $("gcode-view").getBoundingClientRect();
   const half = (from.top - from.bottom) / 2, aspect = box.width / box.height;
@@ -549,7 +667,7 @@ function copyCameraFromCad() {
 }
 
 function copyCameraToCad() {
-  if (!viewer?.ready || syncing) return;
+  if (!viewer?.ready || syncing || !shareCamera()) return;
   syncing = true;
   const c = right.camera, t = right.controls.target;
   viewer.setCameraTarget([t.x, t.y, t.z], false);
@@ -559,6 +677,7 @@ function copyCameraToCad() {
 }
 
 function showToolpaths(m) {
+  showFixtures(m);
   for (const key of ["future", "done", "focus", "ghost", "tool", "edges", "stock"]) {
     if (right[key]) { right.scene.remove(right[key]); right[key] = null; }
   }
@@ -1327,7 +1446,8 @@ function drawStatus() {
   } else {
     text = "No toolpaths for this part";
   }
-  $("status").textContent = text;
+  const note = clampingNote(right.setup);
+  $("status").textContent = text + (note ? ` · ${note}` : "");
 }
 
 function describeFeature(f) {
@@ -1350,8 +1470,9 @@ function drawPlayhead() {
     el.firstChild.style.width = `${f * 100}%`;
   }
   const i = currentSegment();
-  if (i < 0) { drawStatus(); return; }
+  if (i < 0) { showSetup(model.data.plan.setups[0]); drawStatus(); return; }
   const s = model.segments[i];
+  showSetup(s.setup, playing);
   const before = i ? model.segments[i - 1].end : 0;
   const f = s.end > before ? Math.max(0, Math.min(1, (time - before) / (s.end - before))) : 1;
   right.done.geometry.setDrawRange(0, 2 * i + 2);
@@ -1366,7 +1487,7 @@ function drawPlayhead() {
   right.tool.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
   const radius = (s.tool?.diameter || 3) / 2;
   right.tool.scale.set(radius, radius, s.tool?.stickout || 30);
-  right.tool.visible = time > 0 && time < model.total;
+  right.tool.visible = !right.turn && time > 0 && time < model.total;
   const current = showCurrent && !activeFocus() && (playing || time > 0) ? s.op : null;
   if (current !== paintedOp) paintToolpaths();
   drawRight();
@@ -1382,7 +1503,7 @@ function tick(now) {
   if (!playing) return;
   const dt = (now - lastFrame) / 1000;
   lastFrame = now;
-  time = Math.min(model.total, time + dt * model.total / PLAYBACK_SECONDS);
+  if (!right.turn) time = Math.min(model.total, time + dt * model.total / PLAYBACK_SECONDS);
   drawPlayhead();
   if (time >= model.total) { setPlaying(false); return; }
   requestAnimationFrame(tick);
@@ -1390,6 +1511,7 @@ function tick(now) {
 
 function setPlaying(on) {
   playing = on && Boolean(model?.segments.length);
+  if (!playing) finishSetupTurn();
   $("play").textContent = playing ? "Pause" : "Play";
   if (playing) {
     count("play");
@@ -1482,6 +1604,9 @@ async function showWarnings(m, notes) {
 function show(data) {
   setPlaying(false);
   focusKey = null; pinKey = null; time = 0; litCad = undefined;
+  right.setup = null;
+  right.camera.up.set(0, 0, 1);
+  resetRightControls();
   model = buildModel(data);
   $("setup-sheet").disabled = false;
   const holes = [...model.features.values()].filter((f) => f.family === "holes").length;
