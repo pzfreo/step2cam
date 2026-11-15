@@ -40,7 +40,32 @@ struct CompletedSetup {
     stock_note: Option<String>,
 }
 
-fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>) -> Result<(), simulate::Failure> {
+#[derive(Default)]
+struct ExecutionCache {
+    adaptive: simulate::AdaptiveCache,
+    roughing_refusals: std::collections::HashMap<String, String>,
+}
+
+// Scope remembered fallbacks to the prepared setup prefix. Unrelated exclusions
+// do not erase a refusal; different stocks, fixtures or preceding cuts do.
+fn roughing_scope(setup: &Setup) -> Option<String> {
+    let end = setup.operations.iter().position(|o| matches!(o.cut, Cut::Roughing(_))
+        && o.technology.as_ref().is_some_and(|t| t.get("clearing_strategy").is_some_and(|s| s == "bounded_engagement")))?;
+    let prefix: Vec<_> = setup.operations[..=end].iter().map(|o| json!({"cut":o.cut,"tool":o.tool,"technology":o.technology})).collect();
+    let mut fixtures = setup.clamping.clone();
+    if let Some(fields) = fixtures.as_mut().and_then(Value::as_object_mut) {
+        fields.remove("because");
+        fields.remove("force_check");
+    }
+    Some(json!({"setup":setup.id,"stock":setup.stock,"rotation":setup.rotation,"origin":setup.origin_model,"clamping":fixtures,"prefix":prefix}).to_string())
+}
+
+fn remembered_fallbacks(plan: &mut Plan, cache: &ExecutionCache) {
+    let reasons = plan.setups.iter().filter_map(|s| Some((s.id.clone(), cache.roughing_refusals.get(&roughing_scope(s)? )?.clone()))).collect();
+    capp::roughing::fallbacks(plan, &reasons);
+}
+
+fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log: &mut Vec<String>, cache: &mut Vec<CompletedSetup>, adaptive: &mut simulate::AdaptiveCache) -> Result<(), simulate::Failure> {
     // Keep the original coordinate/stock descriptions while reporting the actual premise.
     let frames = plan.setups.clone();
     let plan_part = plan.part.clone();
@@ -91,13 +116,13 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             saved.run.clone()
         } else {
             cache.truncate(index);
-            let attempt = simulate::simulate_prepared_job(&mut job, grip);
+            let attempt = simulate::simulate_prepared_cached(&mut job, grip, adaptive);
             let attempt = match attempt {
                 Err(f) if f.operation.is_none() && f.cause == simulate::Cause::InitialStock && job.manifest["stock"]["mesh"].is_object() => {
                     plan.setups[setup_index].stock_note = Some(setup_stock::assumption(&f.message));
                     job.manifest = box_manifest;
                     job.stock_bottom_mm = box_bottom;
-                    simulate::simulate_prepared_job(&mut job, grip)
+                    simulate::simulate_prepared_cached(&mut job, grip, adaptive)
                 }
                 other => other,
             };
@@ -111,7 +136,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
                     && op.get("limits").is_some() => {
                     op.as_object_mut().unwrap().remove("limits");
                     log.push(format!("note: {id}: camlib could not build a roughing layer within the stock band ({}), so it is roughed over camlib's own region, the stock grown by four times the tool's reach, instead of within one cutter radius of the stock ({})", f.message, capp::trace::cite("process.roughing.region")));
-                    simulate::simulate_prepared_job(&mut job, grip)
+                    simulate::simulate_prepared_cached(&mut job, grip, adaptive)
                 }
                 other => other,
             };
@@ -265,12 +290,16 @@ impl Outcome {
 /// pass stops, rejects one more finite seating candidate, falls back from the flip (at most once),
 /// or leaves out one more operation, and the
 /// operations left out since the last start are at most the operations that start's plan had.
-fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Exclusion>) -> Result<Outcome, String> {
+#[cfg(test)]
+fn process_planned(analysis: &Value, mesh: &Value, library: &Value, planned: Plan, exclusions: Vec<Exclusion>) -> Result<Outcome, String> {
+    process_planned_cached(analysis, mesh, library, planned, exclusions, &mut ExecutionCache::default())
+}
+
+fn process_planned_cached(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Exclusion>, execution: &mut ExecutionCache) -> Result<Outcome, String> {
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
     let mut setup_cache = vec![];
-    let mut roughing_refusals = std::collections::HashMap::new();
     let mut fell_back = false;
     let mut rejected_seats = vec![];
     let initial_exclusions = exclusions.len();
@@ -285,7 +314,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             error = Some(message);
             break;
         }
-        capp::roughing::fallbacks(&mut plan, &roughing_refusals);
+        remembered_fallbacks(&mut plan, execution);
         let start: &Vec<Key> = started.get_or_insert_with(|| plan.setups.iter()
             .flat_map(|s| s.operations.iter().map(|op| cut_of(&s.id, op))).collect());
         let operations = start.len();
@@ -316,12 +345,13 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             (fell_back, refused, started) = (true, vec![], None);
             continue;
         }
-        let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache) else {
+        let Err(failure) = simulate_all(&mut plan, library, &mut programs, &mut log, &mut setup_cache, &mut execution.adaptive) else {
             break;
         };
         if let Some(operation) = failure.operation.as_ref()
-            && let Some(setup) = capp::roughing::retry_setup(&plan, operation, &failure.message) {
-            roughing_refusals.insert(setup, failure.message);
+            && let Some(setup) = capp::roughing::retry_setup(&plan, operation, &failure.message, failure.permits_adaptive_retry())
+            && let Some(scope) = plan.setups.iter().find(|s| s.id == setup).and_then(roughing_scope) {
+            execution.roughing_refusals.insert(scope, failure.message);
             continue;
         }
         // An operation capp can take out is excluded and the plan finished again; anything else
@@ -668,5 +698,33 @@ mod robust_tests {
         let message=last_panic().unwrap();
         assert!(message.starts_with("step2cam stopped on an internal error: test panic 7 at src/lib.rs:"),"{message}");
         assert_eq!(last_panic(),None);
+    }
+}
+
+#[cfg(test)]
+mod adaptive_candidate_cache_tests {
+    use super::*;
+    #[test]
+    fn candidates_share_results_and_remember_qualified_fallbacks() {
+        let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+        let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+        let mut l: Value = serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap();
+        let p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+        let mut cache = ExecutionCache::default();
+        let first = process_planned_cached(&a, &m, &l, p.clone(), vec![], &mut cache).unwrap().json();
+        let misses = cache.adaptive.misses;
+        let again = process_planned_cached(&a, &m, &l, p.clone(), vec![], &mut cache).unwrap().json();
+        assert_eq!(first, again);
+        assert_eq!(cache.adaptive.misses, misses);
+        assert!(cache.adaptive.hits > 0);
+        l["roughing_by_group"]["N"]["radial_width_diameter_fraction"] = json!(1e-12);
+        let mut cache = ExecutionCache::default();
+        let first = process_planned_cached(&a, &m, &l, p.clone(), vec![], &mut cache).unwrap().json();
+        assert!(first["plan"]["decisions"].as_array().unwrap().iter().any(|d| d["outcome"] == "fallback"));
+        let misses = cache.adaptive.misses;
+        let hits = cache.adaptive.hits;
+        let again = process_planned_cached(&a, &m, &l, p, vec![], &mut cache).unwrap().json();
+        assert_eq!(first, again);
+        assert_eq!((cache.adaptive.misses, cache.adaptive.hits), (misses, hits), "known preparation failure must skip adaptive entirely");
     }
 }

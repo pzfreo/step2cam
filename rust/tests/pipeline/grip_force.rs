@@ -361,9 +361,10 @@ fn measured_engagement_checks_edge_entry_helix_and_remaining_bore_ring() {
                 let (feed, rpm, flutes) = (num(&ring["feed_mm_min"]), num(&ring["spindle_rpm"]), num(&ring["flutes"]));
                 near(num(&ring["cutting_force_n"]), force(ap, ae, diameter, feed, rpm, flutes));
                 assert!(num(&ring["cutting_force_n"]) < force(ap, diameter, diameter, feed, rpm, flutes), "{own}");
-                let adaptive = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
-                    .any(|o| o["kind"] == "roughing" && o["clearing"]["kind"] == "adaptive");
-                if !adaptive { assert!(num(&ring["cutting_force_n"]) < 100., "{own}"); }
+                let rough = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
+                    .find(|o| o["kind"] == "roughing").unwrap();
+                assert_eq!(rough["clearing"]["kind"], "adaptive");
+                assert!(num(&ring["cutting_force_n"]) < 150., "{own}");
                 assert!(num(&own["cutting_force_n"]) >= num(&ring["cutting_force_n"]), "{own}");
                 assert!(num(&own["axial_depth_mm"]) <= 1., "{own}");
             }
@@ -398,4 +399,19 @@ fn checked_notch_keeps_the_computed_warning_remedy() {
         assert!(text.contains(premise),"{text}");
     }
     near(num(&op["technology"]["stepdown_mm"]),3.);
+}
+
+#[test]
+fn raster_mounting_plate_keeps_its_sub_100_n_bore_ring() {
+    let mut lib = read("libraries/haas-vf2.json");
+    lib.as_object_mut().unwrap().remove("roughing_by_group");
+    let out = run_named("mounting-plate", &lib);
+    let rough = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
+        .find(|o| o["kind"] == "roughing").unwrap();
+    assert_eq!(rough["clearing"]["kind"], "raster");
+    let ds = decisions(&out);
+    let ring = &ds.iter().find(|d| d["subject"] == "top-5-holes").unwrap()["deepest_band"];
+    assert!(num(&ring["cutting_force_n"]) < 100.);
+    assert!(num(&ring["axial_depth_mm"]) > 8.);
+    assert!((0.1..1.).contains(&num(&ring["radial_width_mm"])));
 }

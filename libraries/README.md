@@ -410,7 +410,7 @@ Undatumed face names refer to the model's top/bottom, front/back and left/right.
 ## Bounded-engagement roughing
 
 `roughing_by_group` holds a sourced policy independently of the slotting data on each
-tool. Shipped demo, Haas, LinuxCNC and benchmark libraries use radial fractions 0.25
+tool. Haas, LinuxCNC and benchmark libraries retain policy fractions 0.25
 for listed nonferrous metals (RobbJack FAQ, lower end of 25–50%) and 0.10 for ISO P
 steel (Seco advanced roughing, lower end of 10–15%). The N policy's `material_words`
 excludes polymers/composites even though those share ISO N. Other groups stay raster.
@@ -423,3 +423,18 @@ remain available for raster retry and shallow-floor cleanup. Stock-contact, flat
 and material checks remain active. Measured grip warnings are retained, not tuned away.
 The benchmark explicitly supplies steel because its synthetic dataset's STEP analyses
 omit material (doi:10.5281/zenodo.21653081, CC BY 4.0).
+
+A policy is not a cutting-data qualification. `cutting_data_material_group` declares the
+material group for a library's nominal tool data; Haas declares N from its existing
+aluminium catalogue rows. Otherwise a tool must supply both feed and rpm for the part's
+group. The placeholder LinuxCNC and benchmark feeds remain unqualified, so they retain
+raster. The benchmark steel override records the dataset material, not a steel feed claim.
+The resource format accepts inline policies, not external policy references; the three
+remaining copies therefore stay inline without adding a resource-resolution mechanism.
+
+Carvera has no bounded-engagement policy: Makera's 6 mm O-flute starts at 0.2 mm aluminium
+stepdown and F500 (0.1 mm brass/copper); general industrial HEM guidance does not qualify
+12 mm cuts on a 200 W desktop spindle. The nominal data remain unchanged. Adaptive cuts
+also require spindle power and the current material force reference. The shared Kienzle
+model limits estimated power to 60% of the stated rating, rounded down in 0.05 mm axial
+increments. This reserve is step2cam judgement, not a vendor continuous-power rating.

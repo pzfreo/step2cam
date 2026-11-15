@@ -1171,7 +1171,7 @@
    "id": "process.roughing.clearing",
    "version": 2,
    "stage": "process",
-   "rationale": "Map the neutral bounded-engagement policy to adaptive engagement-front clearing, with radial width from technology, deep layers capped by tool reach, and shallow-floor stepup at the original slotting increment. Otherwise clear parallel raster passes at the end mill's stepover (at most half its diameter), with economical routing. Keep entry, stock band and checks unchanged. The job's roughing note cites this rule.",
+   "rationale": "Map the neutral bounded-engagement policy to bounded radial-engagement clearing, with radial width from technology, deep layers capped by tool reach, and shallow-floor stepup at the original slotting increment. Otherwise clear parallel raster passes at the end mill's stepover (at most half its diameter), with economical routing. Keep entry, stock band and checks unchanged. The job's roughing note cites this rule.",
    "code": "rust/src/job.rs roughing",
    "sources": [
     {
@@ -1312,9 +1312,9 @@
   },
   {
    "id": "process.roughing.bounded_engagement",
-   "version": 5,
+   "version": 1,
    "stage": "tools",
-   "rationale": "Use sourced per-material light radial width and flute-based axial depth capped by 2D and the existing reach margin, with chip thinning capped by the machine feed ceiling. Limit adaptive planning to 100000000 cancellation polls shared across its layers, then retry raster; this portable work budget is step2cam judgement to bound pathological planning cost, not a wall-clock limit. Stock-contact and material checks do not consume the planning budget. Missing policy stays raster; ISO N requires an explicit whole-word material scope so a missing filter never admits nonmetallics. Retry raster with original capped cutting data after adaptive refusal, the existing flat residual-depth check refusing its prepared stock, or admission with no clearing moves; retain the exact reason, tool-selection evidence and all checks.",
+   "rationale": "Use sourced per-material light radial width and flute-based axial depth capped by 2D and the existing reach margin, with chip thinning capped by the machine feed ceiling. Require cutting data declared for the material group and an applicable force reference. The shared Kienzle model limits axial depth to 60% of spindle power, rounded down to 0.05 mm; this fraction is step2cam judgement, not a continuous-power guarantee. Limit adaptive planning to a fixed planning work budget shared across its layers, then retry raster; this portable work budget is step2cam judgement to bound pathological planning cost, not a wall-clock limit. Stock-contact and material checks do not consume the planning budget. Missing policy stays raster; ISO N requires an explicit whole-word material scope so a missing filter never admits nonmetallics. Retry raster with original capped cutting data after adaptive refusal, the existing flat residual-depth check refusing its prepared stock, or admission with no clearing moves; retain the exact reason, tool-selection evidence and all checks.",
    "code": "roughing.rs; rust/src/lib.rs; rust/src/job.rs; rust/src/simulate.rs",
    "sources": [
     {

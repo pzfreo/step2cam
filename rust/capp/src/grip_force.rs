@@ -10,8 +10,15 @@ const RULE: &str = "machine.grip_vs_cut";
 #[derive(Clone, Copy, Debug)]
 pub struct MillingForce {
     pub force_n: f64,
+    pub power_kw: f64,
     pub kc_n_mm2: f64,
     pub chip_thickness_mm: f64,
+}
+
+/// The existing force/power reference covers wrought aluminium only.
+pub fn has_reference(material: &str) -> bool {
+    let lower = material.to_lowercase();
+    lower.contains("aluminium") || lower.contains("aluminum")
 }
 
 pub fn milling_force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flutes: f64) -> Option<MillingForce> {
@@ -21,7 +28,8 @@ pub fn milling_force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flute
     let h = feed / (rpm * flutes) * (1.-phi.cos()) / phi;
     if h <= 0. || !h.is_finite() { return None; }
     let kc = rule["kc1_n_mm2"].as_f64().unwrap() * h.powf(-rule["mc"].as_f64().unwrap());
-    Some(MillingForce { force_n: kc * (ap * ae * feed / (PI * diameter * rpm)), kc_n_mm2: kc, chip_thickness_mm: h })
+    let force_n = kc * (ap * ae * feed / (PI * diameter * rpm));
+    Some(MillingForce { force_n, power_kw: force_n * PI * diameter * rpm / 60e6, kc_n_mm2: kc, chip_thickness_mm: h })
 }
 
 // Only plan-known engagements are estimated here. Stock-aware runtime operations
@@ -50,8 +58,7 @@ pub(crate) fn check(plan: &mut Plan, library: &Value, trace: &mut Trace) {
     let mc = rule["mc"].as_f64().unwrap();
     let quantum = rule["facing_depth_quantum_mm"].as_f64().unwrap();
     let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("");
-    let material_lower = material.to_lowercase();
-    let aluminium = material_lower.contains("aluminium") || material_lower.contains("aluminum");
+    let aluminium = has_reference(material);
     for setup in &mut plan.setups {
         if !setup.clamping.as_ref().is_some_and(Value::is_object) { continue; }
         let Some(clamp) = vise["clamp_force_n"].as_f64().filter(|_| vise["_sources"]["clamp_force"]["url"].is_string()) else {

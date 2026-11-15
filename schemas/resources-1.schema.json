@@ -8,6 +8,7 @@
   "tools"
  ],
  "properties": {
+  "cutting_data_material_group": {"enum": ["P", "M", "K", "N", "S", "H"], "description": "Material group for the library tools’ nominal cutting data; omit when unqualified. A per-group override must declare feed and speed to qualify independently."},
   "roughing_by_group": {
  "type": "object",
  "description": "Sourced bounded-engagement roughing policy by ISO 513 material group. Missing groups use raster; N requires an explicit material-word scope.",

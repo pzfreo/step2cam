@@ -23,6 +23,37 @@ const DEPTH_TOLERANCE: f64 = 0.01;
 /// Arcs and helices are drawn as straight pieces of at most this angle.
 const ARC_STEP_RAD: f64 = std::f64::consts::PI / 18.;
 
+/// Per-process planner memo, shared by exclusion retries and workholding candidates.
+/// Only motions and planner failures are memoised: stock/contact/material checks run again.
+#[derive(Default)]
+pub(crate) struct AdaptiveCache {
+    entries: Vec<(AdaptiveInput, std::sync::Arc<PlannedAdaptive>)>,
+    pub(crate) hits: usize,
+    pub(crate) misses: usize,
+}
+
+#[derive(PartialEq)]
+struct AdaptiveInput {
+    manifest: String,
+    stock: camlib::stock::StockSnapshot,
+}
+
+struct PlannedAdaptive {
+    motions: Vec<Motion>,
+    refusal: Option<String>,
+}
+
+impl AdaptiveCache {
+    fn get(&mut self, input: &AdaptiveInput) -> Option<std::sync::Arc<PlannedAdaptive>> {
+        let found = self.entries.iter().find(|(key, _)| key == input).map(|(_, value)| value.clone());
+        if found.is_some() { self.hits += 1; } else { self.misses += 1; }
+        found
+    }
+    fn store(&mut self, input: AdaptiveInput, motions: Vec<Motion>, refusal: Option<String>) {
+        self.entries.push((input, std::sync::Arc::new(PlannedAdaptive { motions, refusal })));
+    }
+}
+
 /// Why a job did not simulate, and the operation it stopped at if it had started one.
 #[derive(Debug)]
 pub struct Failure {
@@ -40,6 +71,14 @@ pub enum Cause {
     /// `Failure` small).
     Reach(Box<capp::model::ReachEvidence>),
     Other,
+}
+
+impl Failure {
+    /// Reach and geometric/stock-contact evidence is terminal, not a strategy retry.
+    pub(crate) fn permits_adaptive_retry(&self) -> bool {
+        !matches!(self.cause, Cause::Reach(_))
+            && !["gouge", "stock-contact", "fixture/scene"].iter().any(|word| self.message.to_lowercase().contains(word))
+    }
 }
 
 impl From<String> for Failure {
@@ -345,7 +384,7 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(manifest_json, None, false, None, false, ADAPTIVE_PLANNING_POLLS)
+    simulate_with_stock_bottom(manifest_json, None, false, None, false, ADAPTIVE_PLANNING_POLLS, &mut AdaptiveCache::default())
 }
 
 /// Run an adapter job while excluding artificial through-tap backing from the
@@ -356,9 +395,13 @@ pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
 
 /// Retain any camlib-admitted local pocket tops in the manifest shown with the moves.
 pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job, grip: bool) -> Result<Run, Failure> {
+    simulate_prepared_cached(job, grip, &mut AdaptiveCache::default())
+}
+
+pub(crate) fn simulate_prepared_cached(job: &mut crate::job::Job, grip: bool, cache: &mut AdaptiveCache) -> Result<Run, Failure> {
     let mut original_refusals = std::collections::HashMap::new();
     loop {
-        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to, grip, ADAPTIVE_PLANNING_POLLS);
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to, grip, ADAPTIVE_PLANNING_POLLS, cache);
         let Err(failure) = result else { return result; };
         let operation = failure.operation.as_ref().map(ToString::to_string).unwrap_or_default();
         let operation = operation.as_str();
@@ -382,7 +425,7 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job, grip: bool) -> Re
     }
 }
 
-fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>, grip: bool, planning_polls: usize) -> Result<Run, Failure> {
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>, grip: bool, planning_polls: usize, cache: &mut AdaptiveCache) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
     manifest.validate()?;
@@ -408,20 +451,33 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             && raw["operations"][index]["clearing"]["kind"] == "adaptive";
         let polls = AtomicUsize::new(0);
         let planning_cancel = || adaptive && polls.fetch_add(1, Ordering::Relaxed) >= planning_polls;
+        let planning_error = |message: String| if adaptive && polls.load(Ordering::Relaxed) > planning_polls {
+            "bounded-engagement planning work budget exhausted; retry raster with unchanged verification".to_string()
+        } else { message };
         let mut one = || -> Result<(), String> {
             if active != Some(operation.tool()) {
                 producer.change_tool(operation.tool())?;
                 active = Some(operation.tool());
             }
             let tool = manifest.tools.iter().find(|t| t.id == operation.tool()).ok_or("operation tool missing")?;
-            let mut plan = OperationPlan::prepare_with_stock(
-                operation.clone(),
-                tool,
-                producer.stock()?,
-                producer.position(),
-                producer.completed().checked_add(1).ok_or("motion ID overflow")?,
-                &planning_cancel,
-            )?;
+            let mut input = if adaptive { Some(AdaptiveInput {
+                manifest: serde_json::json!({"operation":raw["operations"][index],"tool":tool,"position":producer.position(),"work_budget":planning_polls}).to_string(),
+                stock: producer.stock()?.snapshot(),
+            }) } else { None };
+            let cached = input.as_ref().and_then(|key| cache.get(key));
+            let mut recorded = vec![];
+            let mut cursor = 0;
+            let mut plan = if cached.is_some() { None } else {
+                match OperationPlan::prepare_with_stock(operation.clone(), tool, producer.stock()?, producer.position(),
+                    producer.completed().checked_add(1).ok_or("motion ID overflow")?, &planning_cancel) {
+                    Ok(plan) => Some(plan),
+                    Err(message) => {
+                        let message = planning_error(message);
+                        if let Some(key) = input.take() { cache.store(key, recorded, Some(message.clone())); }
+                        return Err(message);
+                    }
+                }
+            };
             let start = producer.completed();
             let measured = grip && operation.id().parse::<capp::kind::OpId>().is_ok_and(|id|
                 matches!(id.kind, capp::kind::OpKind::Roughing | capp::kind::OpKind::Holes | capp::kind::OpKind::Counterbore | capp::kind::OpKind::Thread))
@@ -433,12 +489,30 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             let mut deepest = None;
             // What a flat may take: what roughing leaves on a flat between its layers.
             let flat_limit = raw["operations"][index].get("kind").filter(|k| *k == "flat").and_then(|_| {
-                let rough = raw["operations"].as_array()?.iter().find(|o| o["kind"] == "roughing" && o["tool"] == raw["operations"][index]["tool"])?;
-                let radius = raw["tools"].as_array()?.iter().find(|t| t["id"] == rough["tool"])?["cutter"]["diameter_mm"].as_f64()? / 2.;
+                let rough = raw["operations"].as_array()?.iter().take(index).rev().find(|o| o["kind"] == "roughing")?;
+                let radius = tool.cutter.diameter_mm / 2.;
                 Some((rough["stepup_mm"].as_f64().unwrap_or(rough["stepdown_mm"].as_f64()?) + rough["bottom_allowance_mm"].as_f64()?, radius))
             });
             let guard = camlib::limits::LinkGuard::new(operation.limits(), tool, manifest.sweep.tolerance_mm)?;
-            while let Some(motion) = plan.next_motion_with_stock(producer.stock()?, &planning_cancel)? {
+            loop {
+                let next = if let Some(saved) = &cached {
+                    if let Some(motion) = saved.motions.get(cursor) {
+                        cursor += 1;
+                        let mut motion = motion.clone();
+                        motion.id = producer.completed().checked_add(1).ok_or("motion ID overflow")?;
+                        Ok(Some(motion))
+                    } else { saved.refusal.clone().map_or(Ok(None), Err) }
+                } else { plan.as_mut().unwrap().next_motion_with_stock(producer.stock()?, &planning_cancel) };
+                let motion = match next {
+                    Ok(Some(motion)) => motion,
+                    Ok(None) => break,
+                    Err(message) => {
+                        let message = planning_error(message);
+                        if let Some(key) = input.take().filter(|_| cached.is_none()) { cache.store(key, recorded, Some(message.clone())); }
+                        return Err(message);
+                    }
+                };
+                if adaptive && cached.is_none() { recorded.push(motion.clone()); }
                 let motion = manifest.retract_policy(motion, producer.stock()?, operation.declares_retract_feed());
                 if let Some((limit, radius)) = flat_limit.filter(|_| motion.feed_mm_min.is_some()) {
                     let depth = deepest_cut(producer.stock()?, &motion, radius);
@@ -488,23 +562,25 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 }
                 moves.push(drawn(&motion, manifest.sweep.tolerance_mm)?);
                 // Events between motions (canned cycles) are for a post: the motions say it all.
-                plan.take_events();
+                if let Some(plan) = &mut plan { plan.take_events(); }
             }
             if let Some(mut best) = best {
                 best.helix_entry = entry.map(Box::new);
                 best.deepest_band = deepest.map(Box::new);
                 grip_cuts.push(best);
             }
-            plan.finish_report(&planning_cancel)?;
+            if let Some(plan) = &mut plan {
+                if let Err(message) = plan.finish_report(&planning_cancel) {
+                    let message = planning_error(message);
+                    if let Some(key) = input.take() { cache.store(key, recorded, Some(message.clone())); }
+                    return Err(message);
+                }
+                if let Some(key) = input.take() { cache.store(key, recorded, None); }
+            }
             operations.push(OperationRange { id: operation.id().to_string(), start, end: producer.completed() });
             Ok(())
         };
-        one().map_err(|message| {
-            let message = if adaptive && polls.load(Ordering::Relaxed) > planning_polls {
-                format!("bounded-engagement planning exceeded {planning_polls} cancellation polls; retry raster with unchanged verification")
-            } else { message };
-            Failure { operation: operation.id().parse().ok(), ..Failure::from(message) }
-        })?;
+        one().map_err(|message| Failure { operation: operation.id().parse().ok(), ..Failure::from(message) })?;
         if material.is_none() {
             material = compare(&mut producer, &binding, Some(operation.id()), &cancel, physical.map(|bottom| (&manifest, bottom)))?;
         }
@@ -734,12 +810,12 @@ mod adaptive_budget_tests {
         let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
         capp::finish_plan(&mut p, &l, &[]).unwrap();
         let (jobs, _) = crate::job::jobs_from(&p, &l).unwrap();
-        let failure = match simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1) {
+        let failure = match simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1, &mut AdaptiveCache::default()) {
             Err(failure) => failure,
             Ok(_) => panic!("one planning poll admitted adaptive clearing"),
         };
-        assert!(failure.message.contains("planning exceeded 1 cancellation polls"), "{}", failure.message);
-        let setup = capp::roughing::retry_setup(&p, failure.operation.as_ref().unwrap(), &failure.message).unwrap();
+        assert!(failure.message.contains("planning work budget exhausted"), "{}", failure.message);
+        let setup = capp::roughing::retry_setup(&p, failure.operation.as_ref().unwrap(), &failure.message, failure.permits_adaptive_retry()).unwrap();
         let before = p.skipped.clone();
         capp::roughing::fallbacks(&mut p, &[(setup, failure.message)].into());
         assert_eq!(before, p.skipped);
@@ -747,8 +823,71 @@ mod adaptive_budget_tests {
         let rough = jobs[0].manifest["operations"].as_array().unwrap().iter().find(|o| o["kind"] == "roughing").unwrap();
         assert_eq!(rough["clearing"]["kind"], "raster");
         // Raster is unaffected even by the exhausted adaptive budget, and all checks still run.
-        let run = simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1).unwrap();
+        let run = simulate_with_stock_bottom(&jobs[0].manifest.to_string(), None, false, None, false, 1, &mut AdaptiveCache::default()).unwrap();
         assert!(run.moves.iter().any(|m| m.op == rough["id"].as_str().unwrap() && m.feed.is_some()));
         assert!(run.material.is_some());
+    }
+}
+
+#[cfg(test)]
+mod adaptive_memo_tests {
+    use super::*;
+    use serde_json::{Value, json};
+    fn manifest() -> Value {
+        let a = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.analysis.json")).unwrap();
+        let m = serde_json::from_str(include_str!("../../tests/fixtures/mounting-plate.mesh.json")).unwrap();
+        let l = serde_json::from_str(include_str!("../../libraries/haas-vf2.json")).unwrap();
+        let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+        capp::finish_plan(&mut p, &l, &[]).unwrap();
+        crate::job::jobs_from(&p, &l).unwrap().0.remove(0).manifest
+    }
+    #[test]
+    fn motion_replay_is_identical_and_stock_and_parameters_invalidate_it() {
+        let job = manifest();
+        let mut cache = AdaptiveCache::default();
+        let first = simulate_with_stock_bottom(&job.to_string(), None, false, None, true, ADAPTIVE_PLANNING_POLLS, &mut cache).unwrap();
+        let again = simulate_with_stock_bottom(&job.to_string(), None, false, None, true, ADAPTIVE_PLANNING_POLLS, &mut cache).unwrap();
+        assert_eq!((cache.misses, cache.hits), (1,1));
+        assert_eq!(serde_json::to_value(&first).unwrap(), serde_json::to_value(&again).unwrap());
+        assert!(!first.grip_cuts.is_empty());
+        assert_eq!(serde_json::to_value(&first.grip_cuts).unwrap(), serde_json::to_value(&again.grip_cuts).unwrap());
+        let mut different = job.clone();
+        different["stock"]["max_mm"][0] = json!(different["stock"]["max_mm"][0].as_f64().unwrap() + 1.);
+        let _ = simulate_with_stock_bottom(&different.to_string(), None, false, None, true, ADAPTIVE_PLANNING_POLLS, &mut cache);
+        assert_eq!(cache.misses, 2);
+        let mut different = job.clone();
+        let op = different["operations"].as_array_mut().unwrap().iter_mut().find(|o| o["kind"] == "roughing").unwrap();
+        op["feed_mm_min"] = json!(op["feed_mm_min"].as_f64().unwrap() * 0.9);
+        let _ = simulate_with_stock_bottom(&different.to_string(), None, false, None, true, ADAPTIVE_PLANNING_POLLS, &mut cache);
+        assert_eq!(cache.misses, 3);
+        assert_eq!(cache.hits, 1);
+    }
+    #[test]
+    fn exhaustion_is_memoised_and_verification_still_runs_on_replay() {
+        let job = manifest();
+        let mut cache = AdaptiveCache::default();
+        let fail = |cache: &mut AdaptiveCache| match simulate_with_stock_bottom(&job.to_string(), None, false, None, false, 1, cache) {
+            Err(f) => f,
+            Ok(_) => panic!("exhausted adaptive plan was admitted"),
+        };
+        let first = fail(&mut cache);
+        let again = fail(&mut cache);
+        assert_eq!(first.message, again.message);
+        assert!(first.message.contains("planning work budget exhausted"));
+        assert_eq!((cache.misses,cache.hits), (1,1));
+        let reach = camlib::reach::ReachRefusal::cutting_length("top-2-roughing", "em20", 0., -50., 38.).error(format_args!("unreachable cut"));
+        let reach = Failure::from(reach);
+        assert!(matches!(reach.cause, Cause::Reach(_)));
+        assert!(!reach.permits_adaptive_retry());
+        assert!(!Failure::from("protected-part gouge".to_string()).permits_adaptive_retry());
+        assert!(!Failure::from("stock-contact violation".to_string()).permits_adaptive_retry());
+        assert!(Failure::from("no admissible clearing entry".to_string()).permits_adaptive_retry());
+        let mut cache = AdaptiveCache::default();
+        let _ = simulate_with_stock_bottom(&job.to_string(), None, false, None, false, ADAPTIVE_PLANNING_POLLS, &mut cache).unwrap();
+        let mut changed_checks = job.clone();
+        // A comparison budget failure must still fail after replaying the cached plan.
+        changed_checks["verification"]["material"][0]["options"]["max_tile_nodes"] = json!(1);
+        assert!(simulate_with_stock_bottom(&changed_checks.to_string(), None, false, None, false, ADAPTIVE_PLANNING_POLLS, &mut cache).is_err());
+        assert_eq!(cache.hits, 1);
     }
 }

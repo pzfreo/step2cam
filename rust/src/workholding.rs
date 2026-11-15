@@ -165,8 +165,9 @@ fn suitable_fixture_holes(analysis: &Value, mesh: &Value, ordinary: Option<&Plan
 }
 
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
+    let mut cache = super::ExecutionCache::default();
     process_using(analysis, mesh, library, |a, m, t, p| {
-        super::process_planned(a, m, t, p, vec![])
+        super::process_planned_cached(a, m, t, p, vec![], &mut cache)
     })
 }
 

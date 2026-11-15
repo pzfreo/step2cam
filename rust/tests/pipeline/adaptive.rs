@@ -36,7 +36,8 @@ fn tool() -> Value {
 fn sourced_groups_use_tool_dimensions_and_chip_thinning_with_feed_cap() {
     let mut library = library();
     library["machines"][0]["controller_settings"]["max_cutting_feed_mm_min"] = json!(1500.);
-    for (group, width, factor) in [("N", 2.5, 1. / 0.75_f64.sqrt()), ("P", 1., 5. / 3.)] {
+    {
+        let (group, width, factor) = ("N", 2.5, 1. / 0.75_f64.sqrt());
         let (mut op, mut technology, mut trace) = (op(), data(), Trace::default());
         roughing::choose(
             &mut op,
@@ -69,7 +70,7 @@ fn sourced_groups_use_tool_dimensions_and_chip_thinning_with_feed_cap() {
         &mut op(),
         &mut technology,
         &tool(),
-        material(Some("P")),
+        material(Some("N")),
         &library,
         "top:roughing",
         &mut Trace::default(),
@@ -125,15 +126,15 @@ fn refusal_restores_slotting_data_records_reason_and_cannot_retry_adaptive_again
     plan.setups[0].operations = vec![op];
     plan.decisions = Some(trace.decisions);
     assert_eq!(
-        roughing::retry_setup(&plan, &"top-1-roughing".parse().unwrap(), "test"),
+        roughing::retry_setup(&plan, &"top-1-roughing".parse().unwrap(), "test", true),
         Some("top".into())
     );
-    assert_eq!(roughing::retry_setup(&plan, &"top-2-flats".parse().unwrap(), "test"), None);
+    assert_eq!(roughing::retry_setup(&plan, &"top-2-flats".parse().unwrap(), "test", true), None);
     roughing::fallbacks(
         &mut plan,
         &[("top".into(), "deep layer shank clearance refused".into())].into(),
     );
-    assert_eq!(roughing::retry_setup(&plan, &"top-1-roughing".parse().unwrap(), "test"), None);
+    assert_eq!(roughing::retry_setup(&plan, &"top-1-roughing".parse().unwrap(), "test", true), None);
     let plan = serde_json::to_value(plan).unwrap();
     let op = &plan["setups"][0]["operations"][0];
     assert_eq!(op["technology"]["stepdown_mm"], 1.);
@@ -178,7 +179,7 @@ fn adapter_writes_explicit_stock_driven_strategy_and_no_orbit_options() {
     assert_eq!(rough["clearing"]["path_strategy"], "engagement_front");
     assert!(rough.get("omit_empty_cuts").is_none());
     assert_eq!(rough["stepup_mm"], 10.); // original slotting increment for shallow-floor cleanup
-    assert_eq!(rough["stepdown_mm"], 37.); // full flute, below 2D
+    assert_eq!(rough["stepdown_mm"], 19.55); // 60% spindle-power cap, rounded down to 0.05 mm
 }
 
 #[test]
@@ -218,7 +219,7 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
         .unwrap()
         .iter()
         .find(|d| {
-            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@5"
+            d["outcome"] == "fallback" && d["rule"] == "process.roughing.bounded_engagement@1"
         })
         .unwrap();
     assert!(
@@ -269,7 +270,15 @@ fn flat_residual_refusal_retries_preparation_without_losing_features() {
         "../../../tests/fixtures/synthetic/stepped-plate.mesh.json"
     ))
     .unwrap();
-    let l: Value = serde_json::from_str(include_str!("../../../demo/tools.json")).unwrap();
+    // Exercise the same shallow-floor preparation on a qualified industrial
+    // library; the desktop library deliberately has no adaptive policy.
+    let mut l = library();
+    l["roughing_tool"] = json!("em6");
+    let demo: Value = serde_json::from_str(include_str!("../../../demo/tools.json")).unwrap();
+    let mut sharp = demo["tools"].as_array().unwrap().iter().find(|t| t["id"] == "vb30-sharp").unwrap().clone();
+    sharp["number"] = json!(l["tools"].as_array().unwrap().iter().filter_map(|t| t["number"].as_u64()).max().unwrap() + 1);
+    l["tools"].as_array_mut().unwrap().push(sharp);
+    l["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["id"] == "em6").unwrap()["stepdown_mm"] = json!(0.2);
     let out = crate::common::process_cached(&a, &m, &l).unwrap();
     assert!(out["error"].is_null());
     assert_eq!(out["plan"]["workholding"]["chosen"], "vise_flip_face");
@@ -395,4 +404,52 @@ fn iso_n_without_a_material_scope_cannot_admit_nonmetallics() {
     assert_eq!(technology["clearing_strategy"], "raster");
     let schema: Value = serde_json::from_str(include_str!("../../../schemas/resources-1.schema.json")).unwrap();
     assert!(!jsonschema::validator_for(&schema).unwrap().is_valid(&l));
+}
+
+#[test]
+fn material_qualification_and_power_cap_are_required() {
+    let mut l = library();
+    let mut tech = data();
+    let mut trace = Trace::default();
+    roughing::choose(&mut op(), &mut tech, &tool(), material(Some("P")), &l, "top:roughing", &mut trace).unwrap();
+    assert_eq!(tech["clearing_strategy"], "raster");
+    assert_eq!(tech["feed_mm_min"], 1000.);
+    assert!(trace.decisions[0]["says"].as_str().unwrap().contains("not declared"));
+    l.as_object_mut().unwrap().remove("cutting_data_material_group");
+    let mut partial = tool();
+    partial["cutting_data"]["N"] = json!({"stepover_mm":1.});
+    let mut tech = data();
+    tech.insert("source".into(), json!("cutting_data.N"));
+    roughing::choose(&mut op(), &mut tech, &partial, material(Some("N")), &l, "top:roughing", &mut Trace::default()).unwrap();
+    assert_eq!(tech["clearing_strategy"], "raster");
+    partial["cutting_data"]["N"] = json!({"feed_mm_min":1000.,"spindle_rpm":5000.});
+    let mut tech = data();
+    tech.insert("source".into(), json!("cutting_data.N"));
+    l["machines"][0]["spindle"]["power_kw"] = json!(0.2);
+    let mut trace = Trace::default();
+    roughing::choose(&mut op(), &mut tech, &partial, material(Some("N")), &l, "top:roughing", &mut trace).unwrap();
+    assert_eq!(tech["clearing_strategy"], "bounded_engagement");
+    let ap = tech["stepdown_mm"].as_f64().unwrap();
+    assert!((ap / 0.05 - (ap / 0.05).round()).abs() < 1e-9);
+    let power = |depth| capp::grip_force::milling_force(depth,2.5,10.,tech["feed_mm_min"].as_f64().unwrap(),5000.,3.).unwrap().power_kw;
+    assert!(power(ap) <= 0.12);
+    assert!(power(ap + 0.05) > 0.12);
+    assert!(trace.decisions[0]["power"]["before_kw"].as_f64().unwrap() > 0.12);
+    assert_eq!(trace.decisions[0]["power"]["after_kw"], power(ap));
+}
+
+#[test]
+fn flat_on_another_cutter_retries_the_same_preparation() {
+    let a = serde_json::from_str(include_str!("../../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../../tests/fixtures/plate.mesh.json")).unwrap();
+    let mut p = capp::plan::build(&a, Some(&m), &Default::default()).unwrap();
+    let mut rough = op();
+    rough.tool = Some(Some("rough-cutter".into()));
+    rough.technology = Some(serde_json::from_value(json!({"clearing_strategy":"bounded_engagement"})).unwrap());
+    let mut flat: capp::model::Operation = serde_json::from_value(json!({"kind":"flats","floor_z":-2.,"levels":[-2.],"tool":"other-cutter"})).unwrap();
+    flat.technology = Some(data());
+    p.setups[0].operations = vec![rough, flat];
+    let id = "top-2-flats".parse().unwrap();
+    assert_eq!(roughing::retry_setup(&p, &id, "where roughing did not reach", true), Some("top".into()));
+    assert_eq!(roughing::retry_setup(&p, &"top-1-roughing".parse().unwrap(), "reach evidence", false), None);
 }

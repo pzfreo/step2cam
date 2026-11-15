@@ -2516,6 +2516,7 @@
    ],
    "properties": {
     "material_group": {"enum": ["P", "M", "K", "N", "S", "H", null]},
+    "power": {"type": "object", "description": "Shared force-model estimate before/after the 60% spindle-power axial cap, including the rounded depth."},
     "chip_thinning_factor": {"type": "number", "minimum": 1},
     "base_feed_mm_min": {"type": "number", "exclusiveMinimum": 0},
     "feed_limit_mm_min": {"type": "number", "exclusiveMinimum": 0},

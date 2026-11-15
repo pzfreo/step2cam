@@ -127,17 +127,19 @@ holder against the stock as it stands), its link limits, a flat-depth guard, and
 the finished stock with the part. An operation that fails is left out and reported; a gouge refuses
 the setup. These check the toolpaths; checking G-code is the job of the post that writes it.
 
-Roughing uses bounded radial engagement where the library has a sourced material policy:
-25% of tool diameter in the listed nonferrous metals, 10% in ISO P steel. ISO N
-nonmetallics and materials outside that policy retain raster with a traced reason.
-Axial depth uses the flute length, capped at 2D and the existing reach margin; radial
-chip thinning raises feed within the machine ceiling. Shallow-floor stairs use the
-original slotting increment. If adaptive clearing or its flat preparation is refused,
-the planner retries raster once with the original cutting data, records why, and keeps
-all stock-contact, flat-depth and material checks. Adaptive planning also has a portable
-100,000,000 cancellation-poll work budget before raster retry; verification is outside it.
-The move-based grip check measures
-the admitted roughing moves; a deeper bounded cut can still exceed the grip capacity.
+Bounded-engagement roughing requires a sourced machine/material policy and cutting data
+explicitly declared for that material group. The Haas library declares its catalogue
+aluminium data; Carvera retains Makera's shallow raster data because no source qualifies
+deep adaptive cuts on its 200 W spindle. Unqualified feeds are never chip-thinned for steel.
+The shared force model further caps adaptive axial depth at 60% of stated spindle power,
+rounded down to 0.05 mm. That reserve is step2cam judgement, not a continuous-power guarantee;
+missing power or an applicable material force reference retains raster with a traced reason.
+Reach, feed ceilings and shallow-floor cleanup still apply. A clearing or flat-preparation
+refusal, an empty adaptive operation, or exhaustion of the planning work budget retries
+raster with the original cutting data. Reach and gouge/stock-contact failures are terminal.
+Planner motions and refusals are memoised only for identical operations and incoming stock;
+replayed motions undergo every stock-contact and material check again. The move-based grip
+check still warns about over-capacity cuts.
 
 ## Getting G-code: camlib's posts
 

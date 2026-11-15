@@ -3,6 +3,7 @@
  "version": 1,
  "_comment": "Real machine and catalogue tools; aluminium starting data, not proven production parameters. Updated sources read 2026-11-09. Inventory, not a simultaneously loaded carousel. See README and _policy.",
  "_sources": {
+  "cutting_data_material_group": {"note": "Nominal tool feeds and speeds are for ISO N aluminium, as the individual tool-source catalogue rows and calculations below specify. This declaration does not qualify steel data."},
   "machine": {
    "urls": [
     "https://www.haas.co.uk/machines/vf-2/",
@@ -893,6 +894,7 @@
    "point_angle": 120
   }
  ],
+ "cutting_data_material_group": "N",
  "roughing_by_group": {
   "N": {
     "radial_width_diameter_fraction": 0.25,

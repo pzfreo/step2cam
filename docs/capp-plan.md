@@ -54,6 +54,16 @@ policy's whole material words; nonmetallics and other unsupported groups stay ra
 The chip-thinning multiplier is `1 / (2 sqrt(w (1-w)))` for radial fraction `w < 0.5`,
 after spindle capping. Cutting feed is capped by the controller's maximum cutting feed,
 or the existing library rapid-feed ceiling (5000 mm/min if absent); plunge is unchanged.
+Bounded engagement also requires `cutting_data_material_group` to match the part's group,
+or both feed and speed in the selected tool's `cutting_data.<group>`. A partial override
+cannot qualify inherited data. The current shared Kienzle force reference covers wrought
+aluminium only; other materials retain raster until a force/power reference is supplied.
+Using the same `grip_force::milling_force` calculation as the grip check, cutting power is
+mean tangential force times cutting speed. Axial depth is limited to 60% of
+`spindle.power_kw` and rounded down to 0.05 mm. The 40% reserve is step2cam judgement for
+peak ratings, losses and transients; it is not a guarantee of continuous spindle output.
+The decision's `power` evidence records the before/after kW, rating, fraction and depths.
+Missing spindle power or a sub-0.05 mm result retains raster with its reason.
 `raster_technology` keeps the original data, including that feed ceiling, for retry.
 The adapter maps bounded engagement to adaptive clearing and uses the original slotting
 stepdown for shallow-floor stepup. A dependent flat's residual-depth limit uses that
@@ -61,11 +71,22 @@ increment, never the deeper adaptive stepdown. An adaptive refusal (or admission
 flat reporting stock where roughing did not reach, triggers one raster retry per setup
 within each independent workholding candidate. The reason is a `fallback` decision and
 log note; only the strategy decision is superseded, preserving tool-selection evidence.
-Adaptive planning has a portable budget of 100,000,000 cancellation polls shared by parallel
+Adaptive planning has a fixed planning work budget shared by parallel
 layers, covering preparation, motion planning and planner reports. Exhaustion retries
 raster with a traced reason. Stock-contact checks and material comparison remain outside
-this budget. It bounds work at the engine's cancellation points, not wall-clock seconds;
+this budget. It bounds work at the planner's work checkpoints, not wall-clock seconds;
 the value is step2cam judgement for pathological adaptive cost.
+An execution memo is shared by exclusion iterations and workholding candidates. Its key
+contains the complete operation/tool planning input, initial position, work budget and
+incoming stock snapshot (including cell bounds). It stores planned motions, or the motion
+prefix and planner refusal/exhaustion. Every replay rechecks stock contact, links and final
+material independently. Changed stock or parameters miss the memo. Remembered raster
+fallbacks are shared across candidates but scoped to the setup's stock, fixtures and cuts
+preceding roughing, so changed preparation is reconsidered. Reach and gouge/stock-contact
+failures are excluded from strategy retries. A dependent flat can use a different cutter;
+its residual-depth check uses that cutter's radius and the original roughing increment.
+A flat-height-only precheck is deliberately absent: heights do not prove what the 3D
+shadow, side passes and stepup bands actually clear, so it could discard valid adaptive work.
 Replanning a seating or withholding a flip keeps the retry reason. All execution checks
 still run, and a refused raster follows normal exclusion handling.
 

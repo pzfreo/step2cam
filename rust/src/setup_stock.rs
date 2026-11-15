@@ -430,7 +430,7 @@ mod tests {
         let mut cache = vec![];
         let mut plan: Plan = serde_json::from_value(plan).unwrap();
         assert!(
-            crate::simulate_all(&mut plan, &library, &mut programs, &mut log, &mut cache).is_err()
+            crate::simulate_all(&mut plan, &library, &mut programs, &mut log, &mut cache, &mut crate::simulate::AdaptiveCache::default()).is_err()
         );
         let plan = serde_json::to_value(plan).unwrap();
         assert!(
@@ -481,7 +481,7 @@ mod tests {
         // The large first export exceeds camlib's budget; the smaller box run
         // exports successfully and supplies the third setup's real input.
         camlib::resources::with_memory_budget(50_000, || {
-            crate::simulate_all(&mut plan, &bounded, &mut programs, &mut log, &mut cache)
+            crate::simulate_all(&mut plan, &bounded, &mut programs, &mut log, &mut cache, &mut crate::simulate::AdaptiveCache::default())
         })
         .unwrap();
         let plan = serde_json::to_value(plan).unwrap();
