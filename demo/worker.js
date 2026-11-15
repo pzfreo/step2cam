@@ -5,7 +5,11 @@ import initCam, { process, lastPanic } from "./step2cam/step2cam.js";
 
 import { NOT_FEATURES, operationName } from "./report.js";
 
-const ready = Promise.all([initSpecify(), initCam()]);
+// demo/build.sh stamps each deploy's URLs with ?v=<hash>; the wasm files carry the same stamp, so a
+// cached copy from an earlier deploy is never paired with this one's code.
+const stamp = new URL(import.meta.url).search;
+const wasm = (path) => ({ module_or_path: new URL(`${path}${stamp}`, import.meta.url) });
+const ready = Promise.all([initSpecify(wasm("./specify/specify_core_wasm_bg.wasm")), initCam(wasm("./step2cam/step2cam_bg.wasm"))]);
 const libraries = new Map();
 function loadLibrary(url) {
   if (!libraries.has(url)) {
