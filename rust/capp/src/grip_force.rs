@@ -15,7 +15,7 @@ pub struct MillingForce {
 }
 
 pub fn milling_force(ap: f64, ae: f64, diameter: f64, feed: f64, rpm: f64, flutes: f64) -> Option<MillingForce> {
-    if ap <= 0. || ae <= 0. || diameter <= 0. || feed <= 0. || rpm <= 0. || flutes <= 0. { return None; }
+    if ap < 0. || ae <= 0. || diameter <= 0. || feed <= 0. || rpm <= 0. || flutes <= 0. { return None; }
     let rule = &crate::rules::workholding()["grip_force"];
     let phi = (1.-2.*ae/diameter).clamp(-1., 1.).acos();
     let h = feed / (rpm * flutes) * (1.-phi.cos()) / phi;

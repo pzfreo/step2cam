@@ -229,6 +229,23 @@
  },
  "additionalProperties": false,
  "$defs": {
+  "grip_move": {
+   "type": "object",
+   "required": ["cutting_force_n", "axial_depth_mm", "radial_width_mm", "feed_mm_min", "spindle_rpm", "flutes", "diameter_mm", "position_mm", "motion_id", "cell_size_mm"],
+   "properties": {
+    "cutting_force_n": {"type": "number", "minimum": 0},
+    "axial_depth_mm": {"type": "number", "minimum": 0},
+    "radial_width_mm": {"type": "number", "minimum": 0},
+    "feed_mm_min": {"type": "number", "exclusiveMinimum": 0},
+    "spindle_rpm": {"type": "number", "exclusiveMinimum": 0},
+    "flutes": {"type": "number", "exclusiveMinimum": 0},
+    "diameter_mm": {"type": "number", "exclusiveMinimum": 0},
+    "position_mm": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+    "motion_id": {"type": "integer", "minimum": 1},
+    "cell_size_mm": {"type": "number", "exclusiveMinimum": 0}
+   },
+   "additionalProperties": false
+  },
   "zero_pickup": {"type": "object", "required": ["description", "features", "finished_in", "method"], "additionalProperties": false, "properties": {"description": {"type": "string"}, "features": {"type": "array", "items": {"type": "string"}}, "finished_in": {"type": ["string", "array", "null"], "items": {"type": "string"}}, "method": {"type": "string"}, "axes": {"type": "object", "required": ["x", "y"], "additionalProperties": false, "properties": {"x": {"$ref": "#/$defs/zero_pickup"}, "y": {"$ref": "#/$defs/zero_pickup"}}}, "coordinate_mm": {"type": "number"}, "contact_in_previous_frame_mm": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}, "reference_z_mm": {"type": "number"}, "offset_mm": {"type": "number"}, "target_features": {"type": "array", "items": {"type": "string"}}, "seats": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["feature", "finished_in"], "additionalProperties": false, "properties": {"feature": {"type": "string"}, "finished_in": {"type": "string"}}}}}},
   "box": {
    "type": "object",
@@ -2699,6 +2716,13 @@
       "type": "number",
       "minimum": 0
      },
+     "diameter_mm": {"type": "number", "exclusiveMinimum": 0},
+     "cell_size_mm": {"type": "number", "exclusiveMinimum": 0},
+     "motion_id": {"type": "integer", "minimum": 1},
+     "position_mm": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+     "deepest_band": {"$ref": "#/$defs/grip_move", "description": "Strongest engagement at the largest measured axial depth, separate from the operation maximum."},
+     "helix_entry": {"$ref": "#/$defs/grip_move", "description": "Strongest sampled helix lead, separate from the operation maximum."},
+     "suggested_stepover_mm": {"type": "number", "exclusiveMinimum": 0, "description": "Grip-force warning remedy, not an applied cutting-data change."},
      "suggested_stepdown_mm": {"type": "number", "exclusiveMinimum": 0, "description": "Grip-force warning remedy, not an applied cutting-data change."},
     "per_pass_force_n": {
       "type": "number",

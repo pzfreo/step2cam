@@ -89,6 +89,8 @@ pub struct Move {
 pub struct Run {
     #[serde(skip)]
     pub finished_stock: Option<Result<camlib::stock_mesh::FinishedStock, String>>,
+    #[serde(skip)]
+    pub grip_cuts: Vec<MeasuredCut>,
     pub moves: Vec<Move>,
     pub operations: Vec<OperationRange>,
     /// Motions camlib's stock-contact check could not clear.
@@ -98,6 +100,100 @@ pub struct Run {
     pub material: Option<std::sync::Arc<camlib::material::Report>>,
     /// Per-motion proof, separate from the independent stock-cell comparison.
     pub sweep_proof: Option<camlib::material::SweepProofReport>,
+}
+
+/// Largest measured load in one operation, retained for the adapter's plan trace.
+#[derive(Clone, Debug, Serialize)]
+pub struct MeasuredCut {
+    #[serde(skip)]
+    pub operation: String,
+    pub cutting_force_n: f64,
+    pub axial_depth_mm: f64,
+    pub radial_width_mm: f64,
+    pub feed_mm_min: f64,
+    pub spindle_rpm: f64,
+    pub flutes: f64,
+    pub diameter_mm: f64,
+    pub position_mm: [f64; 3],
+    pub motion_id: u64,
+    pub cell_size_mm: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub helix_entry: Option<Box<MeasuredCut>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deepest_band: Option<Box<MeasuredCut>>,
+}
+
+// Radial samples use the stock before the motion. For a multi-turn helix,
+// the same disk one emitted turn earlier bounds the material above this tip.
+fn measure_engagement(stock: &camlib::stock::Stock, motion: &Motion, tool: &camlib::tool::ToolAssembly,
+    rpm: f64, bottom: f64, best: &mut Option<MeasuredCut>, deepest: &mut Option<MeasuredCut>) -> Result<(), String> {
+    let diameter = tool.cutter.diameter_mm;
+    let flutes = tool.cutter.flutes as f64;
+    let cutting_length = tool.cutter.cutting_length_mm;
+    let Some(feed) = motion.feed_mm_min else { return Ok(()) };
+    if !motion.kind.cuts() { return Ok(()); }
+    let curve = motion.curve.prepare(1e-5)?;
+    let [wx, wy] = stock.cell_widths_mm();
+    let spacing = wx.min(wy);
+    let length = curve.length_mm();
+    if length <= 0. { return Ok(()); }
+    let steps = (length / spacing).ceil().max(1.) as usize;
+    let [nx, ny] = stock.dimensions();
+    let min = stock.spec().min_mm;
+    let radius = diameter / 2.;
+    let radial_steps = (diameter / spacing).ceil().max(1.) as usize;
+    let dr = diameter / radial_steps as f64;
+    let directions: Vec<_> = (0..16).map(|ray| (ray as f64 * std::f64::consts::PI / 16.).sin_cos()).collect();
+    let mut bands: Vec<(usize, f64)> = Vec::with_capacity(radial_steps);
+    for step in 0..=steps {
+        let fraction = step as f64 / steps as f64;
+        let at = curve.position(fraction)?;
+        let prior_top = match &motion.curve {
+            Curve::Helix { sweep_rad, plane: camlib::motion::Plane::Xy, .. }
+                if tool.cutter.center_cutting && sweep_rad.abs() * fraction >= std::f64::consts::TAU => {
+                curve.position(fraction-std::f64::consts::TAU/sweep_rad.abs())?[2]
+            }
+            _ => f64::INFINITY,
+        };
+        // Largest definitely occupied rectangle in each sampled diameter's
+        // depth profile. Separate depth bands keep a thin full-width floor
+        // from being combined with a tall, narrow wall into a false full slot.
+        for &(sin, cos) in &directions {
+            bands.clear();
+            for k in 0..=radial_steps {
+                let r = radius - (k as f64 + 0.5)*dr;
+                let x = ((at[0]+r*cos-min[0])/wx).floor() as isize;
+                let y = ((at[1]+r*sin-min[1])/wy).floor() as isize;
+                let depth = if k == radial_steps || x < 0 || y < 0 || x as usize >= nx || y as usize >= ny { 0. } else {
+                    let top = stock.cells()[y as usize*nx+x as usize].lower_mm.min(prior_top);
+                    (top.min(at[2]+cutting_length)-at[2].max(bottom)).max(0.)
+                };
+                let mut start = k;
+                while bands.last().is_some_and(|(_, ap)| *ap > depth) {
+                    let (from, ap) = bands.pop().unwrap();
+                    start = from;
+                    let ae = (k-from) as f64 * dr;
+                    if let Some(load) = capp::grip_force::milling_force(ap, ae, diameter, feed, rpm, flutes) {
+                        let strongest = best.as_ref().is_none_or(|b| load.force_n > b.cutting_force_n);
+                        let deepest_here = deepest.as_ref().is_none_or(|b| ap > b.axial_depth_mm
+                            || (ap == b.axial_depth_mm && load.force_n > b.cutting_force_n));
+                        if strongest || deepest_here {
+                            let cut = MeasuredCut { operation: motion.operation.clone(), cutting_force_n: load.force_n,
+                                axial_depth_mm: ap, radial_width_mm: ae, feed_mm_min: feed, spindle_rpm: rpm,
+                                flutes, diameter_mm: diameter, position_mm: at, motion_id: motion.id, cell_size_mm: spacing,
+                                helix_entry: None, deepest_band: None };
+                            if deepest_here { *deepest = Some(cut.clone()); }
+                            if strongest { *best = Some(cut); }
+                        }
+                    }
+                }
+                if depth > 0. && bands.last().is_none_or(|(_, ap)| *ap < depth) {
+                    bands.push((start, depth));
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn serialize_material<S: serde::Serializer>(value: &Option<std::sync::Arc<camlib::material::Report>>, serializer: S) -> Result<S::Ok, S::Error> {
@@ -245,20 +341,20 @@ fn stock_contact_reason(kind: &str, report: &camlib::stock_contact::Report, tool
 /// Plans, simulates and checks one job. A definite stock-contact violation refuses the operation;
 /// motions the check could not clear are counted.
 pub fn simulate(manifest_json: &str) -> Result<Run, Failure> {
-    simulate_with_stock_bottom(manifest_json, None, false, None)
+    simulate_with_stock_bottom(manifest_json, None, false, None, false)
 }
 
 /// Run an adapter job while excluding artificial through-tap backing from the
 /// material comparison. The unmodified camlib manifest still drives every motion.
 pub fn simulate_job(job: &crate::job::Job) -> Result<Run, Failure> {
-    simulate_prepared_job(&mut job.clone())
+    simulate_prepared_job(&mut job.clone(), false)
 }
 
 /// Retain any camlib-admitted local pocket tops in the manifest shown with the moves.
-pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Failure> {
+pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job, grip: bool) -> Result<Run, Failure> {
     let mut original_refusals = std::collections::HashMap::new();
     loop {
-        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to);
+        let result = simulate_with_stock_bottom(&job.manifest.to_string(), Some(job.stock_bottom_mm), job.return_stock, job.crop_stock_to, grip);
         let Err(failure) = result else { return result; };
         let operation = failure.operation.as_ref().map(ToString::to_string).unwrap_or_default();
         let operation = operation.as_str();
@@ -282,7 +378,7 @@ pub(crate) fn simulate_prepared_job(job: &mut crate::job::Job) -> Result<Run, Fa
     }
 }
 
-fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>) -> Result<Run, Failure> {
+fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>, return_stock: bool, crop: Option<[[f64; 3]; 2]>, grip: bool) -> Result<Run, Failure> {
     let manifest: StreamManifest = serde_json::from_str(manifest_json).map_err(|e| e.to_string())?;
     let physical = physical_bottom.filter(|z| manifest.stock.height().is_ok_and(|s| *z > s.min_mm[2]));
     manifest.validate()?;
@@ -301,6 +397,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
     let (mut moves, mut operations, mut uncertain) = (vec![], vec![], 0);
     let mut active: Option<&str> = None;
     let mut material = None;
+    let mut grip_cuts = vec![];
 
     for (index, operation) in manifest.operations.iter().enumerate() {
         let mut one = || -> Result<(), String> {
@@ -318,6 +415,14 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 &cancel,
             )?;
             let start = producer.completed();
+            let measured = grip && operation.id().parse::<capp::kind::OpId>().is_ok_and(|id|
+                matches!(id.kind, capp::kind::OpKind::Roughing | capp::kind::OpKind::Holes | capp::kind::OpKind::Counterbore | capp::kind::OpKind::Thread))
+                && !matches!(tool.cutter.shape, camlib::tool::CutterShape::Drill { .. })
+                && raw["operations"][index]["kind"] != "tapping";
+            let rpm = raw["operations"][index]["spindle_rpm"].as_f64().unwrap_or(0.);
+            let mut best: Option<MeasuredCut> = None;
+            let mut entry: Option<MeasuredCut> = None;
+            let mut deepest = None;
             // What a flat may take: what roughing leaves on a flat between its layers.
             let flat_limit = raw["operations"][index].get("kind").filter(|k| *k == "flat").and_then(|_| {
                 let rough = raw["operations"].as_array()?.iter().find(|o| o["kind"] == "roughing" && o["tool"] == raw["operations"][index]["tool"])?;
@@ -336,6 +441,17 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 }
                 if let Some(g) = &guard {
                     g.check(&motion)?;
+                }
+                if measured {
+                    let mut candidate = None;
+                    measure_engagement(producer.stock()?, &motion, tool, rpm, physical_bottom.unwrap_or(producer.stock()?.spec().min_mm[2]), &mut candidate, &mut deepest)?;
+                    if let Some(cut) = candidate {
+                        if matches!(motion.curve, Curve::Helix { .. }) && motion.kind == MoveKind::Lead
+                            && entry.as_ref().is_none_or(|b| cut.cutting_force_n > b.cutting_force_n) {
+                            entry = Some(cut.clone());
+                        }
+                        if best.as_ref().is_none_or(|b| cut.cutting_force_n > b.cutting_force_n) { best = Some(cut); }
+                    }
                 }
                 let (_, check) = producer.push_checked_motion(motion.clone(), DEFAULT_FRAME_LIMIT, &cancel)?;
                 if let Some(raw) = check {
@@ -365,6 +481,11 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
                 moves.push(drawn(&motion, manifest.sweep.tolerance_mm)?);
                 // Events between motions (canned cycles) are for a post: the motions say it all.
                 plan.take_events();
+            }
+            if let Some(mut best) = best {
+                best.helix_entry = entry.map(Box::new);
+                best.deepest_band = deepest.map(Box::new);
+                grip_cuts.push(best);
             }
             plan.finish_report(&cancel)?;
             operations.push(OperationRange { id: operation.id().to_string(), start, end: producer.completed() });
@@ -398,7 +519,7 @@ fn simulate_with_stock_bottom(manifest_json: &str, physical_bottom: Option<f64>,
             approximation: Some(camlib::stock_mesh::HEIGHT_FIELD_APPROXIMATION),
         })
     });
-    Ok(Run { moves, operations, uncertain, material: material.map(std::sync::Arc::new), sweep_proof, finished_stock })
+    Ok(Run { grip_cuts, moves, operations, uncertain, material: material.map(std::sync::Arc::new), sweep_proof, finished_stock })
 }
 
 #[cfg(test)]
@@ -530,5 +651,61 @@ mod reach_tests {
             assert_eq!(serde_json::json!(evidence), serde_json::json!(refusal));
         }
         assert_eq!(Failure::from("camlib refused it").cause, Cause::Other);
+    }
+}
+
+#[cfg(test)]
+mod engagement_tests {
+    use super::*;
+    use camlib::stock::{Stock, StockSpec};
+    use camlib::motion::Plane;
+    use serde_json::json;
+
+    fn tool() -> camlib::tool::ToolAssembly {
+        serde_json::from_value(json!({"id":"em20", "cutter":{"id":"em20", "shape":{"kind":"flat"},
+            "diameter_mm":20., "cutting_length_mm":20., "overall_length_mm":50., "shank_diameter_mm":20.,
+            "flutes":4, "center_cutting":true}, "stickout_mm":25., "gauge_length_mm":50.,
+            "holders":[{"z_min_mm":25., "z_max_mm":50., "radius_min_mm":15., "radius_max_mm":15.}]})).unwrap()
+    }
+    fn stock() -> Stock {
+        Stock::new(StockSpec { version:1, units:"mm".into(), min_mm:[-20.,-20.,-10.],
+            max_mm:[20.,20.,0.], cell_size_mm:0.25, max_cells:100000 }).unwrap()
+    }
+    fn cut(curve: Curve) -> Motion {
+        Motion { id:1, operation:"top-1-roughing".into(), tool:"em20".into(), kind:MoveKind::Lead,
+            curve, feed_mm_min:Some(4804.87) }
+    }
+    #[test]
+    fn full_slot_and_emitted_helix_turns_have_their_actual_engagement() {
+        let mut best = None;
+        measure_engagement(&stock(), &cut(Curve::Line {start:[-2.,0.,-2.],end:[2.,0.,-2.]}), &tool(), 7882., -10., &mut best, &mut None).unwrap();
+        let full = best.unwrap();
+        assert!((full.radial_width_mm-20.).abs()<1e-8);
+        assert!((full.axial_depth_mm-2.).abs()<1e-8);
+        let mut best = None;
+        measure_engagement(&stock(), &cut(Curve::Helix {start:[2.5,0.,0.],end:[2.5,0.,-4.],
+            center:[0.,0.,0.], plane:Plane::Xy, sweep_rad:8.*std::f64::consts::PI}), &tool(), 7882., -10., &mut best, &mut None).unwrap();
+        let helix = best.unwrap();
+        assert!((helix.axial_depth_mm-1.).abs()<1e-8, "{helix:?}");
+        assert!((helix.radial_width_mm-20.).abs()<1e-8, "{helix:?}");
+    }
+    #[test]
+    fn a_thin_remaining_ring_is_not_a_full_bore_and_uncertain_stock_does_not_count() {
+        let base = stock();
+        let mut snapshot = base.snapshot();
+        for (i, cell) in snapshot.cells.iter_mut().enumerate() {
+            let [x,y] = base.cell_center(i).unwrap();
+            // Only a ring remains within the tool's circular sweep. The
+            // deliberately large upper bound must not contribute to the load.
+            cell.lower_mm = if x.hypot(y) < 13.6 { -10. } else { 0. };
+            cell.upper_mm = 0.;
+        }
+        let ring = Stock::from_snapshot(snapshot).unwrap();
+        let mut best = None;
+        measure_engagement(&ring, &cut(Curve::Arc {start:[4.,0.,-9.],end:[4.,0.,-9.],
+            center:[0.,0.,-9.], plane:Plane::Xy, sweep_rad:std::f64::consts::TAU}), &tool(), 7882., -10., &mut best, &mut None).unwrap();
+        let ring = best.unwrap();
+        assert!((0.25..=0.75).contains(&ring.radial_width_mm), "{ring:?}");
+        assert_eq!(ring.axial_depth_mm, 9.);
     }
 }

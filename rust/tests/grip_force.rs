@@ -24,7 +24,7 @@ fn runtime_not_checked(decision: &Value) {
 fn near(a: f64, b: f64) { assert!((a-b).abs()<1e-8, "{a} != {b}"); }
 fn num(v: &Value) -> f64 { v.as_f64().unwrap() }
 fn decisions(out: &Value) -> Vec<&Value> {
-    out["plan"]["decisions"].as_array().unwrap().iter().filter(|d| d["rule"]=="machine.grip_vs_cut@1").collect()
+    out["plan"]["decisions"].as_array().unwrap().iter().filter(|d| d["rule"]==capp::trace::cite("machine.grip_vs_cut")).collect()
 }
 #[test]
 fn thin_flip_facing_is_split_by_the_force_formula() {
@@ -73,7 +73,8 @@ fn thin_flip_facing_is_split_by_the_force_formula() {
                 assert_eq!(own["force_model"], "thrust into the supports; not a sliding load on the grip");
                 assert!(own.get("cutting_force_n").is_none());
             } else if matches!(op["kind"].as_str(), Some("roughing" | "holes" | "counterbore" | "thread")) {
-                runtime_not_checked(own);
+                assert!(matches!(own["outcome"].as_str(), Some("checked" | "warning")), "{own}");
+                assert!(own["cutting_force_n"].is_number());
             } else { assert!(own["cutting_force_n"].is_number()); }
         }
     }
@@ -212,7 +213,27 @@ fn an_unholdable_minimum_face_warns_without_failing_or_altering_the_cut() {
     let mut lib = read("libraries/haas-vf2.json");
     lib["machines"][0]["workholding"][0]["clamp_force_n"] = json!(1.);
     let out = run(&lib);
+    // A one-newton cited clamp cannot hold even the minimum facing pass, so
+    // the pre-existing facing policy also leaves the original program unchanged.
+    let normal = run(&read("libraries/haas-vf2.json"));
+    assert_eq!(out["programs"], normal["programs"]);
     let ds = decisions(&out);
+    let rough = ds.iter().find(|d| d["subject"] == "top-2-roughing").unwrap();
+    assert_eq!(rough["outcome"], "warning");
+    let text = rough["says"].as_str().unwrap();
+    for word in ["move", "X", "Y", "Z", "ap", "ae", "allowable", "stepdown", "stepover", "operation unchanged"] {
+        assert!(text.contains(word), "{text}");
+    }
+    let ap = num(&rough["axial_depth_mm"]);
+    let ae = num(&rough["radial_width_mm"]);
+    let d = num(&rough["diameter_mm"]);
+    let f = num(&rough["feed_mm_min"]);
+    let rpm = num(&rough["spindle_rpm"]);
+    let z = num(&rough["flutes"]);
+    let capacity = num(&rough["allowable_cutting_force_n"]);
+    let step = num(&rough["suggested_stepdown_mm"]);
+    near(force(step, ae, d, f, rpm, z), capacity);
+    near(force(ap, num(&rough["suggested_stepover_mm"]), d, f, rpm, z), capacity);
     for setup in out["plan"]["setups"].as_array().unwrap() {
         for op in setup["operations"].as_array().unwrap().iter().filter(|o| o["kind"]=="facing") {
             near(num(&op["technology"]["stepdown_mm"]), 10.);
@@ -287,7 +308,7 @@ fn unspecified_material_is_named_in_the_grouped_warning() {
     }
 }
 #[test]
-fn runtime_engagement_is_evidence_without_false_alarms_on_both_parts() {
+fn measured_engagement_checks_edge_entry_helix_and_remaining_bore_ring() {
     let lib=read("libraries/haas-vf2.json");
     for (part, ids) in [("synthetic/stepped-plate", vec!["top-2-roughing"]),
         ("mounting-plate",vec!["top-2-roughing","top-5-holes"])] {
@@ -295,7 +316,27 @@ fn runtime_engagement_is_evidence_without_false_alarms_on_both_parts() {
         let ds=decisions(&out);
         for id in ids {
             let own=ds.iter().find(|d| d["subject"]==id).unwrap();
-            runtime_not_checked(own);
+            assert_eq!(own["outcome"], "checked", "{own}");
+            assert!(num(&own["cutting_force_n"]) > 0.);
+            assert!(own["motion_id"].is_number());
+            assert_eq!(own["position_mm"].as_array().unwrap().len(), 3);
+            if part == "synthetic/stepped-plate" {
+                assert!(num(&own["radial_width_mm"]) < num(&own["diameter_mm"]), "{own}");
+            } else if id.ends_with("roughing") {
+                assert!(num(&own["helix_entry"]["axial_depth_mm"]) <= 1., "{own}");
+                assert!(num(&own["helix_entry"]["cutting_force_n"]) > 0., "{own}");
+            } else {
+                // The actual stock also includes the floor below roughing's
+                // allowance: the full-width 0.78 mm floor cut governs force.
+                // Keep the independent full-depth ring assertion so that this
+                // floor cannot mask a falsely full-bore wall engagement.
+                let ring = &own["deepest_band"];
+                assert!((0.1..1.).contains(&num(&ring["radial_width_mm"])), "{own}");
+                assert!(num(&ring["axial_depth_mm"]) > 8., "{own}");
+                assert!(num(&ring["cutting_force_n"]) < 100., "{own}");
+                assert!(num(&own["cutting_force_n"]) >= num(&ring["cutting_force_n"]), "{own}");
+                assert!(num(&own["axial_depth_mm"]) <= 1., "{own}");
+            }
             assert!(out["plan"]["setups"].as_array().unwrap().iter()
                 .flat_map(|s| s["operations"].as_array().unwrap())
                 .any(|op| op["because"].as_array().unwrap().contains(&own["id"])));
