@@ -25,6 +25,7 @@ jobs:
         run: tests/specify-link.sh
         env:
           GH_TOKEN: ${{ github.token }}
+      - run: npm ci --ignore-scripts
       - name: The setup sheet's content
         run: node tests/report.mjs
   site:

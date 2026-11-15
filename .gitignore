@@ -12,3 +12,5 @@ demo/pkg/
 .claude/
 
 .bench-cache/
+
+node_modules/

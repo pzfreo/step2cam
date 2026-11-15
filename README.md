@@ -551,6 +551,11 @@ rust/fetch-camlib.sh
 cargo test --release --workspace --manifest-path rust/Cargo.toml
 ```
 
+Setup-sheet checks: `npm ci --ignore-scripts && node tests/report.mjs`. They build the native
+`process` example with the pinned Rust toolchain and generate plans from the committed
+fixture meshes on both machines. No benchmark cache or saved reports are read. The pinned
+PDF packages and pinned DejaVu font package are development-only verification dependencies.
+
 - `rust/tests/parity.rs`: plans and jobs against `tests/fixtures/rust-golden`, a frozen
   baseline written by the Python version this project started as, since moved only by the plate's
   wall finish. It is compared by hand when an intended change moves it.

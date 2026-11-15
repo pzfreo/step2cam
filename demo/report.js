@@ -1,3 +1,5 @@
+import { buildSetupDiagram } from "./setup-diagram.js";
+
 // Shared page wording and renderer-neutral report content. No DOM or PDF dependency.
 
 // specify-core's descriptions of the part as a whole, not features a person would point at.
@@ -321,7 +323,7 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
     blocks.push(pageBreak(), heading(`SETUP — ${setup.id}`, 1),
       paragraph(sheetWords(`Workholding: ${text(holding)}${setup.flip_seating ? " · flip onto parallels" : ""}${grip?.finished_wall ? " · soft jaws advised" : ""}`)),
       ...details.map(paragraph),
-      table([], [["Zero", zeroLines[0].replace(/^Zero\s+/, "")], ["", zeroLines[1].trimStart()]], "setup-zero"));
+      table([], [["Zero", zeroLines[0].replace(/^Zero\s+/, "")], ["", zeroLines[1].trimStart()]], "setup-zero"), buildSetupDiagram(data, setup, reportLength));
     const rows = setup.operations.map((op, i) => {
       const id = `${setup.id}-${i + 1}-${op.kind}`, o = ops.get(id), t = op.technology || {};
       const notes = [];
