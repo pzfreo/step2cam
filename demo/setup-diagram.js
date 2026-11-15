@@ -123,7 +123,7 @@ function crossesBox(a, b, box) {
 function layoutLabels(shapes, annotations, unit, part) {
   const expand = box => box.map((v, i) => v + (i < 2 ? -1 : 1) * unit);
   const segments = s => s.points.slice(1).map((p, i) => [s.points[i], p]);
-  const obstacles = shapes.filter(s => ['stock', 'dimension', 'axis'].includes(s.class) && s.type !== 'text').flatMap(s => s.type === 'rect'
+  const obstacles = shapes.filter(s => ['stock', 'dimension', 'axis', 'jaw', 'parallel'].includes(s.class) && s.type !== 'text').flatMap(s => s.type === 'rect'
     ? [[[s.x, s.y], [s.x + s.width, s.y]], [[s.x, s.y + s.height], [s.x + s.width, s.y + s.height]], [[s.x, s.y], [s.x, s.y + s.height]], [[s.x + s.width, s.y], [s.x + s.width, s.y + s.height]]]
     : segments(s));
   const blocks = shapes.filter(s => s.class === 'stop' || s.class === 'zero').map(s => s.type === 'rect' ? [s.x, s.y, s.x + s.width, s.y + s.height] : [s.x - s.radius, s.y - s.radius, s.x + s.radius, s.y + s.radius]);
@@ -211,7 +211,7 @@ export function buildSetupDiagram(data, setup, format = String) {
     const fixedIndex = c.fixed_jaw ? sorted[c.fixed_jaw.endsWith('min') ? 0 : sorted.length - 1]?.i : -1;
     jaws.forEach((j, i) => {
       const label = i === fixedIndex ? 'Fixed jaw' : fixedIndex < 0 ? 'Jaw (fixed not recorded)' : 'Moving jaw';
-      if (vertical === 2 && jawAxis === 1) text('tag', i === fixedIndex ? j.min[0] + 4 * unit : j.max[0] - 4 * unit, j.min[2] + 3 * unit, label, i === fixedIndex ? 'start' : 'end');
+      if (vertical === 2 && jawAxis === 1) text('tag', i === fixedIndex ? j.min[0] - 4 * unit : j.max[0] + 4 * unit, j.min[2] + 3 * unit, label, i === fixedIndex ? 'end' : 'start');
       else text('tag', (j.min[0] + j.max[0]) / 2, vertical === 1 ? j.max[1] - 4 * unit : j.min[2] + 5 * unit, label, 'middle');
     });
     function dimension(x, low, high, caption, value, anchor = 'start') {

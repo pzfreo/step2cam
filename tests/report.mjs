@@ -447,9 +447,9 @@ function checkLabels(view, name) {
     assert.ok(box[0] >= view.bounds[0] && box[1] >= view.bounds[1] && box[2] <= view.bounds[2] && box[3] <= view.bounds[3], `${name}: clipped ${labels[i].text}`);
     for (let j = i + 1; j < boxes.length; j++) assert.ok(!intersects(box, boxes[j]), `${name}: ${labels[i].text} overlaps ${labels[j].text}`);
     for (const leader of view.shapes.filter(s => s.class === 'leader')) for (let j = 1; j < leader.points.length; j++) assert.ok(!segmentHits(leader.points[j-1], leader.points[j], box), `${name}: leader crosses ${labels[i].text}`);
-    for (const stock of view.shapes.filter(s => s.class === 'stock' && s.type === 'rect')) {
+    for (const stock of view.shapes.filter(s => ['stock','jaw','parallel'].includes(s.class) && s.type === 'rect')) {
       const corners = [[stock.x,stock.y], [stock.x+stock.width,stock.y], [stock.x+stock.width,stock.y+stock.height], [stock.x,stock.y+stock.height]];
-      for (let j = 0; j < 4; j++) assert.ok(!segmentHits(corners[j], corners[(j+1)%4], box), `${name}: stock line crosses ${labels[i].text}`);
+      for (let j = 0; j < 4; j++) assert.ok(!segmentHits(corners[j], corners[(j+1)%4], box), `${name}: ${stock.class} outline crosses ${labels[i].text}`);
     }
     for (const stop of view.shapes.filter(s => s.class === 'stop')) assert.ok(!intersects(box, [stop.x,stop.y,stop.x+stop.width,stop.y+stop.height]), `${name}: stop covers ${labels[i].text}`);
     assert.ok(!/^[a-z]/.test(labels[i].text), `${name}: sentence case ${labels[i].text}`);
