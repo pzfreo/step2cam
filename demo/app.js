@@ -1,6 +1,6 @@
 // The step2cam demo page. Draws what worker.js returns: features on the left in
 // three-cad-viewer, camlib's toolpaths on the right in three.js, both in model coordinates and
-// one camera, with features, operations, toolpaths and camlib's moves linked to each other.
+// a shared camera in top setups, with features, operations, toolpaths and camlib's moves linked to each other.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -560,6 +560,7 @@ function finishSetupTurn() {
   right.camera.updateMatrixWorld();
   resetRightControls();
   right.turn = null;
+  if (right.tool) right.tool.visible = time > 0 && time < model.total;
   copyCameraToCad();
   drawRight();
 }
@@ -576,6 +577,7 @@ function showSetup(setup, animate = false) {
   right.turn = { rotation, target, offset: camera.position.clone().sub(target),
     up: camera.up.clone(), quaternion: camera.quaternion.clone(), start: performance.now(), frame: null };
   right.controls.enabled = false;
+  if (right.tool) right.tool.visible = false;  // the cutter is withdrawn while the work is flipped
   if (!animate) { finishSetupTurn(); return; }
   const turn = right.turn;
   const step = (now) => {
@@ -1468,7 +1470,7 @@ function drawPlayhead() {
     el.firstChild.style.width = `${f * 100}%`;
   }
   const i = currentSegment();
-  if (i < 0) { drawStatus(); return; }
+  if (i < 0) { showSetup(model.data.plan.setups[0]); drawStatus(); return; }
   const s = model.segments[i];
   showSetup(s.setup, playing);
   const before = i ? model.segments[i - 1].end : 0;
@@ -1485,7 +1487,7 @@ function drawPlayhead() {
   right.tool.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
   const radius = (s.tool?.diameter || 3) / 2;
   right.tool.scale.set(radius, radius, s.tool?.stickout || 30);
-  right.tool.visible = time > 0 && time < model.total;
+  right.tool.visible = !right.turn && time > 0 && time < model.total;
   const current = showCurrent && !activeFocus() && (playing || time > 0) ? s.op : null;
   if (current !== paintedOp) paintToolpaths();
   drawRight();
