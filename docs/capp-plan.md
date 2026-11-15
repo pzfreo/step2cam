@@ -57,7 +57,7 @@ or the existing library rapid-feed ceiling (5000 mm/min if absent); plunge is un
 `raster_technology` keeps the original data, including that feed ceiling, for retry.
 The adapter maps bounded engagement to adaptive clearing and uses the original slotting
 stepdown for shallow-floor stepup. A dependent flat's residual-depth limit uses that
-increment, never the deeper adaptive stepdown. An adaptive refusal, including a dependent
+increment, never the deeper adaptive stepdown. An adaptive refusal (or admission without any clearing moves), including a dependent
 flat reporting stock where roughing did not reach, triggers one raster retry per setup
 within each independent workholding candidate. The reason is a `fallback` decision and
 log note; only the strategy decision is superseded, preserving tool-selection evidence.

@@ -122,6 +122,14 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             if job.return_stock { cache.push(CompletedSetup { input, job: job.clone(), run: run.clone(), stock_note: plan.setups[setup_index].stock_note.clone() }); }
             run
         };
+        // Adaptive can admit a level without an entry or a motion on narrow stock bands.
+        // Do not call that successful preparation: keep the checked raster route available.
+        if let Some(empty) = job.manifest["operations"].as_array().into_iter().flatten()
+            .find(|o| o["kind"] == "roughing" && o["clearing"]["kind"] == "adaptive"
+                && run.operations.iter().any(|r| o["id"] == r.id && r.start == r.end)) {
+            return Err(simulate::Failure { operation: empty["id"].as_str().and_then(|id| id.parse().ok()),
+                message: format!("setup {}: adaptive roughing emitted no clearing moves; retry stock preparation with raster", job.setup), cause: simulate::Cause::Other });
+        }
         if setup_index > 0 && job.manifest["stock"]["mesh"].is_object() {
             let corner = |key: &str| serde_json::from_value(job.manifest["stock"][key].clone()).map_err(|e| e.to_string());
             plan.setups[setup_index].stock = capp::model::Box3 { min: corner("min_mm")?, max: corner("max_mm")? };

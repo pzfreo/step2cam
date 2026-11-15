@@ -241,8 +241,8 @@ fn camlib_refusal_really_replans_raster_and_retains_why() {
     );
     assert_eq!(planned["technology"]["clearing_strategy"], "raster");
     let selection = out["plan"]["decisions"].as_array().unwrap().iter()
-        .find(|d| d["rule"].as_str().is_some_and(|r| r.starts_with("tool.roughing@"))
-            && d["chosen"] == planned["tool"] && d.get("superseded_by").is_none()).unwrap();
+        .find(|d| d["rule"].as_str().is_some_and(|r| r.starts_with("tool.clearing@"))
+            && d["subject"] == "top:roughing" && d["chosen"] == planned["tool"] && d.get("superseded_by").is_none()).unwrap();
     assert!(planned["because"].as_array().unwrap().contains(&selection["id"]));
     assert!(out["log"].as_array().unwrap().iter().any(|n| n.as_str().is_some_and(|s| s.contains("retry raster"))));
     let admitted = out["programs"][0]["job"]["operations"]
@@ -348,4 +348,17 @@ fn adaptive_stepdown_keeps_the_existing_tool_reach_margin() {
     short["stickout"] = json!(12.);
     roughing::choose(&mut op(), &mut technology, &short, material(Some("N")), &library(), "top:roughing", &mut Trace::default()).unwrap();
     assert_eq!(technology["stepdown_mm"], 11.);
+}
+
+#[test]
+fn empty_adaptive_preparation_uses_checked_raster_instead_of_claiming_zero_work() {
+    let a = serde_json::from_str(include_str!("../../tests/fixtures/plate.analysis.json")).unwrap();
+    let m = serde_json::from_str(include_str!("../../tests/fixtures/plate.mesh.json")).unwrap();
+    let out = step2cam::process(&a, &m, &library()).unwrap();
+    assert!(out["error"].is_null(), "{}", out["error"]);
+    assert!(out["plan"]["decisions"].as_array().unwrap().iter().any(|d| d["outcome"] == "fallback"
+        && d["refusal"].as_str().is_some_and(|s| s.contains("no clearing moves"))));
+    assert!(out["programs"].as_array().unwrap().iter().flat_map(|p| p["moves"].as_array().unwrap())
+        .any(|m| m["op"] == "top-2-roughing" && m["feed"].as_f64().is_some_and(|f| f > 0.)));
+    check_plan(&out["plan"]);
 }
