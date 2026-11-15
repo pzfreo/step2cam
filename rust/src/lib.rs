@@ -358,7 +358,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 break;
             }
             #[cfg(target_arch = "wasm32")]
-            progress::emit(json!({"stage":"replanning", "reason":format!("{} seating", bottom.id)}));
+            progress::emit(json!({"stage":"replanning", "title":"Trying another seating for the flip"}));
             rejected_seats.push(bottom.flip_seating.clone().unwrap());
             if capp::flip::retry_seating(&mut planned, mesh, library, &rejected_seats)? {
                 // Only this receiving setup's fixtures change. Reconsider its engine
@@ -374,7 +374,7 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 .filter(|w| !plan.decisions.iter().flatten().any(|d| d["rule"]==grip_rule && d["outcome"]=="warning" && d["says"]==*w))
                 .filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
             #[cfg(target_arch = "wasm32")]
-            progress::emit(json!({"stage":"replanning", "reason":"Vise, flip and face"}));
+            progress::emit(json!({"stage":"replanning", "title":"Replanning without the flip"}));
             planned=capp::flip::build_fallback(analysis,mesh,library,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.

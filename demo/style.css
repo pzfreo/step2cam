@@ -122,11 +122,6 @@ footer { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: w
 #busy-stages li.current::before { content: "▸"; }
 #busy-detail { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 #busy-elapsed { margin-top: 10px; text-align: right; color: var(--muted); font: 12px var(--mono); }
-@media (prefers-color-scheme: light) {
-  .busy-card { background: #f6f8fa; color: #18212c; border-color: #b7c1ce; }
-  #busy-stages, #busy-detail, #busy-elapsed { color: #566273; }
-  #busy-stages li.current { color: #18212c; }
-}
 [hidden] { display: none !important; }
 
 

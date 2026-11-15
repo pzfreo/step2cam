@@ -1686,7 +1686,7 @@ for (const button of document.querySelectorAll("[data-machine]")) {
 
 // Progress belongs to the current request; the worker can still be finishing an older one.
 let busyTimer, busyStarted;
-let busyFeatures = null, busySetups = null;
+let busyFeatures = null, busySetups = null, busyOption = null;
 function stopBusy() {
   clearInterval(busyTimer);
   $("busy").hidden = true;
@@ -1694,14 +1694,16 @@ function stopBusy() {
 function showProgress(p) {
   if (p.stage === "features") busyFeatures = p.count;
   if (p.stage === "plan") busySetups = p.setups;
-  if (p.stage === "planning" || p.stage === "replanning") busySetups = null;
-  const stage = ({ engines: 0, recognising: 1, features: 2, planning: 2, replanning: 2, plan: 3, checking: 3 })[p.stage];
+  if (p.stage === "planning" || p.stage === "replanning" || p.stage === "option") busySetups = null;
+  if (p.stage === "option") busyOption = p.label;
+  const stage = ({ engines: 0, recognising: 1, features: 2, option: 2, planning: 2, replanning: 2, plan: 3, checking: 3 })[p.stage];
   if (stage === undefined) return;
   const labels = ["Loading engines", `Recognising features${busyFeatures === null ? "" : ` (${busyFeatures} found)`}`,
     `Planning setups and tools${busySetups === null ? "" : ` (${busySetups} setups)`}`, "Checking toolpaths"];
   const checking = p.stage === "checking";
-  const title = p.stage === "replanning" ? `Replanning without ${p.label || p.reason}…`
-    : checking ? `Checking toolpaths: operation ${p.index} of ${p.total}` : `${labels[stage]}…`;
+  const title = p.stage === "replanning" ? `${p.title || `Replanning without ${p.label}`}…`
+    : checking ? `Checking toolpaths: operation ${p.index} of ${p.total}`
+    : p.stage === "option" ? `Planning workholding option: ${p.label}…` : `${labels[stage]}…`;
   $("busy-title").textContent = title;
   for (const [i, row] of [...$("busy-stages").children].entries()) {
     row.className = i < stage ? "done" : i === stage ? "current" : "";
@@ -1714,7 +1716,7 @@ function showProgress(p) {
     // The callback precedes the operation: only earlier operations are known to have run.
     bar.value = p.index - 1;
   }
-  $("busy-detail").textContent = checking ? p.label : "";
+  $("busy-detail").textContent = [busyOption, checking ? p.label : ""].filter(Boolean).join(" · ");
 }
 
 // own: a visitor's file (true) or a sample (false); left out when the same part is planned again
@@ -1724,7 +1726,7 @@ function run(name, bytes, own, workholding) {
   openPart = own === undefined ? { ...openPart, bytes: bytes.slice(0) } : { name, bytes: bytes.slice(0), own };
   clearInterval(busyTimer);
   busyStarted = performance.now();
-  busyFeatures = busySetups = null;
+  busyFeatures = busySetups = busyOption = null;
   $("busy-elapsed").textContent = "0 s";
   showProgress({ stage: "engines" });
   busyTimer = setInterval(() => {

@@ -35,6 +35,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: The setup sheet's content
         run: node tests/report.mjs
+      - name: Progress panel
+        run: node tests/progress.mjs
   site:
     runs-on: ubuntu-latest
     permissions:

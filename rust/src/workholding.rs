@@ -165,7 +165,15 @@ fn suitable_fixture_holes(analysis: &Value, mesh: &Value, ordinary: Option<&Plan
 }
 
 pub fn process(analysis: &Value, mesh: &Value, library: &Value) -> Result<Value, String> {
+    #[cfg(target_arch = "wasm32")]
+    let vise = capp::machines::dimensioned_vise(library).is_some();
     process_using(analysis, mesh, library, |a, m, t, p| {
+        // In the browser, say which workholding option is being planned: each is checked in full.
+        #[cfg(target_arch = "wasm32")]
+        if vise {
+            let label = if is_flip(&p) { "Vise, flip and face" } else { "Vise, ordinary grip" };
+            crate::progress::emit(json!({"stage": "option", "label": label}));
+        }
         super::process_planned(a, m, t, p, vec![])
     })
 }
