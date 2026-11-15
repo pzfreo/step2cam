@@ -82,19 +82,22 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
         }
         let input = if job.return_stock || cache.get(index).is_some() { job.manifest.clone() } else { Value::Null };
         log.extend(job.notes.iter().map(|n| format!("note: {n}")));
+        let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("").to_lowercase();
+        let grip = (material.contains("aluminium") || material.contains("aluminum"))
+            && plan.setups[setup_index].clamping.as_ref().is_some_and(|c| c["force_check"]["allowable_cutting_force_n"].is_number());
         let run = if let Some(saved) = cache.get(index).filter(|c| c.input == input && c.job.crop_stock_to == job.crop_stock_to && (!job.return_stock || c.job.return_stock)) {
             job = saved.job.clone();
             if setup_index > 0 { plan.setups[setup_index].stock_note = saved.stock_note.clone(); }
             saved.run.clone()
         } else {
             cache.truncate(index);
-            let attempt = simulate::simulate_prepared_job(&mut job);
+            let attempt = simulate::simulate_prepared_job(&mut job, grip);
             let attempt = match attempt {
                 Err(f) if f.operation.is_none() && f.cause == simulate::Cause::InitialStock && job.manifest["stock"]["mesh"].is_object() => {
                     plan.setups[setup_index].stock_note = Some(setup_stock::assumption(&f.message));
                     job.manifest = box_manifest;
                     job.stock_bottom_mm = box_bottom;
-                    simulate::simulate_prepared_job(&mut job)
+                    simulate::simulate_prepared_job(&mut job, grip)
                 }
                 other => other,
             };
@@ -108,7 +111,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
                     && op.get("limits").is_some() => {
                     op.as_object_mut().unwrap().remove("limits");
                     log.push(format!("note: {id}: camlib could not build a roughing layer within the stock band ({}), so it is roughed over camlib's own region, the stock grown by four times the tool's reach, instead of within one cutter radius of the stock ({})", f.message, capp::trace::cite("process.roughing.region")));
-                    simulate::simulate_prepared_job(&mut job)
+                    simulate::simulate_prepared_job(&mut job, grip)
                 }
                 other => other,
             };
@@ -123,6 +126,7 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             let corner = |key: &str| serde_json::from_value(job.manifest["stock"][key].clone()).map_err(|e| e.to_string());
             plan.setups[setup_index].stock = capp::model::Box3 { min: corner("min_mm")?, max: corner("max_mm")? };
         }
+        measured_grip(plan, setup_index, &run.grip_cuts);
         previous = Some((frame, run.finished_stock.clone().unwrap_or_else(|| Err("finished-stock export was not requested".into())), job.crop_stock_to.is_some(), setup_index > 0 && job.manifest["stock"]["mesh"].is_null()));
         if run.uncertain > 0 {
             log.push(format!("note: setup {}: camlib's stock-contact check could not clear {} motions", job.setup, run.uncertain));
@@ -145,6 +149,58 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
         programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material, "uncertain_motions": run.uncertain}));
     }
     Ok(())
+}
+
+// Replace the planner's pending record in place, preserving operation because IDs.
+// The existing warnings list also feeds the manifest/setup-sheet consumers.
+fn measured_grip(plan: &mut Plan, setup: usize, cuts: &[simulate::MeasuredCut]) {
+    let material = plan.material.as_ref().and_then(|m| m["used"].as_str()).unwrap_or("").to_lowercase();
+    if !material.contains("aluminium") && !material.contains("aluminum") { return; }
+    let Some(capacity) = plan.setups[setup].clamping.as_ref()
+        .and_then(|c| c["force_check"]["allowable_cutting_force_n"].as_f64()) else { return; };
+    let rule = capp::trace::cite("machine.grip_vs_cut");
+    let prefix = format!("{}-", plan.setups[setup].id);
+    for d in plan.decisions.iter_mut().flatten().filter(|d| d["rule"] == rule
+        && d["force_model"] == "engagement decided by camlib; not checked against the grip before camlib runs") {
+        let Some(subject) = d["subject"].as_str().map(String::from).filter(|id| id.starts_with(&prefix)) else { continue; };
+        let mut says;
+        if let Some(cut) = cuts.iter().find(|c| c.operation == subject) {
+            d.as_object_mut().unwrap().extend(serde_json::to_value(cut).unwrap().as_object().unwrap().clone());
+            let force = cut.cutting_force_n;
+            let ap = cut.axial_depth_mm;
+            let ae = cut.radial_width_mm;
+            let [x,y,z] = cut.position_mm;
+            says = format!("{subject}: move {} at X{x:.3} Y{y:.3} Z{z:.3}: measured ap{ap:.3} × ae{ae:.3} mm, feed {:.2} mm/min; F{force:.2} N, allowable {capacity:.2} N", cut.motion_id, cut.feed_mm_min);
+            if force > capacity {
+                let limit = ap * capacity / force;
+                // Force is monotone in ae. Bisect the same shared model for the remedy.
+                let (mut lo, mut hi) = (0., ae);
+                for _ in 0..48 {
+                    let mid = (lo+hi)/2.;
+                    let f = capp::grip_force::milling_force(ap, mid, cut.diameter_mm, cut.feed_mm_min, cut.spindle_rpm, cut.flutes).map_or(0., |f| f.force_n);
+                    if f <= capacity { lo = mid; } else { hi = mid; }
+                }
+                // Rounded down to the planner's depth quantum, as its own remedies are.
+                let quantum = capp::rules::workholding()["grip_force"]["facing_depth_quantum_mm"].as_f64().unwrap();
+                let (limit, lo) = ((limit / quantum).floor() * quantum, (lo / quantum).floor() * quantum);
+                if limit >= quantum || lo >= quantum {
+                    d["suggested_stepdown_mm"] = json!(limit);
+                    d["suggested_stepover_mm"] = json!(lo);
+                    says.push_str(&format!("; reduce stepdown to ≤{limit:.2} mm or stepover to ≤{lo:.2} mm under this model; operation unchanged"));
+                } else {
+                    says.push_str(&format!("; even {quantum} mm cannot be held under this model; increase verified clamping capacity or change the engagement; operation unchanged"));
+                }
+                d["outcome"] = json!("warning");
+                if !plan.warnings.contains(&says) { plan.warnings.push(says.clone()); }
+            } else { d["outcome"] = json!("checked"); }
+        } else {
+            says = format!("{subject}: no definite material removed by the sampled feed moves; F0 N, allowable {capacity:.2} N");
+            d["outcome"] = json!("checked");
+            d["cutting_force_n"] = json!(0.);
+        }
+        d["says"] = json!(says);
+        d["force_model"] = json!("mean tangential milling force; measured moves and stock lower bounds");
+    }
 }
 
 /// Everything the page draws, from specify-core's analysis and mesh and a tool library. An

@@ -761,7 +761,7 @@ p161, USER GUIDE / MATERIAL GROUPS, read 2026-11-13, gives hardenable wrought IS
 For milling, `fz = feed/(rpm × flutes)`, `φ = acos(1 − 2ae/D)`,
 `h = fz(1 − cos φ)/φ`, `kc = kc₁h^(−m꜀)` and
 `F = kc × ap × ae × feed/(π × D × rpm)` N, equivalent to removal power / cutting speed.
-Only operations with engagement known from the plan are compared: **facing, flats,
+Before execution the operations with engagement known from the plan are compared: **facing, flats,
 slots, notches, V-channels, wall finishing and chamfers**. They use their resolved
 feed, rpm and engagement below the faced surface or their own lower opening.
 Facing/flats use `ae = min(stepover, D)`, slots/notches/V-channels their plan width
@@ -769,13 +769,25 @@ capped by D, walls the radial allowance, and chamfers D. Flats retain the roughi
 step envelope. These envelopes and default milling flute count 3 (matching the
 adapter) are step2cam judgement, recorded in the rule.
 
-**Roughing of every kind, helix-milled holes/counterbores and thread milling are not
-compared before execution.** Their engagement depends on the stock and passes camlib
-chooses at run time. Each records “engagement decided by camlib; not checked against
-the grip before camlib runs”, as evidence with no estimated force or over-capacity
-warning. Entry access, a guessed slot width and nominal helix pitch cannot establish
-actual engagement. A follow-up will check the grip against camlib's actual emitted
-moves; this pre-execution rule does not do that check.
+**Roughing of every kind, helix-milled holes/counterbores and thread milling are
+checked during execution.** The adapter samples each emitted feed curve at the stock
+cell spacing, using only the pre-motion stock's lower height bounds. On 16 diameters
+it samples radial intervals no larger than a cell and evaluates the
+largest rectangular depth/width bands definitely occupied at those samples. This keeps
+a thin full-width floor separate from a tall narrow ring. For a multi-turn helix the
+actual emitted tip one turn earlier at the same XY caps the remaining stock height;
+no nominal entry pitch is assumed. The shared model uses actual move feed, operation
+rpm and tool flutes/diameter. The largest force per operation replaces its pending
+decision with ap, ae, feed, sampled XYZ, motion ID and cell size; the strongest helix
+lead is retained as entry evidence. The deepest band is retained separately so that
+a shallow full-width floor cut cannot hide the thin full-depth wall ring. Over-capacity moves warn with fitting stepdown and
+stepover; the program is unchanged. Missing force/reference retains its existing reason.
+
+This is a sampled definite-engagement mean-load screen, not peak tooth load. Cell
+lookup and path/radial sampling have the recorded cell resolution; angular spacing is
+π/16 radians. Narrow sectors and sub-cell cuts can be missed. Disconnected contact bands
+are not summed. Uncertain stock does not count, and the height field cannot resolve
+thread grooves or undercuts.
 
 **Drilling, spotting and tapping are thrust into the supports**, not a sideways grip
 load. They record “thrust into the supports; not a sliding load on the grip”, without

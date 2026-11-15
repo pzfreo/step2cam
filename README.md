@@ -344,8 +344,9 @@ plan-known engagement: facing, flats, slots/notches, V-channels, walls and chamf
 tightening, half its rated maximum (step2cam judgement). Facing is stepped down
 when feasible; other checked cuts warn with a remedy. Drilling, spotting and tapping
 record thrust into supports. Roughing of every kind, helix-milled holes/counterbores
-and thread milling are **not checked before camlib runs**: engagement depends on its
-actual moves, which a follow-up will check. The demo vise has no published force and
+and thread milling are checked against the stock under their emitted feed moves,
+including helix turns. The largest measured mean force, engagement, move and position
+enter the same decision trace; over-capacity moves warn with a remedy and leave the program unchanged. The demo vise has no published force and
 warns “grip not checked against the cut” once per setup, keeping its cutting data.
 Contact pressure, lift and turning moments remain unchecked. See
 [formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).

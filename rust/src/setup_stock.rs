@@ -232,7 +232,7 @@ mod tests {
             notes: vec![],
             local_pocket_tops: Default::default(),
         };
-        let finished = crate::simulate::simulate_prepared_job(&mut job)
+        let finished = crate::simulate::simulate_prepared_job(&mut job, false)
             .unwrap()
             .finished_stock
             .unwrap()
