@@ -8,7 +8,7 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
     let a=read("tests/fixtures/synthetic/stepped-plate.analysis.json");
     let m=read("tests/fixtures/synthetic/stepped-plate.mesh.json");
     for lib in ["demo/tools.json","libraries/haas-vf2.json","libraries/linuxcnc-vmc.json","tests/fixtures/placeholder-tools.json"] {
-        let out=step2cam::process(&a,&m,&read(lib)).unwrap();
+        let out=crate::common::process_cached(&a,&m,&read(lib)).unwrap();
         assert!(out["error"].is_null(),"{lib}: {}",out["error"]);
         let setups=out["plan"]["setups"].as_array().unwrap();
         let top=&setups[0];
@@ -95,7 +95,7 @@ fn stepped_plate_pickups_are_recorded_for_every_library() {
         assert_eq!(front["zero"]["z"]["finished_in"],"top","{lib}");
         assert!(!out["plan"]["warnings"].as_array().unwrap().iter().any(|w|w.as_str().unwrap().starts_with("setup front: no finished seat")));
         assert!(!front["zero"]["z"]["description"].as_str().unwrap().contains("face 11"));
-        let chamfered=step2cam::process(&read("tests/fixtures/synthetic/stepped-plate-chamfered.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate-chamfered.mesh.json"),&read(lib)).unwrap();
+        let chamfered=crate::common::process_cached(&read("tests/fixtures/synthetic/stepped-plate-chamfered.analysis.json"),&read("tests/fixtures/synthetic/stepped-plate-chamfered.mesh.json"),&read(lib)).unwrap();
         assert!(chamfered["error"].is_null(),"{lib}: {}",chamfered["error"]);
         let front=chamfered["plan"]["setups"].as_array().unwrap().iter().find(|s|s["id"]=="front").unwrap();
         assert_eq!(front["zero"]["z"]["method"],"probe_face","{lib}");

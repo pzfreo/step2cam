@@ -40,7 +40,7 @@ fn audit<'a>(p: &'a Value, s: &Value) -> &'a Value {
 #[test]
 fn complex_plate_flips_faces_and_checks_real_grip_bands() {
     let (a, m) = input();
-    let out = step2cam::process(&a, &m, &tools()).unwrap();
+    let out = crate::common::process_cached(&a, &m, &tools()).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let p = &out["plan"];
     assert_eq!(
@@ -230,7 +230,7 @@ fn supplied_parallels_validate_both_setups_or_withhold_the_option() {
 fn mounting_plate_edge_breaks_get_inboard_supports_and_full_outline_depth() {
     let a = fixture("mounting-plate.analysis.json");
     let m = fixture("mounting-plate.mesh.json");
-    let out = step2cam::process(&a, &m, &tools()).unwrap();
+    let out = crate::common::process_cached(&a, &m, &tools()).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let p = &out["plan"];
     let bottom = setup(p, "bottom");
@@ -272,7 +272,7 @@ fn modeled_side_pockets_reduce_contact_and_preserve_a_usable_grip() {
     // The finished short ends are 100 mm apart, so this vise forces the
     // opposed long sides, which both have the modelled open side pockets.
     t["machines"][0]["workholding"][0]["max_jaw_opening_mm"] = json!(80.);
-    let out = step2cam::process(&a, &m, &t).unwrap();
+    let out = crate::common::process_cached(&a, &m, &t).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let p = &out["plan"];
     let bottom = setup(p, "bottom");
