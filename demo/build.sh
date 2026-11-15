@@ -43,4 +43,9 @@ rm -f site/step2cam/.gitignore
 cp tests/fixtures/fonts/LICENSE site/licenses/DejaVu-LICENSE.txt
 cp LICENSE site/licenses/step2cam-LICENSE.txt
 cp vendor/camlib/LICENSE site/licenses/camlib-LICENSE.txt
+# Pages caches every file for ten minutes: stamp the page's code with a hash of it, so a fresh
+# page never runs with scripts, styles or wasm cached from an earlier deploy.
+stamp=$(find site -type f \( -name '*.js' -o -name '*.css' -o -name '*.wasm' \) | LC_ALL=C sort | xargs cat | shasum -a 256 | cut -c1-12)
+perl -pi -e 's{((?:from |import\()"\./[^"?]+\.js)"}{$1?v='"$stamp"'"}g; s{new Worker\("worker\.js"}{new Worker("worker.js?v='"$stamp"'"}' site/*.js
+perl -pi -e 's{(href="style\.css|src="app\.js)"}{$1?v='"$stamp"'"}g' site/index.html
 du -sh site site/step2cam/*.wasm site/specify/*.wasm
