@@ -1,10 +1,12 @@
+import { textWidth } from "./report-font.js";
+
 // PDF diagram data in orthographic views. Coordinates remain setup-frame millimetres.
-// Visibility uses exact barycentric depth at bounded samples, with a 32² triangle
-// index. At most 1M index references, 50k samples and 256 triangles/sample/view.
-// Budget exhaustion, degenerate projections and missing geometry stay solid.
+// Visibility uses bounded exact depth tests on small meshes and conservative
+// raster depth on dense meshes. Uncertain classifications remain solid.
+// Fill, wire and label budgets bound the retained drawing and its PDF size.
 export const diagramLegend = [
   ['jaw', 'Vise jaws'], ['parallel', 'Parallels'], ['part', 'Part'],
-  ['stock', 'Stock still to face'], ['hidden', 'Hidden below'], ['pickup', 'Pickup feature and zero'],
+  ['stock', 'Stock still to face'], ['stock-body', 'Stock held'], ['hidden', 'Hidden edges'], ['pickup', 'Pickup feature and zero'], ['stop', 'Stop'],
 ];
 const identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const transform = (p, s) => (s.rotation || identity).map(axis => axis.reduce((v, n, i) => v + n * (p[i] - (s.origin_model?.[i] || 0)), 0));
@@ -20,89 +22,147 @@ const labelFor = (pickup) => {
   return (bore?.[0] || datum?.[0] || face?.[0] || text.split(/[;(]/)[0].replace(/^the /, '')).replace(/^./, c => c.toUpperCase());
 };
 
-function projection(mesh, setup, vertical) {
-  const vertices = pointsOf(mesh?.positions || []).map(p => transform(p, setup));
-  const project = p => [p[0], p[vertical], vertical === 1 ? p[2] : -p[1]];
-  const pv = vertices.map(project), triangles = [], triangleFaces = [];
-  (mesh?.faces || []).forEach(([start, count], face) => { for (let i = start; i < start + count; i++) triangleFaces[i] = face; });
-  for (let i = 0; i < (mesh?.indices?.length || 0); i += 3) {
-    const t = mesh.indices.slice(i, i + 3).map(j => pv[j]);
-    if (t.every(p => p?.every(Number.isFinite))) { t.face = triangleFaces[i / 3]; triangles.push(t); }
+// Work is linear in the input mesh, but retained geometry and raster work are
+// bounded. The 192-cell silhouette (128 for dense meshes) can lose details below
+// one cell. B-rep wires retain their original detail within the wire budget.
+function prepareMesh(mesh, setup) {
+  const source = mesh?.positions || [], xyz = new Float64Array(source.length);
+  const r = setup.rotation || identity, o = setup.origin_model || [0, 0, 0];
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < source.length; i += 3) {
+    const x = source[i] - o[0], y = source[i + 1] - o[1], z = source[i + 2] - o[2];
+    for (let a = 0; a < 3; a++) {
+      const v = r[a][0] * x + r[a][1] * y + r[a][2] * z;
+      if (!Number.isFinite(v)) throw new Error('non-finite mesh coordinates');
+      xyz[i + a] = v; min[a] = Math.min(min[a], v); max[a] = Math.max(max[a], v);
+    }
   }
-  const part = vertices.length ? bounds(vertices) : null;
-  const b = pv.length ? bounds(pv) : { min: [0, 0, 0], max: [1, 1, 1] };
-  const span = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], 1);
-  const cell = span / 32, bins = Array.from({ length: 1024 }, () => []);
-  const bin = (v, axis) => Math.max(0, Math.min(31, Math.floor((v - b.min[axis]) / cell)));
-  let refs = 0, complete = true, samples = 0;
-  const area = t => (t[1][0] - t[0][0]) * (t[2][1] - t[0][1]) - (t[2][0] - t[0][0]) * (t[1][1] - t[0][1]);
-  for (const t of triangles) {
-    if (Math.abs(area(t)) < 1e-10) continue;
-    const lo = [0, 1].map(a => bin(Math.min(...t.map(p => p[a])), a));
-    const hi = [0, 1].map(a => bin(Math.max(...t.map(p => p[a])), a));
-    refs += (hi[0] - lo[0] + 1) * (hi[1] - lo[1] + 1);
+  return { xyz, part: source.length ? { min, max } : null };
+}
+function simplify(points, tolerance) {
+  if (points.length < 3) return points;
+  const distance = (p, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], n = dx * dx + dy * dy;
+    const t = n ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / n)) : 0;
+    return (p[0] - a[0] - t * dx) ** 2 + (p[1] - a[1] - t * dy) ** 2;
+  };
+  const keep = new Set([0, points.length - 1]), stack = [[0, points.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop(); let best = tolerance * tolerance, at = -1;
+    for (let i = a + 1; i < b; i++) { const d = distance(points[i], points[a], points[b]); if (d > best) { best = d; at = i; } }
+    if (at >= 0) { keep.add(at); stack.push([a, at], [at, b]); }
+  }
+  return [...keep].sort((a, b) => a - b).map(i => points[i]);
+}
+function projection(mesh, setup, vertical, prepared) {
+  const { xyz, part } = prepared, indices = mesh?.indices || [], count = indices.length / 3;
+  const project = p => [p[0], p[vertical], vertical === 1 ? p[2] : -p[1]];
+  if (!part) return { part, project, loops: [], lines: [], stats: { triangles: 0, samples: 0 } };
+  const n = count > 20000 ? 128 : 192, stride = n + 1;
+  const x0 = part.min[0], y0 = part.min[vertical];
+  const sx = Math.max(part.max[0] - x0, 1e-6) / n, sy = Math.max(part.max[vertical] - y0, 1e-6) / n;
+  const span = Math.max(part.max[0] - x0, part.max[vertical] - y0, 1);
+  const depth = new Float64Array(n * n).fill(-Infinity), triangles = [];
+  let rasterTests = 0;
+  for (let i = 0; i < indices.length; i += 3) {
+    const ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
+    const ax = xyz[ia], ay = xyz[ia + vertical], bx = xyz[ib], by = xyz[ib + vertical], cx = xyz[ic], cy = xyz[ic + vertical];
+    const az = vertical === 1 ? xyz[ia + 2] : -xyz[ia + 1], bz = vertical === 1 ? xyz[ib + 2] : -xyz[ib + 1], cz = vertical === 1 ? xyz[ic + 2] : -xyz[ic + 1];
+    const area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+    if (Math.abs(area) < 1e-12) continue;
+    if (count <= 20000) triangles.push([ax, ay, az, bx, by, bz, cx, cy, cz, area]);
+    const lx = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - x0) / sx - 0.5)), hx = Math.min(n - 1, Math.floor((Math.max(ax, bx, cx) - x0) / sx - 0.5));
+    const ly = Math.max(0, Math.ceil((Math.min(ay, by, cy) - y0) / sy - 0.5)), hy = Math.min(n - 1, Math.floor((Math.max(ay, by, cy) - y0) / sy - 0.5));
+    rasterTests += Math.max(0, hx - lx + 1) * Math.max(0, hy - ly + 1);
+    if (rasterTests > 4000000) throw new Error('mesh projection exceeds raster budget');
+    for (let y = ly; y <= hy; y++) for (let x = lx; x <= hx; x++) {
+      const px = x0 + (x + 0.5) * sx, py = y0 + (y + 0.5) * sy;
+      const u = ((px - ax) * (cy - ay) - (py - ay) * (cx - ax)) / area;
+      const v = ((bx - ax) * (py - ay) - (by - ay) * (px - ax)) / area;
+      if (u >= -1e-7 && v >= -1e-7 && u + v <= 1 + 1e-7) depth[y * n + x] = Math.max(depth[y * n + x], az + u * (bz - az) + v * (cz - az));
+    }
+  }
+  // Trace the raster union into closed outer/inner loops; one even-odd fill
+  // preserves holes without retaining a polygon for every input triangle.
+  const boundary = new Map(); let edgeCount = 0;
+  const edge = (a, b) => { if (!boundary.has(a)) boundary.set(a, []); boundary.get(a).push(b); edgeCount++; };
+  const filled = (x, y) => x >= 0 && x < n && y >= 0 && y < n && depth[y * n + x] !== -Infinity;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (filled(x, y)) {
+    const a = y * stride + x;
+    if (!filled(x, y - 1)) edge(a, a + 1);
+    if (!filled(x + 1, y)) edge(a + 1, a + 1 + stride);
+    if (!filled(x, y + 1)) edge(a + 1 + stride, a + stride);
+    if (!filled(x - 1, y)) edge(a + stride, a);
+  }
+  if (edgeCount > 20000) throw new Error('projected outline exceeds contour budget');
+  const loops = []; let vertices = 0;
+  while (boundary.size) {
+    const first = boundary.keys().next().value, points = []; let at = first;
+    do {
+      points.push([x0 + (at % stride) * sx, y0 + Math.floor(at / stride) * sy]);
+      const next = boundary.get(at); if (!next?.length) throw new Error('open projected contour');
+      const old = at; at = next.pop(); if (!next.length) boundary.delete(old);
+    } while (at !== first);
+    points.push(points[0]);
+    const loop = simplify(points, Math.min(sx, sy) * 0.65); vertices += loop.length;
+    if (vertices > 8000) throw new Error('projected outline exceeds vertex budget');
+    loops.push(loop);
+  }
+  const bins = Array.from({ length: 1024 }, () => []), cell = span / 32;
+  const bin = (v, lo) => Math.max(0, Math.min(31, Math.floor((v - lo) / cell)));
+  let refs = 0, complete = count <= 20000, samples = 0;
+  if (complete) for (const t of triangles) {
+    const lx = bin(Math.min(t[0], t[3], t[6]), x0), hx = bin(Math.max(t[0], t[3], t[6]), x0);
+    const ly = bin(Math.min(t[1], t[4], t[7]), y0), hy = bin(Math.max(t[1], t[4], t[7]), y0);
+    refs += (hx - lx + 1) * (hy - ly + 1);
     if (refs > 1000000) { complete = false; break; }
-    for (let y = lo[1]; y <= hi[1]; y++) for (let x = lo[0]; x <= hi[0]; x++) bins[y * 32 + x].push(t);
+    for (let y = ly; y <= hy; y++) for (let x = lx; x <= hx; x++) bins[y * 32 + x].push(t);
   }
   function hidden(p) {
-    if (!complete || samples >= 50000) return false;
-    samples++;
-    const candidates = bins[bin(p[1], 1) * 32 + bin(p[0], 0)];
+    if (samples++ >= 20000) return false;
+    if (!complete) {
+      // Dense meshes use a conservative depth neighbourhood: uncertain edges
+      // stay solid, including gaps and features below raster resolution.
+      const ix = Math.floor((p[0] - x0) / sx), iy = Math.floor((p[1] - y0) / sy);
+      let nearest = Infinity;
+      for (let y = iy - 1; y <= iy + 1; y++) for (let x = ix - 1; x <= ix + 1; x++) {
+        if (!filled(x, y)) return false; nearest = Math.min(nearest, depth[y * n + x]);
+      }
+      return nearest > p[2] + Math.max(sx, sy);
+    }
+    const candidates = bins[bin(p[1], y0) * 32 + bin(p[0], x0)];
     if (candidates.length > 256) return false;
     for (const t of candidates) {
-      const d = area(t);
-      const u = ((p[0] - t[0][0]) * (t[2][1] - t[0][1]) - (p[1] - t[0][1]) * (t[2][0] - t[0][0])) / d;
-      const v = ((t[1][0] - t[0][0]) * (p[1] - t[0][1]) - (t[1][1] - t[0][1]) * (p[0] - t[0][0])) / d;
-      if (u >= -1e-7 && v >= -1e-7 && u + v <= 1 + 1e-7 && t[0][2] + u * (t[1][2] - t[0][2]) + v * (t[2][2] - t[0][2]) > p[2] + span * 1e-5) return true;
+      const u = ((p[0] - t[0]) * (t[7] - t[1]) - (p[1] - t[1]) * (t[6] - t[0])) / t[9];
+      const v = ((t[3] - t[0]) * (p[1] - t[1]) - (t[4] - t[1]) * (p[0] - t[0])) / t[9];
+      if (u >= -1e-7 && v >= -1e-7 && u + v <= 1 + 1e-7 && t[2] + u * (t[5] - t[2]) + v * (t[8] - t[2]) > p[2] + span * 1e-5) return true;
     }
     return false;
   }
-  // Mesh face ranges provide the silhouette even when no B-rep polylines exist.
-  // Weld coincident vertices: meshing duplicates vertices along face boundaries.
-  const adjacency = new Map();
-  for (const t of triangles) {
-    const sign = Math.sign(area(t));
-    for (let i = 0; i < 3; i++) {
-      const a = t[i], c = t[(i + 1) % 3];
-      const key = [a, c].map(p => p.map(v => Math.round(v / (span * 1e-8))).join(',')).sort().join(':');
-      const old = adjacency.get(key);
-      if (old) { old.signs.add(sign); old.faces.add(t.face); old.count++; }
-      else adjacency.set(key, { a, c, signs: new Set([sign]), faces: new Set([t.face]), count: 1 });
-    }
-  }
-  const edges = (mesh?.edges || []).map(e => pointsOf(e).map(p => project(transform(p, setup))));
-  for (const e of adjacency.values()) {
-    const silhouette = e.count === 1 || (e.signs.has(1) && e.signs.has(-1)) || (e.signs.has(0) && e.signs.size > 1);
-    // B-rep wires already contain boundaries between faces. Only add interior
-    // curved-face silhouettes there; duplicate strokes would fill dash gaps.
-    const interior = e.faces.size === 1 && !e.faces.has(undefined) && e.signs.has(1) && e.signs.has(-1);
-    if (silhouette && (!mesh?.edges?.length || interior)) edges.push([e.a, e.c]);
-  }
-  const lines = [];
-  for (const edge of edges) {
-    let run = [], state;
-    for (let j = 1; j < edge.length; j++) {
-      const a = edge[j - 1], c = edge[j];
-      const length = Math.hypot(c[0] - a[0], c[1] - a[1]);
-      if (length < span * 1e-8) continue;
-      const steps = samples >= 50000 ? 1 : Math.min(64, Math.max(1, Math.ceil(length / (span / 160))));
-      let last = a.slice(0, 2);
-      if (!run.length) run.push(last);
+  const lines = []; let wireSegments = 0, wireVertices = 0;
+  for (const flat of mesh?.edges || []) {
+    if (wireSegments + flat.length / 3 > 12000) break;
+    const points = pointsOf(flat).map(p => project(transform(p, setup))); let run = [], state;
+    for (let j = 1; j < points.length; j++) {
+      const a = points[j - 1], b = points[j]; wireSegments++;
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]); if (length < span * 1e-8) continue;
+      const steps = samples >= 20000 ? 1 : Math.min(64, Math.max(1, Math.ceil(length / (span / 160))));
+      let last = a.slice(0, 2); if (!run.length) run.push(last);
       for (let k = 0; k < steps; k++) {
-        const at = f => a.map((v, i) => v + (c[i] - v) * f);
-        const h = hidden(at((k + 0.5) / steps));
-        if (state !== undefined && h !== state) { lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: run }); run = [last]; }
+        const at = f => a.map((v, i) => v + (b[i] - v) * f), h = hidden(at((k + 0.5) / steps));
+        if (state !== undefined && h !== state) { lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: simplify(run, span * 1e-8) }); run = [last]; }
         state = h; last = at((k + 1) / steps).slice(0, 2); run.push(last);
       }
     }
-    if (run.length > 1) lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: run });
+    if (run.length > 1) { const p = simplify(run, span * 1e-8); wireVertices += p.length; lines.push({ type: 'polyline', class: state ? 'hidden' : 'edge', points: p }); }
+    if (wireVertices > 8000) break;
   }
-  return { part, project, triangles: triangles.filter(t => Math.abs(area(t)) > 1e-10), lines, stats: { triangles: triangles.length, samples, indexComplete: complete } };
+  return { part, project, loops, lines, stats: { triangles: count, samples: Math.min(samples, 20000), rasterTests, cell_mm: Math.max(sx, sy), contourVertices: vertices } };
 }
 
 // Conservative DejaVu Sans bounds, in setup mm (baseline + ascenders/descenders).
 function diagramTextBox(shape) {
-  const height = shape.fontSize, width = [...shape.text].length * height * 0.68;
+  const height = shape.fontSize, width = textWidth(shape.text, height);
   const x = shape.x - (shape.anchor === 'middle' ? width / 2 : shape.anchor === 'end' ? width : 0);
   return [x, shape.y - height * 0.3, x + width, shape.y + height * 1.1];
 }
@@ -123,9 +183,9 @@ function crossesBox(a, b, box) {
 function layoutLabels(shapes, annotations, unit, part) {
   const expand = box => box.map((v, i) => v + (i < 2 ? -1 : 1) * unit);
   const segments = s => s.points.slice(1).map((p, i) => [s.points[i], p]);
-  const obstacles = shapes.filter(s => ['stock', 'dimension', 'axis', 'jaw', 'parallel'].includes(s.class) && s.type !== 'text').flatMap(s => s.type === 'rect'
+  const obstacles = shapes.filter(s => ['stock', 'stock-body', 'dimension', 'axis', 'jaw', 'jaw-near', 'parallel', 'part', 'edge', 'hidden', 'pickup'].includes(s.class) && s.type !== 'text').flatMap(s => s.type === 'rect'
     ? [[[s.x, s.y], [s.x + s.width, s.y]], [[s.x, s.y + s.height], [s.x + s.width, s.y + s.height]], [[s.x, s.y], [s.x, s.y + s.height]], [[s.x + s.width, s.y], [s.x + s.width, s.y + s.height]]]
-    : segments(s));
+    : s.type === 'outline' ? s.loops.flatMap(points => segments({ points })) : segments(s));
   const blocks = shapes.filter(s => s.class === 'stop' || s.class === 'zero').map(s => s.type === 'rect' ? [s.x, s.y, s.x + s.width, s.y + s.height] : [s.x - s.radius, s.y - s.radius, s.x + s.radius, s.y + s.radius]);
   const labels = shapes.filter(s => s.type === 'text'), placed = [], leaders = [];
   // Labels without leaders go first; later leaders must route around all of them.
@@ -161,23 +221,28 @@ function layoutLabels(shapes, annotations, unit, part) {
   }
 }
 
-export function buildSetupDiagram(data, setup, format = String) {
+function setupDiagram(data, setup, format = String) {
   const c = setup.clamping || {}, stock = setup.stock;
+  const zero = setup.zero === 'stock' ? { status: 'located', xy: { method: 'stock_edges', description: 'Stock corner', features: [] }, z: { description: 'Stock top', features: [] } } : setup.zero;
+  const prepared = prepareMesh(data.mesh, setup);
+  const facing = setup.operations?.find(o => o.kind === 'facing' && Number.isFinite(o.floor_z));
+  const heldStock = setup === data.plan?.setups?.[0] || setup.zero === 'stock' || zero?.xy?.method === 'stock_edges';
   const number = value => String(format(value)).replace(/-/g, '−');
-  const located = setup.zero?.status === 'located';
-  const warnings = located ? [] : [setup.zero?.status === 'warning' ? `Pickup warning: ${setup.zero.xy?.description || 'X/Y pickup unavailable'}; ${setup.zero.z?.description || 'Z pickup unavailable'}` : 'Pickup warning: no recorded setup zero.'];
+  const located = zero?.status === 'located';
+  const warnings = located ? [] : [zero?.status === 'warning' ? 'Pickup warning: see Zero before locating this setup.' : 'Pickup warning: no recorded setup zero.'];
   const views = [1, 2].map(vertical => {
-    const geometry = projection(data.mesh, setup, vertical), shapes = [];
+    const geometry = projection(data.mesh, setup, vertical, prepared), shapes = [];
     const part = geometry.part || stock || { min: [0, 0, -1], max: [1, 1, 0] };
     const size = Math.max(part.max[0] - part.min[0], part.max[vertical] - part.min[vertical], 20), unit = size / 100;
     const add = (type, cls, rest) => { const shape = { type, class: cls, ...rest }; shapes.push(shape); return shape; };
     const line = (cls, a, b) => add('polyline', cls, { points: [a, b] });
     const text = (cls, x, y, text, anchor = 'start') => add('text', cls, { x, y, text: text.replace(/-(?=\d)/g, '−'), anchor, fontSize: 3.4 * unit });
     const annotations = [];
-    const annotation = (from, x, y, caption, anchor = 'start') => {
-      const leader = line('leader', from, [x, y]);
-      const shape = text('pickup', x, y, caption, anchor);
+    const annotation = (from, x, y, caption, anchor = 'start', cls = 'pickup') => {
+      const leader = line(cls === 'dimension' ? 'guide' : 'leader', from, [x, y]);
+      const shape = text(cls, x, y, caption, anchor);
       annotations.push({ shape, from, leader });
+      return shape;
     };
     const rect = (cls, box) => add('rect', cls, { x: box.min[0], y: box.min[vertical], width: box.max[0] - box.min[0], height: box.max[vertical] - box.min[vertical] });
     let cropped = false;
@@ -195,38 +260,42 @@ export function buildSetupDiagram(data, setup, format = String) {
       const bed = Math.min(...jaws.map(j => j.min[2]));
       add('rect', 'bed', { x: Math.min(...jaws.map(j => j.min[0])) - 4 * unit, y: bed - 4 * unit, width: Math.max(...jaws.map(j => j.max[0])) - Math.min(...jaws.map(j => j.min[0])) + 8 * unit, height: 4 * unit });
     }
-    for (const jaw of jaws) rect('jaw', jaw);
+    const alongY = vertical === 2 && (c.fixed_jaw?.startsWith('y') || c.faces?.[0]?.includes('.y.'));
+    const nearIndex = alongY ? (c.jaws || []).reduce((best, j, i, all) => j.min[1] < all[best].min[1] ? i : best, 0) : -1;
+    jaws.forEach((jaw, i) => { if (i !== nearIndex) rect('jaw', jaw); });
     for (const p of c.parallels || []) rect('parallel', p);
-    // Fill only projected triangles, preserving holes, concavities and overhangs.
-    for (const t of geometry.triangles) add('polygon', 'part', { points: t.map(p => p.slice(0, 2)) });
+    if (heldStock && stock) rect('stock-body', stock);
+    if (geometry.loops.length) add('outline', 'part', { loops: geometry.loops });
     shapes.push(...geometry.lines);
     if (!geometry.part) text('tag', part.min[0], part.max[vertical] + 5 * unit, 'Part mesh unavailable');
-    // Only the material above the finished envelope is a facing allowance.
-    if (stock) {
+    // A facing allowance comes from its operation, never envelope slack.
+    if (stock && facing && stock.max[2] > facing.floor_z) {
       if (vertical === 1) rect('stock', stock);
-      else if (stock.max[2] > part.max[2] + 1e-4) rect('stock', { min: [stock.min[0], 0, part.max[2]], max: stock.max });
+      else rect('stock', { min: [stock.min[0], 0, facing.floor_z], max: stock.max });
     }
+    // The jaw nearest a +Y viewer is in front of the material. Paint its outline last.
+    if (nearIndex >= 0) rect('jaw-near', jaws[nearIndex]);
     const jawAxis = c.fixed_jaw?.startsWith('x') ? 0 : 1;
     const sorted = (c.jaws || []).map((j, i) => ({ j, i })).sort((a, b) => a.j.min[jawAxis] - b.j.min[jawAxis]);
     const fixedIndex = c.fixed_jaw ? sorted[c.fixed_jaw.endsWith('min') ? 0 : sorted.length - 1]?.i : -1;
     jaws.forEach((j, i) => {
       const label = i === fixedIndex ? 'Fixed jaw' : fixedIndex < 0 ? 'Jaw (fixed not recorded)' : 'Moving jaw';
-      if (vertical === 2 && jawAxis === 1) text('tag', i === fixedIndex ? j.min[0] - 4 * unit : j.max[0] + 4 * unit, j.min[2] + 3 * unit, label, i === fixedIndex ? 'end' : 'start');
+      if (alongY) { if (i === nearIndex) text('tag', (j.min[0] + j.max[0]) / 2, j.min[2] + 5 * unit, `${label} (near side)`, 'middle'); }
       else text('tag', (j.min[0] + j.max[0]) / 2, vertical === 1 ? j.max[1] - 4 * unit : j.min[2] + 5 * unit, label, 'middle');
     });
     function dimension(x, low, high, caption, value, anchor = 'start') {
       if (!Number.isFinite(value) || high <= low) return;
       line('dimension', [x, low], [x, high]);
       for (const y of [low, high]) line('dimension', [x - 1.6 * unit, y], [x + 1.6 * unit, y]);
-      const label = text('dimension', x + (anchor === 'end' ? -2.5 : 2.5) * unit, (low + high) / 2, `${caption} ${number(value)}`, anchor);
+      const label = annotation([x, (low + high) / 2], x + (anchor === 'end' ? -2.5 : 2.5) * unit, (low + high) / 2, `${caption} ${number(value)}`, anchor, 'dimension');
       label.dimension = { kind: caption, value, low, high };
     }
     if (vertical === 2) {
       const p = c.parallels?.[0];
       if (p) dimension(part.min[0] + 18 * unit, p.min[2], p.max[2], 'Parallels', p.max[2] - p.min[2]);
-      const seat = c.contact_min_z ?? p?.max[2] ?? c.jaw_top_z - c.grip_height_mm;
-      if (c.grip_height_mm != null) dimension(part.min[0] - 6 * unit, seat, c.jaw_top_z, 'Grip', c.jaw_top_z - seat, 'end');
-      if (stock) dimension(part.max[0] + 8 * unit, part.max[2], stock.max[2], 'Facing', stock.max[2] - part.max[2]);
+      const seat = c.jaw_top_z - c.grip_height_mm;
+      if (c.grip_height_mm != null) dimension(part.min[0] - 6 * unit, seat, c.jaw_top_z, 'Grip', c.grip_height_mm, 'end');
+      if (stock && facing) dimension(part.max[0] + 8 * unit, facing.floor_z, stock.max[2], 'Facing', stock.max[2] - facing.floor_z);
     }
     if (located) {
       const r = 2.6 * unit;
@@ -235,8 +304,8 @@ export function buildSetupDiagram(data, setup, format = String) {
       for (const start of [0, Math.PI]) add('polygon', 'zero-fill', { points: [[0, 0], ...Array.from({ length: 9 }, (_, i) => [r * Math.cos(start + i * Math.PI / 16), r * Math.sin(start + i * Math.PI / 16)])] });
       text('pickup', 15 * unit, 3.5 * unit, 'X'); text('pickup', 0, 18 * unit, vertical === 1 ? 'Y' : 'Z');
       annotation([0, 0], -8 * unit, -8 * unit, vertical === 1 ? 'X0 Y0' : 'Z0 here', 'end');
-      if (vertical === 1 && !setup.zero.xy?.axes) annotation([0, 0], 8 * unit, -12 * unit, labelFor(setup.zero.xy));
-      const pickups = [setup.zero.xy, ...Object.values(setup.zero.xy?.axes || {}), ...(vertical === 2 ? [setup.zero.z] : [])];
+      if (vertical === 1 && !zero.xy?.axes && !zero.xy?.features?.length) annotation([0, 0], 8 * unit, -12 * unit, labelFor(zero.xy));
+      const pickups = [zero.xy, ...Object.values(zero.xy?.axes || {}), ...(vertical === 2 ? [zero.z] : [])];
       const ids = new Set(pickups.flatMap(p => p?.target_features?.length ? p.target_features : p?.features || []));
 
       // Highlight the actual mesh boundary of each picked face, not its box.
@@ -249,6 +318,7 @@ export function buildSetupDiagram(data, setup, format = String) {
           const normal = (setup.rotation || identity).map(axis => axis.reduce((v, n, i) => v + n * (record?.direction?.[i] || 0), 0));
           if ((record?.kind === 'plane' || (!record?.kind && id.startsWith('faces:'))) && Math.abs(normal[vertical === 1 ? 2 : 1]) > 0.999) continue;
           const boundary = new Map();
+          if (range[1] > 12000) continue;
           for (let n = range[0] * 3; n < (range[0] + range[1]) * 3; n += 3) {
             const indices = data.mesh.indices.slice(n, n + 3);
             for (let i = 0; i < 3; i++) {
@@ -262,7 +332,7 @@ export function buildSetupDiagram(data, setup, format = String) {
           }
           if (record?.centroid) {
             const p = geometry.project(transform(record.centroid, setup));
-            const pickup = [...Object.values(setup.zero.xy?.axes || {}), setup.zero.z, setup.zero.xy].find(p => p?.features?.includes(id) || p?.target_features?.includes(id));
+            const pickup = [...Object.values(zero.xy?.axes || {}), zero.z, zero.xy].find(p => p?.features?.includes(id) || p?.target_features?.includes(id));
             const caption = labelFor(pickup) || `Face ${face}`;
             const nx = normal[0], ny = normal[vertical];
             let tx = p[0], ty = part.max[vertical] + 12 * unit, anchor = 'middle';
@@ -280,8 +350,8 @@ export function buildSetupDiagram(data, setup, format = String) {
       }
       const stop = c.part_stop;
       if (stop) {
-        const contact = setup.zero.xy?.axes?.[stop.axis]?.contact_in_previous_frame_mm;
-        const p = contact ? contact.map((v, i) => v - (setup.zero.offset_in_previous_frame_mm?.[i] || 0)) : [0, 0, stop.contact_z_mm];
+        const contact = zero.xy?.axes?.[stop.axis]?.contact_in_previous_frame_mm;
+        const p = contact ? contact.map((v, i) => v - (zero.offset_in_previous_frame_mm?.[i] || 0)) : [0, 0, stop.contact_z_mm];
         p[stop.axis === 'x' ? 0 : 1] = stop.coordinate_mm; p[2] = stop.contact_z_mm;
         const q = geometry.project(p), top = stop.maximum_z_mm ?? stop.contact_z_mm;
         const axis = stop.axis === 'x' ? 0 : 1;
@@ -291,11 +361,32 @@ export function buildSetupDiagram(data, setup, format = String) {
         annotation(q.slice(0, 2), q[0] + 5 * unit, vertical === 1 ? q[1] - 12 * unit : top + 9 * unit, `Stop${stop.maximum_z_mm == null ? '' : ` · nose ≤ Z${number(stop.maximum_z_mm)}`}`);
       }
     }
-    layoutLabels(shapes, annotations, unit, geometry.part ? { min: [part.min[0], part.min[vertical]], max: [part.max[0], part.max[vertical]] } : null);
-    const extents = shapes.flatMap(s => s.points || (s.type === 'rect' ? [[s.x, s.y], [s.x + s.width, s.y + s.height]] : s.type === 'text' ? [diagramTextBox(s).slice(0, 2), diagramTextBox(s).slice(2)] : [[s.x, s.y]]));
-    // Include complete text boxes so labels cannot be clipped by the view.
-    const b = bounds(extents.map(p => [...p, 0]));
-    return { caption: vertical === 1 ? 'Seen from above (machine Z down)' : 'Seen from the front (looking +Y)', shapes, unit, bounds: [b.min[0] - 5 * unit, b.min[1] - 5 * unit, b.max[0] + 5 * unit, b.max[1] + 5 * unit], cropped, stats: geometry.stats };
+    if (shapes.length > 4000 || shapes.reduce((n, s) => n + (s.points?.length || s.loops?.reduce((v, loop) => v + loop.length, 0) || 0), 0) > 20000) throw new Error('drawing exceeds geometry budget');
+    // Geometry stays in setup mm. The page scale is explicit and text is laid
+    // out afresh at 7.5 pt at that scale; the renderer must never shrink it.
+    const geometryPoints = shapes.filter(s => s.type !== 'text' && s.class !== 'leader').flatMap(s => s.points || s.loops?.flat() || (s.type === 'rect' ? [[s.x, s.y], [s.x + s.width, s.y + s.height]] : [[s.x, s.y]]));
+    const gb = bounds(geometryPoints.map(p => [...p, 0]));
+    let scale = Math.min(120 / Math.max(1, gb.max[0] - gb.min[0]), 48 / Math.max(1, gb.max[1] - gb.min[1])), viewBounds;
+    const initial = shapes.filter(s => s.type === 'text').map(s => [s, s.x, s.y]);
+    for (let attempt = 0; attempt < 10; attempt++) {
+      for (const [s, x, y] of initial) { s.x = x; s.y = y; s.fontSize = 7.5 * 0.352778 / scale; s.fontPt = 7.5; }
+      layoutLabels(shapes, annotations, 0.6 / scale, geometry.part ? { min: [part.min[0], part.min[vertical]], max: [part.max[0], part.max[vertical]] } : null);
+      const extents = shapes.flatMap(s => s.points || s.loops?.flat() || (s.type === 'rect' ? [[s.x, s.y], [s.x + s.width, s.y + s.height]] : s.type === 'text' ? [diagramTextBox(s).slice(0, 2), diagramTextBox(s).slice(2)] : [[s.x, s.y]]));
+      const b = bounds(extents.map(p => [...p, 0])), pad = 2 / scale;
+      viewBounds = [b.min[0] - pad, b.min[1] - pad, b.max[0] + pad, b.max[1] + pad];
+      const w = (viewBounds[2] - viewBounds[0]) * scale, h = (viewBounds[3] - viewBounds[1]) * scale;
+      if (w <= 180 && h <= 95) break;
+      if (attempt === 9) throw new Error('labels exceed printable diagram area');
+      scale *= Math.min(175 / w, 90 / h, 0.9);
+    }
+    return { caption: vertical === 1 ? 'Seen from above (machine Z down)' : 'Seen from the front (looking +Y)', shapes, unit, bounds: viewBounds, scale, height: (viewBounds[3] - viewBounds[1]) * scale, partBounds: part, cropped, stats: geometry.stats };
+
   });
-  return { type: 'setup-diagram', setup: setup.id, views, warnings, legend: diagramLegend, note: views[0].cropped ? 'Jaws cropped in Y in the view from above.' : '' };
+  return { type: 'setup-diagram', setup: setup.id, views, warnings, legend: diagramLegend.filter(([cls]) => views.some(v => v.shapes.some(s => s.class === cls || (cls === 'jaw' && s.class === 'jaw-near')))), note: views[0].cropped ? 'Jaws cropped in Y in the view from above.' : '' };
+}
+
+// One unavailable drawing must never prevent the rest of the setup sheet.
+export function buildSetupDiagram(data, setup, format = String) {
+  try { return setupDiagram(data, setup, format); }
+  catch (error) { return { type: 'paragraph', text: `Setup diagram unavailable: ${String(error.message || error).split(':')[0].replace(/\s+/g, ' ').slice(0, 60)}` }; }
 }

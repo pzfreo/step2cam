@@ -22,7 +22,7 @@ rust/fetch-camlib.sh
 rm -rf site
 mkdir -p site/licenses
 wasm-pack build rust --release --target web --no-typescript --no-pack --out-dir ../site/step2cam
-cp demo/index.html demo/app.js demo/stock.js demo/report.js demo/report-pdf.js demo/setup-diagram.js demo/worker.js demo/style.css site/
+cp demo/index.html demo/app.js demo/stock.js demo/report.js demo/report-pdf.js demo/setup-diagram.js demo/report-font.js demo/worker.js demo/style.css site/
 cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
 mkdir -p site/machines
 cp demo/tools.json site/machines/carvera.json
@@ -40,6 +40,7 @@ cp "$work"/pkg/specify_core_wasm.js "$work"/pkg/specify_core_wasm_bg.wasm site/s
 rm -rf "$work"
 
 rm -f site/step2cam/.gitignore
+cp tests/fixtures/fonts/LICENSE site/licenses/DejaVu-LICENSE.txt
 cp LICENSE site/licenses/step2cam-LICENSE.txt
 cp vendor/camlib/LICENSE site/licenses/camlib-LICENSE.txt
 du -sh site site/step2cam/*.wasm site/specify/*.wasm
