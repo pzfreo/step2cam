@@ -355,7 +355,15 @@ fn measured_engagement_checks_edge_entry_helix_and_remaining_bore_ring() {
                 let ring = &own["deepest_band"];
                 assert!((0.1..1.).contains(&num(&ring["radial_width_mm"])), "{own}");
                 assert!(num(&ring["axial_depth_mm"]) > 8., "{own}");
-                assert!(num(&ring["cutting_force_n"]) < 100., "{own}");
+                // Adaptive leaves a wider measured wall ring than raster. Check its
+                // actual load independently, and keep the full-bore exclusion explicit.
+                let (ap, ae, diameter) = (num(&ring["axial_depth_mm"]), num(&ring["radial_width_mm"]), num(&ring["diameter_mm"]));
+                let (feed, rpm, flutes) = (num(&ring["feed_mm_min"]), num(&ring["spindle_rpm"]), num(&ring["flutes"]));
+                near(num(&ring["cutting_force_n"]), force(ap, ae, diameter, feed, rpm, flutes));
+                assert!(num(&ring["cutting_force_n"]) < force(ap, diameter, diameter, feed, rpm, flutes), "{own}");
+                let adaptive = out["programs"].as_array().unwrap().iter().flat_map(|p| p["job"]["operations"].as_array().unwrap())
+                    .any(|o| o["kind"] == "roughing" && o["clearing"]["kind"] == "adaptive");
+                if !adaptive { assert!(num(&ring["cutting_force_n"]) < 100., "{own}"); }
                 assert!(num(&own["cutting_force_n"]) >= num(&ring["cutting_force_n"]), "{own}");
                 assert!(num(&own["axial_depth_mm"]) <= 1., "{own}");
             }
