@@ -38,7 +38,7 @@ fn a_single_flute_carvera_cutter_reaches_camlib_single_flute() {
         .find(|o| o["kind"] == "roughing").unwrap()["clearing"]["kind"].as_str().unwrap();
     assert_eq!(clearing, "raster", "Carvera has no qualified adaptive policy");
     let rough = log.iter().find(|l| l.contains("-roughing: clears in raster passes")).unwrap();
-    assert!(rough.contains("(process.roughing.clearing@2), leaving 0.3 mm on the walls and 0.2 mm on the floors (process.roughing.allowance@1)"), "{rough}");
+    assert!(rough.contains("(process.roughing.clearing@3), leaving 0.3 mm on the walls and 0.2 mm on the floors (process.roughing.allowance@1)"), "{rough}");
     assert!(rough.contains("by a 3° helix (process.entry.helix@1)"), "{rough}");
     assert!(rough.contains("its tool centre stays within one cutter radius and 1.0 mm of the stock (process.roughing.region@1)"), "{rough}");
     assert!(log.iter().any(|l| l.contains("-slot enter by a 3° helix (process.entry.helix@1)")), "{log:?}");
