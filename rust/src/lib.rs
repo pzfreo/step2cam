@@ -16,6 +16,74 @@ use capp::model::{Cut, Exclusion, Plan, Setup};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
+// Browser-only observation: native processing and its public signatures are untouched.
+#[cfg(target_arch = "wasm32")]
+mod progress {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[wasm_bindgen]
+    extern "C" {
+        pub type Callback;
+        #[wasm_bindgen(method, structural, catch, js_name = call)]
+        fn call(this: &Callback, receiver: &JsValue, event: &JsValue) -> Result<JsValue, JsValue>;
+    }
+    struct State { callback: Callback, operations: Vec<Value> }
+    thread_local! { static ACTIVE: RefCell<Option<State>> = const { RefCell::new(None) }; }
+
+    pub struct Scope(Option<State>);
+    impl Scope {
+        pub fn new(callback: Option<Callback>) -> Self {
+            Self(ACTIVE.with(|s| s.replace(callback.map(|callback| State { callback, operations: vec![] }))))
+        }
+    }
+    impl Drop for Scope {
+        fn drop(&mut self) { ACTIVE.with(|s| s.replace(self.0.take())); }
+    }
+    pub fn emit(event: Value) {
+        ACTIVE.with(|s| {
+            if let Some(s) = s.borrow().as_ref() {
+                // A UI callback cannot change the processing result, even if it throws.
+                let _ = s.callback.call(&JsValue::NULL, &JsValue::from_str(&event.to_string()));
+            }
+        });
+    }
+    pub fn label(plan: &Plan, id: &capp::kind::OpId) -> Value {
+        let op = plan.setups.iter().find(|s| s.id == id.setup)
+            .and_then(|s| id.number.checked_sub(1).and_then(|i| s.operations.get(i)));
+        let raw = op.map(|op| serde_json::to_value(op).unwrap()).unwrap_or(Value::Null);
+        // Only wording fields cross the callback, never meshes or engine operation kinds.
+        let mut operation = json!({});
+        for key in ["kind", "diameter", "bottom", "spec", "width", "length", "open", "radius"] {
+            if let Some(value) = raw.get(key) { operation[key] = value.clone(); }
+        }
+        json!({"id": id.to_string(), "setup": id.setup, "operation": operation, "setups": plan.setups.len()})
+    }
+    pub fn plan(plan: &Plan, jobs: &[job::Job]) {
+        ACTIVE.with(|s| {
+            if let Some(s) = s.borrow_mut().as_mut() {
+                s.operations = jobs.iter().flat_map(|j| j.manifest["operations"].as_array().into_iter().flatten())
+                    .filter_map(|o| o["id"].as_str()?.parse().ok())
+                    .map(|id| label(plan, &id)).collect();
+            }
+        });
+        emit(json!({"stage":"plan", "setups":plan.setups.len()}));
+    }
+    pub fn operation(id: &str) {
+        let event = ACTIVE.with(|s| {
+            let s = s.borrow();
+            let s = s.as_ref()?;
+            let index = s.operations.iter().position(|o| o["id"] == id)?;
+            let mut event = s.operations[index].clone();
+            event["stage"] = json!("checking");
+            event["index"] = json!(index + 1);
+            event["total"] = json!(s.operations.len());
+            Some(event)
+        });
+        if let Some(event) = event { emit(event); }
+    }
+}
+
 /// What camlib's comparison of the finished stock with the part found, for the log.
 fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, flip: bool) -> String {
     let Some(report) = report else {
@@ -52,6 +120,8 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
     }
     let (jobs, notes) = job::jobs_from(plan, library)?;
     log.extend(notes);
+    #[cfg(target_arch = "wasm32")]
+    progress::plan(plan, &jobs);
     let count = jobs.len();
     let mut previous: Option<(&Setup, Result<camlib::stock_mesh::FinishedStock, String>, bool, bool)> = None;
     for (index, mut job) in jobs.into_iter().enumerate() {
@@ -258,6 +328,8 @@ impl Outcome {
 /// or leaves out one more operation, and the
 /// operations left out since the last start are at most the operations that start's plan had.
 fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned: Plan, mut exclusions: Vec<Exclusion>) -> Result<Outcome, String> {
+    #[cfg(target_arch = "wasm32")]
+    progress::emit(json!({"stage":"planning"}));
     let (mut programs, mut log, mut error) = (vec![], vec![], None);
     // What camlib refused, in order: capp plans again without each.
     let mut plan;
@@ -285,6 +357,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
                 error = Some("replanning stopped: the plan without the flip still asks for one".into());
                 break;
             }
+            #[cfg(target_arch = "wasm32")]
+            progress::emit(json!({"stage":"replanning", "title":"Trying another seating for the flip"}));
             rejected_seats.push(bottom.flip_seating.clone().unwrap());
             if capp::flip::retry_seating(&mut planned, mesh, library, &rejected_seats)? {
                 // Only this receiving setup's fixtures change. Reconsider its engine
@@ -299,6 +373,8 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             let reason=plan.warnings.iter().map(String::as_str)
                 .filter(|w| !plan.decisions.iter().flatten().any(|d| d["rule"]==grip_rule && d["outcome"]=="warning" && d["says"]==*w))
                 .filter(|w|w.starts_with("setup bottom") || w.starts_with("bottom-") || w.contains("wall_finish")).collect::<Vec<_>>().join("; ");
+            #[cfg(target_arch = "wasm32")]
+            progress::emit(json!({"stage":"replanning", "title":"Replanning without the flip"}));
             planned=capp::flip::build_fallback(analysis,mesh,library,&reason)?;
             // Retried indices refer to the flip plan. Re-run ordinary planning
             // and exclusions from scratch, once, with the flip now withheld.
@@ -332,6 +408,12 @@ fn process_planned(analysis: &Value, mesh: &Value, library: &Value, mut planned:
             error = Some(message);
             programs.clear();
             break;
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut event = progress::label(&plan, &operation);
+            event["stage"] = json!("replanning");
+            progress::emit(event);
         }
         refused.push(cut);
         let tool = refused_op.and_then(|op| op.tool.clone().flatten());
@@ -402,8 +484,10 @@ fn region_construction_failed(message: &str) -> bool {
 }
 
 /// For the browser: JSON strings in, a JSON string out.
-#[wasm_bindgen(js_name = process)]
-pub fn process_json(analysis: &str, mesh: &str, library: &str) -> Result<String, JsError> {
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = process))]
+pub fn process_json(analysis: &str, mesh: &str, library: &str, #[cfg(target_arch = "wasm32")] callback: Option<progress::Callback>) -> Result<String, JsError> {
+    #[cfg(target_arch = "wasm32")]
+    let _progress = progress::Scope::new(callback);
     let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| JsError::new(&e.to_string()));
     let (analysis, mesh, library) = (parse(analysis)?, parse(mesh)?, parse(library)?);
     let out = process(&analysis, &mesh, &library).map_err(|e| JsError::new(&e))?;

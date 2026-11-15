@@ -1684,20 +1684,64 @@ for (const button of document.querySelectorAll("[data-machine]")) {
   });
 }
 
+// Progress belongs to the current request; the worker can still be finishing an older one.
+let busyTimer, busyStarted;
+let busyFeatures = null, busySetups = null, busyOption = null;
+function stopBusy() {
+  clearInterval(busyTimer);
+  $("busy").hidden = true;
+}
+function showProgress(p) {
+  if (p.stage === "features") busyFeatures = p.count;
+  if (p.stage === "plan") busySetups = p.setups;
+  if (p.stage === "planning" || p.stage === "replanning" || p.stage === "option") busySetups = null;
+  if (p.stage === "option") busyOption = p.label;
+  const stage = ({ engines: 0, recognising: 1, features: 2, option: 2, planning: 2, replanning: 2, plan: 3, checking: 3 })[p.stage];
+  if (stage === undefined) return;
+  const labels = ["Loading engines", `Recognising features${busyFeatures === null ? "" : ` (${busyFeatures} found)`}`,
+    `Planning setups and tools${busySetups === null ? "" : ` (${busySetups} setups)`}`, "Checking toolpaths"];
+  const checking = p.stage === "checking";
+  const title = p.stage === "replanning" ? `${p.title || `Replanning without ${p.label}`}…`
+    : checking ? `Checking toolpaths: operation ${p.index} of ${p.total}`
+    : p.stage === "option" ? `Planning workholding option: ${p.label}…` : `${labels[stage]}…`;
+  $("busy-title").textContent = title;
+  for (const [i, row] of [...$("busy-stages").children].entries()) {
+    row.className = i < stage ? "done" : i === stage ? "current" : "";
+    row.textContent = labels[i] + (i === 3 && checking ? `　${p.index} / ${p.total}` : "");
+  }
+  const bar = $("busy-bar");
+  bar.hidden = !checking;
+  if (checking) {
+    bar.max = p.total;
+    // The callback precedes the operation: only earlier operations are known to have run.
+    bar.value = p.index - 1;
+  }
+  $("busy-detail").textContent = [busyOption, checking ? p.label : ""].filter(Boolean).join(" · ");
+}
+
 // own: a visitor's file (true) or a sample (false); left out when the same part is planned again
 // for another machine, which keeps what is known about it.
 function run(name, bytes, own, workholding) {
   const id = ++job;
   openPart = own === undefined ? { ...openPart, bytes: bytes.slice(0) } : { name, bytes: bytes.slice(0), own };
+  clearInterval(busyTimer);
+  busyStarted = performance.now();
+  busyFeatures = busySetups = busyOption = null;
+  $("busy-elapsed").textContent = "0 s";
+  showProgress({ stage: "engines" });
+  busyTimer = setInterval(() => {
+    $("busy-elapsed").textContent = `${Math.floor((performance.now() - busyStarted) / 1000)} s`;
+  }, 1000);
   $("busy").hidden = false;
   $("start").hidden = true;
   showBanner("");
   worker.postMessage({ id, name, bytes, workholding, library: { machine: machine.machine, file: machine.file } }, [bytes]);
 }
 
-worker.onmessage = ({ data: { id, data, error } }) => {
+worker.onmessage = ({ data: { id, data, error, progress } }) => {
   if (id !== job) return;  // a newer file or machine was chosen meanwhile
-  $("busy").hidden = true;
+  if (progress) { showProgress(progress); return; }
+  stopBusy();
   if (openPart.own && !openPart.counted) {
     openPart.counted = true;  // once per file, not again when the machine changes
     countOwnFile(data, error);
@@ -1710,7 +1754,7 @@ worker.onmessage = ({ data: { id, data, error } }) => {
   show(data);
 };
 worker.onerror = (event) => {
-  $("busy").hidden = true;
+  stopBusy();
   showBanner(`The worker stopped: ${event.message}`);
 };
 
