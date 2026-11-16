@@ -6,6 +6,7 @@
 //! adapter) -> [`simulate::simulate`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
 pub mod post_machine;
+pub mod post;
 pub mod simulate;
 mod workholding;
 mod setup_stock;
@@ -94,8 +95,9 @@ fn material_note(report: Option<&camlib::material::Report>, manifest: &Value, fl
     let height = manifest["verification"]["material"][0]["target"]["surface"]["surface_error_mm"].as_f64().unwrap_or(0.);
     let cell = manifest["stock"]["cell_size_mm"].as_f64().unwrap_or(0.);
     let remainder = if flip { "sacrificial stock and anything a later setup cuts" } else { "uncut stock and anything a later setup cuts" };
+    let declared = report.gouge_tolerance_mm.map_or(String::new(), |t| format!(" Material gouge checked to {t} mm."));
     format!(
-        "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting {remainder}",
+        "finished stock against the part: no definite gouge. The cell comparison can miss an error under about {height:.2} mm in height or {cell:.2} mm sideways, or a misplaced cut narrower than about {:.1} mm. Up to {:.0} mm³ undecided; at least {:.0} mm³ stock remains, counting {remainder}{declared}",
         4. * cell, report.gouge.volume_mm3[1], report.residual.volume_mm3[0],
     )
 }
@@ -215,7 +217,11 @@ fn simulate_all(plan: &mut Plan, library: &Value, programs: &mut Vec<Value>, log
             "height_mm": check["target"]["surface"]["surface_error_mm"], "sideways_mm": job.manifest["stock"]["cell_size_mm"],
             "before_threads": !check["after_operation"].is_null(),
         });
-        let material = run.material.map(|r| json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits, "sweep_proof": run.sweep_proof}));
+        let material = run.material.map(|r| {
+            let mut material = json!({"complete": r.complete, "residual": r.residual, "gouge": r.gouge, "limits": limits, "sweep_proof": run.sweep_proof});
+            if let Some(tolerance) = r.gouge_tolerance_mm { material["gouge_tolerance_mm"] = json!(tolerance); }
+            material
+        });
         programs.push(json!({"setup": job.setup, "job": job.manifest, "operations": run.operations, "moves": run.moves, "material": material, "uncertain_motions": run.uncertain}));
     }
     Ok(())
@@ -498,6 +504,13 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str, #[cfg(target_arch
     #[cfg(target_arch = "wasm32")]
     progress::emit(json!({"stage":"encoding"}));
     Ok(out.to_string())
+}
+
+/// Post a single already-planned setup only when requested by the browser.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = postSetup))]
+pub fn post_setup_json(manifest: &str, library: &str, machine: &str, setup: &str) -> Result<String, JsError> {
+    let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| JsError::new(&e.to_string()));
+    Ok(post::post_setup(&parse(manifest)?, &parse(library)?, machine, setup).to_string())
 }
 
 #[cfg(test)]

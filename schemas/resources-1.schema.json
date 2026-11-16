@@ -42,6 +42,12 @@
    "type": "number",
    "minimum": 0
   },
+  "gouge_tolerance_mm": {
+   "type": "number",
+   "exclusiveMinimum": 0,
+   "maximum": 1,
+   "description": "Declared permitted material gouge depth, shared by simulation and posting. Optional: absent preserves the existing material-check default. Haas declares 0.05 mm with its reason in _gouge_tolerance_reason; not a residual-stock, output-coordinate or feature tolerance."
+  },
   "radial_allowance_mm": {
    "type": "number",
    "minimum": 0
@@ -1856,9 +1862,223 @@
      "minItems": 3,
      "maxItems": 3,
      "description": "Haas NGC installed value, not an assumed default. Source: Haas mill operator manual 96-8210 Rev N, Settings 45, 46, 47 Mirror Image X/Y/Z."
+    },
+    "declared_premises": {
+     "type": "object",
+     "required": [
+      "setting_33_coordinate_system",
+      "setting_15_h_and_t_code_agreement",
+      "g92_coordinate_shift_mm",
+      "setting_45_46_47_mirror_image_xyz",
+      "rotation_and_scaling_option",
+      "setting_22_can_cycle_delta_z_mm",
+      "setting_52_g83_retract_above_r_mm",
+      "rigid_tapping_option",
+      "optional_stop_switch_enabled",
+      "traverse_feed_mm_min",
+      "arc_line_chord_tolerance_mm"
+     ],
+     "description": "Posted program assumptions to verify against the control, separately from installed facts. Declared values override installed facts for posting and the override must be shown. Each required value needs a reason; null cycle distances mean not declared.",
+     "additionalProperties": false,
+     "properties": {
+      "setting_33_coordinate_system": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/setting_33_coordinate_system"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "setting_15_h_and_t_code_agreement": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/setting_15_h_and_t_code_agreement"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "g92_coordinate_shift_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/g92_coordinate_shift_mm"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "setting_45_46_47_mirror_image_xyz": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/setting_45_46_47_mirror_image_xyz"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "rotation_and_scaling_option": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/rotation_and_scaling_option"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "setting_22_can_cycle_delta_z_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "anyOf": [
+          {
+           "$ref": "#/$defs/controller_settings/properties/setting_22_can_cycle_delta_z_mm"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "setting_52_g83_retract_above_r_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "anyOf": [
+          {
+           "$ref": "#/$defs/controller_settings/properties/setting_52_g83_retract_above_r_mm"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "rigid_tapping_option": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/rigid_tapping_option"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "optional_stop_switch_enabled": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "$ref": "#/$defs/controller_settings/properties/optional_stop_switch_enabled"
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      },
+      "arc_line_chord_tolerance_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": ["value", "reason"],
+       "properties": {
+        "value": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.0005},
+        "reason": {"type": "string", "minLength": 1}
+       }
+      },
+      "traverse_feed_mm_min": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "value",
+        "reason"
+       ],
+       "properties": {
+        "value": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "reason": {
+         "type": "string",
+         "minLength": 1
+        }
+       }
+      }
+     }
     }
    },
-   "description": "Installed machine controller settings. Omitted means unknown, never a default. Sources and observed versus catalogue values belong in _sources/_comment.",
+   "description": "Installed machine controller settings, except the separately named declared_premises block of program assumptions. Omitted installed values remain unknown, never defaults. Sources and observed versus catalogue values belong in _sources/_comment.",
    "allOf": [
     {
      "if": {

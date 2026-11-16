@@ -14,6 +14,7 @@ mod iso13399;
 mod machines;
 mod material;
 mod parity;
+mod post;
 mod schemas;
 mod slots;
 mod stepped;

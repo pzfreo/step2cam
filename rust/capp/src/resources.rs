@@ -38,6 +38,7 @@ pub struct Settings {
     pub version: Option<u64>,
     pub breakthrough_mm: f64,
     pub drill_tolerance_mm: f64,
+    pub gouge_tolerance_mm: Option<f64>,
     pub radial_allowance_mm: f64,
     pub bottom_allowance_mm: f64,
     pub clearance_mm: f64,
@@ -70,11 +71,16 @@ impl Settings {
             Some(v) if v.as_u64() == Some(1) => Some(1),
             Some(v) => return Err(format!("tool library: version {v} is not supported; this step2cam reads version 1")),
         };
+        let gouge_tolerance_mm = number("gouge_tolerance_mm")?;
+        if gouge_tolerance_mm.is_some_and(|t| !t.is_finite() || !(0. < t && t <= 1.)) {
+            return Err("tool library: gouge_tolerance_mm must be positive and at most 1 mm".into());
+        }
         Ok(Self {
             format,
             version,
             breakthrough_mm: number("breakthrough_mm")?.unwrap_or(1.),
             drill_tolerance_mm: number("drill_tolerance_mm")?.unwrap_or(0.05),
+            gouge_tolerance_mm,
             radial_allowance_mm: number("radial_allowance_mm")?.unwrap_or(0.3),
             bottom_allowance_mm: number("bottom_allowance_mm")?.unwrap_or(0.2),
             clearance_mm: number("clearance_mm")?.unwrap_or(10.),

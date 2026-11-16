@@ -16,7 +16,7 @@ let shown = 0;
 const context = vm.createContext({ $, worker, document: { createElement: () => ({}) }, performance: { now: () => 0 },
   setInterval: (fn) => { timers.add(fn); return fn; }, clearInterval: (fn) => timers.delete(fn),
   job: 0, openPart: null, machine: { machine: "test", file: "tools.json" },
-  showBanner() {}, countOwnFile() {}, show() { shown++; }, console });
+  invalidatePosts() {}, showBanner() {}, countOwnFile() {}, show() { shown++; }, console });
 const source = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
 vm.runInContext(source.slice(source.indexOf("// Progress belongs"), source.indexOf("async function openFile")), context);
 const run = () => vm.runInContext('run("plate.step", new ArrayBuffer(0), false)', context);

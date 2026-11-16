@@ -41,6 +41,8 @@ WebAssembly, or natively.
 **step2cam writes no G-code.** G-code is controller-specific and safety-critical, and camlib's own
 posts write and check it. step2cam's outputs are the plan and, for each setup, the camlib job it
 becomes: `examples/post_with_camlib.py` posts a saved job with camlib's LinuxCNC post.
+The page can request camlib's Rust Haas post on demand, with release findings and
+declared premises shown beside the result (see Demo).
 
 Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
 is a plain JSON plan.
@@ -78,6 +80,24 @@ cargo run --release --manifest-path rust/Cargo.toml --example process -- analysi
 the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or one of camlib's
 moves and the others follow; press Play and the feature being cut lights up. **Save camlib job**
 writes each setup as `<part>-<setup>.camlib-job.json`, for camlib's posts to write G-code from.
+Each Haas setup also has **Save G-code**, which calls camlib's Rust post on demand and
+downloads `<part>-<setup>-haas-vf2.nc` only if camlib releases it. Only `unchecked_machine`
+is accepted: stock, tools and vise are checked, but no physical Haas model is available.
+The checks panel names any moves camlib could not prove clear; G-code needs that stronger proof.
+The button title and check details identify unchecked comparisons and list the effective declared controller and setup premises, including overrides of installed library
+values, to verify against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
+has no G-code button. Refusals disable that setup's button and show the findings in the status line.
+Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
+because G0 doglegs are not camlib's straight-path model. Release remains conditional:
+explicit bounded lowering writes unsupported curves as checked straight moves with a
+0.0001 mm chord budget inside the unchanged 0.001 mm total posting tolerance. The existing
+Haas linear profile requires this for all curves; camlib reports its arc-output reasons.
+The Haas library explicitly declares material gouge **checked to 0.05 mm** in both
+simulation and posted replay. This shop criterion is inside the drawing's ISO 2768-m
+general tolerance and above the source-mesh error; it is not the 0.001 mm output bound.
+Residual tolerance remains 0.001 mm. Both bottom setups and the complex plate's front
+release; top setups still have unaccepted uncertain material findings. No uncertain or
+violation status is accepted.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
@@ -423,6 +443,7 @@ on purpose.
   | `retract_mm` | 2 | retract and R plane above the stock top |
   | `breakthrough_mm` | 1 | how far a through hole is cut past its exit, at full diameter |
   | `drill_tolerance_mm` | 0.05 | how much smaller than the hole a drill may be (never larger) |
+  | `gouge_tolerance_mm` | not declared (existing 0.001 mm material default) | permitted material penetration, shared by simulation and posting; Haas explicitly declares 0.05 mm with its reason; residual and output-coordinate tolerances are separate |
   | `radial_allowance_mm`, `bottom_allowance_mm` | 0.3, 0.2 | roughing allowances (at least twice the mesh's error) |
   | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
   | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |

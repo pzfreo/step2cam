@@ -1,7 +1,7 @@
 // Everything happens here, in the visitor's browser: specify-core recognises the features,
 // step2cam plans them and camlib makes and checks the toolpaths. Nothing is uploaded.
 import initSpecify, { IntentEngine } from "./specify/specify_core_wasm.js";
-import initCam, { process, lastPanic } from "./step2cam/step2cam.js";
+import initCam, { process, postSetup, lastPanic } from "./step2cam/step2cam.js";
 
 import { NOT_FEATURES, operationName } from "./report.js";
 
@@ -24,7 +24,21 @@ function loadLibrary(url) {
   return libraries.get(url);
 }
 
-self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => {
+let planned = null;
+self.onmessage = async ({ data: { id, name, bytes, library, workholding, post, setup } }) => {
+  if (post) {
+    try {
+      if (!planned || planned.id !== id) throw new Error("The plan has changed; open the setup again.");
+      const program = planned.out.programs.find((p) => p.setup === setup);
+      if (!program) throw new Error("The setup has no camlib job.");
+      const result = JSON.parse(postSetup(JSON.stringify(program.job), JSON.stringify(planned.tools), planned.machine, setup));
+      self.postMessage({ id, post: true, setup, result });
+    } catch (error) {
+      self.postMessage({ id, post: true, setup, error: String(error?.message ?? error) });
+    }
+    return;
+  }
+  planned = null;
   const progress = (event) => {
     if (event.operation) {
       event.label = operationName(event.operation, { id: event.setup }, { setups: Array(event.setups) });
@@ -57,9 +71,10 @@ self.onmessage = async ({ data: { id, name, bytes, library, workholding } }) => 
     progress({ stage: "features", count: analysis.features.filter((f) => !NOT_FEATURES.has(f.family)).length });
     const out = JSON.parse(process(JSON.stringify(analysis), JSON.stringify(mesh), JSON.stringify(tools),
       (event) => progress(JSON.parse(event))));
+    planned = { id, out, tools, machine: library.machine };
     self.postMessage({
       id,
-      data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, ...out },
+      data: { name, notice, analysis, mesh, library, controller_settings: tools.machines?.find((m) => m.id === library.machine)?.controller_settings, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, gouge_tolerance_mm: tools.gouge_tolerance_mm, ...out },
     });
   } catch (error) {
     // A panic in step2cam traps with no message; it kept the message.

@@ -992,7 +992,11 @@ fn material(cx: &mut SetupCut<'_>) -> Result<Value, String> {
     if first_thread.is_some() {
         cx.notes.push(format!("setup {setup_id}: the finished stock is compared with the part before thread milling, which is not checked this way"));
     }
-    Ok(json!([{"after_operation": after, "options": {"max_tile_nodes": COMPARISON_NODES, "max_boundary_tests": COMPARISON_BUDGET, "max_findings": COMPARISON_FINDINGS}, "target": {
+    let mut options = json!({"max_tile_nodes": COMPARISON_NODES, "max_boundary_tests": COMPARISON_BUDGET, "max_findings": COMPARISON_FINDINGS});
+    if let Some(tolerance) = cx.settings.gouge_tolerance_mm {
+        options["gouge_tolerance_mm"] = json!(tolerance);
+    }
+    Ok(json!([{"after_operation": after, "options": options, "target": {
         "version": 1, "units": "mm", "id": format!("step2cam-{setup_id}-part"), "revision": "1",
         "surface": surface(rough)?, "base_z_mm": base,
         // surface_error_mm bounds the mesh's distance from the part both ways, so the

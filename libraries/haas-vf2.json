@@ -78,7 +78,7 @@
    "name": "Haas VF-2 (8100 rpm, NGC)",
    "kind": "mill",
    "controller": "haas_ngc",
-   "_comment": "Source _sources.machine for all machine figures: travel762x406x508 mm (30x16x20 in), spindle8100 rpm/30 hp=22.4 kW/40 taper, automatic20-pocket carousel, flood coolant. Changer full-pocket tool envelope3.5 in (89 mm), max tool weight12 lb (5.4 kg); these are NOT shank capacity. max_tool_diameter_mm=20 models ER32 shank capacity from _sources.holder. Dealer/model-year rates: rapid1000 ipm=25400 mm/min, max cutting650 ipm~16500 mm/min, agreeing Haas UK and archived sheet; not a promise for all years (some listings1400 ipm). NGC post: camlib examples/haas_ngc_post.py; metadata only pending stevecad/camlib#120. DX6 dimensions from _sources.vise.",
+   "_comment": "Source _sources.machine for all machine figures: travel762x406x508 mm (30x16x20 in), spindle8100 rpm/30 hp=22.4 kW/40 taper, automatic20-pocket carousel, flood coolant. Changer full-pocket tool envelope3.5 in (89 mm), max tool weight12 lb (5.4 kg); these are NOT shank capacity. max_tool_diameter_mm=20 models ER32 shank capacity from _sources.holder. Dealer/model-year rates: rapid1000 ipm=25400 mm/min, max cutting650 ipm~16500 mm/min, agreeing Haas UK and archived sheet; not a promise for all years (some listings1400 ipm). NGC post: camlib Rust reference, Haas 96-8210 Rev N (2020); see controller_settings.declared_premises. DX6 dimensions from _sources.vise.",
    "axes": {
     "linear": [
      "x",
@@ -151,9 +151,68 @@
       ],
       "read": "2026-11-10",
       "note": "These maker pages define setting meanings but do not specify installed values or verified defaults for this machine. Values intentionally omitted."
+     },
+     "declared_premises": {
+      "url": "https://www.haascnc.com/service/codes-settings.type=setting.machine=mill.value=S45.html",
+      "read": "2026-11-16",
+      "note": "Maker page defines Settings 45/46/47 as per-axis mirroring when ON. This does not establish installed values. Declared values are maintainer-approved program premises (2026-11-16), with reasons alongside each; travel/rapid source remains _sources.machine. Settings 22/52 deliberately not declared."
      }
     },
-    "_comment": "Unknown: installed Settings 15/17/22/33/45/46/47/52, G92 shift, rotation/scaling option, highest tool identity (carousel vs SMTC and Setting 90), tool-change final gauge Z/location, acceleration and per-axis cutting limits, full collision geometry. Haas setting pages describe meanings but do not establish this machine's current values or verified factory defaults. Do not assume zero G92, mirrors OFF or Setting52=0 just to admit a post. See libraries/README.md."
+    "_comment": "Installed Settings 15/17/22/33/45/46/47/52, G92 shift and rotation/scaling option remain unknown for any particular machine. declared_premises are the posted program assumptions approved 2026-11-16, not inspected machine facts; check them against the control. Physical machine collision geometry is absent. The adapter also declares the existing simulated tool-change gauge/XY pose and gauge lengths, G54 at the local setup origin and separate O1000/O1001/O1002 program slots; verify these setup premises before use.",
+    "declared_premises": {
+     "setting_33_coordinate_system": {
+      "value": "fanuc",
+      "reason": "Program premise: usual configuration for posted programs; check the control."
+     },
+     "setting_15_h_and_t_code_agreement": {
+      "value": true,
+      "reason": "Program uses H=T, valid with Setting 15 ON or OFF."
+     },
+     "g92_coordinate_shift_mm": {
+      "value": [
+       0,
+       0,
+       0
+      ],
+      "reason": "Program premise: power-on state; verify no stored shift."
+     },
+     "setting_45_46_47_mirror_image_xyz": {
+      "value": [
+       false,
+       false,
+       false
+      ],
+      "reason": "Program premise: normal state; verify all three settings OFF."
+     },
+     "rotation_and_scaling_option": {
+      "value": false,
+      "reason": "Base VF-2 premise: option not installed, so no G50/G69 cancellation is written."
+     },
+     "setting_22_can_cycle_delta_z_mm": {
+      "value": null,
+      "reason": "Not declared: pecks are explicit moves, not canned peck cycles."
+     },
+     "setting_52_g83_retract_above_r_mm": {
+      "value": null,
+      "reason": "Not declared: no canned G83 depends on this setting."
+     },
+     "rigid_tapping_option": {
+      "value": false,
+      "reason": "Post does not use rigid tapping; these plans thread-mill. A tapping job must refuse."
+     },
+     "optional_stop_switch_enabled": {
+      "value": false,
+      "reason": "Program does not depend on optional stops; an optional stop must refuse."
+     },
+     "traverse_feed_mm_min": {
+      "value": 16500,
+      "reason": "clearance moves are posted as G1 at this feed; the maximum cutting feed, since G0 doglegs are not camlib's straight-path model. Value from controller_settings.max_cutting_feed_mm_min and its existing Haas specification source."
+     },
+     "arc_line_chord_tolerance_mm": {
+      "value": 0.0001,
+      "reason": "Explicit bounded curve-to-line posting premise: 0.0001 mm chord budget, below camlib's half-output-tolerance maximum. At three metric decimals, worst-case XYZ rounding is sqrt(3)*0.0005=0.000866026 mm; adding 0.0001 leaves room within the existing 0.001 mm output tolerance for source endpoint and numerical guards. The documented 0.0025 mm default is too large here; camlib independently certifies the decoded path within the unchanged 0.001 mm total tolerance. Keep native arcs only where the machine profile and exact words permit; the existing Haas linear profile requires lines for all curves. Plan/toolpaths and material-check tolerances stay unchanged. Guidance read 2026-11-16: pinned camlib docs/posts.md, Arcs that cannot be written exactly, and src/post_lowering.rs."
+     }
+    }
    }
   }
  ],
@@ -162,6 +221,8 @@
  "retract_mm": 2,
  "breakthrough_mm": 1,
  "drill_tolerance_mm": 0.05,
+ "gouge_tolerance_mm": 0.05,
+ "_gouge_tolerance_reason": "Maintainer-approved shop criterion, 2026-11-16: material gouge checked to 0.05 mm, inside the drawing's ISO 2768-m general tolerance and above the 0.013-0.0162 mm source-mesh error. Explicit permitted penetration for simulation and posted replay, not a hidden default or acceptance of uncertain/violation findings. Residual-stock tolerance and the 0.001 mm output-coordinate bound are unchanged. This is a declared criterion, not an automatic derivation from individual feature tolerances.",
  "radial_allowance_mm": 0.3,
  "bottom_allowance_mm": 0.2,
  "tools": [

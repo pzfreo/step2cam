@@ -291,7 +291,9 @@ physical seating or a holding-strength calculation.
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
-camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
+camlib's posts do, from the saved job (`examples/post_with_camlib.py`), or on demand
+through `post.rs` and the browser's Save G-code button for Haas. A posting refusal is
+shown without changing the plan. During planning, an operation camlib refuses goes back to `capp::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 
@@ -337,6 +339,13 @@ Knowledge is kept apart by kind, so every value has a known kind and source:
    the resources, never in the rulebase, so a placeholder can't pass as a standard.
 4. **Geometry:** reachability, the room beside a wall, what lies above a hole and the like stay Rust
    code. The rule files name these conditions, and `process.json` lists what each means.
+
+The optional resource-header `gouge_tolerance_mm` is an explicit material-check criterion,
+separate from feature tolerances and posting precision. The Haas library declares 0.05 mm
+with its reason: checked to 0.05 mm in both the simulated job and its posted replay.
+The adapter sets the gouge-specific material option; residual tolerance stays 0.001 mm.
+Libraries without this setting retain the existing default. The page and setup sheet
+show the declared criterion; uncertain or violation findings still refuse G-code.
 
 The numeric tolerances in the code (`LEVEL_EPS`, `AXIS_TOLERANCE`, camlib's surface-error limit,
 the comparison budgets) are step2cam's own judgement or camlib's limits, not reference data, so

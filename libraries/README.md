@@ -327,6 +327,28 @@ verified defaults for this VF-2. The PDF direct fetch failed; maker-indexed p165
 text confirmed the offset count. Highest carousel tool identity, final M6 gauge
 position, rotation/scaling, shifts and panel states remain unknown.
 
+For browser Haas posting, `controller_settings.declared_premises` separately records
+the maintainer-approved program assumptions and each reason (2026-11-16). These do
+not establish installed values. `post.rs` alone overlays them for the post; planning
+and the machine-fact audit remain unchanged. The page displays the controller list
+and the setup's modeled M6 pose, G54 origin, gauge/H bindings and O program slot.
+It accepts only `unchecked_machine`. Clearance moves are posted as G1 at the published
+maximum cutting feed (16,500 mm/min), because G0 doglegs are not camlib's straight-path
+model. This is a program premise, not the 25,400 mm/min rapid. Explicit bounded
+lowering uses a 0.0001 mm chord budget inside the unchanged 0.001 mm output tolerance,
+leaving room for three-decimal coordinate rounding. Native arcs are requested only
+where the profile permits exact words; the existing Haas linear profile requires all
+curves to become checked straight moves. The post returns its lowering policy and
+camlib's arc-output counts/reasons. The Haas header explicitly declares
+`gouge_tolerance_mm: 0.05` and `_gouge_tolerance_reason`: material gouge checked to
+0.05 mm, a maintainer-approved shop criterion within the drawing's ISO 2768-m general
+tolerance and above the mesh error. `Settings` carries the neutral optional scalar;
+`job.rs` alone maps it to the material check's gouge-specific option, shared unchanged
+by simulation and posting. Residual tolerance remains 0.001 mm; output tolerance remains
+0.001 mm. Undeclared libraries retain their existing checks. Both fixture bottom setups
+and complex/front release; the tops still have unaccepted uncertain material findings.
+No uncertain/violation status is accepted.
+
 LinuxCNC's four new values are chosen placeholders derived from existing limits,
 not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)
 and [tool compensation](https://linuxcnc.org/docs/2.9/html/gcode/tool-compensation.html)

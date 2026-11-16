@@ -37,6 +37,8 @@ jobs:
         run: node tests/report.mjs
       - name: Progress panel
         run: node tests/progress.mjs
+      - name: G-code save buttons
+        run: node tests/post.mjs
   site:
     runs-on: ubuntu-latest
     permissions:
