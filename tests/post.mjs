@@ -14,7 +14,7 @@ const context = vm.createContext({ $, Blob, URL: { createObjectURL() { return "b
 const source = readFileSync(new URL("../demo/app.js", import.meta.url), "utf8");
 vm.runInContext(source.slice(source.indexOf("const postButtons"), source.indexOf("function drawCode")), context);
 const build = (machine) => {
-  context.data = { name: "plate.step", library: { machine }, programs: [{ setup: "top", job: {} }, { setup: "front", job: {} }] };
+  context.data = { name: "plate.step", library: { machine }, gouge_tolerance_mm: 0.05, programs: [{ setup: "top", job: {} }, { setup: "front", job: {} }] };
   vm.runInContext("buildSaveButtons({ data })", context);
   return $("save").children;
 };
@@ -23,6 +23,7 @@ assert.equal(buttons.length, 4);
 assert.equal(buttons[1].disabled, false);
 assert.match(buttons[1].title, /Setting 33 FANUC.*Setting 15 on.*mirrors off.*no G92 shift.*no rotation\/scaling/);
 assert.match(buttons[1].title, /not against a model of the Haas itself/);
+assert.match(buttons[1].title, /checked to 0\.05 mm where configured/);
 buttons[1].listeners.click();
 assert.equal(buttons[1].disabled, true);
 assert.equal(requests.length, 1);
@@ -38,6 +39,7 @@ vm.runInContext('postedSetup("front", {released:true, program:"camlib program"})
 assert.equal(downloads[0].download, "plate-front-haas-vf2.nc");
 assert.equal(downloads[0].clicked, true);
 assert.match($("status").textContent, /Camlib decoded and checked/);
+assert.match($("status").textContent, /checked to 0\.05 mm/);
 buttons = build("carvera");
 assert.equal(buttons[1].disabled, true);
 assert.match(buttons[1].title, /Carvera G-code waits for a measured spindle-to-bed height/);

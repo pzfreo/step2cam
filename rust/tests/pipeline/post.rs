@@ -43,6 +43,28 @@ fn haas_complex_plate_every_setup_releases() { post_plate("synthetic/stepped-pla
 fn haas_simple_plate_every_setup_releases() { post_plate("plate"); }
 
 #[test]
+fn declared_gouge_tolerance_reaches_material_proof_and_the_same_posted_job() {
+    let library = fixture("../../libraries/haas-vf2.json");
+    assert_eq!(capp::resources::Settings::new(&library).unwrap().gouge_tolerance_mm, Some(0.05));
+    let out = process_cached(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
+    let program = out["programs"].as_array().unwrap().iter().find(|p| p["setup"] == "bottom").unwrap();
+    assert_eq!(program["job"]["verification"]["material"][0]["options"]["gouge_tolerance_mm"], 0.05);
+    assert_eq!(program["material"]["gouge_tolerance_mm"], 0.05);
+    // This is camlib's actual proof report, not just the adapter's declared input.
+    assert_eq!(program["material"]["sweep_proof"]["tolerance_mm"], 0.05);
+    let report = step2cam::post::post_setup(&program["job"], &library, "haas-vf2", "bottom");
+    assert_eq!(report["released"], true);
+    assert_eq!(report["gouge_tolerance_mm"], 0.05);
+    assert_eq!(report["accepted"], json!(["unchecked_machine"]));
+    assert_eq!(report["posting"]["definition"]["machine"]["tolerance_mm"], 0.001);
+    let mut stale = program["job"].clone();
+    stale["verification"]["material"][0]["options"].as_object_mut().unwrap().remove("gouge_tolerance_mm");
+    let report = step2cam::post::post_setup(&stale, &library, "haas-vf2", "bottom");
+    assert_eq!(report["released"], false);
+    assert!(report["refused"]["message"].as_str().unwrap().contains("differs from the library declaration"));
+}
+
+#[test]
 fn lowering_reports_its_bound_and_refuses_an_excessive_chord_budget() {
     let library = fixture("../../libraries/haas-vf2.json");
     let out = process_cached(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();

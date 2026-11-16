@@ -339,9 +339,15 @@ lowering uses a 0.0001 mm chord budget inside the unchanged 0.001 mm output tole
 leaving room for three-decimal coordinate rounding. Native arcs are requested only
 where the profile permits exact words; the existing Haas linear profile requires all
 curves to become checked straight moves. The post returns its lowering policy and
-camlib's arc-output counts/reasons. Uncertain material findings still prevent release
-of the fixture top/bottom setups; the complex plate front releases. Material tolerances,
-precision, plans and acceptance remain unchanged.
+camlib's arc-output counts/reasons. The Haas header explicitly declares
+`gouge_tolerance_mm: 0.05` and `_gouge_tolerance_reason`: material gouge checked to
+0.05 mm, a maintainer-approved shop criterion within the drawing's ISO 2768-m general
+tolerance and above the mesh error. `Settings` carries the neutral optional scalar;
+`job.rs` alone maps it to the material check's gouge-specific option, shared unchanged
+by simulation and posting. Residual tolerance remains 0.001 mm; output tolerance remains
+0.001 mm. Undeclared libraries retain their existing checks. Both fixture bottom setups
+and complex/front release; the tops still have unaccepted uncertain material findings.
+No uncertain/violation status is accepted.
 
 LinuxCNC's four new values are chosen placeholders derived from existing limits,
 not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)

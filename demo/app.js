@@ -1347,7 +1347,10 @@ function savePlan() {
 
 // The camlib job for each setup: what camlib's own posts write G-code from.
 const postButtons = new Map();
-const POST_CHECKS = "Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control. Camlib decoded and checked the program against the plan, stock, tools and vise, but not against a model of the Haas itself.";
+function postChecks(tolerance) {
+  const criterion = Number.isFinite(tolerance) ? `, with material checked to ${tolerance} mm where configured` : "";
+  return `Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control. Camlib decoded and checked the program against the plan, stock, tools and vise${criterion}, but not against a model of the Haas itself.`;
+}
 function buildSaveButtons(m) {
   const host = $("save");
   host.replaceChildren();
@@ -1373,14 +1376,15 @@ function buildSaveButtons(m) {
     nc.type = "button";
     nc.textContent = m.data.programs.length > 1 ? `Save ${program.setup} G-code` : "Save G-code";
     nc.disabled = m.data.library.machine !== "haas-vf2";
-    nc.title = nc.disabled ? "Carvera G-code waits for a measured spindle-to-bed height." : POST_CHECKS;
+    const notice = postChecks(m.data.gouge_tolerance_mm);
+    nc.title = nc.disabled ? "Carvera G-code waits for a measured spindle-to-bed height." : notice;
     nc.addEventListener("click", () => {
       setPlaying(false);
       nc.disabled = true;
       $("status").textContent = `Writing Haas G-code for the ${program.setup} setup…`;
       worker.postMessage({ id: job, post: true, setup: program.setup });
     });
-    postButtons.set(program.setup, { button: nc, filename: `${stem}-${program.setup}-haas-vf2.nc` });
+    postButtons.set(program.setup, { button: nc, notice, filename: `${stem}-${program.setup}-haas-vf2.nc` });
     host.append(nc);
   }
 }
@@ -1409,7 +1413,7 @@ function postedSetup(setup, result, error) {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   button.disabled = false;
-  $("status").textContent = POST_CHECKS;
+  $("status").textContent = pending.notice;
 }
 
 function drawCode() {

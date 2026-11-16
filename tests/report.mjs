@@ -31,6 +31,11 @@ assert.ok(html.indexOf('T7') < html.indexOf('T2'), 'tools follow first use, not 
 assert.equal(document.blocks.filter(b => b.type === 'heading' && b.text.startsWith('SETUP —')).length, 1);
 assert.ok(!html.includes('undefined') && !html.includes('NaN'));
 assert.deepEqual(checkText([{ setup: 'top' }]).compact, '⚠ unchecked');
+const declaredCheck = checkText([{ setup: 'top', material: { gouge_tolerance_mm: 0.05,
+  limits: {height_mm:0.013,sideways_mm:0.26}, gouge: {volume_mm3:[0,0]}, residual: {volume_mm3:[0,1]} } }]);
+assert.match(declaredCheck.headline, /checked to 0\.05 mm/);
+assert.match(declaredCheck.compact, /checked to 0\.05 mm/);
+assert.ok(declaredCheck.items.some((item) => item.includes('declared permitted depth')));
 assert.deepEqual(reportDocument(data, options), document, 'fixed inputs and date produce fixed content');
 
 

@@ -195,7 +195,7 @@ fn library_header_is_optional_and_settings_default_when_absent() {
     }
     assert!(normalize(&library).is_ok());
     assert_eq!(Settings::new(&library).unwrap(), Settings {
-        format: None, version: None, breakthrough_mm: 1., drill_tolerance_mm: 0.05, radial_allowance_mm: 0.3,
+        format: None, version: None, breakthrough_mm: 1., drill_tolerance_mm: 0.05, gouge_tolerance_mm: None, radial_allowance_mm: 0.3,
         bottom_allowance_mm: 0.2, clearance_mm: 10., retract_mm: 2., rapid_mm_min: None, facing_tool: None, roughing_tool: None,
     });
     for path in ["../../demo/tools.json", "../../examples/tools.example.json", "../../tools/benchmark/tools.json", "../../libraries/haas-vf2.json", "../../libraries/linuxcnc-vmc.json", "../../tests/fixtures/placeholder-tools.json"] {

@@ -91,8 +91,12 @@ because G0 doglegs are not camlib's straight-path model. Release remains conditi
 explicit bounded lowering writes unsupported curves as checked straight moves with a
 0.0001 mm chord budget inside the unchanged 0.001 mm total posting tolerance. The existing
 Haas linear profile requires this for all curves; camlib reports its arc-output reasons.
-Top and bottom setups still have unaccepted uncertain material findings; the complex
-plate's front setup releases. Plans, material tolerances, precision and acceptance stay unchanged.
+The Haas library explicitly declares material gouge **checked to 0.05 mm** in both
+simulation and posted replay. This shop criterion is inside the drawing's ISO 2768-m
+general tolerance and above the source-mesh error; it is not the 0.001 mm output bound.
+Residual tolerance remains 0.001 mm. Both bottom setups and the complex plate's front
+release; top setups still have unaccepted uncertain material findings. No uncertain or
+violation status is accepted.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 
@@ -438,6 +442,7 @@ on purpose.
   | `retract_mm` | 2 | retract and R plane above the stock top |
   | `breakthrough_mm` | 1 | how far a through hole is cut past its exit, at full diameter |
   | `drill_tolerance_mm` | 0.05 | how much smaller than the hole a drill may be (never larger) |
+  | `gouge_tolerance_mm` | not declared (existing 0.001 mm material default) | permitted material penetration, shared by simulation and posting; Haas explicitly declares 0.05 mm with its reason; residual and output-coordinate tolerances are separate |
   | `radial_allowance_mm`, `bottom_allowance_mm` | 0.3, 0.2 | roughing allowances (at least twice the mesh's error) |
   | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
   | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |

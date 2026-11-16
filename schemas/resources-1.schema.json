@@ -42,6 +42,12 @@
    "type": "number",
    "minimum": 0
   },
+  "gouge_tolerance_mm": {
+   "type": "number",
+   "exclusiveMinimum": 0,
+   "maximum": 1,
+   "description": "Declared permitted material gouge depth, shared by simulation and posting. Optional: absent preserves the existing material-check default. Haas declares 0.05 mm with its reason in _gouge_tolerance_reason; not a residual-stock, output-coordinate or feature tolerance."
+  },
   "radial_allowance_mm": {
    "type": "number",
    "minimum": 0

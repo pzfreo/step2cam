@@ -221,6 +221,8 @@
  "retract_mm": 2,
  "breakthrough_mm": 1,
  "drill_tolerance_mm": 0.05,
+ "gouge_tolerance_mm": 0.05,
+ "_gouge_tolerance_reason": "Maintainer-approved shop criterion, 2026-11-16: material gouge checked to 0.05 mm, inside the drawing's ISO 2768-m general tolerance and above the 0.013-0.0162 mm source-mesh error. Explicit permitted penetration for simulation and posted replay, not a hidden default or acceptance of uncertain/violation findings. Residual-stock tolerance and the 0.001 mm output-coordinate bound are unchanged. This is a declared criterion, not an automatic derivation from individual feature tolerances.",
  "radial_allowance_mm": 0.3,
  "bottom_allowance_mm": 0.2,
  "tools": [
