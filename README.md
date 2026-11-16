@@ -1,71 +1,122 @@
-# step2cam: STEP features to a process plan and camlib toolpaths
+> [!CAUTION]
+> **step2cam is an experiment, not CAM you can trust to run on a machine.** Its plans have not
+> been checked by a machinist, and no program from it has been run on a real machine.
+> Before running any G-code made from it: simulate the file in your own software, check every
+> work offset, tool length and tool number against your setup, dry-run above the part, and
+> single-block the first run with the overrides turned down. Apache-2.0, **no warranty**.
 
-## Read this first: what step2cam is, and what it is not
+# step2cam
 
-**step2cam is an experiment in explainable process planning, not CAM you can trust to run on a
-machine.** For simple prismatic (2.5D) parts it drafts a plan (setups, operations, tools, order)
-and shows the rule behind every choice. Mechanical engineers and machinists will rightly point out
-that real process planning is a much harder problem, and step2cam does not model most of what
-makes it hard:
+step2cam is an open-source experiment in automatic CAM planning for three-axis milling. It reads a
+STEP part, finds what has to be machined, and drafts a process plan: the setups, the
+workholding, the tools and the order of operations. Every choice names the written rule it was
+made by. [camlib](https://github.com/stevecad/camlib) then turns the plan into toolpaths,
+simulates them on the stock and checks them, and its posts write G-code for a real machine.
 
-- **Workholding and datums:** how the part is located and clamped, which faces are reference
-  faces, and physical locating accuracy remain limited. It records a pickup for each setup
-  or warns when finished references are unavailable; it assumes a part in a vise.
-- **Tolerances and GD&T,** which in practice decide the order of operations and what goes in one
-  setup. It ignores them.
-- **Cutting physics:** tool reach and deflection, chatter, chip evacuation, thin walls, machine
-  rigidity. Its rules are simple, and "the largest tool that fits" is often not what a machinist
-  would choose.
-- **Calculated cutting data:** the demo now cites Makera aluminium presets; material/tool physics and calculated cutting data remain #38.
+**Try it:** https://pzfreo.github.io/step2cam/ runs entirely in your browser; your file is not
+uploaded.
+
+[![A 1:47 overview: the problem, the demo, specify-core, planning, camlib's simulation and Haas G-code](docs/media/step2cam-overview.jpg)](https://pzfreo.github.io/step2cam/media/step2cam-overview.mp4)
+
+The [overview video](https://pzfreo.github.io/step2cam/media/step2cam-overview.mp4) (1:47,
+captioned, no sound) walks through it on the sample plate:
+- the problem, and the GitHub page;
+- the demo: feature recognition and the plan;
+- camlib's simulation in the vise;
+- the switch to the Haas and two of its G-code programs.
+
+```
+part.step ─▶ specify-core ─────────▶ capp (step2cam) ─────────▶ camlib
+             features, mesh           setups, workholding,        toolpaths, stock simulation,
+                                      tools, order, the trace     checks; G-code through its posts
+```
+
+- **[specify-core](https://github.com/pzfreo/specify-core)** recognises the features: holes,
+  slots, counterbores, threads, flats and the part's shape.
+- **capp** (`rust/capp`) plans them. Its rules are data with cited sources
+  (`rust/capp/rulebase`), and each decision in the plan names one.
+- **camlib** makes and checks the toolpaths. step2cam's adapter (`rust/src/job.rs`) turns each
+  setup into a camlib job; an operation camlib refuses goes back to the planner and the plan is
+  finished again without it.
+
+It is written in Rust and runs natively or in the browser as WebAssembly.
+
+## What it plans
+
+For simple prismatic (2.5D) parts:
+
+| Feature | How it is cut (camlib operation) |
+| --- | --- |
+| Stock top | Facing, after choosing a standard bar size |
+| The part's shape | Roughing from the mesh, then flats at their exact heights and walls finished to size |
+| Holes | Spot drilling and drilling (pecked when deep), or a helical bore when no drill fits |
+| Counterbores | Helical bore |
+| Threads (ISO metric, from Specify's answers) | Rigid tapping, or thread milling |
+| Closed slots, notches, V-channels | Pocket, or a trace with a V-bit |
+| Top edge rounds | A 45° chamfer that meets the round |
+
+Around those operations it plans:
+- **Setups:** one per direction holes must be entered from, each with how its zero is
+  picked up.
+- **Workholding:** a vise, with parallels and a flip-and-face route. It checks contact on the
+  jaws and the vise's grip against the cutting force.
+- **Tools:** chosen from a JSON library. Anything missing is reported as a tool to buy, never
+  guessed.
+
+What it leaves out, and why, is in the plan.
+
+## What it does not do
+
+Real process planning is a much harder problem, and step2cam does not model most of what makes it
+hard:
+
+- **Tolerances and GD&T:** it warns of tolerances on the drawing rather than planning for them.
+- **Cutting physics:** it does not model deflection, chatter, chip evacuation or thin walls.
+  Its feeds and speeds are starting data from the machine maker or tool catalogues, not
+  calculated for your part.
+- **Workholding:** it checks the vise's grip against the cut, but not how firmly the vise holds
+  the part, or lift and turning moments.
 - **Real parts:** interacting features, drafts and freeform shapes break its recognition and
-  planning. The samples are friendly.
+  planning. The sample parts are friendly.
+- **Not planned yet:** sloped walls, curved surfaces and pocket walls; countersinks; removing
+  the roughing web; 4/5-axis; lathe work ([full list](docs/plan-format.md#not-done-yet)).
 
-camlib's check proves the toolpaths do not cut into the model; it does not show that the part
-will be good: finish, accuracy, burrs, whether it survives being cut. Commercial planners with
-decades of rules still produce a first draft that a machinist edits.
+camlib's checks show the toolpaths stay clear of the part. They don't show that the part will be
+good: its finish, accuracy and burrs, or whether it survives being cut.
 
-**Use it** to see how recognition and planning could fit together, to read a plan's reasoning,
-and to argue with specific rules: every planning decision names the rule it was made by, and the
-camlib job's own process choices (raster clearing, roughing allowances, the 3° helix entry, and
-any flute count or tool material the library leaves out) are named in its notes by rule, so "rule
-X is wrong here, because…" is the most useful feedback. The rest of the job's settings (the
-stock grid, simulation limits, facing and drilling cycle details) are not traced. **Do not cut anything from its output without
-someone who knows machining checking it first.**
+**Feedback is the point.** Because every decision names its rule, "rule X is wrong here,
+because…" is the most useful report: [open an issue](https://github.com/pzfreo/step2cam/issues).
 
-`step2cam` turns the features [Specify](https://github.com/pzfreo/specify-core) recognises in a
-STEP part (holes, slots, counterbores, the part's shape) into a process plan, and hands that plan
-to [camlib](https://github.com/stevecad/camlib), the CAM engine, which makes the toolpaths,
-simulates them on the stock and checks them. It is written in Rust and runs in the browser as
-WebAssembly, or natively.
+## The demo
 
-**step2cam writes no G-code.** G-code is controller-specific and safety-critical, and camlib's own
-posts write and check it. step2cam's outputs are the plan and, for each setup, the camlib job it
-becomes: `examples/post_with_camlib.py` posts a saved job with camlib's LinuxCNC post.
-The page can request camlib's Rust Haas post on demand, with release findings and
-declared premises shown beside the result (see Demo).
+https://pzfreo.github.io/step2cam/ shows the work in three panes:
+1. what the part is: the features specify-core recognised;
+2. how to make it: the plan, with the rule behind each decision;
+3. making it: camlib's toolpaths, played on the stock in its vise, setup by setup.
 
-Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
-is a plain JSON plan.
+Hovering over any feature, operation or move highlights the same thing in all three panes.
 
-```
-part.step ─▶ specify-core: analysis, mesh ─▶ capp: plan, finish ─▶ job::jobs ─▶ simulate::simulate
-             (quiddity: features)            (what to cut, with   (the camlib  (camlib: toolpaths, stock,
-                                              which tool)          job, JSON)   checks; one per setup)
-                                                                       │
-                                                                       └─▶ camlib's posts ─▶ G-code (not step2cam)
-```
+Open your own STEP file, or one of the sample plates. The Machine menu picks one of three:
+- the Makera Carvera (the default);
+- a Haas VF-2;
+- a generic LinuxCNC mill.
 
-The planning is the `capp` crate (`rust/capp`): `capp::plan::plan` decides what to cut in which
-setup, and `capp::finish` takes out what the tool library cannot cut and names each operation's
-tool. `step2cam` is the camlib adapter (`job.rs`), the run of each job in camlib's engine with its
-checks (`simulate.rs`) and the browser entry point. An operation camlib refuses goes back to `capp::finish` as an exclusion, and the plan
-is finished again without it.
+Each one replans the part with that machine's tools. Their sources and assumptions are in
+[libraries/README.md](libraries/README.md).
 
-## Use
+What you can save:
+- **Save plan:** the plan as JSON, with its full trace.
+- **Save camlib job:** each setup as a job for camlib's own posts.
+- **Save G-code** (Haas only): camlib's Haas post writes the program, then reads it back and
+  checks it against the plan. The page downloads it only if camlib releases it.
+  - On the sample plates, the bottom setups and the complex plate's front setup release.
+  - The top setups are refused, because camlib cannot yet prove their drill plunges clear of
+    the part.
+  - The controller and setup premises the program assumes are listed beside it: check them
+    against your control. [Haas posting details](libraries/README.md#haas-posting).
+  - Carvera G-code waits for a measured spindle-to-bed height.
 
-The easiest way is the demo below. Without a browser, `rust/examples/process.rs` takes
-specify-core's output and a tool library, and prints the plan, each setup's camlib job and moves,
-and the log as JSON:
+## Use without a browser
 
 ```bash
 rust/fetch-camlib.sh    # camlib at the pinned commit
@@ -74,531 +125,44 @@ specify-core mesh -o mesh.json part.step
 cargo run --release --manifest-path rust/Cargo.toml --example process -- analysis.json mesh.json examples/tools.example.json
 ```
 
-## Demo
-
-**https://pzfreo.github.io/step2cam/** opens a STEP file and shows its recognised features beside
-the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or one of camlib's
-moves and the others follow; press Play and the feature being cut lights up. **Save camlib job**
-writes each setup as `<part>-<setup>.camlib-job.json`, for camlib's posts to write G-code from.
-Each Haas setup also has **Save G-code**, which calls camlib's Rust post on demand and
-downloads `<part>-<setup>-haas-vf2.nc` only if camlib releases it. Only `unchecked_machine`
-is accepted: stock, tools and vise are checked, but no physical Haas model is available.
-The checks panel names any moves camlib could not prove clear; G-code needs that stronger proof.
-The button title and check details identify unchecked comparisons and list the effective declared controller and setup premises, including overrides of installed library
-values, to verify against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
-has no G-code button. Refusals disable that setup's button and show the findings in the status line.
-Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
-because G0 doglegs are not camlib's straight-path model. Release remains conditional:
-explicit bounded lowering writes unsupported curves as checked straight moves with a
-0.0001 mm chord budget inside the unchanged 0.001 mm total posting tolerance. The existing
-Haas linear profile requires this for all curves; camlib reports its arc-output reasons.
-The Haas library explicitly declares material gouge **checked to 0.05 mm** in both
-simulation and posted replay. This shop criterion is inside the drawing's ISO 2768-m
-general tolerance and above the source-mesh error; it is not the 0.001 mm output bound.
-Residual tolerance remains 0.001 mm. Both bottom setups and the complex plate's front
-release; top setups still have unaccepted uncertain material findings. No uncertain or
-violation status is accepted.
-Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
-part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
-
-The page tells the story in three panes, in the order the work happens:
-1. **What the part is:** the features specify-core recognised.
-2. **How to make it:** the process plan.
-3. **Making it:** camlib's toolpaths, simulated on the stock and checked.
-
-A bar above the panes sums up each step for the part opened: faces and features found; setups,
-operations, tools and decisions; camlib's toolpath moves and the gouge check.
-
-In the plan pane:
-- **The part:** its material and ISO 513 group.
-- **Each setup:** its operations in the order they will be cut.
-- **Each operation:** opens inline to show its tool, cutting data, ISO 14649 names and the decisions
-  behind it, each citing the written rule it was made by. **Full view** lists every tool it
-  considered, with why each was turned down or passed over, and each rule's rationale, sources and
-  use in this plan.
-- **Problems:** what was refused, what was not cut and the warnings, each with its rule.
-- **Save plan:** downloads the plan as JSON, trace included.
-
-Hovering or clicking a feature, an operation, a toolpath or a move lights the same thing in
-all three panes.
-
-On a screen narrower than 1300 px one pane is open and the others are rails: click a rail or a
-step in the bar to open it. On a wider screen, **Expand** does the same.
-
-It runs entirely in your browser, so your file is not uploaded: `specify-core`'s WebAssembly
-package recognises the features, and `rust/` (step2cam's planning, with camlib's engine) makes the
-toolpaths. The Machine menu selects the Makera Carvera (`demo/tools.json`, default), Haas VF-2
-(`libraries/haas-vf2.json`), or LinuxCNC mill (`libraries/linuxcnc-vmc.json`):
-The Carvera and Haas libraries cite vendor tools and aluminium starting data; the generic LinuxCNC library retains placeholder tools and machine limits. See [library sources and assumptions](libraries/README.md). An operation camlib refuses, or that no tool fits, is left out and reported.
-Machining times are estimates from the feed rates; the timeline compresses them so that holes are
-not lost beside roughing.
-
-The toolpath view draws the block of stock being cut away as the program plays (`demo/stock.js`):
-a height field per setup, lowered under each cutting move's tool shape, and drawn as what lies
-under all of them. It is for looking at, not a check: it cannot show an undercut, and it draws a
-thread mill as a flat disc. camlib's comparison of the stock with the part is the check.
-
-```bash
-demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
-```
-
-camlib's checks run on every move before anything is shown: its stock-contact check (tool and
-holder against the stock as it stands), its link limits, a flat-depth guard, and the comparison of
-the finished stock with the part. An operation that fails is left out and reported; a gouge refuses
-the setup. These check the toolpaths; checking G-code is the job of the post that writes it.
-
-## Getting G-code: camlib's posts
+This prints the plan, each setup's camlib job and its moves, and the log as JSON. To post a saved
+job with another camlib post (LinuxCNC, GRBL, FANUC, Siemens, Centroid and others):
 
 ```bash
 python examples/post_with_camlib.py plate-top.camlib-job.json plate-top.nc
 ```
 
-The script needs camlib's Python package. It runs the saved job in camlib and posts it with
-camlib's LinuxCNC post, which reads every block back and compares it with the plan. Its machine is
-an example: replace it with your controller and camlib's post for it (LinuxCNC, GRBL, Haas, FANUC,
-Siemens, Centroid; camlib's `docs/posts.md`).
+Build the demo locally:
 
-## The plan (`specify-cam-plan`, version 1)
+```bash
+demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unknown-unknown and wasm-pack
+```
 
-The plan says **what** to cut, independent of tools and machine.
+## Reference
 
-- **Stock**: the part's box plus minimum `margin` (2 mm) around the sides, `top_stock` (1 mm) above
-  and `bottom_stock` (0) below (`capp::plan::Options`), rounded up to a cited standard flat bar
-  and whole-mm sawn length. A catalog miss keeps the computed size and warns.
-- **Setups**: one per direction a hole must be entered from (`top`, `bottom`, `front`,
-  `back`, `left`, `right`). Each setup turns its tool down −Z. The final process output
-  records `zero.xy` and `zero.z`: pickup description, feature ids, earlier finishing setup
-  and method. First zero is the stock corner against the fixed jaw (minimum on the other
-  axis), Z on stock top. Later setups prefer drawing datums, then the largest reachable
-  previously finished bore at least 6 mm diameter, else other finished faces. Probe access
-  includes carried stock and fixtures. Hidden faces can locate by contact against the fixed
-  jaw and a required stop picked up as its axis zero before loading; the sheet limits
-  the stop nose height below the overhang. Non-flips prefer a direct finished upward
-  face for Z; non-flip Z and side probing allow 0.5 mm of stock-envelope slack.
-  Flip Z uses a finished seat on modeled parallels; absent support evidence requires stock touch-off, a bar-variation warning
-  and measuring after facing.
-  Missing X/Y evidence warns and retains the frame. `rotation` and `origin_model` locate
-  all coordinates. The intermediate planner retains legacy stock/part frame labels;
-  final pickup selection follows execution refusals. See [pickup policy](docs/capp-plan.md#setup-zero-and-pickup-m10).
-- **Operations** in each setup, in setup coordinates:
-  - `facing` down to the part's top (the `rough_from` setup only);
-  - `roughing` of the whole part from the mesh (the `rough_from` setup only, needs the mesh).
-    It stops `skin` (0.5 mm) above the part's bottom, so it leaves a web that thick all round
-    the part (`web_mm`), which no operation removes. It also clears the side margin, which is
-    where vise jaws on the stock would be: hold the stock from below (a fixture plate, screws or
-    double-sided tape) or leave more margin;
-  - `holes`: holes of one diameter and depth, with their centres, bore top, bottom and how the
-    bottom ends (`through`, `flat`, `drill_point`, `unknown`). A through hole also carries
-    `exit_clear_mm`: how far beyond its exit there is no part material, `null` when it exits
-    the part altogether;
-  - `counterbore`: the enlargements at hole mouths (spotfaces, counterbores, stepped mouths),
-    widest and outermost first;
-  - `thread`: internal threads, from Specify's answers (see [Threads](#threads)). A blind thread
-    whose depth is the default, not asked for, carries `default_depth: true`;
-  - `slot`: a closed slot with round ends, cut to size with a camlib `Pocket` of its outline and
-    the largest end mill that fits, after roughing, from whichever setup reaches it. Other slots
-    are left to roughing;
-  - `notch`: square-ended slots and notches, as a pocket with the largest end mill that fits and
-    reaches, cut past the part on a notch's open side. specify-core's record says where the box is,
-    and the mesh must show it empty above the floor, or it is not cut. Its inside corners stay as
-    round as the cutter;
-  - `v_channel`: a V-channel that runs out of the part at both ends, with a sharp V-bit no wider
-    than the channel, its tip along the root. A narrower bit leaves a little on the walls: the
-    plan warns that the channel is partly cut and says how much is left. A channel in a flat
-    goes with that flat;
-  - `flats`, straight after roughing, where the part has upward flat faces between its top and
-    the roughing floor. Those are off the roughing layers, so they can have up to a stepdown (plus
-    the bottom allowance) left on them; camlib's `Flat` cuts each at its exact height, in one pass
-    with the roughing end mill, staying a tool radius from walls. camlib proves that clear of the
-    part, not how much stock is in the way, so a flat that would cut deeper than that, where
-    roughing did not reach, is refused and left out with the walls that stand on it;
-  - `wall_finish`: the outside of each solid outline with upright walls, to size, in each band
-    between flats, so a raised boss's wall stops at the plate it stands on, climb milled. It needs
-    roughing to have run. A contour knows only its outline, so anything of the part above the floor
-    and within reach of the cutter stops it: `room` is how far away the nearest such face is, 0 for
-    an overhang or a flared foot. With less than the end mill's diameter plus twice the radial
-    allowance, the wall keeps the roughing allowance, as a sloped wall or the inside of a pocket does;
-  - `edge_chamfer`: see [Top edge rounds](#top-edge-rounds). An outside chamfer goes with its wall:
-    if that wall is left out, so is the chamfer, and its rounds are reported as not cut;
-  - `thread`: last, as nothing should cut near a finished thread.
-- **Checks against the mesh** (only when the mesh is given):
-  - a hole is cut only from a side where no part material is above its opening;
-  - a plain through hole may be cut from its far end instead, unless quiddity reports that
-    end partly capped;
-  - the clearance beyond a through hole's exit is measured.
+- [The plan format](docs/plan-format.md) (`specify-cam-plan` v1): stock, setups and zeros,
+  operations, threads, hole depths, the trace, and what is skipped and why.
+- [The tool library](docs/tool-library.md): tool fields (with ISO 13399 names), machines,
+  vises and parallels, library settings, and which tool each operation gets.
+- [Library sources and assumptions](libraries/README.md): the Carvera, Haas and LinuxCNC
+  libraries.
+- [Planning design and limits](docs/capp-plan.md): rules, workholding, pickups, grip against
+  the cut.
+- [Safety and what the checks cover](docs/plan-format.md#safety).
+- [ROADMAP.md](ROADMAP.md): what comes next. [docs/upstream-needs.md](docs/upstream-needs.md):
+  what step2cam needs from specify-core.
 
-  Without a mesh none of this is checked, and the plan's `warnings` say so.
-- **`skipped`**: every feature that is not planned, with the reason: oblique or unreachable
-  holes, countersinks, chamfers, edge rounds not chamfered, turned features (lathe work), and
-  features roughing cannot reach (a flat face of the feature points away from the roughing setup),
-  or every feature when there is no mesh or roughing does not run. Features of an operation camlib
-  refuses, or that no tool in the library cuts, say why. **`covered_by_roughing`**: features roughing reaches. That is a heuristic from
-  their flat faces. Where `flats` or `wall_finish` do not reach them, they keep the roughing
-  allowance.
-- **`tool`** and **`tool_note`** on each operation, once `capp::finish` has run: the id of the tool
-  that cuts it. An operation no tool cuts is taken out of `operations` (those after it are
-  numbered again) and each of its features is in `skipped` with why and the tool it needs; one
-  with no features of its own gets a warning instead. Spot drilling left out this way does not
-  skip its holes, since they are still drilled: a warning per setup (rule `tool.none.unspotted`)
-  says how many holes are drilled without spotting and names them. `capp::resolve` alone still
-  leaves such an operation in place with `tool: null` and why (`tool_note`).
-- **`tools_needed`**, after `capp::finish`: missing-tool queries, each with a `description`,
-  `features` and `operations` (operation ids or decision subjects; an operation no tool cuts is
-  named as it was numbered before it was taken out). Identical descriptions merge;
-  alternatives stay together, without attempting a minimal shopping list. Tool-related reasons
-  end with `: needs <description>`. Bounds come from the selectors in
-  `rust/capp/rulebase/rules/tools.json` and the library's drill tolerance. Diameter limits round
-  conservatively to 0.01 mm; flute reach rounds up to whole mm with 0.001 mm clearance for the
-  execution engine's numerical guard. A drill may additionally need its point length to reach
-  full diameter. Excessive stepdown is a cutting-data issue, not a missing-tool query. When
-  roughing is refused for tool reach, its covered features inherit the same query.
-- **`decisions`**: the trace. Every choice the planning makes is a decision citing the rule it was
-  made by, as `id@version` from `rust/capp/rulebase/rules.json`, which lists each rule's stage,
-  rationale, sources and where the code applies it. Where a rule's logic is itself data, it says
-  so (`data`): tool selection (`rulebase/rules/tools.json`: which tools qualify, why the others
-  are turned down, which one is preferred), the order of operations (`rules/sequence.json`) and
-  what becomes of each feature family (`rules/process.json`). The geometry the rules ask about
-  (reachability, room beside a wall and the like) stays code. The camlib adapter's process
-  choices are not decisions in the plan: its notes in the log cite their rules the same way
-  (`process.roughing.clearing`, `process.roughing.allowance`, `process.roughing.region`, `process.entry.helix`,
-  `tool.flutes.default`, `tool.material.default`). Each operation's `because` names the
-  decisions behind it (its setup, the order, the rule that made it, the setup chosen for its holes,
-  its tool and the tools turned down), each entry of `skipped` names its `decision`, and each
-  warning is a decision too. A decision a later one replaced says `superseded_by`.
-- **`material`**: the material Specify was told (`part.material`), the resources' override
-  (`overrides.material`) if any, and its ISO 513 group (P, M, K, N, S, H) once `capp::finish`
-  has run. A tool may state its cutting data for a group (`cutting_data: {"N": {"feed_mm_min": …,
-  "spindle_rpm": …}}`); each operation's **`technology`** is the cutting data it uses, and says
-  whether they are the tool's own or its data for the group. The group is found from the whole
-  words of the material's name (a printed material, or a name nothing matches, has none) until
-  specify-core gives the material's family (`docs/upstream-needs.md`, S2).
-- **`iso14649`** on each operation, once `capp::finish` has run: its names in ISO 14649 (STEP-NC),
-  the feature it machines and the operation, from
-  `rust/capp/rulebase/reference/iso14649-names.json`. The names are from STEP Tools' published
-  AP238 lists, not checked against ISO 14649 itself. Where the names are only the closest
-  (thread milling, edge chamfers, V-channels, counterbores, holes bored by helix) they say so
-  (`exact: false`).
-- **`warnings`**: things to look at. For example, a through hole that ends short of the part's
-  far face, where a counterbore or chamfer at the far end, or a shoulder between steps, is not
-  planned (quiddity's depths do not include shoulders).
-
-## Top edge rounds
-
-Where the whole top edge of the outside wall (only if that wall is finished and runs straight down
-to the roughing floor), or of a hole or slot cut to size, has one convex radius, a 45° chamfer is
-cut that meets the round at its middle, so it never cuts into the part. It is a chamfer, not the round,
-and needs a `chamfer_mill` tool in the library: the demo has one. Bottom edges are not cut.
-
-## Threads
-
-A hole is threaded when the part says what thread it is: an answer stored in the STEP file
-by [Specify](https://github.com/pzfreo/specify-core), `"hole.function:<hole>": "tapped:M5"`.
-The answer can be on one hole or on a hole pattern, which threads every hole in the pattern.
-
-- **Sizes:** ISO metric, coarse pitch (`M1.6` to `M24`) or a fine pitch written `M10x1.25`. The
-  coarse pitches are the table `rust/capp/rulebase/reference/iso261-coarse-pitch.json`, from two
-  public sources that agree, not checked against ISO 261 itself.
-  Right-hand only.
-- **Depth:** a through hole is threaded all the way. A blind hole is threaded as deep as the
-  answer asks (`tapped:M5@5.5`: at least 5.5 mm of full thread; a `hole.full_thread:<hole>`
-  answer such as `"5.5"` takes precedence over the `@` depth, as in Specify), or by default as deep as
-  Specify's own default: the hole's depth less three pitches, rounded down to 0.5 mm
-  (`rulebase/reference/full-thread.json`). A tap needs its lead plus one pitch of clearance below
-  the thread, which for a three-pitch lead is more than those three pitches, so a tap cuts a
-  default thread shallower when it must: the drilled full diameter less its lead and one pitch,
-  rounded down to 0.5 mm, and the log says so. An asked depth is
-  never shortened: if the tap cannot reach it, the tap is refused and a thread mill is
-  used instead, if one fits.
-- **How:** tapped when a matching M3–M6 tap is available in ISO 513 group N material,
-  otherwise milled with a single-profile thread mill to the thread's major diameter, after the
-  hole is drilled. The hole must already be at full diameter as deep as the thread goes;
-  otherwise the thread is left out and the log says why. Check the fit with a plug gauge or
-  a screw before taking the part off the machine.
-- **Neck clearance:** a small thread mill's neck passes close to the drilled wall (0.1 mm for
-  the example tool in an M5 hole). camlib proves it clear on its stock grid, so the job makes
-  that grid fine enough for the narrowest neck in the setup, and says so. If that would need
-  more than 16 million cells for the part, the thread is left out: use a thread mill with a
-  narrower neck.
-- **Threads written by other CAD tools:** these state no size in the file, so they are a
-  warning and are not cut. Answer the hole in Specify to have it threaded.
-
-Tap selection checks the model pre-drill, pitch, hand, chamfer, bottom clearance and reach.
-The M3–M6 / ISO N preference is step2cam judgement, traced as `tool.thread.tap_or_mill`;
-without taps the thread-mill plan is unchanged. Cut-tap drills use ISO 2306 Table 1
-values checked in the published preview (D − P check); form-tap drills use Tapmatic’s formula at 65% thread, explicitly
-not checked against a standard. See [tap references](rust/capp/rulebase/reference/tap-drills.json).
-A blind tap tip extends below full thread by `chamfer_pitches × pitch`, with one more pitch
-of drilled clearance. Through tapping adds the required drilling travel and conservative
-simulated backing below the exit to satisfy camlib’s stock bounds; obstructed exits are checked
-again against the actual drilled floor. Through thread operations retain their measured
-exit clearance; insufficient room for the tap, bottom clearance and drill point selects
-thread milling at plan time. Supplied plan `hand: "left"` is honored by both tapping and
-thread milling; Specify LH designations are not parsed yet. Other operations and the comparison base retain
-exactly the real stock bottom; the stock/part comparison clips out simulated backing.
-The tapping note gives tap-tip and drill-tip travel below the part so parallels stay clear.
-Tapping retains the normal stock/part target:
-camlib represents it at the pre-drill diameter and leaves the thread flanks in the stock.
-
-## The tool library
-
-The tool library is JSON: see [`examples/tools.example.json`](examples/tools.example.json).
-Each mapped tool field may also be supplied by its ISO 13399 symbol, in the same units
-(mm, or degrees for `SIG`). The [mapping table](rust/capp/rulebase/reference/iso13399-fields.json)
-lists every field, its type-specific alias and public sources, or why it has no exact alias.
-For example, `diameter` may be `DC` for an end mill, and `overall_length` may be `OAL`.
-Mill `flute_length` uses `APMX`; drill `flute_length` uses `LCF`. Unmapped fields keep
-their current names. Both names may be given if their values are equal; differing values
-refuse the library with an error naming the tool and both fields. Missing fields are
-reported using the current name. This translates names only, without converting dimensions.
-
-`process` plans and simulates each available workholding candidate, then chooses by
-`setup.workholding`: finishes the outline and removes grip stock, fewest features left
-out, fewest setups, least extra stock, shortest machining time. The Plan tab shows the
-choice and alternatives; selecting another available option replans it. Both vise
-routes require a dimensioned vise in the first mill. Fixture plates and margins/tabs
-are listed with their implementation blockers, without simulated results.
-
-Vise setups compare cited clamping force with estimated tangential load for
-plan-known engagement: facing, flats, slots/notches, V-channels, walls and chamfers
-(`machine.grip_vs_cut`). The Haas DX6 plans 3440 lbf at 40 ft·lbf: moderate hand
-tightening, half its rated maximum (step2cam judgement). Facing is stepped down
-when feasible; other checked cuts warn with a remedy. Drilling, spotting and tapping
-record thrust into supports. Roughing of every kind, helix-milled holes/counterbores
-and thread milling are checked against the stock under their emitted feed moves,
-including helix turns. The largest measured mean force, engagement, move and position
-enter the same decision trace; over-capacity moves warn with a remedy and leave the program unchanged. The demo vise has no published force and
-warns “grip not checked against the cut” once per setup, keeping its cutting data.
-Contact pressure, lift and turning moments remain unchecked. See
-[formula, sources and limits](docs/capp-plan.md#vise-grip-against-the-cut-m3).
-
-Supply a choice with `decisions`:
-`{"rule":"setup.workholding","subject":"part","choice":"vise_ordinary","source":"user","reason":"shop preference"}`.
-The checked choice and its provenance are stored in `plan.supplied_decisions` for replay.
-The old `overrides.workholding_option` still works: `"none"` means `vise_ordinary`,
-`"vise_flip_face"` selects that route, both recorded as user choices. An explicit
-supplied decision takes precedence. With neither, the default rule chooses; all three
-demo plates now select flip-and-face to remove the ordinary grip's attached outline.
-See [the CAPP planning documentation](docs/capp-plan.md) for consequences and limits.
-
-The example library is a placeholder; the demo Carvera and opt-in Haas libraries cite vendor data and label assembly/policy judgements. camlib has no defaults for cutting data or machines,
-on purpose.
-
-- The optional `controller` identifies the intended camlib post; step2cam writes no G-code. `rapid_mm_min` supplies the page and candidate motion-time estimates.
-- `machines`: what the machines can do, for the planner. The plan is cut on the first `mill`:
-  - `axes.travel_mm` (x, y, z): a setup whose stock does not fit is not cut, and its features say
-    why;
-  - `workholding`: a vise's `max_jaw_opening_mm`, so stock wider than it is flagged;
-  - `spindle.max_rpm`: faster cutting data run at that speed, the feeds scaled to match;
-  - `spindle.max_tool_diameter_mm`: a tool with a wider shank is never chosen;
-  - `tool_changer`: its `pockets` (a setup needing more tools is flagged), or `"kind": "manual"`.
-
-  `spindle.collet_change: "manual"` adds a setup warning when selected tools have
-  different shank sizes, independently of the tool changer; it does not alter tool choice.
-
-  Each is a decision in the plan's trace. Without `machines` none of this is checked, and the
-  trace says so. The demo's default machine is the **Makera Carvera**, from its published specifications:
-  360 × 240 × 140 mm of travel, 15,000 rpm, a 1/4" collet (shanks to 6.35 mm) and a 6-tool
-  changer. The demo supplements the kit with sourced 4/6 mm Makera cutters and a long small cutter as optional inventory for deep small features. Matching 6, 4, 3 mm and 1/8" collets require manual changes; the 1/4" capacity is not mixed-shank ATC compatibility. Larger holes are bored. See [library assumptions](libraries/README.md#carvera-demo).
-- **Tool changes:** after each tool change the machine must leave the spindle's gauge line
-  at `tool_change_gauge_z_mm` over `tool_change_xy_mm`, in the setup's work coordinates (an
-  M6 that moves there). camlib plans every new tool's first move down from there and checks
-  it; a post must start from the same position, so the program and the plan agree. By default it is over X0 Y0, at the clearance height
-  plus the longest gauge length, so every tool's tip is above the clearance height.
-- `tools`: every tool needs `id`, `type` (`end_mill`, `drill`, `spot_drill`, `tap`, `thread_mill` or `chamfer_mill`), `number`,
-  `diameter`, `overall_length`, `stickout`, `holder_length`, `holder_diameter`,
-  `spindle_rpm` and `coolant`; tools other than taps also need `feed_mm_min`. By type:
-  - **End mills:** `flute_length`, `plunge_mm_min`, `stepdown_mm` and `stepover_mm`.
-  - **Drills:** `flute_length` and `point_angle`.
-  - **Taps:** `diameter` is nominal thread diameter; also require `pitch`, `tap_type`
-    (`cut` or `form`), `chamfer_form` (e.g. bottoming/plug), `chamfer_pitches` (maximum
-    incomplete lead), `thread_length` and `shank_diameter`. `hand` defaults to `right`.
-    Optional `flute_style`: `straight`, `spiral_flute`, or `spiral_point` (through only).
-    Supply `spindle_rpm`, including optional group cutting data; omit `feed_mm_min`:
-    rigid tapping derives feed as pitch × rpm. Reach includes chamfer and stock above the hole.
-  - **Thread mills:** single-profile. `diameter` is the tooth's, so they also need
-    `tooth_height`, `neck_diameter` (narrower than the tooth), `neck_length` and
-    `plunge_mm_min`.
-  - **Chamfer mills:** `flute_length`, `angle` (90 is the only one used), `tip_diameter` and
-    `plunge_mm_min`.
-
-  There are no defaults for these: camlib checks the holder against the stock, so a guessed
-  holder would make that check meaningless. Optional: `shank_diameter`, `length_register`
-  (default: `number`), `retract_feed_mm_min` (default: the feed), `flutes` (a whole number from
-  1 to 1000; default 2 for drills and spot drills, 3 otherwise), `material` (`carbide` or `hss`;
-  default `carbide`), `peck_mm` (drills: a positive
-  cap on the depth rule’s peck increment; zero or absent means no cap), and for
-  thread mills `min_pitch_mm`/`max_pitch_mm` (the pitches the tooth suits), `radial_passes`
-  (default 2) and `spring_passes` (default 1).
-
-  Drilling through 3×D uses one plunge; deeper holes use full-retract pecks of 0.5×D,
-  capped by a positive `peck_mm`. Above 5×D, a plan warning and linked trace note name
-  the hole and its depth/D ratio: deep-hole drilling (pilot plus deep-hole drill) is not
-  planned, so full-retract pecks are used. Depth includes stock above the hole and
-  requested breakthrough, and D is the selected drill's diameter.
-- Library settings, with their defaults:
-
-  | Setting | Default | Meaning |
-  | --- | --- | --- |
-  | `clearance_mm` | 10 | clearance height above the stock top |
-  | `retract_mm` | 2 | retract and R plane above the stock top |
-  | `breakthrough_mm` | 1 | how far a through hole is cut past its exit, at full diameter |
-  | `drill_tolerance_mm` | 0.05 | how much smaller than the hole a drill may be (never larger) |
-  | `gouge_tolerance_mm` | not declared (existing 0.001 mm material default) | permitted material penetration, shared by simulation and posting; Haas explicitly declares 0.05 mm with its reason; residual and output-coordinate tolerances are separate |
-  | `radial_allowance_mm`, `bottom_allowance_mm` | 0.3, 0.2 | roughing allowances (at least twice the mesh's error) |
-  | `facing_tool`, `roughing_tool` | the largest end mill | tool ids |
-  | `tool_change_gauge_z_mm` | clearance + longest gauge length | the spindle gauge line's work Z after a tool change |
-  | `tool_change_xy_mm` | `[0, 0]` (X0 Y0) | where X and Y are after a tool change |
-  | `cell_size_mm` | the stock's size / 400, at least 0.1 | camlib's stock simulation grid (made finer where a thread mill's neck needs it) |
-
-How each operation gets a tool:
-
-| Plan operation | camlib operation | Tool |
-| --- | --- | --- |
-| `facing` | `Facing` | the largest end mill (or `facing_tool`) |
-| `roughing` | `Roughing` over the part's mesh, raster clearing | the largest end mill (or `roughing_tool`) |
-| `holes` | `Drilling` | the largest drill no bigger than the hole and within `drill_tolerance_mm` of it |
-| `holes` with no such drill | `Bore` (helical) | the largest end mill that fits |
-| `counterbore` | `Bore` (helical) | the largest end mill that fits |
-| `thread` | `ThreadMilling` (internal, helical, climb) | the largest thread mill whose pitch range takes the pitch, whose tooth fits the drilled hole, whose neck clears the thread crests and which reaches the thread's bottom |
-| `slot` | `Pocket` | the largest end mill that fits |
-| `notch` | `Pocket` | the largest end mill narrower than the width that reaches the depth |
-| `v_channel` | `Trace` | the widest `chamfer_mill` with `tip_diameter` 0, an `angle` no wider than the channel's, and `stepdown_mm` |
-| `flats` | `Flat` | the largest end mill (or `roughing_tool`) |
-| `wall_finish` | `Contour` | the largest end mill (or `roughing_tool`) |
-| `edge_chamfer` | `Chamfer` | a 90° chamfer mill wide enough |
-
-How deep holes are cut (the log has a note for each case):
-
-- **Through, exiting the part:** full diameter `breakthrough_mm` past the exit. The drill's
-  point goes further, usually below the stock bottom: support the part clear of the holes
-  (spoilboard, parallels). A `Bore` stops at the stock bottom (camlib bores no lower), so with
-  no `bottom_stock` it leaves a skin or burr at the exit.
-- **Through, with part material beyond the exit** (a cross hole into a cavity): no deeper
-  than that material less 0.2 mm. If the drill's point does not fit, the drill stops short of
-  full diameter at the exit, and the note says so.
-- **Blind, drill point:** quiddity's depth ends where the cone starts, so the drill reaches
-  full diameter there. Its own point ends where a cone of the drill's angle would; the model's
-  cone angle is not read.
-- **Blind, flat or unknown:** the drill's **tip** stops at the bottom, never deeper than the
-  model. Full diameter then ends a tip length short of it.
-
-A hole no tool fits is reported, not guessed.
-
-When contact geometry is available, later vise setups check finished-part contact on both jaws. The planner clips
-analytically planar mesh faces to each jaw band and reports certain contact area in mm²;
-conservative envelopes of drills, threads and edge breaks reduce that area. No contact on
-either jaw withholds that setup. Missing contact geometry leaves contact unknown and retains
-the conservative envelope warning without withholding the setup. Carried height-field stock is an upper bound and cannot
-certify contact. This does not establish holding force. Flip seating and preparation still
-need their separate checks.
-
-Vise libraries may inventory `parallels_heights_mm`, with provenance in `_sources`.
-The first setup chooses the tallest height satisfying grip limits; flip seating chooses
-the deepest passing grip on already-finished sides. The support bars
-are passed with the jaws as fixtures. A fixed `parallels_height_mm` remains supported.
-Flip seating searches those real heights against the mesh. Without a library inventory or
-fixed/override height, the cited rulebase standard set supplies heights, labelled
-“standard size, not checked against your shop”; a standard-set miss retains the computed height or unmodelled support and warns once per setup, labelled “not a standard size”.
-
-Standard blank and parallel sizes come from the cited rulebase data in
-[`standard-sizes.json`](rust/capp/rulebase/rules/standard-sizes.json), read 2026-11-14:
-LittleMachineShop 1893 heights (½–1⅝ inch in ⅛ inch steps, exactly 25.4 mm/inch)
-and Metal Stockist UK's aluminium flat bars (inch products use exact conversions, with supplier labels retained). A library's parallels inventory,
-fixed height or setup override wins. Otherwise the first setup selects the tallest
-standard height meeting grip limits; the flip selects the deepest grip passing
-all limits and mesh seating; if preparation later fails, retry the next passing shallower seat. A standard-set miss keeps the prior computed height or unmodelled support and warns once per setup; an explicit shop inventory stays strict. No shop inventory is inferred.
-First-setup stock uses the smallest containing bar area, trying both orientations,
-with thickness along the tool axis, width across the narrower side, and sawn length
-rounded up to whole mm. Extra thickness goes below the part, preserving the top margin and tool reach; side and length extra is shared
-equally to preserve minimum margins (step2cam judgement). If no bar fits, keep the
-computed size and warn. Later setups record remaining material, not purchased bars.
-Plan `stock_size` and clamping `parallels_size` record provenance; the setup sheet
-adds “standard size, not checked against your shop” only to standard sizes;
-computed fallbacks say “not a standard size”.
-
-Later side jaws use the full part mesh's extent within their grip-height band. A remote
-boss outside that band does not set the opening; only analytic planar faces at the chosen
-jaw planes count toward certain contact. Stock remains the full carried envelope for cutting.
-
-
-## Safety
-
-camlib plans, simulates and checks every move against the stock. An operation with a definite
-violation is left out and reported; motions the check could not clear are counted in the log, and
-**are still written**. Every block written is decoded again and compared with the plan by camlib's
-intent checker, and a mismatch stops the program being given out.
-
-The stock in the setup that holds the part's mesh is compared with that mesh, after its last cut
-before thread milling. A program that definitely cuts into the part is refused, and so is one whose
-comparison ran out of budget. The log says how much is undecided and how much stock at least remains
-(that figure counts the web, and anything a later setup cuts). That check has limits:
-
-- it sees the part from above, as heights on the stock grid, so it cannot decide cells beside a wall,
-  and it cannot see a mistake under an overhang;
-- what it can miss depends on the part, and the log gives the figures: an error in height under the
-  mesh's surface error, flat faces too; sideways, under about a grid cell; and a misplaced cut
-  narrower than about four cells;
-- threads are not compared, because they go beyond the bore the mesh shows. They are milled last;
-- only that setup is compared: others, such as side holes, are not (the log says so);
-- the stock it reads is the planned one. The intent checker is what ties the written blocks to that plan.
-
-And:
-
-- neither tool knows your work offsets, clamps or tool lengths;
-- camlib's checks here protect the stock, not the finished part (no fixtures or protected
-  bodies are declared);
-- the roughing mesh is specify-core's triangulation, not an exact surface. Its error
-  (`surface_error_mm`) is measured: none on flat faces, the chord error on cylinders, cones and
-  tori, and specify-core's bound (0.1% of the part's diagonal) on any other curved face. The
-  roughing allowance is kept at least twice that. camlib refuses a mesh with more than
-  0.1 mm of error, so a large part with such faces is not roughed (the plan says why).
-
-**Simulate any G-code made from it in your own tools, dry-run above the part, and single-block the
-first run.**
-
-## Not done (yet)
-
-Finishing sloped walls, curved surfaces and pocket walls, a smaller tool for flats and walls the
-roughing end mill cannot reach, removing the web, countersinks, chamfers, bottom edge rounds, counterbores at the far end
-of through holes, left-hand Specify answers, inch and external threads, contouring with tabs, fixtures and
-avoid areas, tool-change modes other than `table`, 4/5-axis and oblique holes, lathe work, more than
-one machine (`docs/capp-plan.md`, Planned), fits (reaming).
-
-## Tests
-
-For the hand-run 100-part MachinePlan-10K benchmark, see [tools/benchmark](tools/benchmark/README.md).
+## Development
 
 ```bash
 rust/fetch-camlib.sh
 cargo test --release --workspace --manifest-path rust/Cargo.toml
+npm ci --ignore-scripts && node tests/report.mjs && node tests/post.mjs
 ```
 
-Setup-sheet checks: `npm ci --ignore-scripts && node tests/report.mjs`. They build the native
-`process` example with the pinned Rust toolchain and generate plans from the committed
-fixture meshes on both machines. No benchmark cache or saved reports are read. The pinned
-PDF packages and pinned DejaVu font package are development-only verification dependencies.
-
-- `rust/tests/parity.rs`: plans and jobs against `tests/fixtures/rust-golden`, a frozen
-  baseline written by the Python version this project started as, since moved only by the plate's
-  wall finish. It is compared by hand when an intended change moves it.
-- `rust/tests/material.rs`: the finished stock against the part, including deliberately wrong
-  toolpaths that must be refused.
-- `tests/specify-link.sh`: runs the specify-core release the site ships (with Node) and compares its
-  output with the frozen fixtures.
-- `rust/tests/walls.rs`: shapes an outline alone would cut wrongly, from `synthetic/walls/`.
-- `rust/tests/plan.rs` and `tools.rs`: planning decisions and tool selection.
-- `rust/tests/threads.rs`, `slots.rs` and `stepped.rs`: threads, slots, edge chamfers and what is
-  reported as not cut.
-- `rust/tests/schemas.rs`: the tool libraries and every fixture's plan against the JSON Schemas in
-  `schemas/` (`resources-1`, `plan-1`).
-
-The planning is being split into the `capp` crate step by step, as `docs/capp-plan.md` sets out.
-What step2cam needs from specify-core for that is in `docs/upstream-needs.md`.
-What comes next, in order, is in [ROADMAP.md](ROADMAP.md). How AI agents fit in is in [docs/agents.md](docs/agents.md).
-
-The fixtures in `tests/fixtures` are specify-core's test part `plate.step`, specify-core's output
-for it and for `spindle.step` and for `mounting-plate.step` (see its LICENSE file), and the
-synthetic parts in `synthetic/`, which `stepped_plate.py` generates with build123d.
+[docs/plan-format.md#tests](docs/plan-format.md#tests) says what each suite covers. The hand-run
+100-part benchmark is in [tools/benchmark](tools/benchmark/README.md). How AI agents work on this
+project is in [docs/agents.md](docs/agents.md).
 
 ## License
 

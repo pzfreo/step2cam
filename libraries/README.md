@@ -118,6 +118,27 @@ row, with feed computed for one flute. Stickouts, engagement and plunge policies
 are explicitly marked step2cam judgement. Harvey's engraver uses its own
 non-ferrous row, including the chart's 50% vertical-plunge reduction.
 
+## Haas posting
+
+In the demo, each Haas setup also has **Save G-code**, which calls camlib's Rust post on demand and
+downloads `<part>-<setup>-haas-vf2.nc` only if camlib releases it. Only `unchecked_machine`
+is accepted: stock, tools and vise are checked, but no physical Haas model is available.
+The checks panel names any moves camlib could not prove clear; G-code needs that stronger proof.
+The button title and check details identify unchecked comparisons and list the effective declared controller and setup premises, including overrides of installed library
+values, to verify against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
+has no G-code button. Refusals disable that setup's button and show the findings in the status line.
+Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
+because G0 doglegs are not camlib's straight-path model. Release remains conditional:
+explicit bounded lowering writes unsupported curves as checked straight moves with a
+0.0001 mm chord budget inside the unchanged 0.001 mm total posting tolerance. The existing
+Haas linear profile requires this for all curves; camlib reports its arc-output reasons.
+The Haas library explicitly declares material gouge **checked to 0.05 mm** in both
+simulation and posted replay. This shop criterion is inside the drawing's ISO 2768-m
+general tolerance and above the source-mesh error; it is not the 0.001 mm output bound.
+Residual tolerance remains 0.001 mm. Both bottom setups and the complex plate's front
+release; top setups still have unaccepted uncertain material findings. No uncertain or
+violation status is accepted.
+
 ## Carvera demo
 
 The demo models the optional **1/4 inch maximum shank capacity (6.35 mm)**

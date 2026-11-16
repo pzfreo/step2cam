@@ -2,7 +2,7 @@
 
 What step2cam is working towards, in order. Each item is an issue; work a phase before the next
 unless an item says it can run alongside. Items marked *waits on* depend on another project.
-step2cam is an experiment in explainable process planning (README, "Read this first"), so the
+step2cam is an experiment in explainable process planning (README, "What it does not do"), so the
 order favours what makes the plans correct and honest before what makes them faster.
 
 ## Done

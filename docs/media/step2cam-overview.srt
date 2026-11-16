@@ -1,0 +1,71 @@
+1
+00:00:00,000 --> 00:00:05,168
+Turning a part into a machining plan takes a skilled machinist
+
+2
+00:00:05,168 --> 00:00:09,668
+Software that plans it automatically is almost all commercial
+
+3
+00:00:09,668 --> 00:00:14,169
+step2cam: an open-source experiment in automatic CAM planning
+
+4
+00:00:14,169 --> 00:00:19,707
+A web demo shows each step, and lets you try your own part
+
+5
+00:00:19,707 --> 00:00:24,242
+The demo and the planner are untested experiments. Feedback welcome
+
+6
+00:00:24,242 --> 00:00:28,858
+First, find what has to be machined: 31 features in this plate
+
+7
+00:00:28,858 --> 00:00:36,803
+The features come from specify-core, an open-source STEP library
+
+8
+00:00:36,803 --> 00:00:41,227
+step2cam then plans the setups, workholding, tools and order
+
+9
+00:00:41,227 --> 00:00:47,272
+Every choice names the written rule behind it
+
+10
+00:00:47,272 --> 00:00:54,735
+camlib, an open-source CAM engine, turns the plan into toolpaths
+
+11
+00:00:54,735 --> 00:01:03,651
+It simulates every move, cutting the stock away as it goes
+
+12
+00:01:03,651 --> 00:01:09,885
+Each setup is simulated in its vise, from the stock the last one left
+
+13
+00:01:09,885 --> 00:01:15,086
+and checks the moves against the stock, the tools and the vise
+
+14
+00:01:15,086 --> 00:01:20,383
+Switch to a Haas VF-2: the same part, replanned with its tooling
+
+15
+00:01:20,383 --> 00:01:28,143
+camlib writes the G-code, then decodes and checks it before release
+
+16
+00:01:28,143 --> 00:01:34,143
+Two of the plate's Haas programs: facing the flipped plate, and the front holes
+
+17
+00:01:34,143 --> 00:01:41,248
+Where camlib can't prove a program safe, it refuses to write it
+
+18
+00:01:41,248 --> 00:01:47,248
+Try it with the sample parts, or your own STEP file
