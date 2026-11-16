@@ -29,10 +29,31 @@ assert.equal(buttons[1].disabled, true);
 assert.equal(requests.length, 1);
 assert.equal(requests[0].setup, "top");
 assert.match($("status").textContent, /Writing Haas G-code for the top setup/);
-vm.runInContext('postedSetup("top", {released:false, refused:{message:"uncertain stock contact"}, findings:[{status:"uncertain"}], premises:["verify G54"]})', context);
+const refusal = (unproven) => ({ released: false, program: null, accepted: [],
+  refused: { statuses: ["uncertain"], message: "export refused: material gouge possible_excess" },
+  findings: [{ status: "uncertain", completed: 29345, findings: [{ algorithm: "surface_material_v1",
+    target_id: "step2cam-top-part", gouge: { assessment: "possible_excess", definite_cells: 0 },
+    sweep_proof: { unproven_moves: unproven, tolerance_mm: 0.05 } }] }], premises: ["verify G54"] });
+context.result = refusal(14);
+vm.runInContext('postedSetup("top", result)', context);
 assert.equal(buttons[1].disabled, true);
-assert.equal(buttons[1].title, "uncertain stock contact");
-assert.match($("status").textContent, /uncertain/);
+assert.equal(buttons[1].title, "camlib could not prove 14 moves stay clear of the part (checked to 0.05 mm), so it refused to write this program.");
+assert.equal($("status").textContent, buttons[1].title);
+context.result = refusal(128);
+vm.runInContext('postedSetup("top", result)', context);
+assert.equal(buttons[1].disabled, true);
+assert.equal(buttons[1].title, "camlib could not prove 128 moves stay clear of the part (checked to 0.05 mm), so it refused to write this program.");
+assert.equal($("status").textContent, buttons[1].title);
+assert.ok(!buttons[1].title.includes("material gouge possible_excess"));
+context.result = refusal(1);
+vm.runInContext('postedSetup("top", result)', context);
+assert.match($("status").textContent, /1 move stays clear/);
+context.result = { released: false, refused: { statuses: ["uncertain"] }, findings: [{status: "uncertain"}] };
+vm.runInContext('postedSetup("top", result)', context);
+assert.equal($("status").textContent, "camlib could not prove this setup stays clear of the part, so it refused to write this program.");
+context.result = { released: false, refused: { statuses: ["violation"], message: "internal words" } };
+vm.runInContext('postedSetup("top", result)', context);
+assert.equal($("status").textContent, "camlib found a problem with this setup, so it refused to write this program.");
 assert.equal(downloads.length, 0);
 assert.match($("checks-detail").children[0].textContent, /verify G54/);
 vm.runInContext('postedSetup("front", {released:true, program:"camlib program"})', context);

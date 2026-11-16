@@ -7,23 +7,50 @@ fn post_plate(name: &str) {
         &fixture(&format!("{name}.mesh.json")), &library).unwrap();
     assert!(out["error"].is_null(), "{}", out["error"]);
     let programs = out["programs"].as_array().unwrap();
-    assert!(!programs.is_empty());
+    assert_eq!(programs.len(), if name == "plate" { 2 } else { 3 });
     let setups = out["plan"]["setups"].as_array().unwrap();
     assert_eq!(programs.len(), setups.len());
     for setup in setups {
         assert_eq!(programs.iter().filter(|p| p["setup"] == setup["id"]).count(), 1);
     }
-    let mut refused = vec![];
     for program in programs {
         let setup = program["setup"].as_str().unwrap();
         let report = step2cam::post::post_setup(&program["job"], &library, "haas-vf2", setup);
         println!("{name}/{setup}: released={}, accepted={}, findings={}, refusal={}",
             report["released"], report["accepted"], report["findings"], report["refused"]);
-        if report["released"] != true {
-            refused.push(format!("{setup}: {report}"));
+        if setup == "top" {
+            // Maintainer-approved shipping expectation: camlib cannot prove the
+            // final top-setup moves gouge-free at 0.05 mm, with zero definite
+            // gouge cells. Revisit when camlib's proof near walls improves.
+            // A future top release must fail this test so that we notice it.
+            assert_eq!(report["released"], false);
+            assert!(report["program"].is_null());
+            assert_eq!(report["accepted"], json!([]));
+            assert_eq!(report["refused"]["statuses"], json!(["uncertain"]));
+            let findings = report["findings"].as_array().unwrap();
+            assert_eq!(findings.len(), 1);
+            assert_eq!(findings[0]["status"], "uncertain");
+            let material = findings[0]["findings"].as_array().unwrap();
+            assert_eq!(material.len(), 1);
+            let material = &material[0];
+            assert_eq!(material["algorithm"], "surface_material_v1");
+            assert_eq!(material["target_id"], "step2cam-top-part");
+            assert_eq!(material["complete"], true);
+            assert_eq!(material["gouge_tolerance_mm"], 0.05);
+            assert_eq!(material["gouge"]["assessment"], "possible_excess");
+            assert_eq!(material["gouge"]["definite_cells"], 0);
+            assert!(material["gouge"]["possible_only_cells"].as_u64().unwrap() > 0);
+            assert_eq!(material["sweep_proof"]["tolerance_mm"], 0.05);
+            assert_eq!(material["sweep_proof"]["history_complete"], true);
+            assert!(material["sweep_proof"]["unproven_moves"].as_u64().unwrap() > 0);
             continue;
         }
+        assert!(matches!(setup, "bottom" | "front"), "unreviewed setup {setup}");
+        assert_eq!(report["released"], true);
+        assert!(report["refused"].is_null());
         assert_eq!(report["accepted"], json!(["unchecked_machine"]));
+        assert_eq!(report["posting"]["checked_motions"], report["motions"]);
+        assert!(report["motions"].as_u64().unwrap() > 0);
         let nc = report["program"].as_str().unwrap();
         assert!(!nc.is_empty());
         assert_eq!(nc.lines().filter(|l| l.starts_with('O')).count(), 1);
@@ -33,14 +60,13 @@ fn post_plate(name: &str) {
             assert!(nc.contains(&format!("T{number}\nM6\nG43 H{number}")), "missing tool {number}: {nc}");
         }
     }
-    assert!(refused.is_empty(), "camlib refused unchanged {name} plans: {}", refused.join("\n"));
 }
 
 #[test]
-fn haas_complex_plate_every_setup_releases() { post_plate("synthetic/stepped-plate"); }
+fn haas_complex_plate_releases_bottom_and_front_and_refuses_top() { post_plate("synthetic/stepped-plate"); }
 
 #[test]
-fn haas_simple_plate_every_setup_releases() { post_plate("plate"); }
+fn haas_simple_plate_releases_bottom_and_refuses_top() { post_plate("plate"); }
 
 #[test]
 fn declared_gouge_tolerance_reaches_material_proof_and_the_same_posted_job() {

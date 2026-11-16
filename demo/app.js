@@ -1389,6 +1389,21 @@ function buildSaveButtons(m) {
   }
 }
 
+function postRefusal(result, error) {
+  const statuses = result?.refused?.statuses || (result?.findings || []).map((f) => f.status);
+  if (!error && statuses.length && statuses.every((s) => s === "uncertain")) {
+    const material = (result?.findings || []).filter((f) => f.status === "uncertain")
+      .flatMap((f) => f.findings || []).find((f) => f.algorithm === "surface_material_v1" && f.gouge?.assessment === "possible_excess");
+    const count = material?.sweep_proof?.unproven_moves, tolerance = material?.sweep_proof?.tolerance_mm;
+    if (Number.isSafeInteger(count) && count > 0 && Number.isFinite(tolerance)) {
+      return `camlib could not prove ${count} ${count === 1 ? "move stays" : "moves stay"} clear of the part (checked to ${tolerance} mm), so it refused to write this program.`;
+    }
+    return "camlib could not prove this setup stays clear of the part, so it refused to write this program.";
+  }
+  if (statuses.includes("violation")) return "camlib found a problem with this setup, so it refused to write this program.";
+  return "camlib could not finish checking this setup, so it refused to write this program.";
+}
+
 function postedSetup(setup, result, error) {
   const pending = postButtons.get(setup);
   if (!pending) return;
@@ -1400,11 +1415,10 @@ function postedSetup(setup, result, error) {
     $("checks").open = true;
   }
   if (error || !result?.released || !result.program) {
-    const reason = error || result?.refused?.message || "camlib refused the program.";
+    const reason = postRefusal(result, error);
     button.disabled = true;
     button.title = reason;
-    const findings = (result?.findings || []).map((f) => `${f.status} (${f.findings?.length || 0})`).join(", ");
-    $("status").textContent = `${reason}${findings ? ` Findings: ${findings}.` : ""}`;
+    $("status").textContent = reason;
     return;
   }
   const link = document.createElement("a");
