@@ -24,8 +24,25 @@ pub fn post_setup(manifest: &Value, library: &Value, machine_id: &str, setup: &s
     }
     // Only this adapter translates neutral declared premises into camlib fields.
     let mut declared = machine.clone();
+    let required = [
+        "setting_33_coordinate_system", "setting_15_h_and_t_code_agreement",
+        "g92_coordinate_shift_mm", "setting_45_46_47_mirror_image_xyz",
+        "rotation_and_scaling_option", "setting_22_can_cycle_delta_z_mm",
+        "setting_52_g83_retract_above_r_mm", "rigid_tapping_option",
+        "optional_stop_switch_enabled", "traverse_feed_mm_min", "arc_line_chord_tolerance_mm",
+    ];
+    for name in required {
+        if machine["controller_settings"]["declared_premises"][name].get("value").is_none() {
+            return refused(format!("Haas posting needs the declared premise {name}."));
+        }
+    }
+    let mut overrides = serde_json::Map::new();
     if let Some(premises) = machine["controller_settings"]["declared_premises"].as_object() {
         for (name, entry) in premises {
+            let installed = &machine["controller_settings"][name];
+            if !installed.is_null() && *installed != entry["value"] {
+                overrides.insert(name.clone(), json!({"installed": installed, "declared": entry["value"]}));
+            }
             declared["controller_settings"][name] = entry["value"].clone();
         }
     }
@@ -83,25 +100,26 @@ pub fn post_setup(manifest: &Value, library: &Value, machine_id: &str, setup: &s
             .any(|check| check["options"]["gouge_tolerance_mm"].as_f64() != Some(tolerance)) {
         return refused("The saved job's gouge tolerance differs from the library declaration; process the setup again.".into());
     }
-    let mut premises = vec![
-        "Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control.".to_string(),
-        "Settings 22/52 undeclared: no canned peck cycles; rigid tapping and optional stops not used.".into(),
+    let premises = vec![
         format!("Load this setup alone in available O{number}; G54 at the local setup origin is treated as machine zero for coordinate translation, not measured machine placement. No machine travel or collision geometry is checked."),
         format!("M6 is assumed to leave the spindle gauge at setup Z {gauge_z} mm over X {} Y {} mm; this is the planned pose, not a measured Haas home or swept M6 route. Verify the actual pose and route.", xy[0], xy[1]),
         "H=T; T/H addresses assume the reference post's 1–200 table subset, not 200 loaded pockets. Gauge lengths are the library stickout plus holder projection. Verify actual tool addresses, assemblies and length geometry/wear offsets.".into(),
-        format!("Traverse uses G1 at {} mm/min, the published maximum cutting feed; clearance moves use G1 because G0 doglegs are not the straight-path model. Cutting feed limit: {} mm/min.", fields["traverse_feed_mm_min"], fields["max_feed_mm_min"]),
+        format!("Traverse uses G1 at {} mm/min as declared; clearance moves use G1 because G0 doglegs are not the straight-path model. Cutting feed limit: {} mm/min.", fields["traverse_feed_mm_min"], fields["max_feed_mm_min"]),
         format!("Arcs that can't be written exactly at 0.001 mm are written as straight moves within 0.001 mm, with a {chord} mm chord budget plus coordinate rounding. The existing Haas linear profile requires this for every curve; camlib independently checks the full decoded source intervals and reports arc-output reasons."),
     ];
-    if let Some(tolerance) = settings.gouge_tolerance_mm {
-        premises.push(format!("Material gouge checked to {tolerance} mm where configured, the declared shop criterion; residual tolerance and the 0.001 mm output bound are unchanged. See the setup's unchecked list where no material comparison is configured."));
-    }
     let input = json!({"manifest": manifest, "program_id": setup, "frame": frame,
         "machine": fields, "lowering": lowering, "accept": ["unchecked_machine"]});
     let mut report = match camlib::post_job::run(&input.to_string(), &|| false) {
         Ok(report) => serde_json::from_str(&report).unwrap(),
-        Err(error) => refused(format!("Haas G-code refused: {error}")),
+        Err(error) => {
+            let mut report = refused(error);
+            report["refusal_source"] = json!("camlib");
+            report
+        },
     };
     report["premises"] = json!(premises);
+    report["controller_settings"] = declared["controller_settings"].clone();
+    report["premise_overrides"] = json!(overrides);
     report["lowering_policy"] = json!(lowering);
     if let Some(tolerance) = settings.gouge_tolerance_mm { report["gouge_tolerance_mm"] = json!(tolerance); }
     report

@@ -83,8 +83,9 @@ writes each setup as `<part>-<setup>.camlib-job.json`, for camlib's posts to wri
 Each Haas setup also has **Save G-code**, which calls camlib's Rust post on demand and
 downloads `<part>-<setup>-haas-vf2.nc` only if camlib releases it. Only `unchecked_machine`
 is accepted: stock, tools and vise are checked, but no physical Haas model is available.
-The button title and check details list the declared controller and setup premises to verify
-against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
+The checks panel names any moves camlib could not prove clear; G-code needs that stronger proof.
+The button title and check details identify unchecked comparisons and list the effective declared controller and setup premises, including overrides of installed library
+values, to verify against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
 has no G-code button. Refusals disable that setup's button and show the findings in the status line.
 Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
 because G0 doglegs are not camlib's straight-path model. Release remains conditional:

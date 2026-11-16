@@ -87,16 +87,26 @@ function gougeCheck(material) {
   return Number.isFinite(material?.gouge_tolerance_mm) ? `checked to ${material.gouge_tolerance_mm} mm` : "";
 }
 
+function materialProofNote(material) {
+  const proof = material?.sweep_proof;
+  if (!Number.isSafeInteger(proof?.unproven_moves) || proof.unproven_moves <= 0) return "";
+  const n = proof.unproven_moves, cells = material.gouge?.possible_only_cells;
+  return `camlib could not prove ${n} ${n === 1 ? "move" : "moves"} clear${Number.isSafeInteger(cells) ? ` (${cells} possible-only gouge cells; ${proof.decided_cells} cleared by proof)` : ""}`;
+}
+function materialCheck(material) {
+  return `compared with the part, no gouge found${gougeCheck(material) ? ` (${gougeCheck(material)})` : ""}${materialProofNote(material) ? `; ${materialProofNote(material)}. G-code needs the stronger proof` : ""}.`;
+}
+
 export function checkText(programs) {
   const setupName = (id) => `${id[0].toUpperCase()}${id.slice(1)} setup`;
   const checked = programs.filter((p) => p.material), unchecked = programs.filter((p) => !p.material);
   const headline = [];
-  if (checked.length) headline.push(`<span class="ok">✓ ${checked.map((p) => escapeHtml(setupName(p.setup) + (gougeCheck(p.material) ? ` (${gougeCheck(p.material)})` : ""))).join(", ")}: compared with the part, no gouge found.</span>`);
+  for (const p of checked) headline.push(`<span class="${materialProofNote(p.material) ? "unchecked" : "ok"}">${materialProofNote(p.material) ? "⚠" : "✓"} ${escapeHtml(setupName(p.setup))}: ${escapeHtml(materialCheck(p.material))}</span>`);
   if (unchecked.length) headline.push(`<span class="unchecked">${unchecked.map((p) => escapeHtml(setupName(p.setup))).join(", ")}: not compared with the part.</span>`);
 
   const criterion = checked.length && checked.every((p) => gougeCheck(p.material) === gougeCheck(checked[0].material)) ? gougeCheck(checked[0].material) : "";
   const compact = checked.length
-    ? `✓ ${criterion || "no gouge"}${unchecked.length ? ` · ${unchecked.length} unchecked` : ""}`
+    ? `${checked.some((p) => materialProofNote(p.material)) ? "⚠ proof incomplete ·" : "✓"} ${criterion || "no gouge"}${unchecked.length ? ` · ${unchecked.length} unchecked` : ""}`
     : "⚠ unchecked";
   const number = (x) => Math.round(x).toLocaleString("en-GB");
   const items = [];
@@ -104,6 +114,7 @@ export function checkText(programs) {
     const { limits, gouge, residual } = p.material;
     const where = checked.length > 1 ? `${setupName(p.setup)}: ` : "";
     const say = (text) => items.push(where ? where + text : text[0].toUpperCase() + text.slice(1));
+    if (materialProofNote(p.material)) say(`${materialProofNote(p.material)}; G-code needs the stronger proof.`);
     if (gougeCheck(p.material)) say(`material gouge ${gougeCheck(p.material)}; the declared permitted depth, not the output-coordinate tolerance.`);
     const cell = limits.sideways_mm;
     say(`too small for the check to see: errors under about ${limits.height_mm.toFixed(2)} mm in height or ${cell.toFixed(2)} mm sideways, and misplaced cuts narrower than about ${(4 * cell).toFixed(1)} mm.`);
@@ -422,14 +433,14 @@ export function reportDocument(data, { rules = new Map(), library = {}, operatio
     const r = rules.get(id);
     return row([text(id), r ? text(r.rationale) : "Rule text unavailable.", r ? text((r.sources || []).map(describeSource).join("; ")) : "—"]);
   }), "rules"));
-  const headline = programs.map((p) => `${p.setup}: ${p.material ? `compared with the part, ${gougeCheck(p.material) ? `${gougeCheck(p.material)}, ` : ""}no gouge found.` : "not compared with the part."}`).join(" ");
+  const headline = programs.map((p) => `${p.setup}: ${p.material ? materialCheck(p.material) : "not compared with the part."}`).join(" ");
   blocks.push(heading("Camlib checks and limits"), paragraph(headline || text(data.error || "—")), list(check.items));
   blocks.push(table(["Setup", "Material check", "Stock-contact / uncertain motions"], plan.setups.map((s) => {
     const p = programs.find((p) => p.setup === s.id);
     // The count is the program's; a run that stopped gives out no programs, only its log.
     const uncertain = p?.uncertain_motions > 0 ? [`note: setup ${s.id}: camlib's stock-contact check could not clear ${p.uncertain_motions} motions`] : [];
     const log = uncertain.concat((Array.isArray(data.log) ? data.log : []).filter((line) => line.includes(`setup ${s.id}:`) && (!p && line.includes("stock-contact") || line.includes("per-motion gouge proof"))));
-    return row([s.id, p ? p.material ? `Compared with the part; ${gougeCheck(p.material) ? `${gougeCheck(p.material)}; ` : ""}no gouge found. Complete: ${text(p.material.complete)}` : "Not compared with the part." : "not run", log.join("\n") || "—"]);
+    return row([s.id, p ? p.material ? `${materialCheck(p.material)} Complete: ${text(p.material.complete)}` : "Not compared with the part." : "not run", log.join("\n") || "—"]);
   }), "checks"));
   blocks.push(paragraph("Uncertain-motion counts are only available where recorded in the camlib log; an absent count is —. Holding force and support flatness are not simulated."));
   if (data.log?.length) blocks.push(heading("Camlib log", 3), list((Array.isArray(data.log) ? data.log : [data.log]).map(text)));

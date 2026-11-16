@@ -74,7 +74,7 @@ self.onmessage = async ({ data: { id, name, bytes, library, workholding, post, s
     planned = { id, out, tools, machine: library.machine };
     self.postMessage({
       id,
-      data: { name, notice, analysis, mesh, library, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, gouge_tolerance_mm: tools.gouge_tolerance_mm, ...out },
+      data: { name, notice, analysis, mesh, library, controller_settings: tools.machines?.find((m) => m.id === library.machine)?.controller_settings, tools: tools.tools, rapid_mm_min: tools.rapid_mm_min, gouge_tolerance_mm: tools.gouge_tolerance_mm, ...out },
     });
   } catch (error) {
     // A panic in step2cam traps with no message; it kept the message.

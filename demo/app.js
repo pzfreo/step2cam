@@ -1347,9 +1347,54 @@ function savePlan() {
 
 // The camlib job for each setup: what camlib's own posts write G-code from.
 const postButtons = new Map();
-function postChecks(tolerance) {
-  const criterion = Number.isFinite(tolerance) ? `, with material checked to ${tolerance} mm where configured` : "";
-  return `Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control. Camlib decoded and checked the program against the plan, stock, tools and vise${criterion}, but not against a model of the Haas itself.`;
+const premiseLabels = {
+  setting_33_coordinate_system: "Setting 33", setting_15_h_and_t_code_agreement: "Setting 15",
+  g92_coordinate_shift_mm: "G92 shift (mm)", setting_45_46_47_mirror_image_xyz: "Mirrors X/Y/Z",
+  rotation_and_scaling_option: "Rotation/scaling option", rigid_tapping_option: "Rigid tapping option",
+  optional_stop_switch_enabled: "Optional stop switch", traverse_feed_mm_min: "G1 traverse feed (mm/min)",
+  setting_22_can_cycle_delta_z_mm: "Setting 22 (mm)", setting_52_g83_retract_above_r_mm: "Setting 52 (mm)",
+  arc_line_chord_tolerance_mm: "Arc-to-line chord bound (mm)",
+};
+function premiseValue(value) {
+  return value === null || value === undefined ? "undeclared" : typeof value === "boolean" ? value ? "on" : "off"
+    : Array.isArray(value) ? value.map(premiseValue).join(" / ") : String(value).toUpperCase();
+}
+function postSettings(settings) {
+  return { ...settings, ...Object.fromEntries(Object.entries(settings?.declared_premises || {}).map(([key, entry]) => [key, entry.value])) };
+}
+function controllerPremises(settings, overrides) {
+  return Object.entries(settings?.declared_premises || {}).map(([key, entry]) => {
+    const installed = overrides?.[key]?.installed ?? settings[key];
+    const override = installed !== undefined && JSON.stringify(installed) !== JSON.stringify(entry.value)
+      ? ` Declared ${premiseValue(entry.value)} overrides the installed library value ${premiseValue(installed)} for this program.` : "";
+    return `${premiseLabels[key] || key}: ${premiseValue(entry.value)}. ${entry.reason}${override}`;
+  });
+}
+function postChecks(pending, result) {
+  const settings = postSettings(result?.controller_settings || pending.model.data.controller_settings);
+  const shift = settings.g92_coordinate_shift_mm, mirrors = settings.setting_45_46_47_mirror_image_xyz;
+  const summary = `Setting 33 ${premiseValue(settings.setting_33_coordinate_system)}, Setting 15 ${premiseValue(settings.setting_15_h_and_t_code_agreement)}, ${mirrors?.every((v) => v === false) ? "mirrors off" : `mirrors X/Y/Z ${premiseValue(mirrors)}`}, ${shift?.every((v) => v === 0) ? "no G92 shift" : `G92 shift ${premiseValue(shift)} mm`}, ${settings.rotation_and_scaling_option === false ? "no rotation/scaling" : `rotation/scaling ${premiseValue(settings.rotation_and_scaling_option)}`}`;
+  const unchecked = result?.unchecked || ["scene", "stock_contact", "material"].filter((key) => {
+    const value = pending.program.job.verification?.[key];
+    return !value || Array.isArray(value) && !value.length;
+  });
+  const missing = unchecked.filter((key) => key !== "machine").map((key) => ({
+    material: "camlib did not compare this setup's result with the part",
+    scene: "camlib did not check this setup against the tools and vise scene",
+    stock_contact: "camlib did not check cutting contact with stock",
+  })[key] || `camlib did not check ${key.replaceAll("_", " ")}`);
+  const tolerance = result?.gouge_tolerance_mm ?? pending.model.data.gouge_tolerance_mm;
+  const criterion = !unchecked.includes("material") && Number.isFinite(tolerance) ? `, with material checked to ${tolerance} mm` : "";
+  return `Assumes ${summary}; check against the control. Camlib ${result ? "decoded and checked" : "will decode and check"} the program against the plan and stock${unchecked.includes("scene") ? "" : ", tools and vise"}${criterion}, but not against a model of the Haas itself${missing.length ? `; ${missing.join("; ")}` : ""}.`;
+}
+function currentPost(pending) {
+  return pending && pending.model === model && pending.job === job && pending.machine === machine.machine;
+}
+function invalidatePosts() {
+  for (const pending of postButtons.values()) {
+    pending.button.disabled = true;
+    pending.active = false;
+  }
 }
 function buildSaveButtons(m) {
   const host = $("save");
@@ -1373,25 +1418,28 @@ function buildSaveButtons(m) {
     host.append(button);
     if (m.data.library.machine === "linuxcnc-vmc") continue;
     const nc = document.createElement("button");
+    const pending = { button: nc, model: m, program, job, machine: m.data.library.machine, filename: `${stem}-${program.setup}-haas-vf2.nc`, active: false };
     nc.type = "button";
     nc.textContent = m.data.programs.length > 1 ? `Save ${program.setup} G-code` : "Save G-code";
     nc.disabled = m.data.library.machine !== "haas-vf2";
-    const notice = postChecks(m.data.gouge_tolerance_mm);
-    nc.title = nc.disabled ? "Carvera G-code waits for a measured spindle-to-bed height." : notice;
+    nc.title = nc.disabled ? "Carvera G-code waits for a measured spindle-to-bed height." : postChecks(pending);
     nc.addEventListener("click", () => {
+      if (nc.disabled || !currentPost(pending)) return;
       setPlaying(false);
       nc.disabled = true;
+      pending.active = true;
       $("status").textContent = `Writing Haas G-code for the ${program.setup} setup…`;
-      worker.postMessage({ id: job, post: true, setup: program.setup });
+      worker.postMessage({ id: pending.job, post: true, setup: program.setup });
     });
-    postButtons.set(program.setup, { button: nc, notice, filename: `${stem}-${program.setup}-haas-vf2.nc` });
+    postButtons.set(program.setup, pending);
     host.append(nc);
   }
 }
 
 function postRefusal(result, error) {
+  if (error) return `step2cam could not save G-code: ${error}`;
   const statuses = result?.refused?.statuses || (result?.findings || []).map((f) => f.status);
-  if (!error && statuses.length && statuses.every((s) => s === "uncertain")) {
+  if (statuses.length && statuses.every((s) => s === "uncertain")) {
     const material = (result?.findings || []).filter((f) => f.status === "uncertain")
       .flatMap((f) => f.findings || []).find((f) => f.algorithm === "surface_material_v1" && f.gouge?.assessment === "possible_excess");
     const count = material?.sweep_proof?.unproven_moves, tolerance = material?.sweep_proof?.tolerance_mm;
@@ -1401,18 +1449,23 @@ function postRefusal(result, error) {
     return "camlib could not prove this setup stays clear of the part, so it refused to write this program.";
   }
   if (statuses.includes("violation")) return "camlib found a problem with this setup, so it refused to write this program.";
-  return "camlib could not finish checking this setup, so it refused to write this program.";
+  return `${result?.refusal_source === "camlib" ? "camlib" : "step2cam"} refused G-code: ${result?.refused?.message || "No program was returned."}`;
 }
 
 function postedSetup(setup, result, error) {
   const pending = postButtons.get(setup);
-  if (!pending) return;
+  if (!currentPost(pending) || !pending.active) return;
+  pending.active = false;
   const { button, filename } = pending;
-  if (result?.premises) {
-    const detail = document.createElement("p");
-    detail.textContent = `${setup} G-code premises: ${result.premises.join(" ")}`;
-    $("checks-detail").append(detail);
-    $("checks").open = true;
+  if (result?.controller_settings || result?.premises) {
+    if (!pending.detail) {
+      pending.detail = document.createElement("p");
+      $("checks-detail").append(pending.detail);
+    }
+    const tolerance = result.gouge_tolerance_mm;
+    const material = result.unchecked?.includes("material") ? "camlib did not compare this setup's result with the part."
+      : Number.isFinite(tolerance) ? `Declared material gouge criterion: ${result.unchecked ? "checked to" : "tolerance"} ${tolerance} mm.` : "";
+    pending.detail.textContent = `${setup} G-code premises: ${[material, ...controllerPremises(result.controller_settings, result.premise_overrides), ...(result.premises || [])].filter(Boolean).join(" ")}`;
   }
   if (error || !result?.released || !result.program) {
     const reason = postRefusal(result, error);
@@ -1427,7 +1480,8 @@ function postedSetup(setup, result, error) {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   button.disabled = false;
-  $("status").textContent = pending.notice;
+  button.title = postChecks(pending, result);
+  $("status").textContent = button.title;
 }
 
 function drawCode() {
@@ -1898,6 +1952,7 @@ function showProgress(p) {
 // for another machine, which keeps what is known about it.
 function run(name, bytes, own, workholding) {
   const id = ++job;
+  invalidatePosts();
   openPart = own === undefined ? { ...openPart, bytes: bytes.slice(0) } : { name, bytes: bytes.slice(0), own };
   clearInterval(busyTimer);
   busyStarted = performance.now();

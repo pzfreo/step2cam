@@ -697,3 +697,12 @@ await Promise.all([checkRealPlans(),checkRealPlans()]);
 assert.equal(tasks.length,24,'all 12 committed meshes on both machines');
 assert.ok(setupsChecked>=44);
 console.log(`Real fixture diagrams: ${setupsChecked} setups, ${labelsChecked-nonPlanLabels} measured labels, ${minPt}–${maxPt} pt; PDF calls and clearances passed.`);
+
+const unprovenCheck = checkText([{ setup: 'top', material: { gouge_tolerance_mm: 0.05,
+  limits: { height_mm: 0.013, sideways_mm: 0.26 },
+  gouge: { volume_mm3: [0, 1], possible_only_cells: 2148 }, residual: { volume_mm3: [0, 1] },
+  sweep_proof: { unproven_moves: 14, decided_cells: 0 } } }]);
+assert.match(unprovenCheck.headline, /no gouge found.*camlib could not prove 14 moves clear/);
+assert.match(unprovenCheck.headline, /2148 possible-only gouge cells; 0 cleared by proof/);
+assert.match(unprovenCheck.compact, /proof incomplete/);
+assert.ok(unprovenCheck.items.some((s) => s.includes('G-code needs the stronger proof')));

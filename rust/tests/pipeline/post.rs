@@ -134,3 +134,43 @@ fn other_libraries_refuse_before_reading_manifest() {
         assert!(report["refused"]["message"].as_str().unwrap().contains(reason), "{report}");
     }
 }
+
+#[test]
+fn posted_premises_record_the_effective_values_and_installed_overrides() {
+    let library = fixture("../../libraries/haas-vf2.json");
+    let out = process_cached(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
+    let manifest = &out["programs"][1]["job"];
+    let report = step2cam::post::post_setup(manifest, &library, "haas-vf2", "bottom");
+    assert_eq!(report["released"], true);
+    assert_eq!(report["controller_settings"]["rigid_tapping_option"], false);
+    assert_eq!(report["premise_overrides"]["rigid_tapping_option"], json!({"installed": true, "declared": false}));
+    assert_eq!(report["posting"]["definition"]["machine"]["controller"]["rigid_tapping"], false);
+    let mut changed = library.clone();
+    changed["machines"][0]["controller_settings"]["declared_premises"]["setting_33_coordinate_system"]["value"] = json!("haas");
+    let report = step2cam::post::post_setup(manifest, &changed, "haas-vf2", "bottom");
+    assert_eq!(report["controller_settings"]["setting_33_coordinate_system"], "haas");
+    assert_eq!(report["posting"]["definition"]["machine"]["controller"]["coordinate_system"], "haas");
+    assert_eq!(report["released"], true);
+    changed["machines"][0]["controller_settings"]["declared_premises"]["setting_45_46_47_mirror_image_xyz"]["value"] = json!([true, false, false]);
+    let report = step2cam::post::post_setup(manifest, &changed, "haas-vf2", "bottom");
+    assert_eq!(report["released"], false);
+    assert_eq!(report["refusal_source"], "camlib");
+}
+
+#[test]
+fn required_premises_cannot_fall_back_to_installed_facts() {
+    let library = fixture("../../libraries/haas-vf2.json");
+    let schema = fixture("../../schemas/resources-1.schema.json");
+    let schema = &schema["$defs"]["controller_settings"]["properties"]["declared_premises"];
+    let required = schema["required"].as_array().unwrap();
+    assert_eq!(required.len(), schema["properties"].as_object().unwrap().len());
+    for key in required {
+        let key = key.as_str().unwrap();
+        let mut changed = library.clone();
+        changed["machines"][0]["controller_settings"]["declared_premises"].as_object_mut().unwrap().remove(key);
+        let report = step2cam::post::post_setup(&Value::Null, &changed, "haas-vf2", "top");
+        assert_eq!(report["released"], false);
+        assert_eq!(report["accepted"], json!([]));
+        assert!(report["refused"]["message"].as_str().unwrap().contains(key), "{report}");
+    }
+}

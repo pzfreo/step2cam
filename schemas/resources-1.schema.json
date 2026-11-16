@@ -1865,7 +1865,20 @@
     },
     "declared_premises": {
      "type": "object",
-     "description": "Posted program assumptions to verify against the control, separately from installed facts. Each value requires a reason; null cycle distances mean not declared.",
+     "required": [
+      "setting_33_coordinate_system",
+      "setting_15_h_and_t_code_agreement",
+      "g92_coordinate_shift_mm",
+      "setting_45_46_47_mirror_image_xyz",
+      "rotation_and_scaling_option",
+      "setting_22_can_cycle_delta_z_mm",
+      "setting_52_g83_retract_above_r_mm",
+      "rigid_tapping_option",
+      "optional_stop_switch_enabled",
+      "traverse_feed_mm_min",
+      "arc_line_chord_tolerance_mm"
+     ],
+     "description": "Posted program assumptions to verify against the control, separately from installed facts. Declared values override installed facts for posting and the override must be shown. Each required value needs a reason; null cycle distances mean not declared.",
      "additionalProperties": false,
      "properties": {
       "setting_33_coordinate_system": {
