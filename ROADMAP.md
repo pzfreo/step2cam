@@ -123,8 +123,10 @@ Done (above). What is left from it:
 
 ## Phase 7: G-code in the browser
 
-23. #52 Save G-code from the browser through camlib's Rust posts, Carvera and Haas only
-    for now. *Waits on* stevecad/camlib#188.
+23. #52 Haas on-demand Rust posting and browser saving are wired, with explicit controller
+    and setup premises and refusals shown. Release remains blocked by camlib requiring the
+    approved 25,400 mm/min traverse within the 16,500 mm/min cutting limit. Carvera waits
+    for a measured spindle-to-bed height; LinuxCNC saving is not enabled.
 
 ## Phase 8: agents
 

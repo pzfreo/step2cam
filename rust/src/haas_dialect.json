@@ -1,0 +1,171 @@
+{
+  "commands": [
+    {
+      "effect": "linear",
+      "code": "G1"
+    },
+    {
+      "effect": "arc_cw",
+      "code": "G2"
+    },
+    {
+      "effect": "arc_ccw",
+      "code": "G3"
+    },
+    {
+      "effect": "units_mm",
+      "code": "G21"
+    },
+    {
+      "effect": "units_inch",
+      "code": "G20"
+    },
+    {
+      "effect": "absolute",
+      "code": "G90"
+    },
+    {
+      "effect": "plane_xy",
+      "code": "G17"
+    },
+    {
+      "effect": "feed_per_minute",
+      "code": "G94"
+    },
+    {
+      "effect": "radius_off",
+      "code": "G40"
+    },
+    {
+      "effect": "length_off",
+      "code": "G49"
+    },
+    {
+      "effect": "cycles_off",
+      "code": "G80"
+    },
+    {
+      "effect": "frame_reset",
+      "code": "G52"
+    },
+    {
+      "effect": "exact_stop",
+      "code": "G61"
+    },
+    {
+      "effect": "length_on",
+      "code": "G43"
+    },
+    {
+      "effect": "spindle_cw",
+      "code": "M3"
+    },
+    {
+      "effect": "spindle_ccw",
+      "code": "M4"
+    },
+    {
+      "effect": "spindle_off",
+      "code": "M5"
+    },
+    {
+      "effect": "tool_change",
+      "code": "M6"
+    },
+    {
+      "effect": "flood",
+      "code": "M8"
+    },
+    {
+      "effect": "coolant_off",
+      "code": "M9"
+    },
+    {
+      "effect": "stop",
+      "code": "M0"
+    },
+    {
+      "effect": "optional_stop",
+      "code": "M1"
+    },
+    {
+      "effect": "end",
+      "code": "M30"
+    },
+    {
+      "effect": "dwell",
+      "code": "G4"
+    },
+    {
+      "effect": "drill_cycle",
+      "code": "G81"
+    },
+    {
+      "effect": "drill_dwell_cycle",
+      "code": "G82"
+    },
+    {
+      "effect": "cycle_return_initial",
+      "code": "G98"
+    },
+    {
+      "effect": "bore_cycle",
+      "code": "G85"
+    },
+    {
+      "effect": "bore_dwell_cycle",
+      "code": "G89"
+    }
+  ],
+  "work_offsets": [
+    "G54",
+    "G55",
+    "G56",
+    "G57",
+    "G58",
+    "G59"
+  ],
+  "axes": [
+    "X",
+    "Y",
+    "Z"
+  ],
+  "centers": [
+    "I",
+    "J",
+    "K"
+  ],
+  "tool_word": "T",
+  "length_word": "H",
+  "feed_word": "F",
+  "speed_word": "S",
+  "parentheses_comments": true,
+  "tool_change": "m6",
+  "length_activation": "explicit",
+  "radius_tolerance_mm": 0,
+  "radius_relative_tolerance": 0.001,
+  "fixed_modes": [
+    "center_incremental",
+    "rpm_mode"
+  ],
+  "tap_pitch_word": null,
+  "compensation_word": "D",
+  "compensation_with_move": false,
+  "compensation_register": true,
+  "dwell_word": "P",
+  "dwell_resolution_s": 0.001,
+  "dwell_max_s": 100000.0,
+  "cycle_dwell_unit": "s",
+  "peck_reentry_mm": null,
+  "chip_break_lift_mm": null,
+  "oriented_edge_deg": null,
+  "beam_s_max": null,
+  "beam_effect": "spindle_cw",
+  "x_diameter": false,
+  "thread_lead_word": "K",
+  "height_control_word": null,
+  "css_limit_word": null,
+  "probing": null,
+  "probe_fast_feed_mm_min": null,
+  "probe_switching": false
+}

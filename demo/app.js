@@ -1346,9 +1346,12 @@ function savePlan() {
 }
 
 // The camlib job for each setup: what camlib's own posts write G-code from.
+const postButtons = new Map();
+const POST_CHECKS = "Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control. Camlib decoded and checked the program against the plan, stock, tools and vise, but not against a model of the Haas itself.";
 function buildSaveButtons(m) {
   const host = $("save");
   host.replaceChildren();
+  postButtons.clear();
   const stem = m.data.name.replace(/\.[^.]*$/, "");
   for (const program of m.data.programs) {
     const filename = `${stem}-${program.setup}-${m.data.library.machine}.camlib-job.json`;
@@ -1365,7 +1368,47 @@ function buildSaveButtons(m) {
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
     host.append(button);
+    if (m.data.library.machine === "linuxcnc-vmc") continue;
+    const nc = document.createElement("button");
+    nc.type = "button";
+    nc.textContent = m.data.programs.length > 1 ? `Save ${program.setup} G-code` : "Save G-code";
+    nc.disabled = m.data.library.machine !== "haas-vf2";
+    nc.title = nc.disabled ? "Carvera G-code waits for a measured spindle-to-bed height." : POST_CHECKS;
+    nc.addEventListener("click", () => {
+      setPlaying(false);
+      nc.disabled = true;
+      $("status").textContent = `Writing Haas G-code for the ${program.setup} setup…`;
+      worker.postMessage({ id: job, post: true, setup: program.setup });
+    });
+    postButtons.set(program.setup, { button: nc, filename: `${stem}-${program.setup}-haas-vf2.nc` });
+    host.append(nc);
   }
+}
+
+function postedSetup(setup, result, error) {
+  const pending = postButtons.get(setup);
+  if (!pending) return;
+  const { button, filename } = pending;
+  if (result?.premises) {
+    const detail = document.createElement("p");
+    detail.textContent = `${setup} G-code premises: ${result.premises.join(" ")}`;
+    $("checks-detail").append(detail);
+    $("checks").open = true;
+  }
+  if (error || !result?.released || !result.program) {
+    const reason = error || result?.refused?.message || "camlib refused the program.";
+    button.disabled = true;
+    button.title = reason;
+    $("status").textContent = `${reason} ${JSON.stringify(result?.findings || [])}`;
+    return;
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([result.program], { type: "text/plain" }));
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  button.disabled = false;
+  $("status").textContent = POST_CHECKS;
 }
 
 function drawCode() {
@@ -1852,8 +1895,9 @@ function run(name, bytes, own, workholding) {
   worker.postMessage({ id, name, bytes, workholding, library: { machine: machine.machine, file: machine.file } }, [bytes]);
 }
 
-worker.onmessage = ({ data: { id, data, error, progress } }) => {
+worker.onmessage = ({ data: { id, data, error, progress, post, setup, result } }) => {
   if (id !== job) return;  // a newer file or machine was chosen meanwhile
+  if (post) { postedSetup(setup, result, error); return; }
   if (progress) { showProgress(progress); return; }
   stopBusy();
   if (openPart.own && !openPart.counted) {

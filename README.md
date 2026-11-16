@@ -41,6 +41,8 @@ WebAssembly, or natively.
 **step2cam writes no G-code.** G-code is controller-specific and safety-critical, and camlib's own
 posts write and check it. step2cam's outputs are the plan and, for each setup, the camlib job it
 becomes: `examples/post_with_camlib.py` posts a saved job with camlib's LinuxCNC post.
+The page can request camlib's Rust Haas post on demand, with release findings and
+declared premises shown beside the result (see Demo).
 
 Between feature recognition (by [pzfreo/quiddity](https://github.com/pzfreo/quiddity)) and camlib
 is a plain JSON plan.
@@ -78,6 +80,15 @@ cargo run --release --manifest-path rust/Cargo.toml --example process -- analysi
 the toolpaths that cut them, in one camera. Hover or click a feature, a toolpath or one of camlib's
 moves and the others follow; press Play and the feature being cut lights up. **Save camlib job**
 writes each setup as `<part>-<setup>.camlib-job.json`, for camlib's posts to write G-code from.
+Each Haas setup also has **Save G-code**, which calls camlib's Rust post on demand and
+downloads `<part>-<setup>-haas-vf2.nc` only if camlib releases it. Only `unchecked_machine`
+is accepted: stock, tools and vise are checked, but no physical Haas model is available.
+The button title and check details list the declared controller and setup premises to verify
+against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
+has no G-code button. Refusals disable that setup's button and show the findings in the status line.
+The Haas release is currently blocked: the approved 25,400 mm/min traverse exceeds the
+16,500 mm/min cutting ceiling, and camlib requires traverse within its machine feed limit.
+Neither limit is changed to admit a program.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 

@@ -327,6 +327,15 @@ verified defaults for this VF-2. The PDF direct fetch failed; maker-indexed p165
 text confirmed the offset count. Highest carousel tool identity, final M6 gauge
 position, rotation/scaling, shifts and panel states remain unknown.
 
+For browser Haas posting, `controller_settings.declared_premises` separately records
+the maintainer-approved program assumptions and each reason (2026-11-16). These do
+not establish installed values. `post.rs` alone overlays them for the post; planning
+and the machine-fact audit remain unchanged. The page displays the controller list
+and the setup's modeled M6 pose, G54 origin, gauge/H bindings and O program slot.
+It accepts only `unchecked_machine`. The published rapid traverse (25,400 mm/min)
+currently exceeds camlib's machine feed ceiling (16,500 mm/min), so saving refuses;
+the cutting limit is not raised and the plan is not changed to bypass the check.
+
 LinuxCNC's four new values are chosen placeholders derived from existing limits,
 not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)
 and [tool compensation](https://linuxcnc.org/docs/2.9/html/gcode/tool-compensation.html)

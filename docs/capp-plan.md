@@ -291,7 +291,9 @@ physical seating or a holding-strength calculation.
 **3. Execution** (the `step2cam` crate): the camlib adapter (`job.rs`), which reads each
 operation's tool and cutting data and writes the camlib job; the run of each job in camlib's engine,
 with its checks (`simulate.rs`); and the browser entry point (`process`). step2cam writes no G-code:
-camlib's posts do, from the saved job (`examples/post_with_camlib.py`). An operation camlib refuses goes back to `capp::finish`
+camlib's posts do, from the saved job (`examples/post_with_camlib.py`), or on demand
+through `post.rs` and the browser's Save G-code button for Haas. A posting refusal is
+shown without changing the plan. During planning, an operation camlib refuses goes back to `capp::finish`
 as an exclusion (`{"operation": "top-2-roughing", "message": …}`), and the plan is finished again
 from the planned one without it.
 

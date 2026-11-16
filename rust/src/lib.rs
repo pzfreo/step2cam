@@ -6,6 +6,7 @@
 //! adapter) -> [`simulate::simulate`]. An operation camlib refuses goes back to capp as an exclusion.
 pub mod job;
 pub mod post_machine;
+pub mod post;
 pub mod simulate;
 mod workholding;
 mod setup_stock;
@@ -498,6 +499,13 @@ pub fn process_json(analysis: &str, mesh: &str, library: &str, #[cfg(target_arch
     #[cfg(target_arch = "wasm32")]
     progress::emit(json!({"stage":"encoding"}));
     Ok(out.to_string())
+}
+
+/// Post a single already-planned setup only when requested by the browser.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = postSetup))]
+pub fn post_setup_json(manifest: &str, library: &str, machine: &str, setup: &str) -> Result<String, JsError> {
+    let parse = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| JsError::new(&e.to_string()));
+    Ok(post::post_setup(&parse(manifest)?, &parse(library)?, machine, setup).to_string())
 }
 
 #[cfg(test)]
