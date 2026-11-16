@@ -86,9 +86,12 @@ is accepted: stock, tools and vise are checked, but no physical Haas model is av
 The button title and check details list the declared controller and setup premises to verify
 against the control. Carvera saving waits for a measured spindle-to-bed height; LinuxCNC
 has no G-code button. Refusals disable that setup's button and show the findings in the status line.
-The Haas release is currently blocked: the approved 25,400 mm/min traverse exceeds the
-16,500 mm/min cutting ceiling, and camlib requires traverse within its machine feed limit.
-Neither limit is changed to admit a program.
+Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
+because G0 doglegs are not camlib's straight-path model. Release remains conditional:
+the fixture top setups currently refuse circular output without explicit bounded lowering,
+and the bottom setups have unaccepted uncertain material findings. The complex plate's
+front setup releases. The plans, lowering, precision and acceptance policy are not changed
+to bypass refusals.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 

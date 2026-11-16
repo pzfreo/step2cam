@@ -332,9 +332,12 @@ the maintainer-approved program assumptions and each reason (2026-11-16). These 
 not establish installed values. `post.rs` alone overlays them for the post; planning
 and the machine-fact audit remain unchanged. The page displays the controller list
 and the setup's modeled M6 pose, G54 origin, gauge/H bindings and O program slot.
-It accepts only `unchecked_machine`. The published rapid traverse (25,400 mm/min)
-currently exceeds camlib's machine feed ceiling (16,500 mm/min), so saving refuses;
-the cutting limit is not raised and the plan is not changed to bypass the check.
+It accepts only `unchecked_machine`. Clearance moves are posted as G1 at the published
+maximum cutting feed (16,500 mm/min), because G0 doglegs are not camlib's straight-path
+model. This is a program premise, not the 25,400 mm/min rapid. Circular-output refusals
+and uncertain material findings currently prevent release of the fixture top/bottom
+setups; the complex plate front releases. No lowering, precision, plan or acceptance
+policy is changed to bypass these refusals.
 
 LinuxCNC's four new values are chosen placeholders derived from existing limits,
 not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)

@@ -205,8 +205,8 @@
       "reason": "Program does not depend on optional stops; an optional stop must refuse."
      },
      "traverse_feed_mm_min": {
-      "value": 25400,
-      "reason": "Program traverse feed: published 1000 ipm rapid x25.4, from _sources.machine; no dogleg G0."
+      "value": 16500,
+      "reason": "clearance moves are posted as G1 at this feed; the maximum cutting feed, since G0 doglegs are not camlib's straight-path model. Value from controller_settings.max_cutting_feed_mm_min and its existing Haas specification source."
      }
     }
    }
