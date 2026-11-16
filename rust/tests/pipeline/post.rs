@@ -43,6 +43,24 @@ fn haas_complex_plate_every_setup_releases() { post_plate("synthetic/stepped-pla
 fn haas_simple_plate_every_setup_releases() { post_plate("plate"); }
 
 #[test]
+fn lowering_reports_its_bound_and_refuses_an_excessive_chord_budget() {
+    let library = fixture("../../libraries/haas-vf2.json");
+    let out = process_cached(&fixture("plate.analysis.json"), &fixture("plate.mesh.json"), &library).unwrap();
+    let manifest = &out["programs"][0]["job"];
+    let report = step2cam::post::post_setup(manifest, &library, "haas-vf2", "top");
+    assert_eq!(report["lowering_policy"]["chord_tolerance_mm"], 0.0001);
+    assert_eq!(report["lowering_policy"]["native_arcs"], true);
+    assert!(report["posting"]["arc_output"]["lines_machine"].as_u64().unwrap() > 0,
+        "the linear Haas profile must report why source curves became checked lines");
+    let mut invalid = library;
+    invalid["machines"][0]["controller_settings"]["declared_premises"]["arc_line_chord_tolerance_mm"]["value"] = json!(0.001);
+    let report = step2cam::post::post_setup(manifest, &invalid, "haas-vf2", "top");
+    assert_eq!(report["released"], false);
+    assert!(report["program"].is_null());
+    assert!(report["refused"]["message"].as_str().unwrap().contains("at most half the output tolerance_mm"));
+}
+
+#[test]
 fn invalid_input_is_reported_without_release() {
     let library = fixture("../../libraries/haas-vf2.json");
     let report = step2cam::post::post_setup(&json!({}), &library, "haas-vf2", "top");

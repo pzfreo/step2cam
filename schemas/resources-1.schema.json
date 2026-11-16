@@ -2029,6 +2029,15 @@
         }
        }
       },
+      "arc_line_chord_tolerance_mm": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": ["value", "reason"],
+       "properties": {
+        "value": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.0005},
+        "reason": {"type": "string", "minLength": 1}
+       }
+      },
       "traverse_feed_mm_min": {
        "type": "object",
        "additionalProperties": false,

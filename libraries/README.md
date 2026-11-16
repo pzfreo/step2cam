@@ -334,10 +334,14 @@ and the machine-fact audit remain unchanged. The page displays the controller li
 and the setup's modeled M6 pose, G54 origin, gauge/H bindings and O program slot.
 It accepts only `unchecked_machine`. Clearance moves are posted as G1 at the published
 maximum cutting feed (16,500 mm/min), because G0 doglegs are not camlib's straight-path
-model. This is a program premise, not the 25,400 mm/min rapid. Circular-output refusals
-and uncertain material findings currently prevent release of the fixture top/bottom
-setups; the complex plate front releases. No lowering, precision, plan or acceptance
-policy is changed to bypass these refusals.
+model. This is a program premise, not the 25,400 mm/min rapid. Explicit bounded
+lowering uses a 0.0001 mm chord budget inside the unchanged 0.001 mm output tolerance,
+leaving room for three-decimal coordinate rounding. Native arcs are requested only
+where the profile permits exact words; the existing Haas linear profile requires all
+curves to become checked straight moves. The post returns its lowering policy and
+camlib's arc-output counts/reasons. Uncertain material findings still prevent release
+of the fixture top/bottom setups; the complex plate front releases. Material tolerances,
+precision, plans and acceptance remain unchanged.
 
 LinuxCNC's four new values are chosen placeholders derived from existing limits,
 not invented manufacturer data. [INI configuration](https://linuxcnc.org/docs/2.9/html/config/ini-config.html)

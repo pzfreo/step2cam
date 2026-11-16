@@ -67,6 +67,13 @@ pub fn post_setup(manifest: &Value, library: &Value, machine_id: &str, setup: &s
             "position_after_mm": [xy[0], xy[1], tool["gauge_length_mm"].as_f64().map(|g| gauge_z-g)], "diameter_register": null})
     }).collect();
     fields.insert("tools".into(), json!(tools));
+    let Some(chord) = declared["controller_settings"]["arc_line_chord_tolerance_mm"].as_f64() else {
+        return refused("Haas posting needs an explicit arc-to-line chord tolerance premise.".into());
+    };
+    let lowering = camlib::gcode::LoweringOptions {
+        chord_tolerance_mm: chord, native_arcs: true,
+        ..Default::default()
+    };
     let premises = vec![
         "Assumes Setting 33 FANUC, Setting 15 on, mirrors off, no G92 shift, no rotation/scaling; check against the control.".to_string(),
         "Settings 22/52 undeclared: no canned peck cycles; rigid tapping and optional stops not used.".into(),
@@ -74,13 +81,15 @@ pub fn post_setup(manifest: &Value, library: &Value, machine_id: &str, setup: &s
         format!("M6 is assumed to leave the spindle gauge at setup Z {gauge_z} mm over X {} Y {} mm; this is the planned pose, not a measured Haas home or swept M6 route. Verify the actual pose and route.", xy[0], xy[1]),
         "H=T; T/H addresses assume the reference post's 1–200 table subset, not 200 loaded pockets. Gauge lengths are the library stickout plus holder projection. Verify actual tool addresses, assemblies and length geometry/wear offsets.".into(),
         format!("Traverse uses G1 at {} mm/min, the published maximum cutting feed; clearance moves use G1 because G0 doglegs are not the straight-path model. Cutting feed limit: {} mm/min.", fields["traverse_feed_mm_min"], fields["max_feed_mm_min"]),
+        format!("Arcs that can't be written exactly at 0.001 mm are written as straight moves within 0.001 mm, with a {chord} mm chord budget plus coordinate rounding. The existing Haas linear profile requires this for every curve; camlib independently checks the full decoded source intervals and reports arc-output reasons."),
     ];
     let input = json!({"manifest": manifest, "program_id": setup, "frame": frame,
-        "machine": fields, "accept": ["unchecked_machine"]});
+        "machine": fields, "lowering": lowering, "accept": ["unchecked_machine"]});
     let mut report = match camlib::post_job::run(&input.to_string(), &|| false) {
         Ok(report) => serde_json::from_str(&report).unwrap(),
         Err(error) => refused(format!("Haas G-code refused: {error}")),
     };
     report["premises"] = json!(premises);
+    report["lowering_policy"] = json!(lowering);
     report
 }

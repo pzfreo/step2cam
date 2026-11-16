@@ -88,10 +88,11 @@ against the control. Carvera saving waits for a measured spindle-to-bed height; 
 has no G-code button. Refusals disable that setup's button and show the findings in the status line.
 Haas clearance moves use G1 at the published maximum cutting feed, 16,500 mm/min,
 because G0 doglegs are not camlib's straight-path model. Release remains conditional:
-the fixture top setups currently refuse circular output without explicit bounded lowering,
-and the bottom setups have unaccepted uncertain material findings. The complex plate's
-front setup releases. The plans, lowering, precision and acceptance policy are not changed
-to bypass refusals.
+explicit bounded lowering writes unsupported curves as checked straight moves with a
+0.0001 mm chord budget inside the unchanged 0.001 mm total posting tolerance. The existing
+Haas linear profile requires this for all curves; camlib reports its arc-output reasons.
+Top and bottom setups still have unaccepted uncertain material findings; the complex
+plate's front setup releases. Plans, material tolerances, precision and acceptance stay unchanged.
 Nothing loads until you open a file or pick a sample: the simple plate is specify-core's test
 part `plate.step`, and the complex plate is `tests/fixtures/synthetic/stepped-plate.step`.
 

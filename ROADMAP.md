@@ -125,8 +125,9 @@ Done (above). What is left from it:
 
 23. #52 Haas on-demand Rust posting and browser saving are wired, with explicit controller
     and setup premises and refusals shown. Clearance G1 uses the 16,500 mm/min cutting
-    ceiling. The complex plate front releases; top setups still refuse circular output
-    and bottom setups have uncertain material findings. Carvera waits for a measured
+    ceiling. Explicit bounded curve lowering is declared (0.0001 mm chord budget,
+    0.001 mm total bound). The complex plate front releases; top and bottom setups
+    still have uncertain material findings. Carvera waits for a measured
     spindle-to-bed height; LinuxCNC saving is not enabled.
 
 ## Phase 8: agents

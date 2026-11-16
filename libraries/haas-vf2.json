@@ -207,6 +207,10 @@
      "traverse_feed_mm_min": {
       "value": 16500,
       "reason": "clearance moves are posted as G1 at this feed; the maximum cutting feed, since G0 doglegs are not camlib's straight-path model. Value from controller_settings.max_cutting_feed_mm_min and its existing Haas specification source."
+     },
+     "arc_line_chord_tolerance_mm": {
+      "value": 0.0001,
+      "reason": "Explicit bounded curve-to-line posting premise: 0.0001 mm chord budget, below camlib's half-output-tolerance maximum. At three metric decimals, worst-case XYZ rounding is sqrt(3)*0.0005=0.000866026 mm; adding 0.0001 leaves room within the existing 0.001 mm output tolerance for source endpoint and numerical guards. The documented 0.0025 mm default is too large here; camlib independently certifies the decoded path within the unchanged 0.001 mm total tolerance. Keep native arcs only where the machine profile and exact words permit; the existing Haas linear profile requires lines for all curves. Plan/toolpaths and material-check tolerances stay unchanged. Guidance read 2026-11-16: pinned camlib docs/posts.md, Arcs that cannot be written exactly, and src/post_lowering.rs."
      }
     }
    }
