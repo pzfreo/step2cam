@@ -1399,7 +1399,8 @@ function postedSetup(setup, result, error) {
     const reason = error || result?.refused?.message || "camlib refused the program.";
     button.disabled = true;
     button.title = reason;
-    $("status").textContent = `${reason} ${JSON.stringify(result?.findings || [])}`;
+    const findings = (result?.findings || []).map((f) => `${f.status} (${f.findings.length})`).join(", ");
+    $("status").textContent = `${reason}${findings ? ` Findings: ${findings}.` : ""}`;
     return;
   }
   const link = document.createElement("a");
