@@ -24,6 +24,8 @@ mkdir -p site/licenses
 wasm-pack build rust --release --target web --no-typescript --no-pack --out-dir ../site/step2cam
 cp demo/index.html demo/app.js demo/stock.js demo/report.js demo/report-pdf.js demo/setup-diagram.js demo/report-font.js demo/worker.js demo/style.css site/
 cp tests/fixtures/plate.step tests/fixtures/synthetic/stepped-plate.step site/
+mkdir -p site/media
+cp docs/media/step2cam-overview.mp4 docs/media/step2cam-overview.srt site/media/
 mkdir -p site/machines
 cp demo/tools.json site/machines/carvera.json
 cp libraries/haas-vf2.json site/machines/haas-vf2.json
