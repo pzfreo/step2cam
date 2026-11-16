@@ -8,6 +8,11 @@ fn post_plate(name: &str) {
     assert!(out["error"].is_null(), "{}", out["error"]);
     let programs = out["programs"].as_array().unwrap();
     assert!(!programs.is_empty());
+    let setups = out["plan"]["setups"].as_array().unwrap();
+    assert_eq!(programs.len(), setups.len());
+    for setup in setups {
+        assert_eq!(programs.iter().filter(|p| p["setup"] == setup["id"]).count(), 1);
+    }
     let mut refused = vec![];
     for program in programs {
         let setup = program["setup"].as_str().unwrap();
