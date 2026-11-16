@@ -146,6 +146,7 @@ demo/build.sh && python3 -m http.server -d site 8790   # needs Rust, wasm32-unkn
   vises and parallels, library settings, and which tool each operation gets.
 - [Library sources and assumptions](libraries/README.md): the Carvera, Haas and LinuxCNC
   libraries.
+- [How the part is held](docs/workholding.md): the vise, the grip, and keeping the cutter off it, in plain terms.
 - [Planning design and limits](docs/capp-plan.md): rules, workholding, pickups, grip against
   the cut.
 - [Safety and what the checks cover](docs/plan-format.md#safety).
