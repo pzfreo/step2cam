@@ -72,7 +72,7 @@ pub fn post_setup(manifest: &Value, library: &Value, machine_id: &str, setup: &s
         "Settings 22/52 undeclared: no canned peck cycles; rigid tapping and optional stops not used.".into(),
         format!("Load this setup alone in available O{number}; G54 at the local setup origin is treated as machine zero for coordinate translation, not measured machine placement. No machine travel or collision geometry is checked."),
         format!("M6 is assumed to leave the spindle gauge at setup Z {gauge_z} mm over X {} Y {} mm; this is the planned pose, not a measured Haas home or swept M6 route. Verify the actual pose and route.", xy[0], xy[1]),
-        "H=T; gauge lengths are the library stickout plus holder projection. Verify actual tools and length geometry/wear offsets against those assemblies.".into(),
+        "H=T; T/H addresses assume the reference post's 1–200 table subset, not 200 loaded pockets. Gauge lengths are the library stickout plus holder projection. Verify actual tool addresses, assemblies and length geometry/wear offsets.".into(),
         format!("Traverse uses G1 at {} mm/min, the declared published rapid; cutting feed limit remains {} mm/min.", fields["traverse_feed_mm_min"], fields["max_feed_mm_min"]),
     ];
     let input = json!({"manifest": manifest, "program_id": setup, "frame": frame,
