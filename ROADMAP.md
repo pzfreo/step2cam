@@ -131,7 +131,7 @@ Done (above). What is left from it:
 23. #52 Save G-code from the page through camlib's posts.
     - Haas: done (PR #176). Both bottom setups and the complex plate's front release.
       The top setups are refused: camlib can't prove their drill plunges clear
-      (stevecad/camlib#324). Its fix, stevecad/camlib#326, awaits camlib's review.
+      (stevecad/camlib#324). Its fix, stevecad/camlib#326, merged on camlib main 2026-11-17.
     - Picking up that fix means moving to camlib main. Main's new flat-area entry check
       refuses the complex plate's top flats, so they need a ramp entry first
       (the bump is parked on `cx/camlib-main`).
@@ -164,8 +164,8 @@ needs is in.
   #64 (which mesh check failed), #66 (undercut-neck clearance), #120
   (post G-code from Rust), #121 (start from given stock), and #129 (whole-tool reach
   and typed refusals), #160 (roughing shank/holder clearance proof) and #202 (adaptive
-  roughing planning time). Still open: #324 (drill plunges unproven, so drilled setups
-  refuse to post; fix in #326), #188 (retracts to the top of Z travel), and our comment
+  roughing planning time), #324 (drill plunges unproven, so drilled setups refused to
+  post; fixed by #326, not yet in our pin). Still open: #188 (retracts to the top of Z travel), and our comment
   on #23 (engagement-based feeds).
 - specify-core: `docs/upstream-needs.md` (a schema for the analysis, the material's family);
   #162 (a finer mesh, and dimensioning for parts with no planar face). #163 (a pocket with a
