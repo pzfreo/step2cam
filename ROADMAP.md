@@ -36,12 +36,14 @@ order favours what makes the plans correct and honest before what makes them fas
 - #45 stock carried between setups (PR #126); controller settings (PR #128).
 - Rust posts in camlib: Haas NGC (stevecad/camlib#165) and Carvera
   (stevecad/camlib#179), merged and included at the pin.
+- #52 in part: Haas G-code from the page through camlib's post (PR #176).
 
 ## Parked
 
 - PR #28 and #57, the lathe: the focus is making 3-axis milling really good first.
-- #37 adaptive roughing (`cx/adaptive-37`): too slow on large parts (camlib #202);
-  deep layers leave shallow-floor stock the flat pass refuses; cause not yet established.
+- #37 adaptive roughing (`cx/adaptive-37`): was too slow on large parts; camlib #202 is
+  fixed and in our pin, so the speed needs measuring again. Deep layers leave shallow-floor
+  stock the flat pass refuses; cause not yet established.
 
 ## Goal: make the complex plate on a Carvera
 
@@ -62,8 +64,9 @@ is planned and checked, but can't yet be made as it is. In order:
    parallels or mesh-seated flip supports are checked as fixtures; missing contact evidence
    retains the conservative audit.
 4. #48 The six r0.8 edge rounds, with a corner-rounding end mill (or break them by hand).
-5. The Carvera post: done in camlib (stevecad/camlib#179). G-code from the page is #52,
-   which *waits on* stevecad/camlib#188.
+5. The Carvera post: done in camlib (stevecad/camlib#179). G-code from the page (#52) is
+   done for the Haas; the Carvera *waits on* a spindle-to-bed height measured on a real
+   machine (stevecad/camlib#188).
 
 Acceptable as they are: the notches' sharp corners left r3 by the ⌀6 (or a smaller tool, or
 dog-bone relief if the design allows), and the ⌀3.3 holes 6 × D deep drilled with pecks.
@@ -74,7 +77,8 @@ Done (above). What is left from it:
 
 1. camlib bump to main (78d3074), with fixes for camlib #122 and #123: done. #36's roughing
    cap stays until camlib can prove shank clearance inside a pocket it has already cleared;
-   relaxing the cap still caused roughing refusals in the deep-part experiment.
+   relaxing the cap still caused roughing refusals in the deep-part experiment. camlib #160
+   (that proof) is now fixed and in our pin: try relaxing the cap again.
 2. #111's holder verdict: done for independent operations. Camlib judges the assembly against
    remaining stock; after roughing exposes a pocket mouth, its local top can be admitted by
    camlib. Features with no operation of their own still depend on roughing.
@@ -99,7 +103,8 @@ Done (above). What is left from it:
     holes in them, with sloped hole entries spot-faced. *Partly waits on* pzfreo/specify-core#162
     (a finer mesh).
 13. Pockets with floor fillets (the bracket's base pockets), recognised as pockets.
-    *Waits on* pzfreo/specify-core#163.
+    Fixed upstream (pzfreo/specify-core#163, moved to pzfreo/quiddity#228); needs step2cam
+    to move from specify-core 0.1.12 to a release that includes it.
 
 ## Phase 4: setups, datums and workholding
 
@@ -123,13 +128,14 @@ Done (above). What is left from it:
 
 ## Phase 7: G-code in the browser
 
-23. #52 Haas on-demand Rust posting and browser saving are wired, with explicit controller
-    and setup premises and refusals shown. Clearance G1 uses the 16,500 mm/min cutting
-    ceiling. Explicit bounded curve lowering is declared (0.0001 mm chord budget,
-    0.001 mm total bound). Haas declares material gouge checked to 0.05 mm; both
-    bottom setups and the complex plate front release. Top setups still have
-    uncertain material findings. Carvera waits for a measured
-    spindle-to-bed height; LinuxCNC saving is not enabled.
+23. #52 Save G-code from the page through camlib's posts.
+    - Haas: done (PR #176). Both bottom setups and the complex plate's front release.
+      The top setups are refused: camlib can't prove their drill plunges clear
+      (stevecad/camlib#324). Its fix, stevecad/camlib#326, merged on camlib main 2026-11-17.
+    - Picking up that fix means moving to camlib main. Main's new flat-area entry check
+      refuses the complex plate's top flats, so they need a ramp entry first
+      (the bump is parked on `cx/camlib-main`).
+    - Carvera: *waits on* a measured spindle-to-bed height. LinuxCNC: not enabled.
 
 ## Phase 8: agents
 
@@ -157,11 +163,13 @@ needs is in.
 - camlib: fixed on its main: #122 (roughing layer depth), #123 (roughing refused since #104),
   #64 (which mesh check failed), #66 (undercut-neck clearance), #120
   (post G-code from Rust), #121 (start from given stock), and #129 (whole-tool reach
-  and typed refusals). Still open: #160 (roughing shank/holder clearance proof),
-  and our comment on #23 (engagement-based feeds).
+  and typed refusals), #160 (roughing shank/holder clearance proof) and #202 (adaptive
+  roughing planning time), #324 (drill plunges unproven, so drilled setups refused to
+  post; fixed by #326, not yet in our pin). Still open: #188 (retracts to the top of Z travel), and our comment
+  on #23 (engagement-based feeds).
 - specify-core: `docs/upstream-needs.md` (a schema for the analysis, the material's family);
-  #162 (a finer mesh, and dimensioning for parts with no planar face); #163 (a pocket with a
-  floor fillet recognised as a slot).
+  #162 (a finer mesh, and dimensioning for parts with no planar face). #163 (a pocket with a
+  floor fillet recognised as a slot) is fixed in quiddity and waits on our specify-core bump.
 
 ## Later, if wanted
 
