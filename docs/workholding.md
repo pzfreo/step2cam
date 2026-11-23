@@ -83,9 +83,10 @@ published (the Carvera's vise), each setup warns that the grip was not checked a
   step jaws, soft jaws cut to shape, strap clamps or fixture plates.
 - The force check is friction against an estimated cutting force. It doesn't check that the part
   can't lift or twist in the jaws, or the contact pressure on a finished face.
-- After the flip, the second setup starts from a plain rectangular block (the part's size plus
-  its extra stock), rather than the exact shape the first setup left. That waits on camlib being able to carry
-  stock from one setup to the next.
+- After the flip, the second setup starts from the stock the first one left, as camlib records
+  it: a map of heights, which treats any hollow or undercut as solid. It may hold more material
+  than is really there, never less. That is safe for cutting, but it can't prove the jaws touch
+  the part, which is why jaw contact is measured from the part's model instead.
 - None of this has been checked on a real machine. Have someone who knows machining check the
   setup before cutting.
 
